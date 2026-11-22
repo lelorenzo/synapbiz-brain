@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>Synapbiz.Brain.Parity.Nuvora</AssemblyName>
+    <RootNamespace>Synapbiz.Brain.Parity</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../Scenarios/*.cs" LinkBase="Scenarios" />
+  </ItemGroup>
+
+  <!-- The source repository's projects, compiled from a checkout named by NUVORA_ROOT. -->
+  <ItemGroup Condition="'$(NUVORA_ROOT)' != ''">
+    <ProjectReference Include="$(NUVORA_ROOT)/src/Shared/Nuvora.Decisions.Engine/Nuvora.Decisions.Engine.csproj" />
+    <ProjectReference Include="$(NUVORA_ROOT)/src/Shared/Nuvora.Decisions.Contracts/Nuvora.Decisions.Contracts.csproj" />
+  </ItemGroup>
+
+  <Target Name="RequireNuvoraRoot" BeforeTargets="BeforeBuild;BeforeResolveReferences;CoreCompile">
+    <Error Condition="'$(NUVORA_ROOT)' == ''" Text="NUVORA_ROOT is not set: the live parity needs a checkout of the source repository." />
+  </Target>
+
+</Project>

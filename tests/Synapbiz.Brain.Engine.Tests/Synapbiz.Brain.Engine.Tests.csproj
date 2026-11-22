@@ -18,6 +18,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The behaviour-parity scenarios are one shared source (see tests/parity); the baseline is the source repository's recorded run. -->
+    <Compile Include="../parity/Scenarios/*.cs" LinkBase="Parity/Scenarios" />
+    <None Include="../parity/baseline/decisions.parity.json" Link="Parity/decisions.parity.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
   </ItemGroup>
