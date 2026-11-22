@@ -1,0 +1,2548 @@
+{
+  "schemaVersion": 1,
+  "module": "inventory",
+  "sections": [],
+  "facts": [],
+  "kinds": [],
+  "aggregates": [
+    {
+      "id": "transfer-order",
+      "class": 1,
+      "states": [
+        "Approved",
+        "Cancelled",
+        "Closed",
+        "Draft",
+        "InTransit",
+        "PartiallyReceived",
+        "Received",
+        "Rejected",
+        "Submitted"
+      ]
+    }
+  ],
+  "slots": [
+    {
+      "id": "inventory.transfer-order.Approved-\u003ECancelled",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Approved",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Approved-\u003EDraft",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Approved",
+      "to": "Draft",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Approved-\u003EInTransit",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Approved",
+      "to": "InTransit",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Approved-\u003EReceived",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Approved",
+      "to": "Received",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Draft-\u003ECancelled",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Draft",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Draft-\u003EDraft",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Draft",
+      "to": "Draft",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Draft-\u003ESubmitted",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Draft",
+      "to": "Submitted",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.InTransit-\u003ECancelled",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "InTransit",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.InTransit-\u003EClosed",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "InTransit",
+      "to": "Closed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.InTransit-\u003EPartiallyReceived",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "InTransit",
+      "to": "PartiallyReceived",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.InTransit-\u003EReceived",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "InTransit",
+      "to": "Received",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.PartiallyReceived-\u003EClosed",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "PartiallyReceived",
+      "to": "Closed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.PartiallyReceived-\u003EPartiallyReceived",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "PartiallyReceived",
+      "to": "PartiallyReceived",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.PartiallyReceived-\u003EReceived",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "PartiallyReceived",
+      "to": "Received",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Submitted-\u003EApproved",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Submitted",
+      "to": "Approved",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Submitted-\u003ECancelled",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Submitted",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Submitted-\u003EDraft",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Submitted",
+      "to": "Draft",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "inventory.transfer-order.Submitted-\u003ERejected",
+      "aggregate": "transfer-order",
+      "class": 1,
+      "from": "Submitted",
+      "to": "Rejected",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    }
+  ],
+  "events": [
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.CycleCountSessionApprovedV1",
+      "fields": [
+        {
+          "name": "ApprovedTaskCount",
+          "type": "System.Int32"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "RejectedTaskCount",
+          "type": "System.Int32"
+        },
+        {
+          "name": "SessionId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SkippedTaskCount",
+          "type": "System.Int32"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.CycleCountSessionCancelledV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "SessionId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.CycleCountSessionCreatedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Reference",
+          "type": "System.String"
+        },
+        {
+          "name": "SessionId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "StrategyKind",
+          "type": "System.Int32"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.CycleCountSessionOpenedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OpenedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "SessionId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TaskCount",
+          "type": "System.Int32"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.CycleCountSessionPendingApprovalV1",
+      "fields": [
+        {
+          "name": "CountedTaskCount",
+          "type": "System.Int32"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SessionId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SkippedTaskCount",
+          "type": "System.Int32"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.CycleCountTaskApprovedV1",
+      "fields": [
+        {
+          "name": "AdjustmentMovementId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SessionId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VarianceQty",
+          "type": "System.Decimal"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.CycleCountTaskRejectedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SessionId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SupervisorNotes",
+          "type": "System.String"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.CycleCountTaskSubmittedV1",
+      "fields": [
+        {
+          "name": "CountedQty",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SessionId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VarianceQty",
+          "type": "System.Decimal"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.GoodsReceiptPostedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "GoodsReceiptId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "InboundReceiptId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PostedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "PostedByUserId",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.LocationCreatedV1",
+      "fields": [
+        {
+          "name": "Code",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "IsDefault",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "LocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Name",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Type",
+          "type": "System.Int32"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.LocationDeletedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.LocationUpdatedV1",
+      "fields": [
+        {
+          "name": "Code",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "IsActive",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "LocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Name",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Type",
+          "type": "System.Int32"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.LotCreatedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ExpirationDate",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "QualityStatus",
+          "type": "System.Int32"
+        },
+        {
+          "name": "ReceivedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.LotDeactivatedV1",
+      "fields": [
+        {
+          "name": "DeactivatedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.LotExpirationAdjustedV1",
+      "fields": [
+        {
+          "name": "ChangedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "NewExpirationDate",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OldExpirationDate",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.LotQualityStatusChangedV1",
+      "fields": [
+        {
+          "name": "ChangedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FromStatus",
+          "type": "System.Int32"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ToStatus",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListAssignedV1",
+      "fields": [
+        {
+          "name": "AssignedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "AssignedUserId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "PreviousAssignedUserId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListCancelledV1",
+      "fields": [
+        {
+          "name": "CancelledAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "PreviousStatus",
+          "type": "System.Int32"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListCompletedV1",
+      "fields": [
+        {
+          "name": "CompletedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "IsOperatorCreated",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "MovementIds",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[System.Guid]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SourceReferenceId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "SourceReferenceType",
+          "type": "System.Int32"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ToLocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListCreatedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "IsOperatorCreated",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Reference",
+          "type": "System.String"
+        },
+        {
+          "name": "SourceReferenceId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "SourceReferenceType",
+          "type": "System.Int32"
+        },
+        {
+          "name": "StrategyKind",
+          "type": "System.Int32"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ToLocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListLineAddedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FromLocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LineNumber",
+          "type": "System.Int32"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ProductId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Qty",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "SerialId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "Source",
+          "type": "System.Int32"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListLineConfirmedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LineNumber",
+          "type": "System.Int32"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "PickedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "PickedQty",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "PlannedQty",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "ProductId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShortPickReason",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListLineRemovedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LineNumber",
+          "type": "System.Int32"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListShortPickedV1",
+      "fields": [
+        {
+          "name": "CompletedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShortLineNumbers",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[System.Int32]"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PickListSuggestedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LinesGenerated",
+          "type": "System.Int32"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PickListId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "StrategyKind",
+          "type": "System.Int32"
+        },
+        {
+          "name": "SuggestedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PutawaySuggestionFailedV1",
+      "fields": [
+        {
+          "name": "AttemptedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ExcludedAsSource",
+          "type": "System.Int32"
+        },
+        {
+          "name": "ExcludedByType",
+          "type": "System.Collections.Generic.IReadOnlyDictionary\u00602[System.String,System.Int32]"
+        },
+        {
+          "name": "InactiveOrDeleted",
+          "type": "System.Int32"
+        },
+        {
+          "name": "Occupied",
+          "type": "System.Int32"
+        },
+        {
+          "name": "OccupiedSameItem",
+          "type": "System.Int32"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "StrategyKind",
+          "type": "System.Int32"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalLocations",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PutawayTargetsSuggestedV1",
+      "fields": [
+        {
+          "name": "CandidateCount",
+          "type": "System.Int32"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "StrategyKind",
+          "type": "System.Int32"
+        },
+        {
+          "name": "SuggestedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "SuggestedToLocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PutawayTaskAssignedV1",
+      "fields": [
+        {
+          "name": "AssignedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "AssignedToLocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "IsOverride",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PutawayTaskCancelledV1",
+      "fields": [
+        {
+          "name": "CancelledAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PreviousStatus",
+          "type": "System.Int32"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PutawayTaskCompletedV1",
+      "fields": [
+        {
+          "name": "CompletedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TransferReferenceId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PutawayTaskCreatedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FromLocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Quantity",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "Reference",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.PutawayTaskOverriddenV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OverriddenToLocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OverrideReason",
+          "type": "System.String"
+        },
+        {
+          "name": "SuggestedToLocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TaskId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.ReorderRuleCreatedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "RuleId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.ReorderRuleDeletedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "RuleId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.ReorderRuleSnoozedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "RuleId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SnoozedUntilUtc",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.ReorderRuleUpdatedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "RuleId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.SerialNumberCreatedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ReceivedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "SerialNo",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialNumberId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.SerialNumberDetailsUpdatedV1",
+      "fields": [
+        {
+          "name": "Area",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "AreaUnit",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Length",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "LengthUnit",
+          "type": "System.String"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SequenceInLot",
+          "type": "System.Nullable\u00601[System.Int32]"
+        },
+        {
+          "name": "SerialNo",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialNumberId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SourceReference",
+          "type": "System.String"
+        },
+        {
+          "name": "SupplierReference",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Thickness",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "Weight",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "WeightUnit",
+          "type": "System.String"
+        },
+        {
+          "name": "Width",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.SerialNumberHeldV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ExpiresAtUtc",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LocationId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Reference",
+          "type": "System.String"
+        },
+        {
+          "name": "ReservationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SerialNumberId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.SerialNumberHoldReleasedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "ReleasedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "ReservationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SerialNumberId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.SerialNumberMovedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FromLocationId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "FromWarehouseId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "MovementOccurredAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SerialNo",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialNumberId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ToLocationId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "ToWarehouseId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.SerialNumberStatusChangedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "NewStatus",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PreviousStatus",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialNo",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialNumberId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TransitionOccurredAtUtc",
+          "type": "System.DateTime"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.SerialQualityStatusChangedV1",
+      "fields": [
+        {
+          "name": "ChangedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FromStatus",
+          "type": "System.Int32"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialNo",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialNumberId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ToStatus",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.StockBalanceUpdatedV1",
+      "fields": [
+        {
+          "name": "Delta",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "HolderTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LastMovementAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "LocationId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OnHand",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.StockLandedCostAllocationReversedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "InverseAllocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OriginalAllocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ReversalReason",
+          "type": "System.String"
+        },
+        {
+          "name": "ReversedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.StockLandedCostAppliedV1",
+      "fields": [
+        {
+          "name": "AllocatedAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "AllocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "AppliedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "BaseCurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "ChargeKind",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ExchangeRate",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "InvoiceCurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LineId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ReceiptMovementId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "UnitCostDelta",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.StockLandedCostVarianceV1",
+      "fields": [
+        {
+          "name": "AllocationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "AppliedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "BaseCurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "ChargeKind",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ExchangeRate",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "InvoiceCurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LineId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ReceiptMovementId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VarianceAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "VarianceReason",
+          "type": "System.String"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.StockMovementRecordedV1",
+      "fields": [
+        {
+          "name": "BaseUnitCost",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FxFixedAtUtc",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "FxFromCode",
+          "type": "System.String"
+        },
+        {
+          "name": "FxRateUsed",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "FxToCode",
+          "type": "System.String"
+        },
+        {
+          "name": "HolderTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LocationId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "LotExpiredOverride",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "LotNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "LotQualityHoldOverride",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "MovementId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "MovementOccurredAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OperationNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "OriginDocumentId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OriginDocumentNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "OriginKind",
+          "type": "System.String"
+        },
+        {
+          "name": "OriginLineId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OriginPartyId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OriginRootId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "OriginRootKind",
+          "type": "System.String"
+        },
+        {
+          "name": "OriginRootNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderLineId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "Quantity",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "ReasonCategory",
+          "type": "System.String"
+        },
+        {
+          "name": "ReasonCode",
+          "type": "System.String"
+        },
+        {
+          "name": "Reference",
+          "type": "System.String"
+        },
+        {
+          "name": "ReversedMovementId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "SerialId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "SerialNo",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Type",
+          "type": "System.String"
+        },
+        {
+          "name": "UnitCost",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.StockReceivedV1",
+      "fields": [
+        {
+          "name": "BaseAmount",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "BaseCurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "BaseUnitCost",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FxRateUsed",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "InboundReceiptId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "InboundReceiptLineId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ItemSku",
+          "type": "System.String"
+        },
+        {
+          "name": "LotNo",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "PurchaseOrderLineId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "PurchaseOrderLineNumber",
+          "type": "System.Nullable\u00601[System.Int32]"
+        },
+        {
+          "name": "PurchaseOrderNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "ReceiptMovementId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "ReceivedQuantity",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "SerialNo",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "UnitCost",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "UnitCostCurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.StockTransferRecordedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FromLocationId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "FromWarehouseId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "HolderTenantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LotId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "MovementOccurredAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OwnerTenantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "Quantity",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "Reference",
+          "type": "System.String"
+        },
+        {
+          "name": "SerialId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ToLocationId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "ToWarehouseId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TransferReferenceId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "VariantId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.WarehouseCreatedV1",
+      "fields": [
+        {
+          "name": "BranchId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Code",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "IsDefault",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "Name",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.WarehouseDeletedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Inventory.Contracts.IntegrationEvents.WarehouseUpdatedV1",
+      "fields": [
+        {
+          "name": "BranchId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Code",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "IsActive",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "Name",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    }
+  ],
+  "actions": [],
+  "dataSources": [],
+  "blocks": []
+}
