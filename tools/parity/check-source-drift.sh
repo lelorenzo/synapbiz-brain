@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Source drift guard: proves every moved file still equals its original in the source repository
-# at the pinned commit, except for the three files carrying the declared patch.
+# at the pinned commit, except for the three files carrying the declared patch, and that the seven data
+# files (the brain.rule@1 schema, the conformance suite and five module contracts) are byte-identical.
 # Usage: check-source-drift.sh <nuvora-root>
 set -euo pipefail
 
