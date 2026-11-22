@@ -1,14 +1,14 @@
 # Tasks — B0 Decision Engine extraction
 
 ## PR 1 — brain-engine
-- [ ] Repository skeleton (props, pinned packages, solution, README)
-- [ ] `Synapbiz.Brain.Contracts` (28 moved files, `BrainException`, `ContentHash`, 1 patched file)
-- [ ] `Synapbiz.Brain.Engine` (14 moved files, 2 patched files)
-- [ ] Drift guard (`SOURCE.lock`, `expected.patch`, `check-source-drift.sh`)
-- [ ] Moved unit tests (9 files) + new tests for `ContentHash` and `BrainException`
-- [ ] Architecture tests (BCL-only, no package references, engine purity), mutation-verified
-- [ ] Parity scenarios, two drivers, live parity test, committed baseline, baseline test
-- [ ] CI workflow, `docs/architecture/overview.md`, `CHANGELOG.md`
+- [x] Repository skeleton (props, pinned packages, solution, README)
+- [x] `Synapbiz.Brain.Contracts` (28 moved files, `BrainException`, `ContentHash`, 1 patched file)
+- [x] `Synapbiz.Brain.Engine` (14 moved files, 2 patched files)
+- [x] Drift guard (`SOURCE.lock`, `expected.patch`, `check-source-drift.sh`)
+- [x] Moved unit tests (9 files) + new tests for `ContentHash` and `BrainException`
+- [x] Architecture tests (BCL-only, no package references, engine purity), mutation-verified
+- [x] Parity scenarios, two drivers, live parity test, committed baseline, baseline test
+- [x] CI workflow, `docs/architecture/overview.md`, `CHANGELOG.md`
 - [ ] Independent verification of every gate
 
 ## PR 2 — brain-spec (rules)
