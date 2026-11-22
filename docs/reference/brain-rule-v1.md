@@ -19,14 +19,15 @@ A rule is validated against **contracts**: the rule says `requires: ["<module>@<
 | `facts[].name` | string | Fact name, as used in `conditions[].fact` and in golden `facts`. |
 | `facts[].type` | string | `Code`, `Enum`, `Boolean`, `Integer`, `Decimal`, `Money`, `Date` or `Reference`. |
 | `facts[].nullable` | boolean | Whether the fact may be absent or null. |
-| `facts[].allowedValues` | array of strings | The permitted members of an `Enum`. An empty array is the same as leaving it out. |
+| `facts[].allowedValues` | array of strings | The permitted members of an `Enum` fact; list them. An `Enum` value is readable only against a list: **an empty array rejects every value** (`brain.fact.enum_not_allowed`), and a fact with no list makes every value of it a type mismatch (`decisions.validation.cell_type_mismatch` in a condition, `decisions.facts.type_mismatch` in a golden) unless the value itself carries an `allowedValues` array. For the other types the files write `[]`, meaning nothing is declared. |
 | `facts[].labelSource` | object or null | For a `Reference`: `{ownerModule, entityType}` naming where its label comes from. |
 | `facts[].catalogFactId` | string or null | Optional link to a catalogue fact; it is copied to the fact descriptor and not interpreted. |
 | `kinds[].id` | string | Kind identifier, `<module>.<snake_case_name>`. |
 | `kinds[].schemaVersion` | integer | Version of the kind's fact and outcome shape. |
 | `kinds[].evaluationMode` | `Materialized` or `OnDemand` | How the host evaluates the kind. |
 | `kinds[].permissions` | object | `read`, `author`, `approve`, `readTrace`: the permission names the host checks. |
-| `kinds[].outcomes[]` | array | The fields of an outcome: `name`, `type`, `nullable`, `labelSource`. |
+| `kinds[].outcomes[]` | array | The fields of an outcome: `name`, `type`, `nullable`, `labelSource`, and for an `Enum` field `allowedValues`. |
+| `kinds[].outcomes[].allowedValues` | array of strings | The permitted members of an `Enum` outcome field. A row or golden outcome with another value is reported as `brain.fact.enum_not_allowed` at the outcome field's path. With no `allowedValues` any string is accepted; as for a fact, an empty array rejects every value. A field with `nullable: false` must be present in every outcome (`brain.outcome.required_field`). |
 
 Other top-level members are ignored. A contract that cannot be read throws `DecisionEngineException` with the code `brain.contract.malformed` and the JSON path of the problem in `Args["path"]` (a missing `module`, an unknown fact type, a fact pointing to an undeclared kind).
 
@@ -68,7 +69,7 @@ Envelope, all members required:
 
 ### Condition
 
-`fact` names a fact of the kind; `op` is one of the following, and the other members carry its operands.
+`fact` names a fact of the kind; `op` is one of the following, and the other members carry its operands. `lowerInclusive` and `upperInclusive` apply to `range` and **default to `true`** when left out.
 
 | `op` | Operands | Allowed fact types |
 | --- | --- | --- |
@@ -79,7 +80,7 @@ Envelope, all members required:
 | `range` | `value` (lower), `upper`, `lowerInclusive`, `upperInclusive` | `Integer`, `Decimal`, `Money`, `Date` |
 | `startsWith` | `value` | `Code` |
 
-A `Money` condition may not mix currencies.
+In a `range`, `value` is the lower bound and `upper` the upper bound. **Either may be `null` (or `upper` left out) for an open bound**: `value: null` means no lower bound, `upper: null` no upper bound. A `Money` condition may not mix currencies.
 
 ### Typed values
 
@@ -103,7 +104,7 @@ Integers and decimals are strings so that no precision is lost in transit. They 
 | --- | --- |
 | `name` | Case name. |
 | `facts` | Object, fact name to typed value. Only facts the kind declares, with their declared types. |
-| `expect` | `{"noDecision": true}`, or `{"row": "<row id>", "outcome": ...}` with at least one of `row` and `outcome`. `outcome` is an object, or an array of objects when the hit policy is `collect`. |
+| `expect` | `{"noDecision": true}`, or a decided expectation `{"outcome": ...}` with an optional `"row": "<row id>"`. A decided expectation needs the `outcome`: **a `row` alone is rejected** (`brain.rule.golden_outcome_missing`). `outcome` is an object, or an array of objects when the hit policy is `collect` (a mismatch is `decisions.definition.malformed`). |
 
 `expect.row` names a row **id**; the projection maps it to the row's `legacyKey`.
 

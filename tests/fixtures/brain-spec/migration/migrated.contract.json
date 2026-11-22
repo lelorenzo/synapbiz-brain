@@ -1,0 +1,27 @@
+{
+  "module": "intake",
+  "schemaVersion": 1,
+  "facts": [
+    { "id": "intake.requirements/isTrial", "kind": "intake.requirements", "name": "isTrial", "type": "Boolean", "nullable": true, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "id": "intake.requirements/idImage", "kind": "intake.requirements", "name": "idImage", "type": "Enum", "nullable": true, "allowedValues": ["present", "absent"], "labelSource": null, "catalogFactId": null },
+    { "id": "intake.requirements/formStatus", "kind": "intake.requirements", "name": "formStatus", "type": "Enum", "nullable": true, "allowedValues": ["present", "absent", "partial"], "labelSource": null, "catalogFactId": null }
+  ],
+  "kinds": [
+    {
+      "id": "intake.requirements",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "intake.rules.read",
+        "author": "intake.rules.author",
+        "approve": "intake.rules.approve",
+        "readTrace": "intake.rules.trace"
+      },
+      "outcomes": [
+        { "name": "requirement", "type": "Code", "nullable": false, "labelSource": null },
+        { "name": "status", "type": "Enum", "nullable": false, "labelSource": null, "allowedValues": ["missing", "review", "excluded"] },
+        { "name": "reason", "type": "Code", "nullable": false, "labelSource": null }
+      ]
+    }
+  ]
+}

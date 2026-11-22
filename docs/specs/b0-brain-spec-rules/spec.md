@@ -47,7 +47,7 @@ No clock, GUID generation, randomness, file or network access; no static mutable
 The library is proved against the source repository three ways, all through the one shared scenario source in `tests/parity/Scenarios`:
 
 - Conformance: the 77 `brain.rule@1` cases of the source suite (60 valid, 17 invalid) load as expected; the 3 `brain.flow@1` cases are filtered by `$spec` and their count asserted.
-- Live parity (`NUVORA_ROOT`): for each case and for 8 hand-written invalid documents the library and the source path (`BrainValidator`, `LegacyBrainBridge.FromRule`, `DecisionDefinitionCodec`) must give the same sorted `code@path` errors, and for valid cases the same table, goldens and golden run.
+- Live parity (`NUVORA_ROOT`): for each case and for 38 hand-written structure documents (8 schema refusals, one document for each other diagnostic the source validator can also report, and valid documents for the range, run and collect edges) the library and the source path (`BrainValidator`, `LegacyBrainBridge.FromRule`, `DecisionDefinitionCodec`) must give the same sorted `code@path` errors, and for valid cases the same table, goldens and golden run.
 - Baseline: the source side's results are committed in `tests/parity/baseline/decisions.parity.json`; the default test run compares the library with it.
 
 The source repository's schema and conformance data are byte copies guarded by the second section of `tools/parity/check-source-drift.sh` (7 data files).
