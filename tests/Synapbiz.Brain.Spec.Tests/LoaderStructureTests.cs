@@ -17,9 +17,12 @@ public sealed class LoaderStructureTests
         }
         """;
 
+    /// <summary>The documents the schema refuses: the entries that name one path in <c>errorAt</c>.</summary>
     public static IEnumerable<object[]> StructureCases() =>
-        Enumerable.Range(0, TestFiles.ReadJson("tests/fixtures/brain-spec/structure-documents.json").AsArray().Count)
-            .Select(index => new object[] { index });
+        TestFiles.ReadJson("tests/fixtures/brain-spec/structure-documents.json").AsArray()
+            .Select((item, index) => (item, index))
+            .Where(entry => entry.item!["errorAt"] is not null)
+            .Select(entry => new object[] { entry.index });
 
     [Fact]
     public void TheBaseDocumentLoads()
@@ -32,8 +35,8 @@ public sealed class LoaderStructureTests
     }
 
     [Fact]
-    public void TheStructureFixtureHoldsAtLeastEightDocuments() =>
-        TestFiles.ReadJson("tests/fixtures/brain-spec/structure-documents.json").AsArray().Count.Should().BeGreaterThanOrEqualTo(8);
+    public void TheStructureFixtureHoldsEightSchemaRefusalsAtItsStart() =>
+        StructureCases().Select(entry => (int)entry[0]).Should().Equal(Enumerable.Range(0, 8));
 
     [Theory]
     [MemberData(nameof(StructureCases))]
@@ -42,7 +45,7 @@ public sealed class LoaderStructureTests
         var fixture = TestFiles.ReadJson("tests/fixtures/brain-spec/structure-documents.json").AsArray()[index]!;
         var expectedPath = fixture["errorAt"]!.GetValue<string>();
 
-        var result = BrainRuleLoader.Load(fixture["document"]!.ToJsonString(), [TestFiles.Contract(fixture["contract"]!.GetValue<string>())]);
+        var result = BrainRuleLoader.Load(fixture["document"]!.ToJsonString(), [TestFiles.ContractOf(fixture)]);
 
         result.Rule.Should().BeNull();
         result.DeferredToEngine.Should().BeEmpty();

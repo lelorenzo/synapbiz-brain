@@ -2516,6 +2516,186 @@
     {
       "name": "spec/structure/7/errors",
       "result": "spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type"
+    },
+    {
+      "name": "spec/structure/8/errors",
+      "result": "spec.structure.envelope@"
+    },
+    {
+      "name": "spec/structure/9/errors",
+      "result": "spec.structure.unknown_format@/$spec"
+    },
+    {
+      "name": "spec/structure/10/errors",
+      "result": "spec.semantics.node@/meta"
+    },
+    {
+      "name": "spec/structure/11/errors",
+      "result": "spec.semantics.duplicate_id@/body/rows/1/id"
+    },
+    {
+      "name": "spec/structure/12/errors",
+      "result": "spec.semantics.translation@/meta/label/$t"
+    },
+    {
+      "name": "spec/structure/13/errors",
+      "result": "spec.semantics.cycle@/uses/0/$ref"
+    },
+    {
+      "name": "spec/structure/14/errors",
+      "result": "brain.contract.unavailable@/requires/1"
+    },
+    {
+      "name": "spec/structure/15/errors",
+      "result": "brain.contract.module_required@/requires,brain.contract.unavailable@/requires/0"
+    },
+    {
+      "name": "spec/structure/16/errors",
+      "result": "decisions.kind.not_registered@/body/kind"
+    },
+    {
+      "name": "spec/structure/17/errors",
+      "result": "decisions.validation.duplicate_row_key@/body/rows/1/legacyKey"
+    },
+    {
+      "name": "spec/structure/18/errors",
+      "result": "decisions.validation.money_currency_mismatch@/body/rows/0/conditions/0"
+    },
+    {
+      "name": "spec/structure/19/errors",
+      "result": "decisions.condition.range_type_mismatch@/body/rows/0/conditions/0/value"
+    },
+    {
+      "name": "spec/structure/20/errors",
+      "result": "decisions.validation.cell_type_mismatch@/body/rows/0/conditions/0/value"
+    },
+    {
+      "name": "spec/structure/21/errors",
+      "result": "brain.fact.label_source_mismatch@/body/rows/0/conditions/0/value"
+    },
+    {
+      "name": "spec/structure/22/errors",
+      "result": "brain.fact.enum_not_allowed@/body/rows/0/conditions/0/value"
+    },
+    {
+      "name": "spec/structure/23/errors",
+      "result": "brain.fact.enum_not_allowed@/body/rows/0/outcome/level"
+    },
+    {
+      "name": "spec/structure/24/errors",
+      "result": "decisions.facts.missing@/body/goldens/0/facts/ghost"
+    },
+    {
+      "name": "spec/structure/25/errors",
+      "result": "decisions.facts.type_mismatch@/body/goldens/0/facts/score"
+    },
+    {
+      "name": "spec/structure/26/errors",
+      "result": "brain.golden.unknown_row@/body/goldens/0/expect/row"
+    },
+    {
+      "name": "spec/structure/27/errors",
+      "result": "brain.rule.golden_outcome_missing@/body/goldens/0/expect/outcome"
+    },
+    {
+      "name": "spec/structure/28/errors",
+      "result": "decisions.definition.malformed@/body/goldens/0/expect/outcome"
+    },
+    {
+      "name": "spec/structure/29/errors",
+      "result": "decisions.definition.malformed@/body/goldens/0/expect/outcome"
+    },
+    {
+      "name": "spec/structure/30/errors",
+      "result": "brain.outcome.unknown_field@/body/rows/0/outcome/ghost"
+    },
+    {
+      "name": "spec/structure/31/errors",
+      "result": "brain.outcome.type_mismatch@/body/rows/0/outcome/note"
+    },
+    {
+      "name": "spec/structure/32/errors",
+      "result": "brain.outcome.required_field@/body/rows/0/outcome/note"
+    },
+    {
+      "name": "spec/structure/33/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/structure/33/table",
+      "result": "policy=First\nrow0 key=A conditions=[score:Range:value=int(10):upper=int(20):lower=false:upper=false:values=[]] outcome={\"note\":\"inside\"} stored={\"note\":\"inside\"}\ndefault=none"
+    },
+    {
+      "name": "spec/structure/33/goldens",
+      "result": "name=at the lower bound facts={\"score\":10} expect=no_decision\nname=just above facts={\"score\":11} expect=decided:{\"note\":\"inside\"}:A:stored={\"note\":\"inside\"}\nname=just below facts={\"score\":19} expect=decided:{\"note\":\"inside\"}:A:stored={\"note\":\"inside\"}\nname=at the upper bound facts={\"score\":20} expect=no_decision"
+    },
+    {
+      "name": "spec/structure/33/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/structure/34/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/structure/34/table",
+      "result": "policy=First\nrow0 key=A conditions=[score:Range:value=int(100):upper=null:lower=true:upper=true:values=[]] outcome={\"note\":\"high\"} stored={\"note\":\"high\"}\nrow1 key=B conditions=[score:Range:value=null:upper=int(5):lower=true:upper=true:values=[]] outcome={\"note\":\"low\"} stored={\"note\":\"low\"}\ndefault=none"
+    },
+    {
+      "name": "spec/structure/34/goldens",
+      "result": "name=at the bound facts={\"score\":100} expect=decided:{\"note\":\"high\"}:A:stored={\"note\":\"high\"}\nname=far above facts={\"score\":5000} expect=decided:{\"note\":\"high\"}:A:stored={\"note\":\"high\"}\nname=below facts={\"score\":99} expect=no_decision\nname=at the low bound facts={\"score\":5} expect=decided:{\"note\":\"low\"}:B:stored={\"note\":\"low\"}\nname=far below facts={\"score\":-3} expect=decided:{\"note\":\"low\"}:B:stored={\"note\":\"low\"}\nname=between facts={\"score\":6} expect=no_decision"
+    },
+    {
+      "name": "spec/structure/34/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/structure/35/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/structure/35/table",
+      "result": "policy=First\nrow0 key=A conditions=[stage:Equals:value=enum(Open):upper=null:lower=true:upper=true:values=[]] outcome={\"note\":\"a\"} stored={\"note\":\"a\"}\ndefault=none"
+    },
+    {
+      "name": "spec/structure/35/goldens",
+      "result": "name=passes facts={\"stage\":\"Open\"} expect=decided:{\"note\":\"a\"}:A:stored={\"note\":\"a\"}\nname=expects the wrong outcome facts={\"stage\":\"Open\"} expect=decided:{\"note\":\"other\"}:A:stored={\"note\":\"other\"}"
+    },
+    {
+      "name": "spec/structure/35/run",
+      "result": "false|expects the wrong outcome||decisions.validation.golden_failed"
+    },
+    {
+      "name": "spec/structure/36/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/structure/36/table",
+      "result": "policy=First\nrow0 key=A conditions=[flag:Equals:value=bool(true):upper=null:lower=true:upper=true:values=[]] outcome={\"note\":\"a\"} stored={\"note\":\"a\"}\nrow1 key=B conditions=[flag:Equals:value=bool(false):upper=null:lower=true:upper=true:values=[]] outcome={\"note\":\"b\"} stored={\"note\":\"b\"}\ndefault=none"
+    },
+    {
+      "name": "spec/structure/36/goldens",
+      "result": "name=true facts={\"flag\":true} expect=decided:{\"note\":\"a\"}:A:stored={\"note\":\"a\"}"
+    },
+    {
+      "name": "spec/structure/36/run",
+      "result": "false||B|decisions.validation.golden_row_uncovered"
+    },
+    {
+      "name": "spec/structure/37/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/structure/37/table",
+      "result": "policy=Collect\nrow0 key=A conditions=[score:Range:value=int(0):upper=int(100):lower=true:upper=true:values=[]] outcome={\"note\":\"a\"} stored={\"note\":\"a\"}\nrow1 key=B conditions=[stage:Equals:value=enum(Open):upper=null:lower=true:upper=true:values=[]] outcome={\"note\":\"b\"} stored={\"note\":\"b\"}\ndefault=none"
+    },
+    {
+      "name": "spec/structure/37/goldens",
+      "result": "name=both facts={\"score\":5,\"stage\":\"Open\"} expect=decided:[{\"note\":\"a\"},{\"note\":\"b\"}]:A:stored=[{\"note\":\"a\"},{\"note\":\"b\"}]\nname=one facts={\"score\":500,\"stage\":\"Open\"} expect=decided:[{\"note\":\"b\"}]:B:stored=[{\"note\":\"b\"}]"
+    },
+    {
+      "name": "spec/structure/37/run",
+      "result": "true|||"
     }
   ]
 }

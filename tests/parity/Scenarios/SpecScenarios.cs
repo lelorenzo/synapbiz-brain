@@ -46,14 +46,16 @@ internal static class SpecScenarios
         var position = 0;
         foreach (var item in structure.RootElement.EnumerateArray())
         {
-            var contract = FixtureFiles.Read($"tests/fixtures/spec/brain/contracts/contract-{item.GetProperty("contract").GetString()}.json");
+            var contract = item.TryGetProperty("contractFile", out var file)
+                ? FixtureFiles.Read(file.GetString()!)
+                : FixtureFiles.Read($"tests/fixtures/spec/brain/contracts/contract-{item.GetProperty("contract").GetString()}.json");
             AddCase(
                 set,
                 projector,
                 $"spec/structure/{position.ToString(CultureInfo.InvariantCulture)}",
                 item.GetProperty("document").GetRawText(),
                 [contract],
-                withTable: false);
+                withTable: true);
             position++;
         }
     }

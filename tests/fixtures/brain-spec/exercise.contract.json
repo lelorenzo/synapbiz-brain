@@ -1,0 +1,119 @@
+{
+  "module": "exercise",
+  "schemaVersion": 1,
+  "facts": [
+    {
+      "id": "exercise.decision/stage",
+      "kind": "exercise.decision",
+      "name": "stage",
+      "type": "Enum",
+      "nullable": true,
+      "allowedValues": [
+        "Open",
+        "Closed"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "exercise.decision/score",
+      "kind": "exercise.decision",
+      "name": "score",
+      "type": "Integer",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "exercise.decision/amount",
+      "kind": "exercise.decision",
+      "name": "amount",
+      "type": "Money",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "exercise.decision/label",
+      "kind": "exercise.decision",
+      "name": "label",
+      "type": "Code",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "exercise.decision/owner",
+      "kind": "exercise.decision",
+      "name": "owner",
+      "type": "Reference",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": {
+        "ownerModule": "exercise",
+        "entityType": "owner.item"
+      },
+      "catalogFactId": null
+    },
+    {
+      "id": "exercise.decision/due",
+      "kind": "exercise.decision",
+      "name": "due",
+      "type": "Date",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "exercise.decision/flag",
+      "kind": "exercise.decision",
+      "name": "flag",
+      "type": "Boolean",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "exercise.decision",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "exercise.rules.read",
+        "author": "exercise.rules.author",
+        "approve": "exercise.rules.approve",
+        "readTrace": "exercise.rules.trace"
+      },
+      "outcomes": [
+        {
+          "name": "note",
+          "type": "Code",
+          "nullable": false,
+          "labelSource": null
+        },
+        {
+          "name": "level",
+          "type": "Enum",
+          "nullable": true,
+          "labelSource": null,
+          "allowedValues": [
+            "low",
+            "high"
+          ]
+        },
+        {
+          "name": "count",
+          "type": "Integer",
+          "nullable": true,
+          "labelSource": null
+        }
+      ]
+    }
+  ]
+}

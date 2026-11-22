@@ -23,6 +23,12 @@ internal static class TestFiles
 
     internal static JsonNode ReadJson(string relativePath) => JsonNode.Parse(Read(relativePath))!;
 
+    /// <summary>The contract a structure document names: a shared fixture contract by <c>contract</c>, or a repository file by <c>contractFile</c>.</summary>
+    internal static BrainContract ContractOf(JsonNode fixture) =>
+        fixture["contractFile"] is { } file
+            ? BrainContract.Parse(Read(file.GetValue<string>()))
+            : Contract(fixture["contract"]!.GetValue<string>());
+
     internal static BrainContract Contract(string name) =>
         BrainContract.Parse(Read($"tests/fixtures/spec/brain/contracts/contract-{name}.json"));
 }
