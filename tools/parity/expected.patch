@@ -1,0 +1,60 @@
+--- a/DecisionEngineException.cs
++++ b/DecisionEngineException.cs
+@@ -1,5 +1,5 @@
+ using System.Diagnostics.CodeAnalysis;
+-using Nuvora.Domain.Exceptions;
++using Synapbiz.Brain;
+ 
+ namespace Nuvora.Decisions.Contracts;
+ 
+@@ -19,7 +19,7 @@
+     "Design",
+     "CA1032:Implement standard exception constructors",
+     Justification = "Domain exceptions are intentionally minimal: a single (code, message, args, innerException) constructor forces every throw site to supply a stable error code (DomainException's contract) — mirrors ValueObjectException and the Accounting module's documented CA1032 convention.")]
+-public sealed class DecisionEngineException : DomainException
++public sealed class DecisionEngineException : BrainException
+ {
+     /// <summary>Initializes a new instance of <see cref="DecisionEngineException"/>.</summary>
+     public DecisionEngineException(
+--- a/Facts/CanonicalFacts.cs
++++ b/Facts/CanonicalFacts.cs
+@@ -3,7 +3,7 @@
+ using System.Text.Json;
+ using Nuvora.Decisions.Contracts;
+ using Nuvora.Decisions.Contracts.Tables;
+-using Nuvora.Domain.Common;
++using Synapbiz.Brain;
+ 
+ namespace Nuvora.Decisions.Engine.Facts;
+ 
+@@ -54,8 +54,8 @@
+         Encoding.UTF8.GetBytes(ToCanonicalJson(values));
+ 
+     /// <summary>SHA-256 of the canonical JSON's UTF-8 bytes.</summary>
+-    public static Checksum Hash(IReadOnlyDictionary<string, DecisionValue> values) =>
+-        Checksum.FromBytes(ToCanonicalJsonBytes(values));
++    public static ContentHash Hash(IReadOnlyDictionary<string, DecisionValue> values) =>
++        ContentHash.FromBytes(ToCanonicalJsonBytes(values));
+ 
+     /// <summary>
+     /// Throws <see cref="DecisionEngineException"/> with <see cref="ErrorTooLarge"/>
+--- a/Facts/FactSet.cs
++++ b/Facts/FactSet.cs
+@@ -2,7 +2,7 @@
+ using Nuvora.Decisions.Contracts.Kinds;
+ using Nuvora.Decisions.Contracts.Tables;
+ using Nuvora.Decisions.Engine.Conditions;
+-using Nuvora.Domain.Common;
++using Synapbiz.Brain;
+ 
+ namespace Nuvora.Decisions.Engine.Facts;
+ 
+@@ -108,7 +108,7 @@
+     public string ToCanonicalJson() => CanonicalFacts.ToCanonicalJson(_values);
+ 
+     /// <summary>SHA-256 of the canonical JSON's UTF-8 bytes.</summary>
+-    public Checksum Hash() => CanonicalFacts.Hash(_values);
++    public ContentHash Hash() => CanonicalFacts.Hash(_values);
+ 
+     /// <summary>
+     /// Returns a new <see cref="FactSet"/> with fact <paramref name="name"/>

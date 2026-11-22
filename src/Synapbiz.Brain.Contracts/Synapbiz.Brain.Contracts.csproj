@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Nuvora.Decisions.Contracts</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Contracts</AssemblyName>
+    <PackageId>Synapbiz.Brain.Contracts</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Public surface of the Brain decision engine: decision table model, typed values, kinds, outcome, trace and validation contracts.</Description>
+  </PropertyGroup>
+
+</Project>
