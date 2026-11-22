@@ -1,15 +1,25 @@
 name: ci
 
+# A pull request runs once per commit: push runs are limited to main.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
+# A newer commit on a pull request cancels the run of the older one. Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-test-pack:
-    runs-on: ubuntu-latest
+    # The runner is chosen by the repository variable SZH_CI_RUNS_ON (a JSON list of labels, for
+    # example ["self-hosted","linux"]). Unset or cleared, the job runs on a GitHub-hosted runner.
+    # This job holds no secret. Never use the variable in a workflow that does (release, parity).
+    runs-on: ${{ fromJSON(vars.SZH_CI_RUNS_ON || '"ubuntu-latest"') }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
