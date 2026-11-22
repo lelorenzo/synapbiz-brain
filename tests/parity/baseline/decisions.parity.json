@@ -1456,6 +1456,1066 @@
     {
       "name": "facts/build_at_default_cap",
       "result": "e08ea177e17055f1ee357dc1aa3e48013632b4c336b2103d21fde455d05a1b63"
+    },
+    {
+      "name": "spec/000/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/000/table",
+      "result": "policy=First\nrow0 key=review/step conditions=[channelKind:Equals:value=enum(Web):upper=null:lower=true:upper=true:values=[]] outcome={\"approvalState\":\"manager-approval\"} stored={\"approvalState\":\"manager-approval\"}\ndefault=none"
+    },
+    {
+      "name": "spec/000/goldens",
+      "result": "name= facts={\"branch\":\"00000000-0000-4000-8000-000000000001\",\"channelKind\":\"Web\",\"discountPctMaxLine\":0,\"discountPctOrder\":0,\"manualPriceLines\":0,\"orderTotal\":{\"amount\":50,\"currency\":\"USD\"}} expect=decided:{\"approvalState\":\"manager-approval\"}:review/step:stored={\"approvalState\":\"manager-approval\"}\nname=Unmatched fact facts={\"branch\":\"00000000-0000-4000-8000-000000000001\",\"channelKind\":\"Pos\",\"discountPctMaxLine\":0,\"discountPctOrder\":0,\"manualPriceLines\":0,\"orderTotal\":{\"amount\":50,\"currency\":\"USD\"}} expect=no_decision"
+    },
+    {
+      "name": "spec/000/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/002/errors",
+      "result": "decisions.validation.unknown_fact@/body/rows/0/conditions/0/fact"
+    },
+    {
+      "name": "spec/003/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/004/errors",
+      "result": "brain.rule.golden_outcome_missing@/body/goldens/0/expect/outcome"
+    },
+    {
+      "name": "spec/007/errors",
+      "result": "spec.semantics.reference@/uses/0/$ref"
+    },
+    {
+      "name": "spec/008/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/008/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Any:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/008/goldens",
+      "result": "name=sample facts={\"fact\":\"AA\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/008/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/009/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/009/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Equals:value=code(AA):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/009/goldens",
+      "result": "name=sample facts={\"fact\":\"AA\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/009/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/010/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/010/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotEquals:value=code(BB):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/010/goldens",
+      "result": "name=sample facts={\"fact\":\"AA\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/010/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/011/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/011/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:In:value=null:upper=null:lower=true:upper=true:values=[code(AA)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/011/goldens",
+      "result": "name=sample facts={\"fact\":\"AA\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/011/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/012/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/012/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotIn:value=null:upper=null:lower=true:upper=true:values=[code(BB)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/012/goldens",
+      "result": "name=sample facts={\"fact\":\"AA\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/012/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/013/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/013/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/013/goldens",
+      "result": "name=sample facts={} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/013/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/014/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/014/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNotNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/014/goldens",
+      "result": "name=sample facts={\"fact\":\"AA\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/014/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/015/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/016/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/016/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:StartsWith:value=code(A):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/016/goldens",
+      "result": "name=sample facts={\"fact\":\"AA\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/016/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/017/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/017/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Any:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/017/goldens",
+      "result": "name=sample facts={\"fact\":\"A\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/017/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/018/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/018/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Equals:value=enum(A):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/018/goldens",
+      "result": "name=sample facts={\"fact\":\"A\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/018/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/019/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/019/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotEquals:value=enum(B):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/019/goldens",
+      "result": "name=sample facts={\"fact\":\"A\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/019/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/020/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/020/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:In:value=null:upper=null:lower=true:upper=true:values=[enum(A)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/020/goldens",
+      "result": "name=sample facts={\"fact\":\"A\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/020/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/021/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/021/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotIn:value=null:upper=null:lower=true:upper=true:values=[enum(B)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/021/goldens",
+      "result": "name=sample facts={\"fact\":\"A\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/021/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/022/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/022/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/022/goldens",
+      "result": "name=sample facts={} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/022/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/023/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/023/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNotNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/023/goldens",
+      "result": "name=sample facts={\"fact\":\"A\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/023/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/024/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/025/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/026/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/026/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Any:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/026/goldens",
+      "result": "name=sample facts={\"fact\":true} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/026/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/027/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/027/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Equals:value=bool(true):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/027/goldens",
+      "result": "name=sample facts={\"fact\":true} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/027/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/028/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/028/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotEquals:value=bool(false):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/028/goldens",
+      "result": "name=sample facts={\"fact\":true} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/028/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/029/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/030/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/031/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/031/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/031/goldens",
+      "result": "name=sample facts={} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/031/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/032/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/032/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNotNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/032/goldens",
+      "result": "name=sample facts={\"fact\":true} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/032/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/033/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/034/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/035/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/035/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Any:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/035/goldens",
+      "result": "name=sample facts={\"fact\":9223372036854775806} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/035/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/036/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/036/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Equals:value=int(9223372036854775806):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/036/goldens",
+      "result": "name=sample facts={\"fact\":9223372036854775806} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/036/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/037/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/037/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotEquals:value=int(9223372036854775807):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/037/goldens",
+      "result": "name=sample facts={\"fact\":9223372036854775806} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/037/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/038/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/038/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:In:value=null:upper=null:lower=true:upper=true:values=[int(9223372036854775806)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/038/goldens",
+      "result": "name=sample facts={\"fact\":9223372036854775806} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/038/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/039/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/039/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotIn:value=null:upper=null:lower=true:upper=true:values=[int(9223372036854775807)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/039/goldens",
+      "result": "name=sample facts={\"fact\":9223372036854775806} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/039/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/040/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/040/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/040/goldens",
+      "result": "name=sample facts={} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/040/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/041/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/041/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNotNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/041/goldens",
+      "result": "name=sample facts={\"fact\":9223372036854775806} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/041/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/042/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/042/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Range:value=int(9223372036854775806):upper=int(9223372036854775806):lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/042/goldens",
+      "result": "name=sample facts={\"fact\":9223372036854775806} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/042/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/043/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/044/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/044/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Any:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/044/goldens",
+      "result": "name=sample facts={\"fact\":1.5} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/044/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/045/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/045/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Equals:value=dec(1.5):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/045/goldens",
+      "result": "name=sample facts={\"fact\":1.5} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/045/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/046/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/046/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotEquals:value=dec(2):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/046/goldens",
+      "result": "name=sample facts={\"fact\":1.5} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/046/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/047/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/047/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:In:value=null:upper=null:lower=true:upper=true:values=[dec(1.5)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/047/goldens",
+      "result": "name=sample facts={\"fact\":1.5} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/047/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/048/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/048/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotIn:value=null:upper=null:lower=true:upper=true:values=[dec(2)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/048/goldens",
+      "result": "name=sample facts={\"fact\":1.5} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/048/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/049/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/049/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/049/goldens",
+      "result": "name=sample facts={} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/049/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/050/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/050/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNotNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/050/goldens",
+      "result": "name=sample facts={\"fact\":1.5} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/050/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/051/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/051/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Range:value=dec(1.5):upper=dec(1.5):lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/051/goldens",
+      "result": "name=sample facts={\"fact\":1.5} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/051/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/052/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/053/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/053/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Any:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/053/goldens",
+      "result": "name=sample facts={\"fact\":{\"amount\":1.5,\"currency\":\"USD\"}} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/053/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/054/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/054/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Equals:value=money(1.5,USD):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/054/goldens",
+      "result": "name=sample facts={\"fact\":{\"amount\":1.5,\"currency\":\"USD\"}} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/054/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/055/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/055/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotEquals:value=money(2,USD):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/055/goldens",
+      "result": "name=sample facts={\"fact\":{\"amount\":1.5,\"currency\":\"USD\"}} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/055/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/056/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/056/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:In:value=null:upper=null:lower=true:upper=true:values=[money(1.5,USD)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/056/goldens",
+      "result": "name=sample facts={\"fact\":{\"amount\":1.5,\"currency\":\"USD\"}} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/056/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/057/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/057/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotIn:value=null:upper=null:lower=true:upper=true:values=[money(2,USD)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/057/goldens",
+      "result": "name=sample facts={\"fact\":{\"amount\":1.5,\"currency\":\"USD\"}} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/057/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/058/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/058/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/058/goldens",
+      "result": "name=sample facts={} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/058/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/059/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/059/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNotNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/059/goldens",
+      "result": "name=sample facts={\"fact\":{\"amount\":1.5,\"currency\":\"USD\"}} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/059/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/060/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/060/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Range:value=money(1.5,USD):upper=money(1.5,USD):lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/060/goldens",
+      "result": "name=sample facts={\"fact\":{\"amount\":1.5,\"currency\":\"USD\"}} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/060/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/061/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/062/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/062/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Any:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/062/goldens",
+      "result": "name=sample facts={\"fact\":\"2026-01-01\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/062/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/063/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/063/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Equals:value=date(2026-01-01):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/063/goldens",
+      "result": "name=sample facts={\"fact\":\"2026-01-01\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/063/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/064/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/064/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotEquals:value=date(2026-01-02):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/064/goldens",
+      "result": "name=sample facts={\"fact\":\"2026-01-01\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/064/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/065/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/065/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:In:value=null:upper=null:lower=true:upper=true:values=[date(2026-01-01)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/065/goldens",
+      "result": "name=sample facts={\"fact\":\"2026-01-01\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/065/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/066/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/066/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotIn:value=null:upper=null:lower=true:upper=true:values=[date(2026-01-02)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/066/goldens",
+      "result": "name=sample facts={\"fact\":\"2026-01-01\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/066/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/067/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/067/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/067/goldens",
+      "result": "name=sample facts={} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/067/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/068/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/068/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNotNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/068/goldens",
+      "result": "name=sample facts={\"fact\":\"2026-01-01\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/068/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/069/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/069/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Range:value=date(2026-01-01):upper=date(2026-01-01):lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/069/goldens",
+      "result": "name=sample facts={\"fact\":\"2026-01-01\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/069/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/070/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/071/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/071/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Any:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/071/goldens",
+      "result": "name=sample facts={\"fact\":\"00000000-0000-0000-0000-000000000000\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/071/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/072/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/072/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:Equals:value=ref(00000000-0000-0000-0000-000000000000):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/072/goldens",
+      "result": "name=sample facts={\"fact\":\"00000000-0000-0000-0000-000000000000\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/072/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/073/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/073/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotEquals:value=ref(00000000-0000-4000-8000-000000000002):upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/073/goldens",
+      "result": "name=sample facts={\"fact\":\"00000000-0000-0000-0000-000000000000\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/073/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/074/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/074/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:In:value=null:upper=null:lower=true:upper=true:values=[ref(00000000-0000-0000-0000-000000000000)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/074/goldens",
+      "result": "name=sample facts={\"fact\":\"00000000-0000-0000-0000-000000000000\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/074/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/075/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/075/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:NotIn:value=null:upper=null:lower=true:upper=true:values=[ref(00000000-0000-4000-8000-000000000002)]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/075/goldens",
+      "result": "name=sample facts={\"fact\":\"00000000-0000-0000-0000-000000000000\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/075/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/076/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/076/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/076/goldens",
+      "result": "name=sample facts={} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/076/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/077/errors",
+      "result": ""
+    },
+    {
+      "name": "spec/077/table",
+      "result": "policy=Unique\nrow0 key=match conditions=[fact:IsNotNull:value=null:upper=null:lower=true:upper=true:values=[]] outcome={} stored={}\ndefault=none"
+    },
+    {
+      "name": "spec/077/goldens",
+      "result": "name=sample facts={\"fact\":\"00000000-0000-0000-0000-000000000000\"} expect=decided:{}:match:stored={}"
+    },
+    {
+      "name": "spec/077/run",
+      "result": "true|||"
+    },
+    {
+      "name": "spec/078/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/079/errors",
+      "result": "decisions.condition.operator_not_allowed@/body/rows/0/conditions/0/op"
+    },
+    {
+      "name": "spec/structure/0/errors",
+      "result": "spec.structure.schema@,spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/expect/outcome,spec.structure.schema@/body/goldens/0/expect/row,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type"
+    },
+    {
+      "name": "spec/structure/1/errors",
+      "result": "spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/expect/outcome,spec.structure.schema@/body/goldens/0/expect/row,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type,spec.structure.schema@/extra"
+    },
+    {
+      "name": "spec/structure/2/errors",
+      "result": "spec.structure.schema@,spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/expect/outcome,spec.structure.schema@/body/goldens/0/expect/row,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type,spec.structure.schema@/revision"
+    },
+    {
+      "name": "spec/structure/3/errors",
+      "result": "spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/expect/outcome,spec.structure.schema@/body/goldens/0/expect/row,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type"
+    },
+    {
+      "name": "spec/structure/4/errors",
+      "result": "spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/expect/outcome,spec.structure.schema@/body/goldens/0/expect/row,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type,spec.structure.schema@/body/rows/0/conditions/0/value/value"
+    },
+    {
+      "name": "spec/structure/5/errors",
+      "result": "spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/expect/outcome,spec.structure.schema@/body/goldens/0/expect/row,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0/conditions/0/op,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type"
+    },
+    {
+      "name": "spec/structure/6/errors",
+      "result": "spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/expect/outcome,spec.structure.schema@/body/goldens/0/expect/row,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type"
+    },
+    {
+      "name": "spec/structure/7/errors",
+      "result": "spec.structure.schema@/body/goldens/0/expect,spec.structure.schema@/body/goldens/0/facts/fact/type,spec.structure.schema@/body/rows/0/conditions/0/value,spec.structure.schema@/body/rows/0/conditions/0/value/type"
     }
   ]
 }

@@ -22,6 +22,7 @@ public static class ParityRunner
         ValidateScenarios.Register(set);
         GoldenScenarios.Register(set);
         FactsScenarios.Register(set);
+        SpecScenarios.Register(set);
         return set.Results;
     }
 }
