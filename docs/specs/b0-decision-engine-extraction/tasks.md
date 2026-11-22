@@ -9,7 +9,7 @@
 - [x] Architecture tests (BCL-only, no package references, engine purity), mutation-verified
 - [x] Parity scenarios, two drivers, live parity test, committed baseline, baseline test
 - [x] CI workflow, `docs/architecture/overview.md`, `CHANGELOG.md`
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate
 
 ## PR 2 — brain-spec (rules)
 - [ ] Brief
