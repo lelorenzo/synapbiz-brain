@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Source drift guard: proves every moved file still equals its original in the source repository
-# at the pinned commit, except for the three files carrying the declared patch.
+# at the pinned commit, except for the three files carrying the declared patch, and that the seven data
+# files (the brain.rule@1 schema, the conformance suite and five module contracts) are byte-identical.
 # Usage: check-source-drift.sh <nuvora-root>
 set -euo pipefail
 
@@ -93,9 +94,33 @@ if ! cmp -s "$regenerated" "$here/expected.patch"; then
   report "patch: regenerated patch differs from tools/parity/expected.patch"
 fi
 
+# (5) The rule schema and the conformance data are byte-identical to the source repository (no patch).
+data_files=(
+  "src/Platform/Spec/Synapbiz.Spec.Brain/Schemas/brain.rule.v1.json:src/Synapbiz.Brain.Spec/Schemas/brain.rule.v1.json"
+  "tests/fixtures/spec/brain/conformance.json:tests/fixtures/spec/brain/conformance.json"
+  "tests/fixtures/spec/brain/contracts/contract-accounting.json:tests/fixtures/spec/brain/contracts/contract-accounting.json"
+  "tests/fixtures/spec/brain/contracts/contract-inventory.json:tests/fixtures/spec/brain/contracts/contract-inventory.json"
+  "tests/fixtures/spec/brain/contracts/contract-procurement.json:tests/fixtures/spec/brain/contracts/contract-procurement.json"
+  "tests/fixtures/spec/brain/contracts/contract-sales.json:tests/fixtures/spec/brain/contracts/contract-sales.json"
+  "tests/fixtures/spec/brain/contracts/contract-synthetic.json:tests/fixtures/spec/brain/contracts/contract-synthetic.json"
+)
+data_total=0
+for entry in "${data_files[@]}"; do
+  from="${entry%%:*}"
+  to="${entry##*:}"
+  data_total=$((data_total + 1))
+  if [[ ! -f "$repo/$to" ]]; then
+    report "missing: data $to"
+  elif [[ ! -f "$nuvora/$from" ]]; then
+    report "source missing: data $from"
+  elif ! cmp -s "$nuvora/$from" "$repo/$to"; then
+    report "differs: data $to"
+  fi
+done
+
 if [[ $offenders -ne 0 ]]; then
   echo "source drift: $offenders offender(s)"
   exit 1
 fi
 
-echo "source drift: none ($total files, $patched_seen patched, $excluded excluded)"
+echo "source drift: none ($total files, $patched_seen patched, $excluded excluded; $data_total data files)"

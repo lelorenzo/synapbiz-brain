@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 1,
+  "module": "accounting",
+  "sections": [],
+  "facts": [
+    {
+      "id": "accounting.channel_settlement/ChannelKind",
+      "kind": "accounting.channel_settlement",
+      "name": "ChannelKind",
+      "type": "Enum",
+      "nullable": false,
+      "allowedValues": [
+        "B2B",
+        "Marketplace",
+        "Pos",
+        "Web"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "accounting.channel_settlement/ItemType",
+      "kind": "accounting.channel_settlement",
+      "name": "ItemType",
+      "type": "Enum",
+      "nullable": true,
+      "allowedValues": [
+        "Goods",
+        "Service",
+        "Subscription"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "accounting.channel_settlement/Origin",
+      "kind": "accounting.channel_settlement",
+      "name": "Origin",
+      "type": "Enum",
+      "nullable": true,
+      "allowedValues": [
+        "Api",
+        "Backoffice",
+        "Pos",
+        "Quote",
+        "Storefront"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "accounting.channel_settlement/PaymentStatusAtConfirm",
+      "kind": "accounting.channel_settlement",
+      "name": "PaymentStatusAtConfirm",
+      "type": "Enum",
+      "nullable": true,
+      "allowedValues": [
+        "Paid",
+        "PartiallyPaid",
+        "Unpaid"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "accounting.channel_settlement/SalesChannelId",
+      "kind": "accounting.channel_settlement",
+      "name": "SalesChannelId",
+      "type": "Reference",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": {
+        "ownerModule": "sales",
+        "entityType": "sales.sales_channel"
+      },
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "accounting.channel_settlement",
+      "schemaVersion": 2,
+      "evaluationMode": "Materialized",
+      "permissions": {
+        "read": "accounting.decisions.read",
+        "author": "accounting.decisions.author",
+        "approve": "accounting.decisions.approve",
+        "readTrace": "accounting.decisions.read_trace"
+      },
+      "outcomes": [
+        {
+          "name": "NetDays",
+          "type": "Integer",
+          "nullable": true,
+          "labelSource": null
+        },
+        {
+          "name": "PaymentMode",
+          "type": "Enum",
+          "nullable": false,
+          "labelSource": null
+        },
+        {
+          "name": "RevenueTrigger",
+          "type": "Enum",
+          "nullable": false,
+          "labelSource": null
+        }
+      ]
+    }
+  ],
+  "aggregates": [],
+  "slots": [],
+  "events": [
+    {
+      "id": "Nuvora.Modules.Accounting.Contracts.IntegrationEvents.JournalEntryPostedV1",
+      "fields": [
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EntryDate",
+          "type": "System.DateOnly"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "JournalEntryId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LedgerId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Lines",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[Nuvora.Modules.Accounting.Contracts.IntegrationEvents.JournalEntryPostedV1\u002BLineV1]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SourceDocumentId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "SourceModule",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalCredit",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "TotalDebit",
+          "type": "System.Decimal"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Accounting.Contracts.IntegrationEvents.SalesChannelAccountingPolicyChangedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "NewBridge",
+          "type": "System.String"
+        },
+        {
+          "name": "NewPaymentMode",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PreviousBridge",
+          "type": "System.String"
+        },
+        {
+          "name": "PreviousPaymentMode",
+          "type": "System.String"
+        },
+        {
+          "name": "SalesChannelId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Accounting.Contracts.IntegrationEvents.SubLedgerJournalCreatedV1",
+      "fields": [
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "JournalEntryId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "LedgerId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SourceDocumentId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SourceDocumentNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "SourceModule",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalAmount",
+          "type": "System.Decimal"
+        }
+      ]
+    }
+  ],
+  "actions": [],
+  "dataSources": [],
+  "blocks": []
+}

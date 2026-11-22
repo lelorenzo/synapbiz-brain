@@ -9,12 +9,29 @@
 
   <ItemGroup>
     <Compile Include="../Scenarios/*.cs" LinkBase="Scenarios" />
+    <!-- This repository's contract reader, compiled against the source repository's decision contracts to build the kind descriptor. -->
+    <Compile Include="../../../src/Synapbiz.Brain.Spec/BrainContract.cs" LinkBase="Spec" />
   </ItemGroup>
 
   <!-- The source repository's projects, compiled from a checkout named by NUVORA_ROOT. -->
   <ItemGroup Condition="'$(NUVORA_ROOT)' != ''">
     <ProjectReference Include="$(NUVORA_ROOT)/src/Shared/Nuvora.Decisions.Engine/Nuvora.Decisions.Engine.csproj" />
     <ProjectReference Include="$(NUVORA_ROOT)/src/Shared/Nuvora.Decisions.Contracts/Nuvora.Decisions.Contracts.csproj" />
+    <!-- The source repository's Brain Spec project is not referenced as a project: its assembly is named Synapbiz.Brain.Spec, the same as this repository's Spec library, and both load in the one test process. Its Spec.Core dependency is referenced; its own sources are compiled below. -->
+    <ProjectReference Include="$(NUVORA_ROOT)/src/Platform/Spec/Synapbiz.Spec.Core/Synapbiz.Spec.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The source repository's definition codec and its two error files, linked as its own conformance project links them. -->
+  <ItemGroup Condition="'$(NUVORA_ROOT)' != ''">
+    <Compile Include="$(NUVORA_ROOT)/src/Shared/Nuvora.Decisions/Application/Serialization/DecisionDefinitionCodec.cs" Link="Source/DecisionDefinitionCodec.cs" />
+    <Compile Include="$(NUVORA_ROOT)/src/Shared/Nuvora.Decisions/Domain/Errors/DecisionErrors.cs" Link="Source/DecisionErrors.cs" />
+    <Compile Include="$(NUVORA_ROOT)/src/Shared/Nuvora.Decisions/Domain/Errors/DecisionsDomainException.cs" Link="Source/DecisionsDomainException.cs" />
+  </ItemGroup>
+
+  <!-- The source repository's Brain Spec sources and embedded schemas, compiled into this driver under the resource names its own project gives them. -->
+  <ItemGroup Condition="'$(NUVORA_ROOT)' != ''">
+    <Compile Include="$(NUVORA_ROOT)/src/Platform/Spec/Synapbiz.Spec.Brain/*.cs" LinkBase="Source/Spec.Brain" />
+    <EmbeddedResource Include="$(NUVORA_ROOT)/src/Platform/Spec/Synapbiz.Spec.Brain/Schemas/*.json" LogicalName="Synapbiz.Spec.Brain.Schemas.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <Target Name="RequireNuvoraRoot" BeforeTargets="BeforeBuild;BeforeResolveReferences;CoreCompile">

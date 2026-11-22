@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "module": "synthetic",
+  "sections": [],
+  "facts": [
+    {
+      "id": "synthetic.boolean/fact",
+      "kind": "synthetic.boolean",
+      "name": "fact",
+      "type": "Boolean",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "synthetic.code/fact",
+      "kind": "synthetic.code",
+      "name": "fact",
+      "type": "Code",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "synthetic.date/fact",
+      "kind": "synthetic.date",
+      "name": "fact",
+      "type": "Date",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "synthetic.decimal/fact",
+      "kind": "synthetic.decimal",
+      "name": "fact",
+      "type": "Decimal",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "synthetic.enum/fact",
+      "kind": "synthetic.enum",
+      "name": "fact",
+      "type": "Enum",
+      "nullable": true,
+      "allowedValues": [
+        "A",
+        "B"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "synthetic.integer/fact",
+      "kind": "synthetic.integer",
+      "name": "fact",
+      "type": "Integer",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "synthetic.money/fact",
+      "kind": "synthetic.money",
+      "name": "fact",
+      "type": "Money",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "synthetic.reference/fact",
+      "kind": "synthetic.reference",
+      "name": "fact",
+      "type": "Reference",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": {
+        "ownerModule": "synthetic",
+        "entityType": "fixture.value"
+      },
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "synthetic.boolean",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.read",
+        "author": "synthetic.author",
+        "approve": "synthetic.approve",
+        "readTrace": "synthetic.trace"
+      },
+      "outcomes": []
+    },
+    {
+      "id": "synthetic.code",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.read",
+        "author": "synthetic.author",
+        "approve": "synthetic.approve",
+        "readTrace": "synthetic.trace"
+      },
+      "outcomes": []
+    },
+    {
+      "id": "synthetic.date",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.read",
+        "author": "synthetic.author",
+        "approve": "synthetic.approve",
+        "readTrace": "synthetic.trace"
+      },
+      "outcomes": []
+    },
+    {
+      "id": "synthetic.decimal",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.read",
+        "author": "synthetic.author",
+        "approve": "synthetic.approve",
+        "readTrace": "synthetic.trace"
+      },
+      "outcomes": []
+    },
+    {
+      "id": "synthetic.enum",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.read",
+        "author": "synthetic.author",
+        "approve": "synthetic.approve",
+        "readTrace": "synthetic.trace"
+      },
+      "outcomes": []
+    },
+    {
+      "id": "synthetic.integer",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.read",
+        "author": "synthetic.author",
+        "approve": "synthetic.approve",
+        "readTrace": "synthetic.trace"
+      },
+      "outcomes": []
+    },
+    {
+      "id": "synthetic.money",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.read",
+        "author": "synthetic.author",
+        "approve": "synthetic.approve",
+        "readTrace": "synthetic.trace"
+      },
+      "outcomes": []
+    },
+    {
+      "id": "synthetic.reference",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.read",
+        "author": "synthetic.author",
+        "approve": "synthetic.approve",
+        "readTrace": "synthetic.trace"
+      },
+      "outcomes": []
+    }
+  ],
+  "aggregates": [],
+  "slots": [],
+  "events": [],
+  "actions": [],
+  "dataSources": [],
+  "blocks": []
+}

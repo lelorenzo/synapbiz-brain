@@ -1,0 +1,5314 @@
+[
+  {
+    "name": "rule preserves a legacy row key",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "review-rule",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "sales@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "sales.order_approval_routing",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "review-step",
+            "version": 1,
+            "legacyKey": "review/step",
+            "conditions": [
+              {
+                "fact": "channelKind",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Web"
+                }
+              }
+            ],
+            "outcome": {
+              "approvalState": "manager-approval"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "",
+            "facts": {
+              "channelKind": {
+                "type": "Enum",
+                "value": "Web"
+              },
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "row": "review-step",
+              "outcome": {
+                "approvalState": "manager-approval"
+              }
+            }
+          },
+          {
+            "name": "Unmatched fact",
+            "facts": {
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              },
+              "channelKind": {
+                "type": "Enum",
+                "value": "Pos"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "sales"
+      ],
+      "locales": [
+        "en",
+        "es"
+      ]
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "flow uses a contract insertion point and localized label",
+    "document": {
+      "$spec": "brain.flow@1",
+      "id": "sales-approval",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "sales@1"
+      ],
+      "meta": {},
+      "body": {
+        "module": "sales",
+        "aggregateType": "sales-order",
+        "slot": {
+          "from": "Draft",
+          "to": "Confirmed"
+        },
+        "movementPolicy": 1,
+        "routingKind": "sales.order_approval_routing",
+        "states": [
+          {
+            "id": "manager-approval",
+            "version": 1,
+            "label": {
+              "$t": "manager.title"
+            },
+            "kind": 2,
+            "canExit": true
+          }
+        ]
+      },
+      "translations": {
+        "manager.title": {
+          "en": "Manager approval",
+          "es": "Aprobación del gerente"
+        }
+      }
+    },
+    "context": {
+      "contracts": [
+        "sales"
+      ],
+      "locales": [
+        "en",
+        "es"
+      ]
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "unknown fact",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "review-rule",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "sales@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "sales.order_approval_routing",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "review-step",
+            "version": 1,
+            "legacyKey": "review/step",
+            "conditions": [
+              {
+                "fact": "notDeclared",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Web"
+                }
+              }
+            ],
+            "outcome": {
+              "approvalState": "manager-approval"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "Web follows the review row",
+            "facts": {
+              "channelKind": {
+                "type": "Enum",
+                "value": "Web"
+              },
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "row": "review-step",
+              "outcome": {
+                "approvalState": "manager-approval"
+              }
+            }
+          },
+          {
+            "name": "Unmatched fact",
+            "facts": {
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              },
+              "channelKind": {
+                "type": "Enum",
+                "value": "Pos"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "sales"
+      ],
+      "locales": [
+        "en",
+        "es"
+      ]
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.validation.unknown_fact",
+          "path": "/body/rows/0/conditions/0/fact"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Range is unavailable on Enum",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "review-rule",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "sales@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "sales.order_approval_routing",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "review-step",
+            "version": 1,
+            "legacyKey": "review/step",
+            "conditions": [
+              {
+                "fact": "channelKind",
+                "op": "range",
+                "value": {
+                  "type": "Enum",
+                  "value": "Web"
+                }
+              }
+            ],
+            "outcome": {
+              "approvalState": "manager-approval"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "Web follows the review row",
+            "facts": {
+              "channelKind": {
+                "type": "Enum",
+                "value": "Web"
+              },
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "row": "review-step",
+              "outcome": {
+                "approvalState": "manager-approval"
+              }
+            }
+          },
+          {
+            "name": "Unmatched fact",
+            "facts": {
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              },
+              "channelKind": {
+                "type": "Enum",
+                "value": "Pos"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "sales"
+      ],
+      "locales": [
+        "en",
+        "es"
+      ]
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "v0 decides with an outcome",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "review-rule",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "sales@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "sales.order_approval_routing",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "review-step",
+            "version": 1,
+            "legacyKey": "review/step",
+            "conditions": [
+              {
+                "fact": "channelKind",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Web"
+                }
+              }
+            ],
+            "outcome": {
+              "approvalState": "manager-approval"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "Web follows the review row",
+            "facts": {
+              "channelKind": {
+                "type": "Enum",
+                "value": "Web"
+              },
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "row": "review-step"
+            }
+          },
+          {
+            "name": "Unmatched fact",
+            "facts": {
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              },
+              "channelKind": {
+                "type": "Enum",
+                "value": "Pos"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "sales"
+      ],
+      "locales": [
+        "en",
+        "es"
+      ]
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "brain.rule.golden_outcome_missing",
+          "path": "/body/goldens/0/expect/outcome"
+        }
+      ]
+    }
+  },
+  {
+    "name": "flow cannot invent an insertion point",
+    "document": {
+      "$spec": "brain.flow@1",
+      "id": "sales-approval",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "sales@1"
+      ],
+      "meta": {},
+      "body": {
+        "module": "sales",
+        "aggregateType": "sales-order",
+        "slot": {
+          "from": "Draft",
+          "to": "Shipped"
+        },
+        "movementPolicy": 1,
+        "routingKind": "sales.order_approval_routing",
+        "states": [
+          {
+            "id": "manager-approval",
+            "version": 1,
+            "label": {
+              "$t": "manager.title"
+            },
+            "kind": 2,
+            "canExit": true
+          }
+        ]
+      },
+      "translations": {
+        "manager.title": {
+          "en": "Manager approval",
+          "es": "Aprobación del gerente"
+        }
+      }
+    },
+    "context": {
+      "contracts": [
+        "sales"
+      ],
+      "locales": [
+        "en",
+        "es"
+      ]
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "workflow.overlay.slot_not_allowed",
+          "path": "/body/slot"
+        }
+      ]
+    }
+  },
+  {
+    "name": "flow routing must be declared on the slot",
+    "document": {
+      "$spec": "brain.flow@1",
+      "id": "sales-approval",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "sales@1"
+      ],
+      "meta": {},
+      "body": {
+        "module": "sales",
+        "aggregateType": "sales-order",
+        "slot": {
+          "from": "Draft",
+          "to": "Confirmed"
+        },
+        "movementPolicy": 1,
+        "routingKind": "sales.unknown",
+        "states": [
+          {
+            "id": "manager-approval",
+            "version": 1,
+            "label": {
+              "$t": "manager.title"
+            },
+            "kind": 2,
+            "canExit": true
+          }
+        ]
+      },
+      "translations": {
+        "manager.title": {
+          "en": "Manager approval",
+          "es": "Aprobación del gerente"
+        }
+      }
+    },
+    "context": {
+      "contracts": [
+        "sales"
+      ],
+      "locales": [
+        "en",
+        "es"
+      ]
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "workflow.overlay.routing_not_allowed",
+          "path": "/body/routingKind"
+        }
+      ]
+    }
+  },
+  {
+    "name": "missing reference",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "review-rule",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "brain.rule/missing-rule"
+        }
+      ],
+      "requires": [
+        "sales@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "sales.order_approval_routing",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "review-step",
+            "version": 1,
+            "legacyKey": "review/step",
+            "conditions": [
+              {
+                "fact": "channelKind",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Web"
+                }
+              }
+            ],
+            "outcome": {
+              "approvalState": "manager-approval"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "Web follows the review row",
+            "facts": {
+              "channelKind": {
+                "type": "Enum",
+                "value": "Web"
+              },
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "row": "review-step",
+              "outcome": {
+                "approvalState": "manager-approval"
+              }
+            }
+          },
+          {
+            "name": "Unmatched fact",
+            "facts": {
+              "branch": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-4000-8000-000000000001",
+                  "labelSource": {
+                    "ownerModule": "organization",
+                    "entityType": "organization.branch"
+                  }
+                }
+              },
+              "discountPctOrder": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "discountPctMaxLine": {
+                "type": "Decimal",
+                "value": "0"
+              },
+              "manualPriceLines": {
+                "type": "Integer",
+                "value": "0"
+              },
+              "orderTotal": {
+                "type": "Money",
+                "value": {
+                  "amount": "50",
+                  "currency": "USD"
+                }
+              },
+              "channelKind": {
+                "type": "Enum",
+                "value": "Pos"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "sales"
+      ],
+      "locales": [
+        "en",
+        "es"
+      ]
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.semantics.reference",
+          "path": "/uses/0/$ref"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Code × Any",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-any",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "any",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "AA"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Code × Equals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-equals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "AA"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "AA"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Code × NotEquals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-notequals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notEquals",
+                "value": {
+                  "type": "Code",
+                  "value": "BB"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "AA"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Code × In",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-in",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "in",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Code",
+                    "value": "AA"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "AA"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Code × NotIn",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-notin",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notIn",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Code",
+                    "value": "BB"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "AA"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Code × IsNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-isnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {},
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Code × IsNotNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-isnotnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNotNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "AA"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Code × Range",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-range",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "range",
+                "value": {
+                  "type": "Code",
+                  "value": "AA"
+                },
+                "upper": {
+                  "type": "Code",
+                  "value": "AA"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "AA"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Code × StartsWith",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-code-startswith",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "startsWith",
+                "value": {
+                  "type": "Code",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "AA"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Enum × Any",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-any",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "any",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Enum",
+                "value": "A"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Enum × Equals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-equals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Enum",
+                "value": "A"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Enum × NotEquals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-notequals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notEquals",
+                "value": {
+                  "type": "Enum",
+                  "value": "B"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Enum",
+                "value": "A"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Enum × In",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-in",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "in",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Enum",
+                    "value": "A"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Enum",
+                "value": "A"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Enum × NotIn",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-notin",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notIn",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Enum",
+                    "value": "B"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Enum",
+                "value": "A"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Enum × IsNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-isnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {},
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Enum × IsNotNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-isnotnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNotNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Enum",
+                "value": "A"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Enum × Range",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-range",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "range",
+                "value": {
+                  "type": "Enum",
+                  "value": "A"
+                },
+                "upper": {
+                  "type": "Enum",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Enum",
+                "value": "A"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Enum × StartsWith",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-enum-startswith",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.enum",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "startsWith",
+                "value": {
+                  "type": "Code",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Enum",
+                "value": "A"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Boolean × Any",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-any",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "any",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Boolean × Equals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-equals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Boolean",
+                  "value": true
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Boolean × NotEquals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-notequals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notEquals",
+                "value": {
+                  "type": "Boolean",
+                  "value": false
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Boolean × In",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-in",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "in",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Boolean",
+                    "value": true
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Boolean × NotIn",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-notin",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notIn",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Boolean",
+                    "value": false
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Boolean × IsNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-isnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {},
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Boolean × IsNotNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-isnotnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNotNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Boolean × Range",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-range",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "range",
+                "value": {
+                  "type": "Boolean",
+                  "value": true
+                },
+                "upper": {
+                  "type": "Boolean",
+                  "value": true
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Boolean × StartsWith",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-boolean-startswith",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.boolean",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "startsWith",
+                "value": {
+                  "type": "Code",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Integer × Any",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-any",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "any",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "9223372036854775806"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Integer × Equals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-equals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Integer",
+                  "value": "9223372036854775806"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "9223372036854775806"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Integer × NotEquals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-notequals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notEquals",
+                "value": {
+                  "type": "Integer",
+                  "value": "9223372036854775807"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "9223372036854775806"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Integer × In",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-in",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "in",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Integer",
+                    "value": "9223372036854775806"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "9223372036854775806"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Integer × NotIn",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-notin",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notIn",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Integer",
+                    "value": "9223372036854775807"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "9223372036854775806"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Integer × IsNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-isnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {},
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Integer × IsNotNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-isnotnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNotNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "9223372036854775806"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Integer × Range",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-range",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "range",
+                "value": {
+                  "type": "Integer",
+                  "value": "9223372036854775806"
+                },
+                "upper": {
+                  "type": "Integer",
+                  "value": "9223372036854775806"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "9223372036854775806"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Integer × StartsWith",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-integer-startswith",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "startsWith",
+                "value": {
+                  "type": "Code",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "9223372036854775806"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Decimal × Any",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-any",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "any",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Decimal",
+                "value": "1.5"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Decimal × Equals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-equals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Decimal",
+                  "value": "1.5"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Decimal",
+                "value": "1.5"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Decimal × NotEquals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-notequals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notEquals",
+                "value": {
+                  "type": "Decimal",
+                  "value": "2"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Decimal",
+                "value": "1.5"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Decimal × In",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-in",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "in",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Decimal",
+                    "value": "1.5"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Decimal",
+                "value": "1.5"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Decimal × NotIn",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-notin",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notIn",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Decimal",
+                    "value": "2"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Decimal",
+                "value": "1.5"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Decimal × IsNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-isnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {},
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Decimal × IsNotNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-isnotnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNotNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Decimal",
+                "value": "1.5"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Decimal × Range",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-range",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "range",
+                "value": {
+                  "type": "Decimal",
+                  "value": "1.5"
+                },
+                "upper": {
+                  "type": "Decimal",
+                  "value": "1.5"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Decimal",
+                "value": "1.5"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Decimal × StartsWith",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-decimal-startswith",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.decimal",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "startsWith",
+                "value": {
+                  "type": "Code",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Decimal",
+                "value": "1.5"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Money × Any",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-any",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "any",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Money",
+                "value": {
+                  "amount": "1.5",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Money × Equals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-equals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Money",
+                  "value": {
+                    "amount": "1.5",
+                    "currency": "USD"
+                  }
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Money",
+                "value": {
+                  "amount": "1.5",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Money × NotEquals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-notequals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notEquals",
+                "value": {
+                  "type": "Money",
+                  "value": {
+                    "amount": "2",
+                    "currency": "USD"
+                  }
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Money",
+                "value": {
+                  "amount": "1.5",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Money × In",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-in",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "in",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Money",
+                    "value": {
+                      "amount": "1.5",
+                      "currency": "USD"
+                    }
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Money",
+                "value": {
+                  "amount": "1.5",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Money × NotIn",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-notin",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notIn",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Money",
+                    "value": {
+                      "amount": "2",
+                      "currency": "USD"
+                    }
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Money",
+                "value": {
+                  "amount": "1.5",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Money × IsNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-isnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {},
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Money × IsNotNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-isnotnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNotNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Money",
+                "value": {
+                  "amount": "1.5",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Money × Range",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-range",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "range",
+                "value": {
+                  "type": "Money",
+                  "value": {
+                    "amount": "1.5",
+                    "currency": "USD"
+                  }
+                },
+                "upper": {
+                  "type": "Money",
+                  "value": {
+                    "amount": "1.5",
+                    "currency": "USD"
+                  }
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Money",
+                "value": {
+                  "amount": "1.5",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Money × StartsWith",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-money-startswith",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.money",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "startsWith",
+                "value": {
+                  "type": "Code",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Money",
+                "value": {
+                  "amount": "1.5",
+                  "currency": "USD"
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Date × Any",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-any",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "any",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Date",
+                "value": "2026-01-01"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Date × Equals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-equals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Date",
+                  "value": "2026-01-01"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Date",
+                "value": "2026-01-01"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Date × NotEquals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-notequals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notEquals",
+                "value": {
+                  "type": "Date",
+                  "value": "2026-01-02"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Date",
+                "value": "2026-01-01"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Date × In",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-in",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "in",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Date",
+                    "value": "2026-01-01"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Date",
+                "value": "2026-01-01"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Date × NotIn",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-notin",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notIn",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Date",
+                    "value": "2026-01-02"
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Date",
+                "value": "2026-01-01"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Date × IsNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-isnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {},
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Date × IsNotNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-isnotnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNotNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Date",
+                "value": "2026-01-01"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Date × Range",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-range",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "range",
+                "value": {
+                  "type": "Date",
+                  "value": "2026-01-01"
+                },
+                "upper": {
+                  "type": "Date",
+                  "value": "2026-01-01"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Date",
+                "value": "2026-01-01"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Date × StartsWith",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-date-startswith",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.date",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "startsWith",
+                "value": {
+                  "type": "Code",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Date",
+                "value": "2026-01-01"
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Reference × Any",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-any",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "any",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-0000-0000-000000000000",
+                  "labelSource": {
+                    "ownerModule": "synthetic",
+                    "entityType": "fixture.value"
+                  }
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Reference × Equals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-equals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Reference",
+                  "value": {
+                    "guid": "00000000-0000-0000-0000-000000000000",
+                    "labelSource": {
+                      "ownerModule": "synthetic",
+                      "entityType": "fixture.value"
+                    }
+                  }
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-0000-0000-000000000000",
+                  "labelSource": {
+                    "ownerModule": "synthetic",
+                    "entityType": "fixture.value"
+                  }
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Reference × NotEquals",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-notequals",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notEquals",
+                "value": {
+                  "type": "Reference",
+                  "value": {
+                    "guid": "00000000-0000-4000-8000-000000000002",
+                    "labelSource": {
+                      "ownerModule": "synthetic",
+                      "entityType": "fixture.value"
+                    }
+                  }
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-0000-0000-000000000000",
+                  "labelSource": {
+                    "ownerModule": "synthetic",
+                    "entityType": "fixture.value"
+                  }
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Reference × In",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-in",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "in",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Reference",
+                    "value": {
+                      "guid": "00000000-0000-0000-0000-000000000000",
+                      "labelSource": {
+                        "ownerModule": "synthetic",
+                        "entityType": "fixture.value"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-0000-0000-000000000000",
+                  "labelSource": {
+                    "ownerModule": "synthetic",
+                    "entityType": "fixture.value"
+                  }
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Reference × NotIn",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-notin",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "notIn",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": [
+                  {
+                    "type": "Reference",
+                    "value": {
+                      "guid": "00000000-0000-4000-8000-000000000002",
+                      "labelSource": {
+                        "ownerModule": "synthetic",
+                        "entityType": "fixture.value"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-0000-0000-000000000000",
+                  "labelSource": {
+                    "ownerModule": "synthetic",
+                    "entityType": "fixture.value"
+                  }
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Reference × IsNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-isnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {},
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Reference × IsNotNull",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-isnotnull",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "isNotNull",
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-0000-0000-000000000000",
+                  "labelSource": {
+                    "ownerModule": "synthetic",
+                    "entityType": "fixture.value"
+                  }
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "matrix: Reference × Range",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-range",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "range",
+                "value": {
+                  "type": "Reference",
+                  "value": {
+                    "guid": "00000000-0000-0000-0000-000000000000",
+                    "labelSource": {
+                      "ownerModule": "synthetic",
+                      "entityType": "fixture.value"
+                    }
+                  }
+                },
+                "upper": {
+                  "type": "Reference",
+                  "value": {
+                    "guid": "00000000-0000-0000-0000-000000000000",
+                    "labelSource": {
+                      "ownerModule": "synthetic",
+                      "entityType": "fixture.value"
+                    }
+                  }
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-0000-0000-000000000000",
+                  "labelSource": {
+                    "ownerModule": "synthetic",
+                    "entityType": "fixture.value"
+                  }
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  },
+  {
+    "name": "matrix: Reference × StartsWith",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "matrix-reference-startswith",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.reference",
+        "hitPolicy": "unique",
+        "rows": [
+          {
+            "id": "match",
+            "version": 1,
+            "legacyKey": "match",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "startsWith",
+                "value": {
+                  "type": "Code",
+                  "value": "A"
+                },
+                "lowerInclusive": true,
+                "upperInclusive": true,
+                "values": []
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "sample",
+            "facts": {
+              "fact": {
+                "type": "Reference",
+                "value": {
+                  "guid": "00000000-0000-0000-0000-000000000000",
+                  "labelSource": {
+                    "ownerModule": "synthetic",
+                    "entityType": "fixture.value"
+                  }
+                }
+              }
+            },
+            "expect": {
+              "outcome": {},
+              "row": "match"
+            }
+          }
+        ]
+      }
+    },
+    "context": {
+      "contracts": [
+        "synthetic"
+      ],
+      "locales": []
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "decisions.condition.operator_not_allowed",
+          "path": "/body/rows/0/conditions/0/op"
+        }
+      ]
+    }
+  }
+]

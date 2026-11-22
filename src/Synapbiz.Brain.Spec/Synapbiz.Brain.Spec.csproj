@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Synapbiz.Brain.Spec</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Spec</AssemblyName>
+    <PackageId>Synapbiz.Brain.Spec</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>brain.rule@1 documents for the Brain decision engine: schema, validation, loading into decision tables and evaluation with provenance.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Schemas/brain.rule.v1.json" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,1149 @@
+{
+  "schemaVersion": 1,
+  "module": "sales",
+  "sections": [],
+  "facts": [
+    {
+      "id": "sales.order_approval_routing/branch",
+      "kind": "sales.order_approval_routing",
+      "name": "branch",
+      "type": "Reference",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": {
+        "ownerModule": "organization",
+        "entityType": "organization.branch"
+      },
+      "catalogFactId": null
+    },
+    {
+      "id": "sales.order_approval_routing/channelKind",
+      "kind": "sales.order_approval_routing",
+      "name": "channelKind",
+      "type": "Enum",
+      "nullable": false,
+      "allowedValues": [
+        "B2B",
+        "Marketplace",
+        "Pos",
+        "Web"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "sales.order_approval_routing/creditAction",
+      "kind": "sales.order_approval_routing",
+      "name": "creditAction",
+      "type": "Enum",
+      "nullable": true,
+      "allowedValues": [
+        "Hold",
+        "None",
+        "Warn"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "sales.order_approval_routing/currencyCode",
+      "kind": "sales.order_approval_routing",
+      "name": "currencyCode",
+      "type": "Code",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "sales.order_approval_routing/customerSegment",
+      "kind": "sales.order_approval_routing",
+      "name": "customerSegment",
+      "type": "Code",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "sales.order_approval_routing/discountPctMaxLine",
+      "kind": "sales.order_approval_routing",
+      "name": "discountPctMaxLine",
+      "type": "Decimal",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "sales.order_approval_routing/discountPctOrder",
+      "kind": "sales.order_approval_routing",
+      "name": "discountPctOrder",
+      "type": "Decimal",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "sales.order_approval_routing/manualPriceLines",
+      "kind": "sales.order_approval_routing",
+      "name": "manualPriceLines",
+      "type": "Integer",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "sales.order_approval_routing/orderTotal",
+      "kind": "sales.order_approval_routing",
+      "name": "orderTotal",
+      "type": "Money",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "sales.order_approval_routing",
+      "schemaVersion": 2,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "sales.decisions.read",
+        "author": "sales.decisions.author",
+        "approve": "sales.decisions.approve",
+        "readTrace": "sales.decisions.read_trace"
+      },
+      "outcomes": [
+        {
+          "name": "approvalState",
+          "type": "Code",
+          "nullable": true,
+          "labelSource": null
+        }
+      ]
+    }
+  ],
+  "aggregates": [
+    {
+      "id": "sales-order",
+      "class": 1,
+      "states": [
+        "Cancelled",
+        "Closed",
+        "Confirmed",
+        "Draft",
+        "Invoiced",
+        "PartiallyInvoiced",
+        "PartiallyShipped",
+        "Shipped"
+      ]
+    }
+  ],
+  "slots": [
+    {
+      "id": "sales.sales-order.Closed-\u003EPartiallyInvoiced",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Closed",
+      "to": "PartiallyInvoiced",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Closed-\u003EShipped",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Closed",
+      "to": "Shipped",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Confirmed-\u003ECancelled",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Confirmed",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Confirmed-\u003EInvoiced",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Confirmed",
+      "to": "Invoiced",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Confirmed-\u003EPartiallyInvoiced",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Confirmed",
+      "to": "PartiallyInvoiced",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Confirmed-\u003EPartiallyShipped",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Confirmed",
+      "to": "PartiallyShipped",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Confirmed-\u003EShipped",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Confirmed",
+      "to": "Shipped",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Draft-\u003ECancelled",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Draft",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Draft-\u003EConfirmed",
+      "aggregate": "sales-order",
+      "class": 3,
+      "from": "Draft",
+      "to": "Confirmed",
+      "customisable": true,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": [
+        "sales.order_approval_routing"
+      ]
+    },
+    {
+      "id": "sales.sales-order.Invoiced-\u003EClosed",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Invoiced",
+      "to": "Closed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Invoiced-\u003EConfirmed",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Invoiced",
+      "to": "Confirmed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Invoiced-\u003EPartiallyInvoiced",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Invoiced",
+      "to": "PartiallyInvoiced",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Invoiced-\u003EPartiallyShipped",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Invoiced",
+      "to": "PartiallyShipped",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.PartiallyInvoiced-\u003EClosed",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "PartiallyInvoiced",
+      "to": "Closed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.PartiallyInvoiced-\u003EConfirmed",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "PartiallyInvoiced",
+      "to": "Confirmed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.PartiallyInvoiced-\u003EInvoiced",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "PartiallyInvoiced",
+      "to": "Invoiced",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.PartiallyInvoiced-\u003EPartiallyShipped",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "PartiallyInvoiced",
+      "to": "PartiallyShipped",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.PartiallyInvoiced-\u003EShipped",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "PartiallyInvoiced",
+      "to": "Shipped",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.PartiallyShipped-\u003EInvoiced",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "PartiallyShipped",
+      "to": "Invoiced",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.PartiallyShipped-\u003EPartiallyInvoiced",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "PartiallyShipped",
+      "to": "PartiallyInvoiced",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.PartiallyShipped-\u003EShipped",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "PartiallyShipped",
+      "to": "Shipped",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Shipped-\u003EClosed",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Shipped",
+      "to": "Closed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "sales.sales-order.Shipped-\u003EPartiallyInvoiced",
+      "aggregate": "sales-order",
+      "class": 1,
+      "from": "Shipped",
+      "to": "PartiallyInvoiced",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    }
+  ],
+  "events": [
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.InvoiceIssuedV1",
+      "fields": [
+        {
+          "name": "AccountingPolicy",
+          "type": "Nuvora.Modules.Accounting.Contracts.IntegrationEvents.AccountingPolicySnapshotV1"
+        },
+        {
+          "name": "CheckoutSessionId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "CustomerPartyId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "CustomerSegment",
+          "type": "System.String"
+        },
+        {
+          "name": "DueDate",
+          "type": "System.Nullable\u00601[System.DateOnly]"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "InvoiceId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "IssuedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "RoundingPolicy",
+          "type": "Nuvora.Domain.Common.TaxRoundingPolicy"
+        },
+        {
+          "name": "SalesChannelId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShippingAmount",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "SubtotalAmount",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "TaxAmount",
+          "type": "System.Nullable\u00601[System.Decimal]"
+        },
+        {
+          "name": "Taxes",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[Nuvora.Modules.Sales.Contracts.IntegrationEvents.InvoiceTaxComponentV1]"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "Type",
+          "type": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.InvoiceTypeV1"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.InvoiceOverdueV1",
+      "fields": [
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "CustomerName",
+          "type": "System.String"
+        },
+        {
+          "name": "DueDate",
+          "type": "System.DateOnly"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "InvoiceId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OutstandingAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.InvoiceVoidedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "InvoiceId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Type",
+          "type": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.InvoiceTypeV1"
+        },
+        {
+          "name": "VoidedAtUtc",
+          "type": "System.DateTime"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.ReturnDecidedV1",
+      "fields": [
+        {
+          "name": "CheckoutSessionId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "DecidedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "Decision",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "ReturnId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.ReturnRegisteredV1",
+      "fields": [
+        {
+          "name": "CheckoutSessionId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "RegisteredAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "ReturnId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Source",
+          "type": "System.String"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.SalesChannelProvisionedV1",
+      "fields": [
+        {
+          "name": "Code",
+          "type": "System.String"
+        },
+        {
+          "name": "DefaultCurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ExpectedIncludesTax",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "Kind",
+          "type": "System.String"
+        },
+        {
+          "name": "Name",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SalesChannelId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.SalesOrderApprovalNotificationV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "CorrelationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "CustomerPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FulfillerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Outcome",
+          "type": "System.String"
+        },
+        {
+          "name": "OverlayCode",
+          "type": "System.String"
+        },
+        {
+          "name": "PayeeTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "RequestedBy",
+          "type": "System.String"
+        },
+        {
+          "name": "RequiredPermission",
+          "type": "System.String"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "TransitionClass",
+          "type": "System.String"
+        },
+        {
+          "name": "WorkflowVersion",
+          "type": "System.Int32"
+        },
+        {
+          "name": "WorkflowVersionId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.SalesOrderCancelledV1",
+      "fields": [
+        {
+          "name": "CancelledAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "CheckoutSessionId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WasConfirmed",
+          "type": "System.Boolean"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.SalesOrderConfirmedV1",
+      "fields": [
+        {
+          "name": "AccountingPolicy",
+          "type": "Nuvora.Modules.Accounting.Contracts.IntegrationEvents.AccountingPolicySnapshotV1"
+        },
+        {
+          "name": "BranchId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "CheckoutSessionId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "ConfirmedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "CustomerPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "SourceQuoteId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.SalesOrderRejectedV1",
+      "fields": [
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.SalesOrderStatusChangedV1",
+      "fields": [
+        {
+          "name": "ChangedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "CheckoutSessionId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "NewStatus",
+          "type": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.SalesOrderStatusV1"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "OldStatus",
+          "type": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.SalesOrderStatusV1"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.ShipmentConfirmedV1",
+      "fields": [
+        {
+          "name": "ConfirmedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShipmentId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.ShipmentDeliveredV1",
+      "fields": [
+        {
+          "name": "Actor",
+          "type": "System.String"
+        },
+        {
+          "name": "DeliveredAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "DeliveryNotes",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "ReceivedByName",
+          "type": "System.String"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShipmentId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.ShipmentDeliveryCorrectedV1",
+      "fields": [
+        {
+          "name": "Actor",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PreviousDeliveredAtUtc",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "PreviousDeliveryFailedAtUtc",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "PreviousDeliveryFailureReason",
+          "type": "System.String"
+        },
+        {
+          "name": "PreviousDeliveryNotes",
+          "type": "System.String"
+        },
+        {
+          "name": "PreviousDeliveryRecordedBy",
+          "type": "System.String"
+        },
+        {
+          "name": "PreviousOutcome",
+          "type": "System.String"
+        },
+        {
+          "name": "PreviousReceivedByName",
+          "type": "System.String"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShipmentId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.ShipmentDeliveryFailedV1",
+      "fields": [
+        {
+          "name": "Actor",
+          "type": "System.String"
+        },
+        {
+          "name": "DeliveryFailedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "DeliveryFailureReason",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShipmentId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Sales.Contracts.IntegrationEvents.ShipmentShippedV1",
+      "fields": [
+        {
+          "name": "AccountingPolicy",
+          "type": "Nuvora.Modules.Accounting.Contracts.IntegrationEvents.AccountingPolicySnapshotV1"
+        },
+        {
+          "name": "CarrierName",
+          "type": "System.String"
+        },
+        {
+          "name": "CheckoutSessionId",
+          "type": "System.Nullable\u00601[System.Guid]"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "ReturnSelfServiceUntilUtc",
+          "type": "System.Nullable\u00601[System.DateTime]"
+        },
+        {
+          "name": "SalesOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShipmentId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ShippedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TrackingNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    }
+  ],
+  "actions": [],
+  "dataSources": [],
+  "blocks": []
+}

@@ -1,6 +1,6 @@
 # Architecture overview
 
-Design: [B0 spec](../specs/b0-decision-engine-extraction/spec.md). This page records what PR 1 ships.
+Design: [B0 spec](../specs/b0-decision-engine-extraction/spec.md). This page records what PR 1 and PR 2 ship.
 
 ## Libraries and the dependency rule
 
@@ -8,10 +8,12 @@ Design: [B0 spec](../specs/b0-decision-engine-extraction/spec.md). This page rec
 | --- | --- | --- | --- |
 | `brain-engine` | `Synapbiz.Brain.Contracts` | The source repository's `Nuvora.Decisions.Contracts` minus `Traces/` (28 files), plus `ContentHash` and `BrainException` | BCL only |
 | `brain-engine` | `Synapbiz.Brain.Engine` | The source repository's `Nuvora.Decisions.Engine` (14 files) | `Synapbiz.Brain.Contracts` |
-| `brain-spec` (PR 2) | `Synapbiz.Brain.Spec` | `brain.rule@1` schema, loader, definition codec | the two above, `JsonSchema.Net` |
+| `brain-spec` | `Synapbiz.Brain.Spec` | `brain.rule@1` schema, contract reader, rule loader and `BrainRule` (compile, evaluate with provenance, validate, run goldens); see [the PR 2 spec](../specs/b0-brain-spec-rules/spec.md) | the two above, `JsonSchema.Net` 8.0.5 |
 | `brain-host-efcore` | later | persistence, lifecycle, traces | not started |
 
-Dependency rule: `Synapbiz.Brain.Contracts` and `Synapbiz.Brain.Engine` reference only the base class library and each other, and declare no package reference. The engine reads no clock, GUID generator, randomness, file or network; time and identity arrive as parameters. Both rules are enforced by `tests/Synapbiz.Brain.ArchitectureTests`.
+Dependency rule: `Synapbiz.Brain.Contracts` and `Synapbiz.Brain.Engine` reference only the base class library and each other, and declare no package reference. `Synapbiz.Brain.Spec` references the base class library, those two and `JsonSchema.Net` with its transitive packages, nothing else. None of the three reads a clock, GUID generator, randomness, file or network; time and identity arrive as parameters. The purity scan covers methods, constructors and type initializers of all three assemblies. These rules are enforced by `tests/Synapbiz.Brain.ArchitectureTests`.
+
+Using the rule library: [brain-rule-v1](../reference/brain-rule-v1.md) (rule and contract formats) and [interim-rule-shape](../migration/interim-rule-shape.md) (moving an interim rule file to `brain.rule@1`).
 
 Namespaces are kept (`Nuvora.Decisions.*`) so the move is mechanical; new types live in `Synapbiz.Brain`. Renaming the namespaces is a later step.
 
@@ -31,11 +33,13 @@ Three independent proofs, none of which changes the source repository (its `bin/
 
 1. Source drift guard. Every moved file equals its original at the commit pinned in `tools/parity/SOURCE.lock`, the three patched files differ by exactly `tools/parity/expected.patch`, and no extra file exists here.
 
+   The same guard has a second section: seven data files (the `brain.rule@1` schema, the shared conformance suite and the five module contracts) must be byte-identical to the source repository's, since the Spec tests and the parity scenarios read them.
+
    ```bash
    bash tools/parity/check-source-drift.sh <source-checkout>
    ```
 
-2. Behaviour parity, live. One scenario source (`tests/parity/Scenarios`) is compiled twice, against this library (`Driver.Library`) and against the source repository's projects (`Driver.Nuvora`, from `NUVORA_ROOT`). The test asserts the two lists of (scenario, result) are identical. It fails loudly when `NUVORA_ROOT` is not set and is not part of the default solution.
+2. Behaviour parity, live. One scenario source (`tests/parity/Scenarios`) is compiled twice, against this library (`Driver.Library`) and against the source repository's projects (`Driver.Nuvora`, from `NUVORA_ROOT`). The test asserts the two lists of (scenario, result) are identical. The scenario source has two groups: the engine scenarios of PR 1 and, for PR 2, the `spec/` group, which projects each `brain.rule@1` case to a table, goldens and golden run through an `IRuleProjector`: `Driver.Library` with `BrainRuleLoader`, `Driver.Nuvora` with the source repository's `BrainValidator`, `LegacyBrainBridge.FromRule` and `DecisionDefinitionCodec`. The source repository's Brain Spec sources are compiled into `Driver.Nuvora` (not project-referenced) because their assembly has the same name as `Synapbiz.Brain.Spec`. It fails loudly when `NUVORA_ROOT` is not set and is not part of the default solution.
 
    ```bash
    NUVORA_ROOT=<source-checkout> dotnet test Synapbiz.Brain.Parity.sln -c Release
@@ -49,6 +53,7 @@ Three independent proofs, none of which changes the source repository (its `bin/
 
 ## Tests
 
-- `tests/Synapbiz.Brain.Engine.Tests`: the engine unit tests moved unchanged from the source repository, tests for `ContentHash` and `BrainException`, and the baseline parity test.
-- `tests/Synapbiz.Brain.ArchitectureTests`: BCL-only references, no package references, engine purity.
+- `tests/Synapbiz.Brain.Engine.Tests`: the engine unit tests moved unchanged from the source repository, tests for `ContentHash` and `BrainException`, and the baseline parity test (it compiles the shared scenarios, which now include the `spec/` group, so it references `Synapbiz.Brain.Spec`).
+- `tests/Synapbiz.Brain.Spec.Tests`: the 77 rule conformance cases, contract reader, loader structure errors, provenance, the synthetic readiness example and the documentation example test.
+- `tests/Synapbiz.Brain.ArchitectureTests`: BCL-only references for Contracts and Engine, no package references for them, purity of all three libraries, the reference set of `Synapbiz.Brain.Spec`.
 - `tests/parity`: scenarios, the two drivers and the live parity test.

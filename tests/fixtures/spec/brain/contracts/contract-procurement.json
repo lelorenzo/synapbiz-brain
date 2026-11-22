@@ -1,0 +1,1052 @@
+{
+  "schemaVersion": 1,
+  "module": "procurement",
+  "sections": [],
+  "facts": [
+    {
+      "id": "procurement.po_approval_routing/currencyCode",
+      "kind": "procurement.po_approval_routing",
+      "name": "currencyCode",
+      "type": "Code",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "id": "procurement.po_approval_routing/orderTotal",
+      "kind": "procurement.po_approval_routing",
+      "name": "orderTotal",
+      "type": "Money",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "procurement.po_approval_routing",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "procurement.decisions.read",
+        "author": "procurement.decisions.author",
+        "approve": "procurement.decisions.approve",
+        "readTrace": "procurement.decisions.read"
+      },
+      "outcomes": [
+        {
+          "name": "approvalState",
+          "type": "Code",
+          "nullable": false,
+          "labelSource": null
+        }
+      ]
+    }
+  ],
+  "aggregates": [
+    {
+      "id": "purchase-order",
+      "class": 1,
+      "states": [
+        "Cancelled",
+        "Closed",
+        "Confirmed",
+        "Draft",
+        "Executing",
+        "OnHold",
+        "PendingGates",
+        "Rejected"
+      ]
+    }
+  ],
+  "slots": [
+    {
+      "id": "procurement.purchase-order.Cancelled-\u003EClosed",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "Cancelled",
+      "to": "Closed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.Confirmed-\u003ECancelled",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "Confirmed",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.Confirmed-\u003EClosed",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "Confirmed",
+      "to": "Closed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.Confirmed-\u003EExecuting",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "Confirmed",
+      "to": "Executing",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.Draft-\u003ECancelled",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "Draft",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.Draft-\u003EConfirmed",
+      "aggregate": "purchase-order",
+      "class": 3,
+      "from": "Draft",
+      "to": "Confirmed",
+      "customisable": true,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": [
+        "procurement.po_approval_routing"
+      ]
+    },
+    {
+      "id": "procurement.purchase-order.Draft-\u003EPendingGates",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "Draft",
+      "to": "PendingGates",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.Draft-\u003ERejected",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "Draft",
+      "to": "Rejected",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.Executing-\u003EClosed",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "Executing",
+      "to": "Closed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.OnHold-\u003ECancelled",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "OnHold",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.OnHold-\u003EConfirmed",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "OnHold",
+      "to": "Confirmed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.OnHold-\u003EPendingGates",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "OnHold",
+      "to": "PendingGates",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.OnHold-\u003ERejected",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "OnHold",
+      "to": "Rejected",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.PendingGates-\u003ECancelled",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "PendingGates",
+      "to": "Cancelled",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.PendingGates-\u003EConfirmed",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "PendingGates",
+      "to": "Confirmed",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.PendingGates-\u003EOnHold",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "PendingGates",
+      "to": "OnHold",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    },
+    {
+      "id": "procurement.purchase-order.PendingGates-\u003ERejected",
+      "aggregate": "purchase-order",
+      "class": 1,
+      "from": "PendingGates",
+      "to": "Rejected",
+      "customisable": false,
+      "allowedGuardKinds": [],
+      "allowedRoutingKinds": []
+    }
+  ],
+  "events": [
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.OverlayReturnedV1",
+      "fields": [
+        {
+          "name": "AggregateRef",
+          "type": "Nuvora.Workflows.Contracts.Runtime.AggregateRef"
+        },
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "CorrelationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderApprovalNotificationV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "CorrelationId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "Outcome",
+          "type": "System.String"
+        },
+        {
+          "name": "OverlayCode",
+          "type": "System.String"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "RequestedBy",
+          "type": "System.String"
+        },
+        {
+          "name": "RequiredPermission",
+          "type": "System.String"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SupplierPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "TransitionClass",
+          "type": "System.String"
+        },
+        {
+          "name": "WorkflowVersion",
+          "type": "System.Int32"
+        },
+        {
+          "name": "WorkflowVersionId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderCancelledV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "CancelledAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PreviousStatus",
+          "type": "System.String"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderClosedShortV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ReclassifiedFromCancellation",
+          "type": "System.Boolean"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ShortCloseReason",
+          "type": "System.String"
+        },
+        {
+          "name": "ShortClosedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderConfirmedLinesV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ConfirmedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Lines",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderConfirmedLine]"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SupplierPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderConfirmedV1",
+      "fields": [
+        {
+          "name": "BranchId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "ConfirmedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Lines",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderConfirmedLine]"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SupplierPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderRejectedV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "RejectedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.PurchaseOrderSubmittedV1",
+      "fields": [
+        {
+          "name": "BranchId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "GateCount",
+          "type": "System.Int32"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SubmittedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "SupplierPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.ReplenishmentDraftsCreatedV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "RuleIds",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[System.Guid]"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SupplierPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "WarehouseId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.VendorBillPostedV1",
+      "fields": [
+        {
+          "name": "BillDate",
+          "type": "System.DateOnly"
+        },
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "DueDate",
+          "type": "System.DateOnly"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "FunctionalCurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "FxRate",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "Lines",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[Nuvora.Modules.Procurement.Contracts.IntegrationEvents.VendorBillPostedLine]"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "PurchaseOrderNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SupplierInvoiceNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "SupplierPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Taxes",
+          "type": "System.Collections.Generic.IReadOnlyList\u00601[Nuvora.Modules.Procurement.Contracts.IntegrationEvents.VendorBillPostedTax]"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "VendorBillId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.VendorBillRejectedV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "CreatedByUserId",
+          "type": "System.String"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "RejectedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "RejectedByUserId",
+          "type": "System.String"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SupplierInvoiceNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "SupplierPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "VendorBillId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.VendorBillSubmittedV1",
+      "fields": [
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "CreatedByUserId",
+          "type": "System.String"
+        },
+        {
+          "name": "CurrencyCode",
+          "type": "System.String"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SubmittedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "SupplierInvoiceNumber",
+          "type": "System.String"
+        },
+        {
+          "name": "SupplierPartyId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TotalAmount",
+          "type": "System.Decimal"
+        },
+        {
+          "name": "VendorBillId",
+          "type": "System.Guid"
+        }
+      ]
+    },
+    {
+      "id": "Nuvora.Modules.Procurement.Contracts.IntegrationEvents.VendorBillVoidedV1",
+      "fields": [
+        {
+          "name": "BillDate",
+          "type": "System.DateOnly"
+        },
+        {
+          "name": "BuyerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "EventId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Number",
+          "type": "System.String"
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "System.DateTimeOffset"
+        },
+        {
+          "name": "PayerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "PurchaseOrderId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "Reason",
+          "type": "System.String"
+        },
+        {
+          "name": "ReceiverTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "SellerTenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "TenantId",
+          "type": "Nuvora.Domain.Common.TenantId"
+        },
+        {
+          "name": "VendorBillId",
+          "type": "System.Guid"
+        },
+        {
+          "name": "VoidedAtUtc",
+          "type": "System.DateTime"
+        },
+        {
+          "name": "VoidedByUserId",
+          "type": "System.String"
+        }
+      ]
+    }
+  ],
+  "actions": [],
+  "dataSources": [],
+  "blocks": []
+}

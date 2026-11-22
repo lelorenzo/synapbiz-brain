@@ -12,8 +12,8 @@
 - [x] Independent verification of every gate
 
 ## PR 2 — brain-spec (rules)
-- [ ] Brief
-- [ ] Schema, loader, codec, conformance, provenance
+- [x] Brief
+- [x] Schema, loader, codec, conformance, provenance (see [b0-brain-spec-rules](../b0-brain-spec-rules/tasks.md))
 
 ## PR 3 — publish and adopt
 - [ ] Feed decision, publish 0.1.0

@@ -1,0 +1,91 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "readiness-notes",
+  "version": 3,
+  "uses": [],
+  "requires": ["synthetic@1"],
+  "meta": {
+    "title": "Readiness notes",
+    "reasons": { "low-score": "The score is below 50." }
+  },
+  "body": {
+    "kind": "synthetic.readiness",
+    "hitPolicy": "collect",
+    "rows": [
+      {
+        "id": "low-score",
+        "version": 1,
+        "legacyKey": "low-score",
+        "conditions": [
+          {
+            "fact": "score",
+            "op": "range",
+            "value": { "type": "Integer", "value": "0" },
+            "upper": { "type": "Integer", "value": "49" },
+            "lowerInclusive": true,
+            "upperInclusive": true
+          }
+        ],
+        "outcome": { "note": "low-score" }
+      },
+      {
+        "id": "mid-score",
+        "version": 1,
+        "legacyKey": "mid-score",
+        "conditions": [
+          {
+            "fact": "score",
+            "op": "range",
+            "value": { "type": "Integer", "value": "50" },
+            "upper": { "type": "Integer", "value": "79" },
+            "lowerInclusive": true,
+            "upperInclusive": true
+          }
+        ],
+        "outcome": { "note": "mid-score" }
+      },
+      {
+        "id": "late-stage",
+        "version": 1,
+        "legacyKey": "late-stage",
+        "conditions": [
+          {
+            "fact": "stage",
+            "op": "in",
+            "values": [
+              { "type": "Enum", "value": "Review" },
+              { "type": "Enum", "value": "Complete" }
+            ]
+          }
+        ],
+        "outcome": { "note": "late-stage" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "A low score at intake",
+        "facts": {
+          "stage": { "type": "Enum", "value": "Intake" },
+          "score": { "type": "Integer", "value": "20" }
+        },
+        "expect": { "row": "low-score", "outcome": [{ "note": "low-score" }] }
+      },
+      {
+        "name": "A mid score in review matches two rows",
+        "facts": {
+          "stage": { "type": "Enum", "value": "Review" },
+          "score": { "type": "Integer", "value": "65" }
+        },
+        "expect": { "row": "mid-score", "outcome": [{ "note": "mid-score" }, { "note": "late-stage" }] }
+      },
+      {
+        "name": "A high score at intake matches nothing",
+        "facts": {
+          "stage": { "type": "Enum", "value": "Intake" },
+          "score": { "type": "Integer", "value": "95" }
+        },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

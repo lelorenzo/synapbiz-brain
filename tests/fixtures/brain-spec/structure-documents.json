@@ -1,0 +1,2310 @@
+[
+  {
+    "name": "missing uses",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": ""
+  },
+  {
+    "name": "extra top-level key",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      },
+      "extra": true
+    },
+    "errorAt": "/extra"
+  },
+  {
+    "name": "revision instead of version",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      },
+      "revision": 1
+    },
+    "errorAt": "/revision"
+  },
+  {
+    "name": "lowercase type tag",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/rows/0/conditions/0/value/type"
+  },
+  {
+    "name": "Integer as a JSON number",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Integer",
+                  "value": 5
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "5"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/rows/0/conditions/0/value/value"
+  },
+  {
+    "name": "unknown operator",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "between",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/rows/0/conditions/0/op"
+  },
+  {
+    "name": "row without legacyKey",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/rows/0"
+  },
+  {
+    "name": "golden with neither row nor outcome",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {}
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/goldens/0/expect"
+  },
+  {
+    "name": "envelope: an id that is not a stable id",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "bad id",
+      "version": 1
+    },
+    "expectedErrors": [
+      "spec.structure.envelope@"
+    ]
+  },
+  {
+    "name": "unknown format major",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@2",
+      "id": "unknown-format",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "spec.structure.unknown_format@/$spec"
+    ]
+  },
+  {
+    "name": "node without a version",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "node-no-version",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {
+        "id": "orphan"
+      },
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "spec.semantics.node@/meta"
+    ]
+  },
+  {
+    "name": "duplicate node id",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "duplicate-id",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "dup-row",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          },
+          {
+            "id": "dup-row",
+            "version": 1,
+            "legacyKey": "B",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "b"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "dup-row",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "spec.semantics.duplicate_id@/body/rows/1/id"
+    ]
+  },
+  {
+    "name": "blank translation key",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "blank-translation",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {
+        "label": {
+          "$t": " "
+        }
+      },
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "spec.semantics.translation@/meta/label/$t"
+    ]
+  },
+  {
+    "name": "a rule that uses itself",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "self-use",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "brain.rule/self-use"
+        }
+      ],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "spec.semantics.cycle@/uses/0/$ref"
+    ]
+  },
+  {
+    "name": "required contract not supplied",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "contract-missing",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1",
+        "other@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.contract.unavailable@/requires/1"
+    ]
+  },
+  {
+    "name": "owning module not required",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "owner-missing",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "other@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.contract.module_required@/requires",
+      "brain.contract.unavailable@/requires/0"
+    ]
+  },
+  {
+    "name": "kind the contract does not declare",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "kind-unknown",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.unknown",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.kind.not_registered@/body/kind"
+    ]
+  },
+  {
+    "name": "two rows with one legacy key",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "duplicate-key",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "SAME",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          },
+          {
+            "id": "row-b",
+            "version": 1,
+            "legacyKey": "SAME",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Closed"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "b"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.validation.duplicate_row_key@/body/rows/1/legacyKey"
+    ]
+  },
+  {
+    "name": "money values in two currencies",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "mixed-money",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "amount",
+                "op": "in",
+                "values": [
+                  {
+                    "type": "Money",
+                    "value": {
+                      "amount": "10",
+                      "currency": "USD"
+                    }
+                  },
+                  {
+                    "type": "Money",
+                    "value": {
+                      "amount": "20",
+                      "currency": "EUR"
+                    }
+                  }
+                ]
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.validation.money_currency_mismatch@/body/rows/0/conditions/0"
+    ]
+  },
+  {
+    "name": "range bound of the wrong type",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "range-bound",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "score",
+                "op": "range",
+                "value": {
+                  "type": "Code",
+                  "value": "low"
+                },
+                "upper": {
+                  "type": "Integer",
+                  "value": "5"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.condition.range_type_mismatch@/body/rows/0/conditions/0/value"
+    ]
+  },
+  {
+    "name": "operand of the wrong type",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "operand-type",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "score",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "five"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.validation.cell_type_mismatch@/body/rows/0/conditions/0/value"
+    ]
+  },
+  {
+    "name": "reference with a different label source",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "label-source",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "owner",
+                "op": "equals",
+                "value": {
+                  "type": "Reference",
+                  "value": {
+                    "guid": "00000000-0000-4000-8000-000000000001",
+                    "labelSource": {
+                      "ownerModule": "other",
+                      "entityType": "owner.item"
+                    }
+                  }
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.fact.label_source_mismatch@/body/rows/0/conditions/0/value"
+    ]
+  },
+  {
+    "name": "enum operand outside the fact's values",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "enum-fact",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Archived"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.fact.enum_not_allowed@/body/rows/0/conditions/0/value"
+    ]
+  },
+  {
+    "name": "enum outcome outside the field's values",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "enum-outcome",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a",
+              "level": "medium"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.fact.enum_not_allowed@/body/rows/0/outcome/level"
+    ]
+  },
+  {
+    "name": "golden fact the kind does not declare",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "golden-fact",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "ghost",
+            "facts": {
+              "ghost": {
+                "type": "Code",
+                "value": "x"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.facts.missing@/body/goldens/0/facts/ghost"
+    ]
+  },
+  {
+    "name": "golden fact of the wrong type",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "golden-type",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "typed",
+            "facts": {
+              "score": {
+                "type": "Code",
+                "value": "five"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.facts.type_mismatch@/body/goldens/0/facts/score"
+    ]
+  },
+  {
+    "name": "golden names a row that is not in the rule",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "golden-row",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "row",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "nope",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.golden.unknown_row@/body/goldens/0/expect/row"
+    ]
+  },
+  {
+    "name": "golden with a row and no outcome",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "golden-row-alone",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "row",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a"
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.rule.golden_outcome_missing@/body/goldens/0/expect/outcome"
+    ]
+  },
+  {
+    "name": "collect golden with an object outcome",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "collect-object",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "collect",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.definition.malformed@/body/goldens/0/expect/outcome"
+    ]
+  },
+  {
+    "name": "single-row golden with an array outcome",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "first-array",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "open",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": [
+                {
+                  "note": "a"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "decisions.definition.malformed@/body/goldens/0/expect/outcome"
+    ]
+  },
+  {
+    "name": "outcome field the kind does not declare",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "outcome-unknown",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a",
+              "ghost": "x"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.outcome.unknown_field@/body/rows/0/outcome/ghost"
+    ]
+  },
+  {
+    "name": "outcome value of the wrong type",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "outcome-type",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": 5
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.outcome.type_mismatch@/body/rows/0/outcome/note"
+    ]
+  },
+  {
+    "name": "outcome without a required field",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "outcome-required",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "level": "low"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "none",
+            "facts": {},
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "expectedErrors": [
+      "brain.outcome.required_field@/body/rows/0/outcome/note"
+    ]
+  },
+  {
+    "name": "range with both bounds exclusive",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "range-exclusive",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "score",
+                "op": "range",
+                "value": {
+                  "type": "Integer",
+                  "value": "10"
+                },
+                "upper": {
+                  "type": "Integer",
+                  "value": "20"
+                },
+                "lowerInclusive": false,
+                "upperInclusive": false
+              }
+            ],
+            "outcome": {
+              "note": "inside"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "at the lower bound",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "10"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          },
+          {
+            "name": "just above",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "11"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "inside"
+              }
+            }
+          },
+          {
+            "name": "just below",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "19"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "inside"
+              }
+            }
+          },
+          {
+            "name": "at the upper bound",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "20"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "open-ended ranges",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "range-open",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "score",
+                "op": "range",
+                "value": {
+                  "type": "Integer",
+                  "value": "100"
+                },
+                "upper": null
+              }
+            ],
+            "outcome": {
+              "note": "high"
+            }
+          },
+          {
+            "id": "row-b",
+            "version": 1,
+            "legacyKey": "B",
+            "conditions": [
+              {
+                "fact": "score",
+                "op": "range",
+                "value": null,
+                "upper": {
+                  "type": "Integer",
+                  "value": "5"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "low"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "at the bound",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "100"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "high"
+              }
+            }
+          },
+          {
+            "name": "far above",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "5000"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "high"
+              }
+            }
+          },
+          {
+            "name": "below",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "99"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          },
+          {
+            "name": "at the low bound",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "5"
+              }
+            },
+            "expect": {
+              "row": "row-b",
+              "outcome": {
+                "note": "low"
+              }
+            }
+          },
+          {
+            "name": "far below",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "-3"
+              }
+            },
+            "expect": {
+              "row": "row-b",
+              "outcome": {
+                "note": "low"
+              }
+            }
+          },
+          {
+            "name": "between",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "6"
+              }
+            },
+            "expect": {
+              "noDecision": true
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "a golden that fails when run",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "golden-fails",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "passes",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          },
+          {
+            "name": "expects the wrong outcome",
+            "facts": {
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "other"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "a row no golden covers",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "row-uncovered",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "flag",
+                "op": "equals",
+                "value": {
+                  "type": "Boolean",
+                  "value": true
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          },
+          {
+            "id": "row-b",
+            "version": 1,
+            "legacyKey": "B",
+            "conditions": [
+              {
+                "fact": "flag",
+                "op": "equals",
+                "value": {
+                  "type": "Boolean",
+                  "value": false
+                }
+              }
+            ],
+            "outcome": {
+              "note": "b"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "true",
+            "facts": {
+              "flag": {
+                "type": "Boolean",
+                "value": true
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {
+                "note": "a"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "collect with two matching rows",
+    "contractFile": "tests/fixtures/brain-spec/exercise.contract.json",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "collect-two",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "exercise@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "exercise.decision",
+        "hitPolicy": "collect",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "score",
+                "op": "range",
+                "value": {
+                  "type": "Integer",
+                  "value": "0"
+                },
+                "upper": {
+                  "type": "Integer",
+                  "value": "100"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "a"
+            }
+          },
+          {
+            "id": "row-b",
+            "version": 1,
+            "legacyKey": "B",
+            "conditions": [
+              {
+                "fact": "stage",
+                "op": "equals",
+                "value": {
+                  "type": "Enum",
+                  "value": "Open"
+                }
+              }
+            ],
+            "outcome": {
+              "note": "b"
+            }
+          }
+        ],
+        "goldens": [
+          {
+            "name": "both",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "5"
+              },
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": [
+                {
+                  "note": "a"
+                },
+                {
+                  "note": "b"
+                }
+              ]
+            }
+          },
+          {
+            "name": "one",
+            "facts": {
+              "score": {
+                "type": "Integer",
+                "value": "500"
+              },
+              "stage": {
+                "type": "Enum",
+                "value": "Open"
+              }
+            },
+            "expect": {
+              "row": "row-b",
+              "outcome": [
+                {
+                  "note": "b"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  }
+]

@@ -1,0 +1,100 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "intake.checklist",
+  "revision": 1,
+  "meta": {
+    "status": "draft",
+    "source": "Synthetic planning notes, first session",
+    "facts": {
+      "isTrial": { "type": "boolean" },
+      "idImage": { "type": "enum", "values": ["present", "absent"] },
+      "formStatus": { "type": "enum", "values": ["present", "absent", "partial"] }
+    },
+    "outcome": {
+      "requirement": { "type": "code" },
+      "status": { "type": "enum", "values": ["missing", "review", "excluded"] },
+      "reason": { "type": "code" }
+    },
+    "reasons": {
+      "trial_excluded": "A trial record is excluded from the checklist.",
+      "id_required": "An identity image is required.",
+      "form_incomplete": "The form is absent or partial."
+    }
+  },
+  "body": {
+    "hitPolicy": "collect",
+    "rows": [
+      {
+        "key": "trial",
+        "conditions": [
+          { "fact": "isTrial", "op": "equals", "value": { "type": "boolean", "value": true } }
+        ],
+        "outcome": {
+          "requirement": { "type": "code", "value": "trial" },
+          "status": { "type": "enum", "value": "excluded" },
+          "reason": { "type": "code", "value": "trial_excluded" }
+        }
+      },
+      {
+        "key": "id_missing",
+        "conditions": [
+          { "fact": "isTrial", "op": "equals", "value": { "type": "boolean", "value": false } },
+          { "fact": "idImage", "op": "equals", "value": { "type": "enum", "value": "absent" } }
+        ],
+        "outcome": {
+          "requirement": { "type": "code", "value": "identity" },
+          "status": { "type": "enum", "value": "missing" },
+          "reason": { "type": "code", "value": "id_required" }
+        }
+      },
+      {
+        "key": "form_open",
+        "conditions": [
+          { "fact": "isTrial", "op": "equals", "value": { "type": "boolean", "value": false } },
+          {
+            "fact": "formStatus",
+            "op": "in",
+            "values": [
+              { "type": "enum", "value": "absent" },
+              { "type": "enum", "value": "partial" }
+            ]
+          }
+        ],
+        "outcome": {
+          "requirement": { "type": "code", "value": "form" },
+          "status": { "type": "enum", "value": "review" },
+          "reason": { "type": "code", "value": "form_incomplete" }
+        }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "everything present: nothing open",
+        "facts": {
+          "isTrial": { "type": "boolean", "value": false },
+          "idImage": { "type": "enum", "value": "present" },
+          "formStatus": { "type": "enum", "value": "present" }
+        },
+        "expected": { "kind": "no_decision" }
+      },
+      {
+        "name": "trial record: only the exclusion",
+        "facts": {
+          "isTrial": { "type": "boolean", "value": true },
+          "idImage": { "type": "enum", "value": "absent" },
+          "formStatus": { "type": "enum", "value": "absent" }
+        },
+        "expected": { "kind": "decided", "rowKeys": ["trial"] }
+      },
+      {
+        "name": "identity and form both open",
+        "facts": {
+          "isTrial": { "type": "boolean", "value": false },
+          "idImage": { "type": "enum", "value": "absent" },
+          "formStatus": { "type": "enum", "value": "partial" }
+        },
+        "expected": { "kind": "decided", "rowKeys": ["id_missing", "form_open"] }
+      }
+    ]
+  }
+}
