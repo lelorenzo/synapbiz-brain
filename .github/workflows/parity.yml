@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   live-parity:
+    # Holds the deploy key: always a GitHub-hosted runner, never the SZH_CI_RUNS_ON variable.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
