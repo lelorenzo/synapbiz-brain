@@ -1,0 +1,38 @@
+name: parity
+
+# Live parity against the source repository at the commit pinned in tools/parity/SOURCE.lock.
+# Needs the read-only deploy key secret NUVORA_DEPLOY_KEY. Run it by hand until the secret exists;
+# then add the pull_request trigger.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Read the pinned source commit
+        run: echo "SOURCE_SHA=$(cat tools/parity/SOURCE.lock)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: ${{ github.repository_owner }}/nuvora
+          ref: ${{ env.SOURCE_SHA }}
+          ssh-key: ${{ secrets.NUVORA_DEPLOY_KEY }}
+          path: .source
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Source drift guard
+        run: bash tools/parity/check-source-drift.sh "$GITHUB_WORKSPACE/.source"
+
+      - name: Live behaviour parity
+        run: dotnet test Synapbiz.Brain.Parity.sln -c Release
+        env:
+          NUVORA_ROOT: ${{ github.workspace }}/.source
