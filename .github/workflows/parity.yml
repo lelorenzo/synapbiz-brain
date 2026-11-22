@@ -1,10 +1,23 @@
 name: parity
 
 # Live parity against the source repository at the commit pinned in tools/parity/SOURCE.lock.
-# Needs the read-only deploy key secret NUVORA_DEPLOY_KEY. Run it by hand until the secret exists;
-# then add the pull_request trigger.
+# Needs the read-only deploy key secret NUVORA_DEPLOY_KEY.
+# Runs only for pull requests that can change the result (library sources, parity scenarios,
+# parity tooling, this file), and by hand. Everything else relies on the committed baseline in ci.
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/parity/**"
+      - "tools/parity/**"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - ".github/workflows/parity.yml"
+
+concurrency:
+  group: parity-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
