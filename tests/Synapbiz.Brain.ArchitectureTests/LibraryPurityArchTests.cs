@@ -49,6 +49,14 @@ public sealed class LibraryPurityArchTests
         }
     }
 
+    /// <summary>
+    /// Under <c>--collect:"XPlat Code Coverage"</c> coverlet adds a hit-tracker type to each instrumented library, in this
+    /// exact namespace, and the tracker writes its hit file with System.IO. That is code of the collector, not of the
+    /// library, and it exists only while coverage is collected; every other type is scanned.
+    /// </summary>
+    private static bool IsInjectedByCoverageCollection(Type type) =>
+        string.Equals(type.Namespace, "Coverlet.Core.Instrumentation.Tracker", StringComparison.Ordinal);
+
     private static Assembly Library(string name) => name switch
     {
         "Contracts" => typeof(DecisionEngineException).Assembly,
@@ -64,6 +72,7 @@ public sealed class LibraryPurityArchTests
         var library = Library(name);
 
         var members = library.GetTypes()
+            .Where(t => !IsInjectedByCoverageCollection(t))
             .Where(t => t is { IsClass: true } or { IsValueType: true })
             .SelectMany(t => t.GetMethods(AllDeclared).Cast<MethodBase>()
                 .Concat(t.GetConstructors(AllDeclared))

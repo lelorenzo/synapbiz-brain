@@ -8,7 +8,7 @@ namespace Synapbiz.Brain.Spec;
 /// <summary>Loads <c>brain.rule@1</c> documents: parses and validates them against their module contracts and projects them into decision tables.</summary>
 public static class BrainRuleLoader
 {
-    private static readonly string[] Deferred = ["overlap", "coverage", "goldens", "outcome-policy"];
+    private static readonly IReadOnlyList<string> Deferred = Array.AsReadOnly<string>(["overlap", "coverage", "goldens", "outcome-policy"]);
 
     /// <summary>
     /// Loads a rule document. The steps run in order and stop at the first one that reports errors, which are all
