@@ -1,0 +1,40 @@
+{
+  "module": "synthetic",
+  "schemaVersion": 1,
+  "facts": [
+    {
+      "kind": "synthetic.readiness",
+      "name": "stage",
+      "type": "Enum",
+      "nullable": false,
+      "allowedValues": ["Intake", "Review", "Complete"],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "kind": "synthetic.readiness",
+      "name": "score",
+      "type": "Integer",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "synthetic.readiness",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "synthetic.decisions.read",
+        "author": "synthetic.decisions.author",
+        "approve": "synthetic.decisions.approve",
+        "readTrace": "synthetic.decisions.read_trace"
+      },
+      "outcomes": [
+        { "name": "note", "type": "Code", "nullable": false, "labelSource": null }
+      ]
+    }
+  ]
+}

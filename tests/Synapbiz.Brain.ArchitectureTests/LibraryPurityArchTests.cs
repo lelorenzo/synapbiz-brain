@@ -1,58 +1,114 @@
 using System.Reflection;
 using FluentAssertions;
+using Nuvora.Decisions.Contracts;
 using Nuvora.Decisions.Engine.Evaluation;
+using Synapbiz.Brain.Spec;
 
 namespace Synapbiz.Brain.ArchitectureTests;
 
 /// <summary>
-/// The engine is deterministic by construction: no clock, GUID generator, randomness, file or network.
-/// Port of nuvora's AT-DEC-02. Time and identity arrive as parameters.
+/// The Brain libraries are deterministic by construction: no clock, GUID generator, randomness, file or network.
+/// Port of nuvora's AT-DEC-02, extended to the Spec library and to constructors and type initializers (a static field
+/// initializer such as <c>static readonly DateTime X = DateTime.UtcNow;</c> runs in the type initializer). Time and
+/// identity arrive as parameters.
 /// </summary>
-public sealed class EnginePurityArchTests
+public sealed class LibraryPurityArchTests
 {
-    private static Assembly EngineAssembly() => typeof(TableEvaluator).Assembly;
+    private const BindingFlags AllDeclared =
+        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+    /// <summary>
+    /// Members whose only System.IO use is an in-memory buffer, which is not file or network access. The scan treats the whole
+    /// System.IO namespace as forbidden; these members are the exact exceptions, each with the exact System.IO calls it makes
+    /// (the schema fingerprint writes the canonical schema into a MemoryStream to hash it).
+    /// </summary>
+    private static readonly Dictionary<string, string[]> InMemoryOnly = new(StringComparer.Ordinal)
+    {
+        ["Nuvora.Decisions.Contracts.Kinds.DecisionKindSchemaFingerprint.Compute"] =
+            ["System.IO.MemoryStream..ctor", "System.IO.MemoryStream.GetBuffer", "System.IO.Stream.get_Length"],
+    };
+
+    private static readonly string[] LibraryList = ["Contracts", "Engine", "Spec"];
+
+    public static TheoryData<string> LibraryNames => [.. LibraryList];
 
     [Fact]
-    public void EngineNeverReadsAClockGuidRandomnessOrPerformsIoOrNetwork()
+    public void EveryInMemoryExceptionIsStillNeededAndTouchesNothingButAMemoryStream()
     {
-        var engine = EngineAssembly();
-
-        var methods = engine.GetTypes()
-            .Where(t => t is { IsClass: true } or { IsValueType: true })
-            .SelectMany(t => t.GetMethods(
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
-            .Where(m => !m.IsAbstract)
+        var all = LibraryList.SelectMany(name => Library(name).GetTypes())
+            .SelectMany(t => t.GetMethods(AllDeclared).Cast<MethodBase>().Concat(t.GetConstructors(AllDeclared)))
             .ToList();
 
-        methods.Should().HaveCountGreaterThan(5,
-            "positive control: the engine has dozens of methods across Facts/Conditions/Compilation/Evaluation/"
-            + "Validation/Goldens; 5 or fewer means the scan broke, not that the engine shrank to nothing");
+        foreach (var (member, allowed) in InMemoryOnly)
+        {
+            var method = all.Single(m => $"{m.DeclaringType!.FullName}.{m.Name}" == member);
+            var calls = ForbiddenCalls(method).Select(call => $"{call.DeclaringType!.FullName}.{call.Name}").Distinct().Order(StringComparer.Ordinal).ToList();
 
-        var offenders = methods
-            .Where(m => CallsForbiddenApi(m, out _))
+            calls.Should().NotBeEmpty($"{member} is exempt, so the scan must flag it; delete the exemption if it no longer does");
+            calls.Should().Equal(allowed.Order(StringComparer.Ordinal), $"{member} may only use an in-memory buffer");
+        }
+    }
+
+    private static Assembly Library(string name) => name switch
+    {
+        "Contracts" => typeof(DecisionEngineException).Assembly,
+        "Engine" => typeof(TableEvaluator).Assembly,
+        "Spec" => typeof(BrainRuleLoader).Assembly,
+        _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown library."),
+    };
+
+    [Theory]
+    [MemberData(nameof(LibraryNames))]
+    public void NoLibraryReadsAClockGuidRandomnessOrPerformsIoOrNetwork(string name)
+    {
+        var library = Library(name);
+
+        var members = library.GetTypes()
+            .Where(t => t is { IsClass: true } or { IsValueType: true })
+            .SelectMany(t => t.GetMethods(AllDeclared).Cast<MethodBase>()
+                .Concat(t.GetConstructors(AllDeclared))
+                .Concat(t.TypeInitializer is null ? [] : [t.TypeInitializer]))
+            .Where(m => !m.IsAbstract)
+            .Distinct()
+            .ToList();
+
+        members.Should().HaveCountGreaterThan(5,
+            "positive control: each library has dozens of methods and constructors; 5 or fewer means the scan broke, not that the library shrank to nothing");
+        members.OfType<ConstructorInfo>().Count(c => !c.IsStatic).Should().BeGreaterThan(0,
+            "positive control: the scan must reach instance constructors");
+        if (name == "Spec")
+        {
+            members.OfType<ConstructorInfo>().Count(c => c.IsStatic).Should().BeGreaterThan(0,
+                "positive control: the Spec library has type initializers (its lazily built schema) and the scan must reach them");
+        }
+
+        var offenders = members
+            .Where(m => ForbiddenCalls(m).Count != 0)
             .Select(m => $"{m.DeclaringType!.FullName}.{m.Name}")
+            .Where(member => !InMemoryOnly.ContainsKey(member))
             .ToList();
 
         offenders.Should().BeEmpty(
-            "no type in Synapbiz.Brain.Engine may call DateTime.Now/UtcNow, DateTimeOffset.Now/UtcNow, "
-            + "Guid.NewGuid, a System.Random member, or any System.IO/System.Net member — time and identity "
-            + "arrive as parameters. Offenders: {0}",
+            "no type in Synapbiz.Brain.{0} may call DateTime.Now/UtcNow, DateTimeOffset.Now/UtcNow, "
+            + "Guid.NewGuid, a System.Random member, or any System.IO/System.Net member, in a method, a constructor or a type "
+            + "initializer: time and identity arrive as parameters. Offenders: {1}",
+            name,
             string.Join(", ", offenders));
     }
 
     /// <summary>
     /// Best-effort IL scan (mirrors <c>ProcurementDomainArchTests.ReferencesAny</c>):
     /// reads the method body's IL and resolves every <c>call</c> /
-    /// <c>callvirt</c> / <c>newobj</c> member-ref token, flagging the first
-    /// one that resolves into <see cref="IsForbidden"/>.
+    /// <c>callvirt</c> / <c>newobj</c> member-ref token, collecting those
+    /// that resolve into <see cref="IsForbidden"/>.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "Best-effort reflection/IL scan — a method body that fails to load or a token that fails to resolve is a scan limitation, never a test failure signal; mirrors the unsuppressed precedent in ProcurementDomainArchTests.ReferencesAny and SoftDeleteArchTests.SafeGetMethodBody.")]
-    private static bool CallsForbiddenApi(MethodInfo method, out MemberInfo? offendingMember)
+    private static List<MemberInfo> ForbiddenCalls(MethodBase method)
     {
-        offendingMember = null;
+        var found = new List<MemberInfo>();
 
         MethodBody? body;
         try
@@ -61,13 +117,13 @@ public sealed class EnginePurityArchTests
         }
         catch
         {
-            return false;
+            return found;
         }
 
         var il = body?.GetILAsByteArray();
         if (il is null)
         {
-            return false;
+            return found;
         }
 
         var module = method.Module;
@@ -95,12 +151,11 @@ public sealed class EnginePurityArchTests
 
             if (resolved is not null && IsForbidden(resolved))
             {
-                offendingMember = resolved;
-                return true;
+                found.Add(resolved);
             }
         }
 
-        return false;
+        return found;
     }
 
     private static bool IsForbidden(MemberInfo resolved)

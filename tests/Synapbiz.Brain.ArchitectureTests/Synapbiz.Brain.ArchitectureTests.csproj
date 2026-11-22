@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,414 @@
+[
+  {
+    "name": "missing uses",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": ""
+  },
+  {
+    "name": "extra top-level key",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      },
+      "extra": true
+    },
+    "errorAt": "/extra"
+  },
+  {
+    "name": "revision instead of version",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      },
+      "revision": 1
+    },
+    "errorAt": "/revision"
+  },
+  {
+    "name": "lowercase type tag",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/rows/0/conditions/0/value/type"
+  },
+  {
+    "name": "Integer as a JSON number",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.integer",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Integer",
+                  "value": 5
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Integer",
+                "value": "5"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/rows/0/conditions/0/value/value"
+  },
+  {
+    "name": "unknown operator",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "between",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/rows/0/conditions/0/op"
+  },
+  {
+    "name": "row without legacyKey",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {
+              "row": "row-a",
+              "outcome": {}
+            }
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/rows/0"
+  },
+  {
+    "name": "golden with neither row nor outcome",
+    "contract": "synthetic",
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "structure-base",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "synthetic@1"
+      ],
+      "meta": {},
+      "body": {
+        "kind": "synthetic.code",
+        "hitPolicy": "first",
+        "rows": [
+          {
+            "id": "row-a",
+            "version": 1,
+            "legacyKey": "A",
+            "conditions": [
+              {
+                "fact": "fact",
+                "op": "equals",
+                "value": {
+                  "type": "Code",
+                  "value": "A-1"
+                }
+              }
+            ],
+            "outcome": {}
+          }
+        ],
+        "goldens": [
+          {
+            "name": "matches",
+            "facts": {
+              "fact": {
+                "type": "Code",
+                "value": "A-1"
+              }
+            },
+            "expect": {}
+          }
+        ]
+      }
+    },
+    "errorAt": "/body/goldens/0/expect"
+  }
+]
