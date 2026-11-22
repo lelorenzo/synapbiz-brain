@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>Synapbiz.Brain.Parity.Library</AssemblyName>
+    <RootNamespace>Synapbiz.Brain.Parity</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../Scenarios/*.cs" LinkBase="Scenarios" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
+    <ProjectReference Include="../../../src/Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

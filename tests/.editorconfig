@@ -1,0 +1,26 @@
+# Analyzer severities that apply ONLY to test projects (tests/**).
+# Inherits everything else from the repository root .editorconfig.
+#
+# Rationale (Production Readiness Plan, "touch it, clean it" — a suppression is
+# acceptable only with a written reason; never a blanket NoWarn):
+#
+# CA1707 — xUnit test method names use underscores by long-standing repo convention
+#          (Method_Scenario_Expected). 5,628 instances at 2026-09-08; the convention
+#          is sanctioned by TESTING-VERTICAL.md and is not a defect.
+# CA1515 — xUnit discovers only PUBLIC test classes and public TheoryData members;
+#          "make internal" is wrong advice for a test assembly.
+# CA1034 — nested public records used as TheoryData<T> scenario carriers are
+#          idiomatic in this suite and are never consumed outside the test class.
+# CA1812 — test-only helper classes are instantiated by reflection (fixtures,
+#          IClassFixture<T>, stubs registered in DI) which the analyzer cannot see.
+# CA2007 — ConfigureAwait(false) is meaningless under the xUnit synchronization context
+#          and only adds noise to test bodies.
+
+root = false
+
+[*.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1515.severity = none
+dotnet_diagnostic.CA1034.severity = none
+dotnet_diagnostic.CA1812.severity = none
+dotnet_diagnostic.CA2007.severity = none

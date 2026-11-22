@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Nuvora.Decisions.Engine</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Engine</AssemblyName>
+    <PackageId>Synapbiz.Brain.Engine</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Pure Brain decision table engine: compiler, evaluator, validator, overlap and coverage analysis, golden runner. No persistence, no DI, no clock, IO or randomness.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
