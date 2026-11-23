@@ -20,4 +20,4 @@
 - [x] Repair R4: slot first, then claim, then invoke; a stop claims nothing more and records the result of a call in flight (tests with at-most-once effects, one slot, the pass cancelled)
 - [x] Repair R5: tests for the child and cancel inbox payloads, the lock wait on a result, re-validation under the lock (inbox order, re-claimed lease, consumed timer) and tenant collisions on instance and task ids
 - [x] Repair R6: docs (plan, changelog, reference page, this list)
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate (2026-11-23: no blocker, six should-fix findings, repaired in one pass; gates re-run after the repair)
