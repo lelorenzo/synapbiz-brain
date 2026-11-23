@@ -77,6 +77,13 @@ public sealed class ReferenceFlowTests(ITestOutputHelper output)
         }
     }
 
+    /// <summary>
+    /// The routes that no scenario can take. <c>route_claim</c> reads <c>claim_status</c>, which the poll before it has just
+    /// judged with another rule over the same variable and which is therefore always set: the rule cannot fail on a missing fact.
+    /// The route is kept so that a rule edited later still has somewhere to go.
+    /// </summary>
+    private static readonly (string Id, string Route)[] UntakenByDesign = [("collection.followup", "route_claim onError")];
+
     [Theory]
     [MemberData(nameof(Processes))]
     public void EveryRouteOutOfEveryBranchingStepIsTakenByAScenario(string id)
@@ -98,6 +105,10 @@ public sealed class ReferenceFlowTests(ITestOutputHelper output)
         var missed = required.Where(route => !taken.Contains(route)).Select(route => route.Step + " " + route.Label).ToList();
 
         output.WriteLine($"{id}: {branching.Count} branching steps, {required.Count} routes, {required.Count - missed.Count} taken, {steps.Count} steps, {Scenarios(id).Count()} scenarios");
+        // A route that no input can reach: it is a defence, named here with the reason, and it must stay declared and untaken.
+        var defences = UntakenByDesign.Where(entry => entry.Id == id).Select(entry => entry.Route).ToList();
+        defences.Where(route => !missed.Contains(route)).Should().BeEmpty("a defence that is taken, or no longer declared, is removed from the list");
+        missed.RemoveAll(defences.Contains);
         missed.Should().BeEmpty(because: "every route of a step with more than one route needs a scenario");
         required.Should().NotBeEmpty();
     }

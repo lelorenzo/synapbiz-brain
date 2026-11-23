@@ -23,9 +23,12 @@ internal static class ReferenceFlows
     ];
 
     /// <summary>Every reference process, loaded the way a consumer would: its own rules, and the six ids as the known children.</summary>
-    internal static BrainProcess[] All() => [.. Ids.Select(Load)];
+    internal static BrainProcess[] All() => [.. Ids.Select(id => Load(id, text => text))];
 
-    private static BrainProcess Load(string id)
+    /// <summary>Every reference process, with the text of one document changed by <paramref name="edit"/> before it is loaded.</summary>
+    internal static BrainProcess[] All(string editedId, Func<string, string> edit) => [.. Ids.Select(id => Load(id, id == editedId ? edit : text => text))];
+
+    private static BrainProcess Load(string id, Func<string, string> edit)
     {
         var folder = Path.GetDirectoryName(Fixtures.Locate(Root + id + "/process.json"))!;
         var contractPath = Path.Combine(folder, "contract.json");
@@ -33,7 +36,7 @@ internal static class ReferenceFlows
         var rules = Directory.GetFiles(folder, "*.rule.json")
             .Select(path => BrainRuleLoader.Load(File.ReadAllText(path), contracts).Rule ?? throw new InvalidOperationException(path + " does not load."))
             .ToList();
-        var loaded = BrainProcessLoader.Load(File.ReadAllText(Path.Combine(folder, "process.json")), new ProcessLoadContext(rules, Ids));
+        var loaded = BrainProcessLoader.Load(edit(File.ReadAllText(Path.Combine(folder, "process.json"))), new ProcessLoadContext(rules, Ids));
         return loaded.Process ?? throw new InvalidOperationException(id + " does not load: " + string.Join("; ", loaded.Errors.Select(error => error.Code + "@" + error.Path)));
     }
 }

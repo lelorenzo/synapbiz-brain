@@ -450,6 +450,15 @@
           "result": "previsit_unreachable",
           "trace": ["cycle", "check", "assess", "escalate", "closed"]
         }
+      },
+      {
+        "name": "a case that came without its zone is suspended at the reminder, never failed and never routed",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } }
+        ],
+        "expect": { "status": "Suspended", "trace": ["cycle", "check", "assess", "send"] }
       }
     ]
   }

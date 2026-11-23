@@ -11,7 +11,7 @@ Brief: `docs/briefs/` (W1-D). Plan: [plan.md](plan.md). No engine feature is add
 - [x] `case.lifecycle`: the root, started by the event `case.opened`, one child process per stage, an operations task when a child fails
 - [x] `practice.daily_refresh`: a schedule at 06:00 in the zone of the activation that reads the day's case list
 - [x] Rules, contracts and goldens for the seven decisions
-- [x] 77 scenarios between the six documents; every route of every branching step is taken
+- [x] 84 scenarios between the six documents (after the repair below); every route of every branching step is taken, except one named defence
 - [x] `README.md`: layout, ports, events, triggers and inputs, human task queues and outcomes, rules, scenarios
 - [x] Synthetic data only: case references such as `c-1001`, codes such as `C-100`, a placeholder model id; no personal, clinic, vendor, payer, product or model names
 
@@ -38,6 +38,17 @@ Brief: `docs/briefs/` (W1-D). Plan: [plan.md](plan.md). No engine feature is add
 - [x] `README.md`, `docs/architecture/overview.md`, `docs/consuming.md`, `plan.md`
 - [x] Release build ends with the two base warnings; the whole solution tests; `dotnet pack` gives seven packages at 0.2.0
 - [x] No change under `src/`, `.github/`, `tools/`, `Directory.Packages.props`, the solution files or the architecture tests; no tag created
+
+## Repair after independent verification
+
+- [x] R1: `ReferenceTimingTests` pins the delivery window of `previsit.outreach` by `Start` and `Advance`: the pending kind, the `WindowRequest` (zone from the variable, days, from, to) and the opening instants with `DeliveryWindows.NextOpen` in a custom zone (inside, the opening, the last second, before the opening, Friday at closing, Saturday, Sunday); the README no longer implies that scenarios alone cover the window
+- [x] R2: the zone is mandatory and said so (README triggers and inputs, guide sections 6 and 11); the reference root now checks it first (`zone_check`, the rule `lifecycle.zone_ready`, the task `ops_zone`); pure tests for the suspension with `process.window.zone_missing`, for resume and cancel, and for an unknown zone; host tests for the root's task, for the silent suspension of a child and for the recovery by cancelling the child, and a previsit scenario that ends `Suspended`
+- [x] R3: a scenario in which `suggest` answers with an extra member on every attempt (the `additionalProperties: false` of its output schema)
+- [x] R4: `ReferenceTimingTests` pins every timer, retry delay, wait timeout, task timeout, the nine reads of the visit poll and the seven of the collection poll, and the tasks that have no timeout, with literal durations
+- [x] R5: `onError` on `check_suggestion` (the assistant may answer without a confidence, so the route is taken by a scenario) and on `route_claim` (no input can reach it: it is named in `ReferenceFlowTests` as a defence, with its reason); `practice.daily_refresh` raises the operations task `refresh_attention` before it ends as `refresh_failed`
+- [x] R6: `missing_at_close` is shown by the operations task of the visit stage (a host test reads it)
+- [x] R7: `docs/consuming.md` says that the two workbench packages first appear in 0.2.0
+- [x] R8: README, CHANGELOG, route-coverage expectations and this file carry the new counts
 
 ## Independent verification
 

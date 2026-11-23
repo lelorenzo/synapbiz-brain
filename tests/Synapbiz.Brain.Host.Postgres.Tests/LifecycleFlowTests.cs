@@ -234,6 +234,119 @@ public sealed class LifecycleFlowTests
     }
 
     [Fact]
+    public async Task TheOperationsTaskOfTheVisitStageShowsHowManyItemsThePrevisitStageLeftMissing()
+    {
+        await using var world = await CaseWorld.CreateAsync();
+        await OpenAsync(world, CaseRef);
+        (await world.PublishAsync(Tenant, "reply-1", "case.reply_received", CaseRef)).Should().Be(new PublishResult(PublishStatus.Queued, 1));
+        await world.Rig.DrainAsync();
+        var root = await world.RootAsync(Tenant, CaseRef);
+        root.Stage.Should().Be("visit");
+        var visit = (await world.ChildrenAsync(Tenant, root.InstanceId))["visit.note_wait"];
+
+        await world.Rig.Engine.CancelAsync(Tenant, visit.InstanceId, "operator");
+        await world.Rig.DrainAsync();
+
+        var task = await world.TaskAsync(Tenant, "operations");
+        task.Step.Should().Be("ops_visit");
+        var shown = JsonNode.Parse(task.ShowJson)!.AsObject();
+        shown["case_ref"]!.GetValue<string>().Should().Be(CaseRef);
+        shown["missing_at_close"]!.GetValue<int>().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ACaseOpenedWithoutItsZoneIsHandedToOperationsBeforeAnyReminderAndContinuesAtTheVisit()
+    {
+        await using var world = await CaseWorld.CreateAsync();
+        (await world.Rig.Engine.ActivateAsync(new ProcessActivation(Tenant, "case.lifecycle", null, "{\"assist_enabled\":true}"))).Changed.Should().BeTrue();
+        (await world.OpenAsync(Tenant, CaseRef)).Should().Be(new PublishResult(PublishStatus.Queued, 1));
+        await world.Rig.DrainAsync();
+
+        var root = await world.RootAsync(Tenant, CaseRef);
+        root.Status.Should().Be(ProcessStatus.Waiting);
+        root.CurrentStep.Should().Be("ops_zone");
+        (await world.ChildrenAsync(Tenant, root.InstanceId)).Should().BeEmpty("no stage starts for a case that has no zone");
+        world.Contacts.Should().BeEmpty();
+        world.Requirements.Calls.Should().BeEmpty();
+        var task = await world.TaskAsync(Tenant, "operations");
+        task.Step.Should().Be("ops_zone");
+        task.Outcomes.Should().Equal("continue", "close");
+        JsonNode.Parse(task.ShowJson)!["case_ref"]!.GetValue<string>().Should().Be(CaseRef);
+
+        await world.CompleteAsync(task, "continue");
+
+        (await world.StageAsync(Tenant, CaseRef)).Should().Be("visit");
+        (await world.ChildrenAsync(Tenant, root.InstanceId)).Keys.Should().BeEquivalentTo("visit.note_wait");
+    }
+
+    [Fact]
+    public async Task ACaseThatReachedItsReminderWithoutAZoneIsSuspendedInSilenceAndCancellingTheChildIsTheWayOut()
+    {
+        // The reference lifecycle checks the zone first. This copy checks another variable, so that it lets a case without a zone through,
+        // as a copy made before the check existed would.
+        var processes = ReferenceFlows.All("case.lifecycle", text => text.Replace("\"facts\": { \"practice_zone\": \"practice_zone\" }", "\"facts\": { \"practice_zone\": \"case_ref\" }", StringComparison.Ordinal));
+        await using var world = await CaseWorld.CreateAsync(null, processes);
+        await world.Rig.Engine.ActivateAsync(new ProcessActivation(Tenant, "case.lifecycle", null, "{\"assist_enabled\":true}"));
+        await world.OpenAsync(Tenant, CaseRef);
+        await world.Rig.DrainAsync();
+
+        var root = await world.RootAsync(Tenant, CaseRef);
+        var child = (await world.ChildrenAsync(Tenant, root.InstanceId)).Single().Value;
+        child.Status.Should().Be(ProcessStatus.Suspended);
+        child.Problem.Should().Be(new ProcessProblem("process.window.zone_missing", "send"));
+        root.Status.Should().Be(ProcessStatus.Waiting, "a suspended child is not a failed child: the parent is told nothing");
+        (await world.Rig.Engine.ListOpenTasksAsync(Tenant, "operations")).Should().BeEmpty("nothing routes a suspension, so nobody is asked");
+        world.Contacts.Should().BeEmpty();
+        world.Rig.Logs.Entries.Should().Contain(entry => entry.Message.StartsWith("process.instance.suspended", StringComparison.Ordinal) && entry.Level == LogLevel.Warning);
+
+        (await world.Rig.Engine.ResumeAsync(Tenant, child.InstanceId)).Disposition.Should().Be(AdvanceDisposition.Applied);
+        await world.Rig.DrainAsync();
+        var resumed = (await world.Rig.Engine.GetInstanceAsync(Tenant, child.InstanceId))!;
+        resumed.Status.Should().Be(ProcessStatus.Suspended, "resuming runs the step again and the zone is still missing");
+        resumed.Problem!.Code.Should().Be("process.window.zone_missing");
+        (await world.Rig.Engine.GetHistoryAsync(Tenant, child.InstanceId)).Should().Contain(entry => entry.Kind == ProcessHistoryKind.Resumed);
+        (await world.Rig.Engine.ListOpenTasksAsync(Tenant, "operations")).Should().BeEmpty();
+
+        (await world.Rig.Engine.CancelAsync(Tenant, child.InstanceId, "operator.zone_missing")).Disposition.Should().Be(AdvanceDisposition.Applied);
+        await world.Rig.DrainAsync();
+
+        var task = await world.TaskAsync(Tenant, "operations");
+        task.Step.Should().Be("ops_previsit");
+        await world.CompleteAsync(task, "continue");
+        (await world.StageAsync(Tenant, CaseRef)).Should().Be("visit");
+        await world.Rig.Engine.PublishEventAsync(new ProcessEvent(Tenant, "open-again", "case.opened", null, "{\"case_ref\":\"" + CaseRef + "\",\"practice_zone\":\"" + CaseWorld.Zone + "\"}"));
+        await world.Rig.DrainAsync();
+        // The case cannot be opened again with its zone: its business key is taken, so the second event starts nothing.
+        (await world.Rig.CountAsync("process_instance", "process_id = 'case.lifecycle'")).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AFailingCaseListRaisesTheOperationsTaskAndTheRefreshEndsOnceAPersonHandledIt()
+    {
+        await using var world = await CaseWorld.CreateAsync();
+        world.CaseList.Handler = (_, _) => CaseWorld.Failed(ProcessErrorKind.Permanent, "schedule.gone");
+        await world.Rig.Engine.ActivateAsync(new ProcessActivation(Tenant, "practice.daily_refresh", CaseWorld.Zone));
+        world.Rig.Time.SetUtcNow(Ev.At("2027-01-05T11:00:00Z"));
+        await world.Rig.DrainAsync();
+        world.Rig.Time.Advance(TimeSpan.FromMinutes(1));
+        await world.Rig.DrainAsync();
+
+        var refresh = (await world.Rig.ColumnAsync<string>("select instance_id from {schema}.process_instance where process_id = 'practice.daily_refresh'")).Should().ContainSingle().Subject;
+        var waiting = (await world.Rig.Engine.GetInstanceAsync(Tenant, refresh))!;
+        waiting.Status.Should().Be(ProcessStatus.Waiting, "the refresh does not end silently as failed");
+        var task = await world.TaskAsync(Tenant, "operations");
+        task.Step.Should().Be("refresh_attention");
+        task.Outcomes.Should().Equal("handled");
+        JsonNode.Parse(task.ShowJson)!["run_for"]!.GetValue<string>().Should().Be("2027-01-05");
+
+        await world.CompleteAsync(task, "handled");
+
+        var done = (await world.Rig.Engine.GetInstanceAsync(Tenant, refresh))!;
+        done.Status.Should().Be(ProcessStatus.Completed);
+        done.Result.Should().Be("refresh_failed");
+    }
+
+    [Fact]
     public async Task TwoTenantsRunningTheSameCaseReferenceDoNotInterfere()
     {
         const string Other = "t-2";

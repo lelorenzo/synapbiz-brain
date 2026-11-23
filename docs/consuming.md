@@ -1,6 +1,6 @@
 # Consuming the packages
 
-The seven packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) carry one version, 0.2.0 at the time of writing (0.1.0 held the first three only), and are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
+The seven packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) carry one version, 0.2.0 at the time of writing (0.1.0 held the first three only; the two workbench packages, the process library and the PostgreSQL host first appear in 0.2.0), and are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
 
 ## Feed
 
@@ -45,7 +45,7 @@ var result = loaded.Rule!.Evaluate(facts, asOf);
 // result.Trace:   VersionNumber, MatchedRowKeys, FactsJson, FactsHash
 ```
 
-The document and contract formats are in [reference/brain-rule-v1.md](reference/brain-rule-v1.md). Running processes durably on PostgreSQL: start with [the consumer guide](guides/process-engine.md) (packages, registration, the ports to implement, activation, tasks, operations); the host reference is [reference/process-host-postgres.md](reference/process-host-postgres.md). `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres` first appear in 0.2.0.
+The document and contract formats are in [reference/brain-rule-v1.md](reference/brain-rule-v1.md). Running processes durably on PostgreSQL: start with [the consumer guide](guides/process-engine.md) (packages, registration, the ports to implement, activation, tasks, operations); the host reference is [reference/process-host-postgres.md](reference/process-host-postgres.md).
 
 ## Releasing
 

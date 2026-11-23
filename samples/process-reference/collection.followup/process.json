@@ -69,7 +69,8 @@
         "facts": { "status": "claim_status" },
         "route": "result",
         "on": { "paid": "collected", "denied": "denial", "pending": "balance_wait" },
-        "onNoDecision": "stalled"
+        "onNoDecision": "stalled",
+        "onError": "stalled"
       },
       "denial": {
         "kind": "humanTask",

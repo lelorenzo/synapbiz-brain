@@ -98,9 +98,11 @@ internal sealed partial class CaseWorld : IAsyncDisposable
     /// <summary>A text added to the output of the ports as an extra member the processes do not read; null for none.</summary>
     internal string? Noise { get; set; }
 
-    internal static async Task<CaseWorld> CreateAsync(IPayloadProtector? protector = null)
+    internal static async Task<CaseWorld> CreateAsync(IPayloadProtector? protector = null) => await CreateAsync(protector, ReferenceFlows.All());
+
+    /// <summary>A world whose catalog holds the given processes: the reference documents, or the reference documents with one of them edited.</summary>
+    internal static async Task<CaseWorld> CreateAsync(IPayloadProtector? protector, BrainProcess[] processes)
     {
-        var processes = ReferenceFlows.All();
         var world = new CaseWorld { Rig = await Rig.CreateAsync(protector) };
         world.Rig.Catalog.Add(processes);
         world.Wire();

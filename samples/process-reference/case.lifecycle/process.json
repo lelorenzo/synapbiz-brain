@@ -3,12 +3,13 @@
   "id": "case.lifecycle",
   "version": 1,
   "uses": [
+    { "$ref": "rule/lifecycle.zone_ready" },
     { "$ref": "process/previsit.outreach" },
     { "$ref": "process/visit.note_wait" },
     { "$ref": "process/postvisit.coding_review" },
     { "$ref": "process/collection.followup" }
   ],
-  "requires": [],
+  "requires": ["lifecycle@1"],
   "meta": {
     "title": "Case lifecycle",
     "description": "One instance per case, started when the case is opened: one child process per stage, from before the visit until the money is collected."
@@ -30,8 +31,18 @@
         "input": { "case_ref": "case_ref", "practice_zone": "practice_zone" }
       }
     ],
-    "start": "previsit",
+    "start": "zone_check",
     "steps": {
+      "zone_check": {
+        "kind": "decide",
+        "stage": "previsit",
+        "rule": "lifecycle.zone_ready",
+        "facts": { "practice_zone": "practice_zone" },
+        "route": "ready",
+        "on": { "yes": "previsit" },
+        "onNoDecision": "ops_zone",
+        "onError": "ops_zone"
+      },
       "previsit": {
         "kind": "subprocess",
         "stage": "previsit",
@@ -65,6 +76,14 @@
         "on": { "collected": "collected", "written_off": "written_off", "manual_close": "manual_close" },
         "onError": "ops_collection"
       },
+      "ops_zone": {
+        "kind": "humanTask",
+        "stage": "previsit",
+        "queue": "operations",
+        "outcomes": ["continue", "close"],
+        "show": ["case_ref"],
+        "on": { "continue": "visit", "close": "manual_close" }
+      },
       "ops_previsit": {
         "kind": "humanTask",
         "stage": "previsit",
@@ -78,7 +97,7 @@
         "stage": "visit",
         "queue": "operations",
         "outcomes": ["close"],
-        "show": ["case_ref"],
+        "show": ["case_ref", "missing_at_close"],
         "on": { "close": "manual_close" }
       },
       "ops_postvisit": {
@@ -120,7 +139,7 @@
         "expect": {
           "status": "Completed",
           "result": "collected",
-          "trace": ["previsit", "visit", "postvisit", "collection", "collected"],
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "collected"],
           "variables": {
             "missing_at_close": 0
           }
@@ -142,7 +161,7 @@
         "expect": {
           "status": "Completed",
           "result": "collected",
-          "trace": ["previsit", "visit", "postvisit", "collection", "collected"],
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "collected"],
           "variables": {
             "missing_at_close": 2
           }
@@ -162,7 +181,7 @@
         "expect": {
           "status": "Completed",
           "result": "closed_no_visit",
-          "trace": ["previsit", "visit", "closed_no_visit"]
+          "trace": ["zone_check", "previsit", "visit", "closed_no_visit"]
         }
       },
       {
@@ -180,7 +199,7 @@
         "expect": {
           "status": "Completed",
           "result": "closed_not_billed",
-          "trace": ["previsit", "visit", "postvisit", "closed_not_billed"]
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "closed_not_billed"]
         }
       },
       {
@@ -199,7 +218,7 @@
         "expect": {
           "status": "Completed",
           "result": "written_off",
-          "trace": ["previsit", "visit", "postvisit", "collection", "written_off"]
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "written_off"]
         }
       },
       {
@@ -218,7 +237,7 @@
         "expect": {
           "status": "Completed",
           "result": "manual_close",
-          "trace": ["previsit", "visit", "postvisit", "collection", "manual_close"]
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "manual_close"]
         }
       },
       {
@@ -236,7 +255,7 @@
         "expect": {
           "status": "Completed",
           "result": "closed_no_visit",
-          "trace": ["previsit", "ops_previsit", "visit", "closed_no_visit"]
+          "trace": ["zone_check", "previsit", "ops_previsit", "visit", "closed_no_visit"]
         }
       },
       {
@@ -253,7 +272,7 @@
         "expect": {
           "status": "Completed",
           "result": "manual_close",
-          "trace": ["previsit", "ops_previsit", "manual_close"]
+          "trace": ["zone_check", "previsit", "ops_previsit", "manual_close"]
         }
       },
       {
@@ -271,7 +290,7 @@
         "expect": {
           "status": "Completed",
           "result": "manual_close",
-          "trace": ["previsit", "visit", "ops_visit", "manual_close"]
+          "trace": ["zone_check", "previsit", "visit", "ops_visit", "manual_close"]
         }
       },
       {
@@ -290,7 +309,7 @@
         "expect": {
           "status": "Completed",
           "result": "manual_close",
-          "trace": ["previsit", "visit", "postvisit", "ops_postvisit", "manual_close"]
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "ops_postvisit", "manual_close"]
         }
       },
       {
@@ -309,7 +328,7 @@
         "expect": {
           "status": "Completed",
           "result": "manual_close",
-          "trace": ["previsit", "visit", "postvisit", "ops_postvisit", "manual_close"]
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "ops_postvisit", "manual_close"]
         }
       },
       {
@@ -329,7 +348,56 @@
         "expect": {
           "status": "Completed",
           "result": "manual_close",
-          "trace": ["previsit", "visit", "postvisit", "collection", "ops_collection", "manual_close"]
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "ops_collection", "manual_close"]
+        }
+      },
+      {
+        "name": "a case opened without its zone raises the operations task before any reminder, which lets the case go on",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "task": "ops_zone", "outcome": "continue" },
+          { "child": "visit", "result": "visit_cancelled", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "closed_no_visit",
+          "trace": ["zone_check", "ops_zone", "visit", "closed_no_visit"]
+        }
+      },
+      {
+        "name": "a case opened without its zone is closed by hand",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "task": "ops_zone", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "ops_zone", "manual_close"]
+        }
+      },
+      {
+        "name": "a zone that is empty raises the same task",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "", "assist_enabled": true }
+        },
+        "events": [
+          { "task": "ops_zone", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "ops_zone", "manual_close"]
         }
       }
     ]

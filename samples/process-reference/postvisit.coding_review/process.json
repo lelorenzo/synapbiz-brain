@@ -73,7 +73,7 @@
         },
         "outputSchema": {
           "type": "object",
-          "required": ["code", "confidence"],
+          "required": ["code"],
           "properties": {
             "code": { "type": "string", "pattern": "^C-[0-9]{3}$" },
             "confidence": { "type": "integer" }
@@ -95,7 +95,8 @@
         "facts": { "confidence": "confidence" },
         "output": { "usable": "suggestion_usable" },
         "next": "physician_review",
-        "onNoDecision": "physician_review"
+        "onNoDecision": "physician_review",
+        "onError": "physician_review"
       },
       "physician_review": {
         "kind": "humanTask",
@@ -226,6 +227,54 @@
           "status": "Completed",
           "result": "coding_approved",
           "trace": ["read_note", "find_opportunities", "assist_gate", "suggest", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "an answer with a member the schema does not allow, every time, goes to the physician without a suggestion",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "complete": "suggest", "output": { "code": "C-100", "confidence": 90, "explanation": "free text" } },
+          { "complete": "suggest", "output": { "code": "C-100", "confidence": 90, "explanation": "free text" } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "suggest", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "an answer without a confidence goes to the physician without a verdict",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "complete": "suggest", "output": { "code": "C-100" } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": [
+            "read_note",
+            "find_opportunities",
+            "assist_gate",
+            "suggest",
+            "check_suggestion",
+            "physician_review",
+            "approved"
+          ],
+          "variables": {
+            "suggested_code": "C-100"
+          }
         }
       },
       {

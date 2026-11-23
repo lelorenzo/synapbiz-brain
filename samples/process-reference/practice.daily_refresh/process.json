@@ -33,7 +33,14 @@
         "output": { "cases": "cases" },
         "retry": { "maxAttempts": 3, "backoff": "exponential", "initial": "PT1M", "max": "PT10M" },
         "next": "refreshed",
-        "onError": "failed"
+        "onError": "refresh_attention"
+      },
+      "refresh_attention": {
+        "kind": "humanTask",
+        "queue": "operations",
+        "outcomes": ["handled"],
+        "show": ["run_for"],
+        "on": { "handled": "failed" }
       },
       "refreshed": { "kind": "end", "result": "refreshed" },
       "failed": { "kind": "end", "result": "refresh_failed" }
@@ -80,20 +87,38 @@
         "expect": { "status": "Completed", "result": "refreshed", "trace": ["list_cases", "refreshed"] }
       },
       {
-        "name": "a read that fails for good ends as a failed refresh",
+        "name": "a read that fails for good raises an operations task and ends as a failed refresh once a person has handled it",
+        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
+        "events": [
+          { "fail": "list_cases", "error": "Permanent", "code": "schedule.gone" },
+          { "task": "refresh_attention", "outcome": "handled" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "refresh_failed",
+          "trace": ["list_cases", "refresh_attention", "failed"]
+        }
+      },
+      {
+        "name": "a read that is not available raises the same task",
+        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
+        "events": [
+          { "fail": "list_cases", "error": "NotAvailable", "code": "schedule.no_connector" },
+          { "task": "refresh_attention", "outcome": "handled" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "refresh_failed",
+          "trace": ["list_cases", "refresh_attention", "failed"]
+        }
+      },
+      {
+        "name": "a read that fails and is not handled keeps the instance waiting for the person",
         "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
         "events": [
           { "fail": "list_cases", "error": "Permanent", "code": "schedule.gone" }
         ],
-        "expect": { "status": "Completed", "result": "refresh_failed", "trace": ["list_cases", "failed"] }
-      },
-      {
-        "name": "a read that is not available ends as a failed refresh",
-        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
-        "events": [
-          { "fail": "list_cases", "error": "NotAvailable", "code": "schedule.no_connector" }
-        ],
-        "expect": { "status": "Completed", "result": "refresh_failed", "trace": ["list_cases", "failed"] }
+        "expect": { "status": "Waiting", "trace": ["list_cases", "refresh_attention"] }
       }
     ]
   }

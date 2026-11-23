@@ -1,0 +1,23 @@
+{
+  "module": "lifecycle",
+  "schemaVersion": 1,
+  "facts": [
+    { "kind": "lifecycle.zone_ready", "name": "practice_zone", "type": "Code", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null }
+  ],
+  "kinds": [
+    {
+      "id": "lifecycle.zone_ready",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "lifecycle.decisions.read",
+        "author": "lifecycle.decisions.author",
+        "approve": "lifecycle.decisions.approve",
+        "readTrace": "lifecycle.decisions.read_trace"
+      },
+      "outcomes": [
+        { "name": "ready", "type": "Enum", "nullable": false, "labelSource": null, "allowedValues": ["yes"] }
+      ]
+    }
+  ]
+}
