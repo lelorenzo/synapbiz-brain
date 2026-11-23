@@ -235,6 +235,9 @@ internal sealed record CaseRecord(
     DateTimeOffset? NextTimerDue,
     IReadOnlyList<string> Events);
 
+/// <summary>An instance row that a purge locked: only the columns the purge decides on, never the protected state.</summary>
+internal sealed record LockedInstance(string InstanceId, string? ParentInstanceId, int Status, DateTimeOffset UpdatedAt);
+
 /// <summary>The tables whose rows a purge deletes for the instances of a tree; <see cref="Instances"/> is last because it carries the tree.</summary>
 internal enum PurgeTable
 {

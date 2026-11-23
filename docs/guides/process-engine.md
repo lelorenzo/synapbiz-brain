@@ -84,6 +84,7 @@ internal static class CaseProcessesRegistration
                 host.PortTimeout = TimeSpan.FromSeconds(60);
                 host.EffectLease = TimeSpan.FromSeconds(120);
                 host.ScheduleMisfireGrace = TimeSpan.FromMinutes(5);
+                host.PurgeLockTimeout = TimeSpan.FromSeconds(10);
             });
     }
 }
@@ -97,6 +98,7 @@ internal static class CaseProcessesRegistration
 | `PortTimeout` | 60 s | How long a port call may take before the host gives up on it |
 | `EffectLease` | 120 s | How long a claimed effect stays claimed; it must be longer than `PortTimeout` |
 | `ScheduleMisfireGrace` | 5 min | How late a schedule occurrence may be handled and still count as on time |
+| `PurgeLockTimeout` | 10 s | How long `PurgeInstanceAsync` keeps trying to lock a tree that another transaction holds (greater than zero, at most 5 minutes); then the result is `Refused` with `process.purge.busy` |
 
 `PostgresProcessStoreOptions.Schema` is the schema that holds the tables (`^[a-z_][a-z0-9_]{0,62}$`, default `brain`). Time comes from the registered `TimeProvider` (the system clock by default); the host never reads another clock.
 
@@ -435,7 +437,7 @@ A delivery window is applied when its timer is stored and is not checked again w
 | `process.effect.orphaned` | Warning | A port call finished after its case was purged; its result was dropped. Nothing to fix: the call could not be recalled. |
 | `process.worker.started`, `process.worker.pass_failed` | Information, Error | The worker loop. |
 
-**Retention and erasure.** Nothing is deleted until the consumer says so. `PurgeFinishedBeforeAsync` removes the finished cases whose root was last written before a date you choose, oldest first, a tree per transaction; `PurgeEventsBeforeAsync` removes the event ids that de-duplicate `PublishEventAsync`; `PurgeInstanceAsync` removes one case now, `PurgeMode.FinishedOnly` refusing a case that is still going and `PurgeMode.Force` erasing it whatever its state (no history is written, no port is called, nobody is told). Each purge is all or nothing per case and returns the number of rows it deleted per table, which is the line to keep in your own audit log (the host logs `process.instance.purged` with the same numbers and never a business key). Run the job from your own scheduler; a loop stops when a call purged nothing, because a case that another transaction holds is skipped and found by a later run. Purging event ids shortens the de-duplication window to what you keep: an id older than the cut-off is a new event if it is published again. A port call that was already running when its case was purged cannot be recalled: its result is dropped and `process.effect.orphaned` is logged.
+**Retention and erasure.** Nothing is deleted until the consumer says so. `PurgeFinishedBeforeAsync` removes the finished cases whose root was last written before a date you choose, oldest first, a tree per transaction; `PurgeEventsBeforeAsync` removes the event ids that de-duplicate `PublishEventAsync`; `PurgeInstanceAsync` removes one case now, `PurgeMode.FinishedOnly` refusing a case that is still going and `PurgeMode.Force` erasing it whatever its state (no history is written, no port is called, nobody is told). Each purge is all or nothing per case, and none of them waits for a row lock while it holds another, so a purge cannot deadlock with a pump, a publish or a command and returns the number of rows it deleted per table, which is the line to keep in your own audit log (the host logs `process.instance.purged` with the same numbers and never a business key). Run the job from your own scheduler; a loop stops when a call purged nothing, because a case that another transaction holds is skipped and found by a later run. `PurgeInstanceAsync` waits at most `PurgeLockTimeout` for a case that is held and then answers `Refused` with the code `process.purge.busy`, changing nothing: treat it as "try again on the next run", as the erase example does. Purging event ids shortens the de-duplication window to what you keep: an id older than the cut-off is a new event if it is published again. A port call that was already running when its case was purged cannot be recalled: its result is dropped and `process.effect.orphaned` is logged.
 
 ```csharp
 internal sealed class Retention(IProcessEngine engine, TimeProvider time)
@@ -471,7 +473,7 @@ internal sealed class Retention(IProcessEngine engine, TimeProvider time)
         return new RetentionReport(trees, instances, events);
     }
 
-    /// <summary>A request to erase a case now, whatever its state: finds the root by its business key and removes the whole tree. The report holds numbers only, so it can go to an audit log.</summary>
+    /// <summary>A request to erase a case now, whatever its state: finds the root by its business key and removes the whole tree. The report holds numbers only, so it can go to an audit log. A refusal with the code <c>process.purge.busy</c> means that another transaction held the case for the whole <c>PurgeLockTimeout</c> and nothing changed: record the request as open and try again on the next run.</summary>
     internal async Task<PurgeResult> EraseAsync(string tenantId, string caseRef, CancellationToken cancellationToken)
     {
         var root = await engine.FindInstanceAsync(tenantId, "case.lifecycle", caseRef, cancellationToken);

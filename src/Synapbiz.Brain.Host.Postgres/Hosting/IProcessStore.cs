@@ -230,16 +230,27 @@ internal interface IProcessSession : IAsyncDisposable
     Task SaveScheduleAsync(ScheduleKey key, DateTimeOffset nextFireAt, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Locks, in the order of the lock rule (the root, which the session already holds, then every descendant at any depth in creation
-    /// time and id order), the whole tree of a root instance and returns its keys with the root first. It walks again after each round of
-    /// locks, so that a child that a transaction committed while the walk waited is in the tree too.
+    /// Reads, without taking any lock, the ids of the instances of the tree whose root has the given id: the root itself, when it
+    /// exists in the tenant, and every descendant at any depth, with the tenant compared at every level of the walk. Empty when the
+    /// tenant has no such instance. A snapshot of one statement: a transaction that commits later is not in it.
+    /// </summary>
+    Task<IReadOnlyList<string>> ReadTreeAsync(string tenantId, string rootId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Locks the given instance rows of a tenant in one statement with <c>skip locked</c>, so that it never waits for a lock that
+    /// another transaction holds, and returns the rows it locked in instance id byte order. The caller compares the number of rows
+    /// with the number of ids: fewer rows means that a row is locked by someone else (or is gone), and the caller must end the
+    /// transaction. The rows returned are held by this session from then on.
+    /// </summary>
+    Task<IReadOnlyList<LockedInstance>> TryLockInstancesAsync(string tenantId, IReadOnlyList<string> instanceIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes the rows of one table for the given instances of the tree of <paramref name="root"/>; returns the number of rows
+    /// deleted. Every id must be held by this session (locked by <see cref="TryLockInstancesAsync"/>), otherwise it fails with
+    /// <see cref="InvalidOperationException"/> before it deletes anything.
     /// </summary>
     [RequiresInstanceLock]
-    Task<IReadOnlyList<InstanceKey>> LockTreeAsync(InstanceKey root, CancellationToken cancellationToken);
-
-    /// <summary>Deletes the rows of one table for every instance of the tree that <see cref="LockTreeAsync"/> locked; returns the number of rows deleted.</summary>
-    [RequiresInstanceLock]
-    Task<int> DeleteTreeRowsAsync(InstanceKey root, PurgeTable table, CancellationToken cancellationToken);
+    Task<int> DeleteTreeRowsAsync(InstanceKey root, IReadOnlyList<string> instanceIds, PurgeTable table, CancellationToken cancellationToken);
 
     /// <summary>Commits the transaction.</summary>
     Task CommitAsync(CancellationToken cancellationToken);

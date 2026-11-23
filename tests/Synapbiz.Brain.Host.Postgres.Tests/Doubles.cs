@@ -118,6 +118,8 @@ internal sealed class CapturingLoggerProvider : ILoggerProvider
 internal sealed class HookedStore : IProcessStore
 {
     private readonly IProcessStore inner;
+    private int sessions;
+    private int commits;
 
     internal HookedStore(IProcessStore inner) => this.inner = inner;
 
@@ -127,7 +129,28 @@ internal sealed class HookedStore : IProcessStore
     /// <summary>Runs after a scan of finished roots, before the call looks at what it found: another session changes the rows in between.</summary>
     internal Func<IReadOnlyList<FinishedRoot>, Task>? AfterFinishedScan { get; set; }
 
-    public Task<IProcessSession> BeginAsync(CancellationToken cancellationToken) => inner.BeginAsync(cancellationToken);
+    /// <summary>Runs after a walk of a tree inside a purge session, with the number of the walk in that session (1 is the walk before the locks, 2 the walk under them) and the ids it found.</summary>
+    internal Func<int, IReadOnlyList<string>, Task>? AfterTreeRead { get; set; }
+
+    /// <summary>Runs after a session locked one instance row with <c>LockInstanceAsync</c> (a publish locks its targets this way), with the row or null: the seam that holds a publisher's locks open.</summary>
+    internal Func<InstanceKey, InstanceRecord?, Task>? AfterInstanceLock { get; set; }
+
+    /// <summary>Runs after the locks of a purge attempt were taken, with the rows locked, before the tree is walked again.</summary>
+    internal Func<IReadOnlyList<LockedInstance>, Task>? AfterLock { get; set; }
+
+    /// <summary>The number of sessions this store opened.</summary>
+    internal int Sessions => Volatile.Read(ref sessions);
+
+    /// <summary>The number of sessions that were committed.</summary>
+    internal int Commits => Volatile.Read(ref commits);
+
+    internal void CountCommit() => Interlocked.Increment(ref commits);
+
+    public async Task<IProcessSession> BeginAsync(CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref sessions);
+        return new HookedSession(await inner.BeginAsync(cancellationToken), this);
+    }
 
     public async Task<IReadOnlyList<WorkRef>> ScanAsync(WorkKind kind, DateTimeOffset now, int limit, WorkRef? after, CancellationToken cancellationToken)
     {
@@ -165,6 +188,101 @@ internal sealed class HookedStore : IProcessStore
     }
 
     public Task<EventPurge> PurgeEventsAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken) => inner.PurgeEventsAsync(tenantId, before, limit, cancellationToken);
+}
+
+/// <summary>
+/// A session that passes everything to the real one and lets a test act between two steps of a purge: after the walk of the tree,
+/// and after the locks. The seam that simulates another transaction committing or changing rows in between.
+/// </summary>
+internal sealed class HookedSession : IProcessSession
+{
+    private readonly IProcessSession inner;
+    private readonly HookedStore owner;
+    private int walks;
+
+    internal HookedSession(IProcessSession inner, HookedStore owner)
+    {
+        this.inner = inner;
+        this.owner = owner;
+    }
+
+    public ValueTask DisposeAsync() => inner.DisposeAsync();
+
+    public async Task<IReadOnlyList<string>> ReadTreeAsync(string tenantId, string rootId, CancellationToken cancellationToken)
+    {
+        var ids = await inner.ReadTreeAsync(tenantId, rootId, cancellationToken);
+        walks++;
+        if (owner.AfterTreeRead is not null)
+        {
+            await owner.AfterTreeRead(walks, ids);
+        }
+
+        return ids;
+    }
+
+    public async Task<IReadOnlyList<LockedInstance>> TryLockInstancesAsync(string tenantId, IReadOnlyList<string> instanceIds, CancellationToken cancellationToken)
+    {
+        var rows = await inner.TryLockInstancesAsync(tenantId, instanceIds, cancellationToken);
+        if (owner.AfterLock is not null)
+        {
+            await owner.AfterLock(rows);
+        }
+
+        return rows;
+    }
+
+    public async Task CommitAsync(CancellationToken cancellationToken)
+    {
+        owner.CountCommit();
+        await inner.CommitAsync(cancellationToken);
+    }
+
+    public async Task<InstanceRecord?> LockInstanceAsync(InstanceKey key, bool skipLocked, CancellationToken cancellationToken)
+    {
+        var row = await inner.LockInstanceAsync(key, skipLocked, cancellationToken);
+        if (owner.AfterInstanceLock is not null)
+        {
+            await owner.AfterInstanceLock(key, row);
+        }
+
+        return row;
+    }
+    public Task<InsertedInstance> InsertInstanceAsync(NewInstance row, CancellationToken cancellationToken) => inner.InsertInstanceAsync(row, cancellationToken);
+    public Task SaveInstanceAsync(InstanceKey key, InstanceWrite write, CancellationToken cancellationToken) => inner.SaveInstanceAsync(key, write, cancellationToken);
+    public Task AppendHistoryAsync(InstanceKey key, IReadOnlyList<HistoryRow> rows, CancellationToken cancellationToken) => inner.AppendHistoryAsync(key, rows, cancellationToken);
+    public Task<bool> DeleteTimerAsync(InstanceKey key, string timerId, CancellationToken cancellationToken) => inner.DeleteTimerAsync(key, timerId, cancellationToken);
+    public Task InsertTimerAsync(InstanceKey key, string timerId, DateTimeOffset dueAt, CancellationToken cancellationToken) => inner.InsertTimerAsync(key, timerId, dueAt, cancellationToken);
+    public Task DeleteWaitAsync(InstanceKey key, string waitId, CancellationToken cancellationToken) => inner.DeleteWaitAsync(key, waitId, cancellationToken);
+    public Task InsertWaitAsync(InstanceKey key, string waitId, string eventName, string? correlation, CancellationToken cancellationToken) => inner.InsertWaitAsync(key, waitId, eventName, correlation, cancellationToken);
+    public Task InsertTaskAsync(InstanceKey key, TaskRecord task, CancellationToken cancellationToken) => inner.InsertTaskAsync(key, task, cancellationToken);
+    public Task<TaskRecord?> GetTaskAsync(InstanceKey key, string taskId, CancellationToken cancellationToken) => inner.GetTaskAsync(key, taskId, cancellationToken);
+    public Task<bool> CloseTaskAsync(InstanceKey key, string taskId, HumanTaskStatus status, DateTimeOffset now, CancellationToken cancellationToken) => inner.CloseTaskAsync(key, taskId, status, now, cancellationToken);
+    public Task InsertEffectAsync(InstanceKey key, EffectRecord effect, CancellationToken cancellationToken) => inner.InsertEffectAsync(key, effect, cancellationToken);
+    public Task<EffectRecord?> GetEffectAsync(InstanceKey key, string effectId, CancellationToken cancellationToken) => inner.GetEffectAsync(key, effectId, cancellationToken);
+    public Task ClaimEffectAsync(InstanceKey key, string effectId, DateTimeOffset leaseUntil, string leaseOwner, CancellationToken cancellationToken) => inner.ClaimEffectAsync(key, effectId, leaseUntil, leaseOwner, cancellationToken);
+    public Task RequeueEffectAsync(InstanceKey key, string effectId, DateTimeOffset dueAt, CancellationToken cancellationToken) => inner.RequeueEffectAsync(key, effectId, dueAt, cancellationToken);
+    public Task FinishEffectAsync(InstanceKey key, string effectId, EffectStatus status, CancellationToken cancellationToken) => inner.FinishEffectAsync(key, effectId, status, cancellationToken);
+    public Task ClearWorkAsync(InstanceKey key, DateTimeOffset now, CancellationToken cancellationToken) => inner.ClearWorkAsync(key, now, cancellationToken);
+    public Task DiscardPendingEffectsAsync(InstanceKey key, CancellationToken cancellationToken) => inner.DiscardPendingEffectsAsync(key, cancellationToken);
+    public Task<InboxRecord?> GetInboxAsync(InstanceKey key, long inboxId, CancellationToken cancellationToken) => inner.GetInboxAsync(key, inboxId, cancellationToken);
+    public Task<long?> FirstPendingInboxAsync(InstanceKey key, CancellationToken cancellationToken) => inner.FirstPendingInboxAsync(key, cancellationToken);
+    public Task CompleteInboxAsync(InstanceKey key, long inboxId, InboxStatus status, string? code, CancellationToken cancellationToken) => inner.CompleteInboxAsync(key, inboxId, status, code, cancellationToken);
+    public Task AppendInboxAsync(InstanceKey target, InboxKind kind, string protectedPayload, DateTimeOffset now, CancellationToken cancellationToken) => inner.AppendInboxAsync(target, kind, protectedPayload, now, cancellationToken);
+    public Task<IReadOnlyList<string>> ListLiveChildrenAsync(InstanceKey parent, CancellationToken cancellationToken) => inner.ListLiveChildrenAsync(parent, cancellationToken);
+    public Task<bool> TryInsertEventAsync(string tenantId, string eventId, string name, DateTimeOffset now, CancellationToken cancellationToken) => inner.TryInsertEventAsync(tenantId, eventId, name, now, cancellationToken);
+    public Task<IReadOnlyList<WaitCandidate>> FindWaitingInstancesAsync(string tenantId, string eventName, string? correlation, CancellationToken cancellationToken) => inner.FindWaitingInstancesAsync(tenantId, eventName, correlation, cancellationToken);
+    public Task LockActivationAsync(ActivationKey key, CancellationToken cancellationToken) => inner.LockActivationAsync(key, cancellationToken);
+    public Task<ActivationRecord?> GetActivationAsync(ActivationKey key, CancellationToken cancellationToken) => inner.GetActivationAsync(key, cancellationToken);
+    public Task SaveActivationAsync(ActivationKey key, ActivationRecord activation, CancellationToken cancellationToken) => inner.SaveActivationAsync(key, activation, cancellationToken);
+    public Task<bool> DeleteActivationAsync(ActivationKey key, CancellationToken cancellationToken) => inner.DeleteActivationAsync(key, cancellationToken);
+    public Task ReplaceEventTriggersAsync(ActivationKey key, IReadOnlyList<EventTriggerRow> rows, CancellationToken cancellationToken) => inner.ReplaceEventTriggersAsync(key, rows, cancellationToken);
+    public Task<IReadOnlyList<ScheduleRow>> GetSchedulesForUpdateAsync(ActivationKey key, CancellationToken cancellationToken) => inner.GetSchedulesForUpdateAsync(key, cancellationToken);
+    public Task UpsertScheduleAsync(ActivationKey key, ScheduleRow row, CancellationToken cancellationToken) => inner.UpsertScheduleAsync(key, row, cancellationToken);
+    public Task DeleteSchedulesExceptAsync(ActivationKey key, IReadOnlyCollection<string> keep, CancellationToken cancellationToken) => inner.DeleteSchedulesExceptAsync(key, keep, cancellationToken);
+    public Task<IReadOnlyList<EventTriggerRecord>> FindEventTriggersAsync(string tenantId, string eventName, CancellationToken cancellationToken) => inner.FindEventTriggersAsync(tenantId, eventName, cancellationToken);
+    public Task<ScheduleRecord?> LockScheduleAsync(ScheduleKey key, bool skipLocked, CancellationToken cancellationToken) => inner.LockScheduleAsync(key, skipLocked, cancellationToken);
+    public Task SaveScheduleAsync(ScheduleKey key, DateTimeOffset nextFireAt, CancellationToken cancellationToken) => inner.SaveScheduleAsync(key, nextFireAt, cancellationToken);
+    public Task<int> DeleteTreeRowsAsync(InstanceKey root, IReadOnlyList<string> instanceIds, PurgeTable table, CancellationToken cancellationToken) => inner.DeleteTreeRowsAsync(root, instanceIds, table, cancellationToken);
 }
 
 /// <summary>A protector that stores text as it is, except that it refuses to read anything of one tenant once it is armed.</summary>

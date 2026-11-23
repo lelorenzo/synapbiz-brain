@@ -16,8 +16,8 @@ internal sealed partial class PostgresProcessStore
         private readonly HashSet<InstanceKey> held = [];
         private readonly HashSet<ActivationKey> heldActivations = [];
         private readonly HashSet<ScheduleKey> heldSchedules = [];
-        private readonly Dictionary<InstanceKey, IReadOnlyList<string>> lockedTrees = [];
         private bool finished;
+        private bool disposed;
 
         internal Session(PostgresProcessStore owner, NpgsqlConnection connection, NpgsqlTransaction transaction)
         {
@@ -28,18 +28,18 @@ internal sealed partial class PostgresProcessStore
 
         public async ValueTask DisposeAsync()
         {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
             try
             {
                 if (!finished)
                 {
-                    await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+                    await RollbackAsync().ConfigureAwait(false);
                 }
-            }
-            catch (ObjectDisposedException)
-            {
-                // After a statement that PostgreSQL refused (a failure, a deadlock) Npgsql has already ended the transaction, and rolling it
-                // back again would throw this exception over the one that is being propagated. Closing the connection below discards
-                // what the server still holds.
             }
             finally
             {
@@ -50,8 +50,35 @@ internal sealed partial class PostgresProcessStore
 
         public async Task CommitAsync(CancellationToken cancellationToken)
         {
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            finished = true;
+            try
+            {
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                // A commit that threw has either been refused by the server (the transaction has ended, and a rollback would throw
+                // over the real error) or has broken the connection (which closing discards): there is nothing left to roll back.
+                finished = true;
+            }
+        }
+
+        /// <summary>
+        /// Rolls the transaction back. Npgsql disposes the transaction at once, without a rollback, when a statement fails with an
+        /// error that it treats as a connection failure (an internal error of class XX, for example); a rollback is then refused with
+        /// <see cref="ObjectDisposedException"/> and would be thrown over the error that is being propagated. An ordinary failure (a
+        /// raised exception, a deadlock) leaves the transaction rollable. Npgsql exposes no state to test: every member that could say
+        /// it (<c>Connection</c>) throws the same exception, so the catch is limited to this one call.
+        /// </summary>
+        private async Task RollbackAsync()
+        {
+            try
+            {
+                await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException)
+            {
+                // The connection is closed in DisposeAsync, which discards what the server still holds.
+            }
         }
 
         public async Task<InstanceRecord?> LockInstanceAsync(InstanceKey key, bool skipLocked, CancellationToken cancellationToken)
@@ -578,54 +605,41 @@ internal sealed partial class PostgresProcessStore
                 cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<IReadOnlyList<InstanceKey>> LockTreeAsync(InstanceKey root, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<string>> ReadTreeAsync(string tenantId, string rootId, CancellationToken cancellationToken) =>
+            // "union" (not "union all") also ends a walk through a parent link that loops; the tenant is compared at every level.
+            await QueryAsync(
+                connection,
+                transaction,
+                owner.Bake("with recursive walk(id) as (select instance_id from {instance} where tenant_id = @t and instance_id = @i union select ch.instance_id from walk w join {instance} ch on ch.tenant_id = @t and ch.parent_instance_id = w.id) select id from walk"),
+                [Text("t", tenantId), Text("i", rootId)],
+                reader => reader.GetString(0),
+                cancellationToken).ConfigureAwait(false);
+
+        public async Task<IReadOnlyList<LockedInstance>> TryLockInstancesAsync(string tenantId, IReadOnlyList<string> instanceIds, CancellationToken cancellationToken)
         {
-            RequireLock(root);
-            var locked = new List<string> { root.InstanceId };
-            var known = new HashSet<string>(StringComparer.Ordinal) { root.InstanceId };
-            List<string> fresh;
-            do
+            // One statement, never a waiting lock: a row that another transaction holds is left out of the result. The rows are
+            // returned, and locked, in byte order of the id.
+            var rows = await QueryAsync(
+                connection,
+                transaction,
+                owner.Bake("select instance_id, parent_instance_id, status, updated_at from {instance} where tenant_id = @t and instance_id = any(@ids) order by instance_id collate \"C\" for update skip locked"),
+                [Text("t", tenantId), TextArray("ids", instanceIds)],
+                reader => new LockedInstance(reader.GetString(0), Str(reader, 1), reader.GetInt16(2), reader.GetFieldValue<DateTimeOffset>(3)),
+                cancellationToken).ConfigureAwait(false);
+            foreach (var row in rows)
             {
-                // The whole tree, at any depth: "union" (not "union all") also ends a walk through a parent link that loops.
-                var found = await QueryAsync(
-                    connection,
-                    transaction,
-                    owner.Bake("with recursive walk(id) as (select instance_id from {instance} where tenant_id = @t and instance_id = @i union select ch.instance_id from walk w join {instance} ch on ch.tenant_id = @t and ch.parent_instance_id = w.id) select id from walk"),
-                    [Text("t", root.TenantId), Text("i", root.InstanceId)],
-                    reader => reader.GetString(0),
-                    cancellationToken).ConfigureAwait(false);
-                fresh = [.. found.Except(known, StringComparer.Ordinal)];
-                known.UnionWith(fresh);
-
-                if (fresh.Count > 0)
-                {
-                    // The rows come back, and are locked, in the order of the sort: creation time, then id bytewise.
-                    var taken = await QueryAsync(
-                        connection,
-                        transaction,
-                        owner.Bake("select instance_id from {instance} where tenant_id = @t and instance_id = any(@ids) order by created_at, instance_id collate \"C\" for update"),
-                        [Text("t", root.TenantId), TextArray("ids", fresh)],
-                        reader => reader.GetString(0),
-                        cancellationToken).ConfigureAwait(false);
-                    foreach (var id in taken)
-                    {
-                        held.Add(new InstanceKey(root.TenantId, id));
-                        locked.Add(id);
-                    }
-                }
+                held.Add(new InstanceKey(tenantId, row.InstanceId));
             }
-            while (fresh.Count > 0);
 
-            lockedTrees[root] = locked;
-            return [.. locked.Select(id => new InstanceKey(root.TenantId, id))];
+            return rows;
         }
 
-        public async Task<int> DeleteTreeRowsAsync(InstanceKey root, PurgeTable table, CancellationToken cancellationToken)
+        public async Task<int> DeleteTreeRowsAsync(InstanceKey root, IReadOnlyList<string> instanceIds, PurgeTable table, CancellationToken cancellationToken)
         {
             RequireLock(root);
-            if (!lockedTrees.TryGetValue(root, out var ids))
+            foreach (var id in instanceIds)
             {
-                throw new InvalidOperationException("The tree of " + root.TenantId + "/" + root.InstanceId + " is not locked by this transaction.");
+                RequireLock(new InstanceKey(root.TenantId, id));
             }
 
             var sql = table switch
@@ -639,7 +653,7 @@ internal sealed partial class PostgresProcessStore
                 PurgeTable.Instances => "delete from {instance} where tenant_id = @t and instance_id = any(@ids)",
                 _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Unknown table of a purge."),
             };
-            return await ExecuteAsync(connection, transaction, owner.Bake(sql), [Text("t", root.TenantId), TextArray("ids", ids)], cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(connection, transaction, owner.Bake(sql), [Text("t", root.TenantId), TextArray("ids", instanceIds)], cancellationToken).ConfigureAwait(false);
         }
 
         private void RequireActivationLock(ActivationKey key)

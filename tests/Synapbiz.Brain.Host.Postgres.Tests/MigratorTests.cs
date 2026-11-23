@@ -61,7 +61,7 @@ public sealed class MigratorTests
     public async Task ASchemaThatHasOnlyTheFirstScriptIsUpgradedByTheSecondOne()
     {
         await using var rig = await Rig.CreateAsync();
-        await rig.ExecuteAsync("drop table {schema}.process_activation; drop table {schema}.process_event_trigger; drop table {schema}.process_schedule; drop index {schema}.ix_process_instance_created; drop index {schema}.ix_process_instance_status; drop index {schema}.ix_process_instance_purge; drop index {schema}.ix_process_event_received; delete from {schema}.process_schema_version where version >= 2");
+        await rig.ExecuteAsync("drop table {schema}.process_activation; drop table {schema}.process_event_trigger; drop table {schema}.process_schedule; drop index {schema}.ix_process_instance_created; drop index {schema}.ix_process_instance_status; drop index {schema}.ix_process_instance_purge; drop index {schema}.ix_process_event_received; drop index {schema}.ix_process_inbox_instance; delete from {schema}.process_schema_version where version >= 2");
         (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version")).Should().Equal(1);
 
         await rig.Provider.GetRequiredService<IProcessStoreMigrator>().MigrateAsync();

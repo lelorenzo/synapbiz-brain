@@ -5,7 +5,7 @@ namespace Synapbiz.Brain.Host.Postgres;
 
 /// <summary>
 /// The statements of the purge commands. The scans take no lock and the deletes of a tree run in the session of the engine, after it
-/// holds the instance locks of the whole tree; every statement filters by tenant first and takes values only as parameters.
+/// holds the instance locks of the whole tree (taken with <c>skip locked</c>, never waiting); every statement filters by tenant first and takes values only as parameters.
 /// </summary>
 internal sealed partial class PostgresProcessStore
 {
@@ -43,9 +43,9 @@ internal sealed partial class PostgresProcessStore
                 connection,
                 null,
                 Bake(
-                    "delete from {event} where tenant_id = @t and event_id in ("
+                    "delete from {event} where tenant_id = @t and event_id = any(array("
                     + "select event_id from {event} where tenant_id = @t and received_at < @before "
-                    + "order by received_at, event_id collate \"C\" limit @n)"),
+                    + "order by received_at, event_id collate \"C\" limit @n))"),
                 [Text("t", tenantId), Time("before", before), Int("n", limit)],
                 cancellationToken).ConfigureAwait(false);
             var more = await QueryAsync(

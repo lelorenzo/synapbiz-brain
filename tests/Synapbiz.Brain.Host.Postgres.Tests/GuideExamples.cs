@@ -167,6 +167,7 @@ internal static class CaseProcessesRegistration
                 host.PortTimeout = TimeSpan.FromSeconds(60);
                 host.EffectLease = TimeSpan.FromSeconds(120);
                 host.ScheduleMisfireGrace = TimeSpan.FromMinutes(5);
+                host.PurgeLockTimeout = TimeSpan.FromSeconds(10);
             });
     }
 }
@@ -325,7 +326,7 @@ internal sealed class Retention(IProcessEngine engine, TimeProvider time)
         return new RetentionReport(trees, instances, events);
     }
 
-    /// <summary>A request to erase a case now, whatever its state: finds the root by its business key and removes the whole tree. The report holds numbers only, so it can go to an audit log.</summary>
+    /// <summary>A request to erase a case now, whatever its state: finds the root by its business key and removes the whole tree. The report holds numbers only, so it can go to an audit log. A refusal with the code <c>process.purge.busy</c> means that another transaction held the case for the whole <c>PurgeLockTimeout</c> and nothing changed: record the request as open and try again on the next run.</summary>
     internal async Task<PurgeResult> EraseAsync(string tenantId, string caseRef, CancellationToken cancellationToken)
     {
         var root = await engine.FindInstanceAsync(tenantId, "case.lifecycle", caseRef, cancellationToken);

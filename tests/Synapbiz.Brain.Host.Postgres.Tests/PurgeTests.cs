@@ -136,22 +136,30 @@ public sealed class PurgeTests
     }
 
     [Fact]
-    public async Task AChildThatAnotherTransactionCommittedWhilePurgeWaitedForItsParentIsInTheTreeToo()
+    public async Task AChildThatAnotherTransactionCommittedBetweenTheWalkAndTheLocksRestartsTheAttemptAndIsPurgedToo()
     {
         await using var rig = await Rig.CreateAsync();
         await PurgeSeed.TreeAsync(rig, A, "r1", PurgeSeed.Waiting, T0);
-        await using var other = await rig.HoldAsync("r1-g1", A);
-        var inserted = await other.InsertInstanceAsync(new NewInstance(A, "r1-late", "p", 1, "h", "k-late", "r1-g1", "late", T0), CancellationToken.None);
-        inserted.Inserted.Should().BeTrue();
+        var committed = false;
+        var hooked = new HookedStore(rig.Store)
+        {
+            // The first walk is done and nothing is locked yet: a transaction commits a child of the grandchild, as a pump would.
+            AfterTreeRead = async (walk, _) =>
+            {
+                if (walk == 1 && !committed)
+                {
+                    committed = true;
+                    await PurgeSeed.InstanceAsync(rig, A, "r1-late", "p", "k-late", PurgeSeed.Waiting, "r1-g1", T0, T0);
+                }
+            },
+        };
 
-        var purge = Task.Run(() => rig.Engine.PurgeInstanceAsync(A, "r1", PurgeMode.Force));
-        await WaitUntilBlockedAsync(rig);
-        purge.IsCompleted.Should().BeFalse("the purge waits for the lock of the grandchild");
-        await other.CommitAsync(CancellationToken.None);
-        var result = await purge;
+        var result = await rig.DriveAsync(rig.EngineOver(hooked).PurgeInstanceAsync(A, "r1", PurgeMode.Force));
 
+        committed.Should().BeTrue();
         result.Status.Should().Be(PurgeStatus.Purged);
-        result.Counts.Instances.Should().Be(5, "the late child is found by the walk that follows the locks");
+        result.Counts.Instances.Should().Be(5, "the second attempt walks the tree again and finds the late child");
+        hooked.Sessions.Should().Be(2, "the first attempt found the new row in its second walk, gave its locks back and ended; the second attempt purged");
         (await rig.CountAsync("process_instance")).Should().Be(0);
     }
 
@@ -393,7 +401,7 @@ public sealed class PurgeTests
         await PurgeSeed.TreeAsync(rig, A, "r1", PurgeSeed.Completed, T0);
         await PurgeSeed.TreeAsync(rig, A, "r2", PurgeSeed.Completed, T0.AddHours(1));
         var acted = false;
-        var hooked = new HookedStore(rig.Provider.GetRequiredService<IProcessStore>())
+        var hooked = new HookedStore(rig.Store)
         {
             // A root the scan found is resumed (no longer finished) and another one is purged, before the call looks at them.
             AfterFinishedScan = async _ =>
@@ -406,7 +414,7 @@ public sealed class PurgeTests
                 }
             },
         };
-        var engine = new ProcessEngine(hooked, rig.Provider.GetRequiredService<ProcessRuntime>());
+        var engine = rig.EngineOver(hooked);
 
         var batch = await engine.PurgeFinishedBeforeAsync(A, T0.AddDays(1), 10);
 
@@ -456,39 +464,31 @@ public sealed class PurgeTests
     }
 
     [Fact]
-    public async Task TheTreeLockRefusesToDeleteWhatItDidNotLockAndLocksTheTreeInCreationOrderRootFirst()
+    public async Task TheTreeWalkLocksNothingTheLockStatementReturnsWhatItLockedInByteOrderAndTheDeleteRefusesWhatItDidNotLock()
     {
         await using var rig = await Rig.CreateAsync();
         await PurgeSeed.TreeAsync(rig, A, "r1", PurgeSeed.Waiting, T0);
-        await PurgeSeed.InstanceAsync(rig, A, "r1-a", "p", "k-a", PurgeSeed.Waiting, "r1", T0, T0);
-        var store = rig.Provider.GetRequiredService<IProcessStore>();
+        await PurgeSeed.InstanceAsync(rig, A, "r1-a", "p", "k-a", PurgeSeed.Waiting, "r1", T0.AddHours(1), T0);
+        var store = rig.Store;
         var root = new InstanceKey(A, "r1");
         await using var session = await store.BeginAsync(CancellationToken.None);
+        await using var other = await store.BeginAsync(CancellationToken.None);
 
-        await FluentActions.Awaiting(() => session.LockTreeAsync(root, CancellationToken.None)).Should().ThrowExactlyAsync<InvalidOperationException>("the root must be locked first");
-        (await session.LockInstanceAsync(root, skipLocked: false, CancellationToken.None)).Should().NotBeNull();
-        await FluentActions.Awaiting(() => session.DeleteTreeRowsAsync(root, PurgeTable.History, CancellationToken.None)).Should().ThrowExactlyAsync<InvalidOperationException>("the tree is not locked yet");
-        var tree = await session.LockTreeAsync(root, CancellationToken.None);
+        var walked = await session.ReadTreeAsync(A, "r1", CancellationToken.None);
 
-        tree.Select(key => key.InstanceId).Should().Equal("r1", "r1-a", "r1-c1", "r1-c2", "r1-g1");
-        tree.Should().OnlyContain(key => key.TenantId == A);
-        (await session.DeleteTreeRowsAsync(root, PurgeTable.Instances, CancellationToken.None)).Should().Be(5);
-        await FluentActions.Awaiting(() => session.DeleteTreeRowsAsync(new InstanceKey(A, "r1-c1"), PurgeTable.Instances, CancellationToken.None)).Should().ThrowExactlyAsync<InvalidOperationException>("the tree is deleted for its root");
-    }
+        walked.Should().BeEquivalentTo("r1", "r1-a", "r1-c1", "r1-c2", "r1-g1");
+        (await other.TryLockInstancesAsync(A, walked, CancellationToken.None)).Should().HaveCount(5, "the walk took no lock: another session locks every row afterwards");
+        await FluentActions.Awaiting(() => session.DeleteTreeRowsAsync(root, walked, PurgeTable.History, CancellationToken.None)).Should().ThrowExactlyAsync<InvalidOperationException>("the root is not locked by this session");
 
-    /// <summary>Waits until a statement of another connection waits for a lock.</summary>
-    internal static async Task WaitUntilBlockedAsync(Rig rig)
-    {
-        for (var attempt = 0; attempt < 200; attempt++)
-        {
-            if (await rig.ScalarAsync<long>("select count(*) from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and pid <> pg_backend_pid()") > 0)
-            {
-                return;
-            }
+        await using var third = await store.BeginAsync(CancellationToken.None);
+        var locked = await third.TryLockInstancesAsync(A, ["r1-g1", "r1", "r1-a", "missing"], CancellationToken.None);
 
-            await Task.Delay(25);
-        }
-
-        throw new InvalidOperationException("No statement waited for a lock.");
+        locked.Should().BeEmpty("every row that exists is held by the other session, and the statement does not wait for it");
+        await other.DisposeAsync();
+        var mine = await third.TryLockInstancesAsync(A, ["r1-g1", "r1", "r1-a", "missing"], CancellationToken.None);
+        mine.Select(row => row.InstanceId).Should().Equal("r1", "r1-a", "r1-g1");
+        await FluentActions.Awaiting(() => third.DeleteTreeRowsAsync(root, ["r1", "r1-c1"], PurgeTable.Instances, CancellationToken.None)).Should().ThrowExactlyAsync<InvalidOperationException>("r1-c1 was not locked by this session");
+        (await third.DeleteTreeRowsAsync(root, ["r1", "r1-a", "r1-g1"], PurgeTable.Instances, CancellationToken.None)).Should().Be(3);
+        (await third.TryLockInstancesAsync("tenant-x", ["r1"], CancellationToken.None)).Should().BeEmpty("the tenant is part of the statement");
     }
 }

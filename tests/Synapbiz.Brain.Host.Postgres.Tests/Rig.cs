@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Npgsql;
 using Synapbiz.Brain.Process;
@@ -92,6 +93,34 @@ internal sealed class Rig : IAsyncDisposable
             await session.DisposeAsync();
             throw;
         }
+    }
+
+    /// <summary>An engine over another store (a hooked one, for example) with the runtime and the options of this rig.</summary>
+    internal IProcessEngine EngineOver(IProcessStore store) => new ProcessEngine(store, Provider.GetRequiredService<ProcessRuntime>(), Provider.GetRequiredService<IOptions<ProcessHostOptions>>());
+
+    /// <summary>The store of this rig, to be wrapped in a hook.</summary>
+    internal IProcessStore Store => Provider.GetRequiredService<IProcessStore>();
+
+    /// <summary>
+    /// Waits for a task that waits on the clock of the rig (a purge that retries), moving the fake clock forward by a step now and
+    /// then, so that its pauses and its timeout elapse. Gives up after a real minute.
+    /// </summary>
+    internal async Task<T> DriveAsync<T>(Task<T> task, TimeSpan? step = null)
+    {
+        var by = step ?? TimeSpan.FromMilliseconds(10);
+        var giveUp = DateTime.UtcNow.AddMinutes(1);
+        while (!task.IsCompleted)
+        {
+            if (DateTime.UtcNow > giveUp)
+            {
+                throw new TimeoutException("The task did not complete while the clock was moved.");
+            }
+
+            Time.Advance(by);
+            await Task.Delay(1);
+        }
+
+        return await task;
     }
 
     /// <summary>A second migrator over the same schema, as another process of the same deployment would have.</summary>

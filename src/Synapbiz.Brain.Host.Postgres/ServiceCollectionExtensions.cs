@@ -60,7 +60,7 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IZoneResolver>(),
             provider.GetRequiredService<TimeProvider>(),
             provider.GetRequiredService<ILogger<ProcessRuntime>>()));
-        services.AddSingleton<IProcessEngine>(provider => new ProcessEngine(provider.GetRequiredService<IProcessStore>(), provider.GetRequiredService<ProcessRuntime>()));
+        services.AddSingleton<IProcessEngine>(provider => new ProcessEngine(provider.GetRequiredService<IProcessStore>(), provider.GetRequiredService<ProcessRuntime>(), provider.GetRequiredService<IOptions<ProcessHostOptions>>()));
         services.AddSingleton<IProcessPump>(provider => new ProcessPump(
             provider.GetRequiredService<IProcessStore>(),
             provider.GetRequiredService<ProcessRuntime>(),

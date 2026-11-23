@@ -231,7 +231,7 @@ public sealed class PurgeFlowTests
             });
 
             await Task.Delay(delay);
-            var result = await rig.Engine.PurgeInstanceAsync(Tenant, ids[0], PurgeMode.Force);
+            var result = await rig.DriveAsync(rig.Engine.PurgeInstanceAsync(Tenant, ids[0], PurgeMode.Force));
             Volatile.Write(ref stop, true);
             await Task.WhenAll(pumping.Append(observing));
 

@@ -150,13 +150,15 @@ public interface IProcessEngine
     /// effects and inbox rows, in one transaction (all or nothing). The host keeps no copy, tombstone or archive; afterwards the
     /// business key is free and <see cref="StartAsync"/> with it creates a new instance. Nothing is cancelled through the interpreter
     /// first, no port is called and nobody is notified. A port call that a worker had already started cannot be recalled: when it
-    /// comes back its result is dropped and <c>process.effect.orphaned</c> is logged.
+    /// comes back its result is dropped and <c>process.effect.orphaned</c> is logged. The call never waits for a row lock while it
+    /// holds another: it locks the whole tree at once without waiting, and when another transaction holds a row of it gives
+    /// everything back and tries again after a short pause, for at most <see cref="ProcessHostOptions.PurgeLockTimeout"/>.
     /// </summary>
     /// <param name="tenantId">The tenant.</param>
     /// <param name="instanceId">The root instance to purge.</param>
     /// <param name="mode"><see cref="PurgeMode.FinishedOnly"/> refuses a root that is not completed or cancelled; <see cref="PurgeMode.Force"/> removes the case whatever its statuses.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
-    /// <returns>Purged with the number of rows deleted per table; not found (zero counts, also for the id of another tenant) so that a retry after a crash is safe; or refused with <c>process.purge.not_root</c> (a child is purged with its root) or <c>process.purge.not_finished</c>.</returns>
+    /// <returns>Purged with the number of rows deleted per table; not found (zero counts, also for the id of another tenant) so that a retry after a crash is safe; or refused with <c>process.purge.not_root</c> (a child is purged with its root), <c>process.purge.not_finished</c>, or <c>process.purge.busy</c> (another transaction held a row of the tree for the whole <see cref="ProcessHostOptions.PurgeLockTimeout"/>; nothing changed and the call can be repeated).</returns>
     /// <exception cref="ArgumentException">An id is invalid (empty, over 200 characters or holding a control character).</exception>
     /// <exception cref="ArgumentOutOfRangeException">The mode is not a defined value.</exception>
     Task<PurgeResult> PurgeInstanceAsync(string tenantId, string instanceId, PurgeMode mode, CancellationToken cancellationToken = default);
@@ -164,7 +166,8 @@ public interface IProcessEngine
     /// <summary>
     /// A safety net for a retention rule: purges up to <paramref name="limit"/> trees of the tenant whose root is completed or
     /// cancelled and whose root update time is earlier than <paramref name="before"/> (not equal to it), oldest first, one
-    /// transaction per tree. A tree that another transaction holds is skipped in this call and found by a later one.
+    /// transaction per tree, each tried once and never waited for. A tree that another transaction holds, wholly or in part, is
+    /// skipped in this call and found by a later one.
     /// </summary>
     /// <param name="tenantId">The tenant.</param>
     /// <param name="before">The cut-off instant, exclusive; the consumer owns the rule and the date.</param>
@@ -437,7 +440,7 @@ public sealed record PurgeCounts(int Instances, int History, int Timers, int Wai
 /// <summary>The result of purging one tree.</summary>
 /// <param name="Status">What happened.</param>
 /// <param name="Counts">The rows deleted per table; all zero unless the status is <see cref="PurgeStatus.Purged"/>.</param>
-/// <param name="Code">The reason of a refusal (<c>process.purge.not_root</c> or <c>process.purge.not_finished</c>); null otherwise.</param>
+/// <param name="Code">The reason of a refusal (<c>process.purge.not_root</c>, <c>process.purge.not_finished</c> or <c>process.purge.busy</c>); null otherwise.</param>
 public sealed record PurgeResult(PurgeStatus Status, PurgeCounts Counts, string? Code = null);
 
 /// <summary>The result of <see cref="IProcessEngine.PurgeFinishedBeforeAsync"/>.</summary>
