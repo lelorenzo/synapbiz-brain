@@ -7,7 +7,7 @@ using System.Xml.Linq;
 namespace Synapbiz.Brain.ArchitectureTests;
 
 /// <summary>
-/// Freezes what <c>Synapbiz.Brain.Workbench.Blazor</c> may depend on: the base class library, the four Brain libraries and the
+/// Freezes what <c>Synapbiz.Brain.Workbench.Blazor</c> may depend on: the base class library, the five Brain libraries and the
 /// Blazor component model. It declares the one package that gives it the component model, never touches JavaScript and ships
 /// no script, so a host that renders it needs nothing but the host's own tokens.
 /// </summary>
@@ -16,7 +16,7 @@ public sealed class WorkbenchBlazorAssemblyCouplingTests
     private const string Panels = "Synapbiz.Brain.Workbench.Blazor";
 
     private static readonly string[] Libraries =
-        ["Synapbiz.Brain.Contracts", "Synapbiz.Brain.Engine", "Synapbiz.Brain.Spec", "Synapbiz.Brain.Workbench"];
+        ["Synapbiz.Brain.Contracts", "Synapbiz.Brain.Engine", "Synapbiz.Brain.Process", "Synapbiz.Brain.Spec", "Synapbiz.Brain.Workbench"];
 
     private static readonly string[] AllowedPrefixes = ["Microsoft.AspNetCore.Components", "Microsoft.JSInterop", "Microsoft.Extensions."];
 
@@ -26,7 +26,7 @@ public sealed class WorkbenchBlazorAssemblyCouplingTests
         || AllowedPrefixes.Any(prefix => owner.StartsWith(prefix, StringComparison.Ordinal));
 
     [Fact]
-    public void TheAssemblyReferencesOnlyTheBclTheFourLibrariesAndTheComponentModel()
+    public void TheAssemblyReferencesOnlyTheBclTheFiveLibrariesAndTheComponentModel()
     {
         var bcl = Directory.EnumerateFiles(RuntimeEnvironment.GetRuntimeDirectory(), "*.dll")
             .Select(Path.GetFileNameWithoutExtension).ToHashSet(StringComparer.Ordinal);
@@ -68,7 +68,7 @@ public sealed class WorkbenchBlazorAssemblyCouplingTests
     }
 
     [Fact]
-    public void TheProjectDeclaresExactlyOnePackageAndReferencesExactlyTheFourLibraries()
+    public void TheProjectDeclaresExactlyOnePackageAndReferencesExactlyTheFiveLibraries()
     {
         var project = XDocument.Load(Path.Combine(FindRepositoryRoot(), "src", Panels, Panels + ".csproj"));
         var offenders = new SortedSet<string>(StringComparer.Ordinal);
