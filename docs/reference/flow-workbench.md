@@ -6,6 +6,8 @@ Namespace `Synapbiz.Brain.Workbench.Flows`. The workbench now references `Synapb
 
 Where the text of a view names a document member, it writes the id in backticks, so a screen can set it in a different type face without parsing the sentence.
 
+The screen that draws all of this is the component `FlowWorkbench`, described in [flow-workbench-panels](flow-workbench-panels.md).
+
 ## The outline: what the workbench reads
 
 `ProcessOutline` (in `Synapbiz.Brain.Process`, see [brain-process-v1](brain-process-v1.md#the-outline-a-read-model-of-a-loaded-process)) is the public read model of a loaded process: header, variables, windows, triggers, and every step with its routes. The workbench is built on it and on nothing from the internal model.
