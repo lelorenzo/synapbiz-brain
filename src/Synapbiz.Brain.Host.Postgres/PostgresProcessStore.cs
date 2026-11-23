@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
@@ -65,16 +66,29 @@ internal sealed partial class PostgresProcessStore : IProcessStore, IAsyncDispos
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<WorkRef>> ScanAsync(WorkKind kind, DateTimeOffset now, int limit, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkRef>> ScanAsync(WorkKind kind, DateTimeOffset now, int limit, WorkRef? after, CancellationToken cancellationToken)
     {
+        // Keyset paging: the cursor is the last item of the previous page, and the ordering key is total (time, tenant, id), so no
+        // item is skipped or read twice by the pages of one pass. The inbox is ordered by its identity, which is unique on its own.
         var sql = kind switch
         {
-            WorkKind.ExpiredLease => "select tenant_id, instance_id, effect_id from {effect} where status = 2 and lease_until <= @now order by lease_until, effect_id limit @n",
-            WorkKind.Inbox => "select i.tenant_id, i.instance_id, i.inbox_id::text from {inbox} i where i.status = 1 and not exists (select 1 from {inbox} e where e.tenant_id = i.tenant_id and e.instance_id = i.instance_id and e.status = 1 and e.inbox_id < i.inbox_id) order by i.inbox_id limit @n",
-            WorkKind.DueTimer => "select tenant_id, instance_id, timer_id from {timer} where due_at <= @now order by due_at, timer_id limit @n",
-            WorkKind.DueEffect => "select tenant_id, instance_id, effect_id from {effect} where status = 1 and due_at <= @now order by due_at, effect_id limit @n",
+            WorkKind.ExpiredLease => "select tenant_id, instance_id, effect_id, lease_until from {effect} where status = 2 and lease_until <= @now and (@at is null or (lease_until, tenant_id, effect_id) > (@at, @t, @id)) order by lease_until, tenant_id, effect_id limit @n",
+            WorkKind.Inbox => "select i.tenant_id, i.instance_id, i.inbox_id::text, null::timestamptz from {inbox} i where i.status = 1 and i.inbox_id > @after and not exists (select 1 from {inbox} e where e.tenant_id = i.tenant_id and e.instance_id = i.instance_id and e.status = 1 and e.inbox_id < i.inbox_id) order by i.inbox_id limit @n",
+            WorkKind.DueTimer => "select tenant_id, instance_id, timer_id, due_at from {timer} where due_at <= @now and (@at is null or (due_at, tenant_id, timer_id) > (@at, @t, @id)) order by due_at, tenant_id, timer_id limit @n",
+            WorkKind.DueEffect => "select tenant_id, instance_id, effect_id, due_at from {effect} where status = 1 and due_at <= @now and (@at is null or (due_at, tenant_id, effect_id) > (@at, @t, @id)) order by due_at, tenant_id, effect_id limit @n",
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown kind of work."),
         };
+        NpgsqlParameter[] parameters;
+        if (kind == WorkKind.Inbox)
+        {
+            var afterId = after is null ? 0 : long.Parse(after.ItemId, CultureInfo.InvariantCulture);
+            parameters = [Big("after", afterId), Big("n", limit)];
+        }
+        else
+        {
+            parameters = [Time("now", now), Time("at", after?.SortAt), Text("t", after?.TenantId), Text("id", after?.ItemId), Big("n", limit)];
+        }
+
         var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using (connection.ConfigureAwait(false))
         {
@@ -82,8 +96,8 @@ internal sealed partial class PostgresProcessStore : IProcessStore, IAsyncDispos
                 connection,
                 null,
                 Bake(sql),
-                [Time("now", now), Big("n", limit)],
-                reader => new WorkRef(reader.GetString(0), reader.GetString(1), reader.GetString(2)),
+                parameters,
+                reader => new WorkRef(reader.GetString(0), reader.GetString(1), reader.GetString(2), Moment(reader, 3)),
                 cancellationToken).ConfigureAwait(false);
         }
     }

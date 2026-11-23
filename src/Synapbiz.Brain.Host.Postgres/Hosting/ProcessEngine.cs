@@ -74,18 +74,19 @@ internal sealed class ProcessEngine : IProcessEngine
                 return new PublishResult(PublishStatus.Duplicate, 0);
             }
 
-            IReadOnlyList<string> targets = processEvent.InstanceId is not null
-                ? [processEvent.InstanceId]
+            IReadOnlyList<WaitCandidate> targets = processEvent.InstanceId is not null
+                ? [new WaitCandidate(processEvent.InstanceId, true)]
                 : await session.FindWaitingInstancesAsync(tenant, processEvent.Name, processEvent.Correlation, cancellationToken).ConfigureAwait(false);
 
             var queued = 0;
             var payload = runtime.Protect(tenant, InboxPayloads.Event(processEvent.Name, processEvent.Correlation, processEvent.PayloadJson));
-            foreach (var target in targets.OrderBy(id => id, StringComparer.Ordinal))
+            foreach (var target in targets.OrderBy(candidate => candidate.InstanceId, StringComparer.Ordinal))
             {
                 // The targets are locked in id order, so that two publishers can never wait for each other, and so that the inbox
                 // rows of one instance are numbered in the order its lock was taken.
-                var key = new InstanceKey(tenant, target);
-                if (await session.LockInstanceAsync(key, false, cancellationToken).ConfigureAwait(false) is null)
+                var key = new InstanceKey(tenant, target.InstanceId);
+                var instance = await session.LockInstanceAsync(key, false, cancellationToken).ConfigureAwait(false);
+                if (instance is null || (!target.Exact && !WaitTakesTheEvent(instance, processEvent)))
                 {
                     continue;
                 }
@@ -189,6 +190,31 @@ internal sealed class ProcessEngine : IProcessEngine
             row.Outcomes,
             runtime.Unprotect(tenantId, row.ProtectedShow),
             row.CreatedAt))];
+    }
+
+    /// <summary>
+    /// Asks the interpreter, without writing anything, whether the wait of an instance whose correlation matched only without regard
+    /// to case consumes the event. A <c>Reference</c> correlation compares equal whatever its case, so the interpreter takes the event;
+    /// a <c>String</c> correlation that differs in case is not taken (the interpreter rejects the event or only buffers it), and the
+    /// instance is then not a target. When the definition is not available the question cannot be answered and the instance stays a
+    /// target: the pump decides when the definition is back.
+    /// </summary>
+    private bool WaitTakesTheEvent(InstanceRecord instance, ProcessEvent processEvent)
+    {
+        var state = runtime.ReadState(instance);
+        if (state is null)
+        {
+            return false;
+        }
+
+        var process = runtime.Resolve(instance);
+        if (process is null)
+        {
+            return true;
+        }
+
+        var result = process.Advance(state, new EventReceived(processEvent.Name, processEvent.Correlation, processEvent.PayloadJson), runtime.Clock(instance.TenantId));
+        return result.Disposition == AdvanceDisposition.Applied && !result.History.Any(entry => entry.Kind == ProcessHistoryKind.EventBuffered);
     }
 
     private static JsonObject ParseInput(string inputJson)

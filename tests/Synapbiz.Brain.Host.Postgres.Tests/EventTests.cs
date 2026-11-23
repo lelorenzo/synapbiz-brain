@@ -175,4 +175,78 @@ public sealed class EventTests
         (await rig.OutstandingWorkAsync(id)).Should().Be(0);
         (await rig.Engine.PublishEventAsync(Reply("e-1", "c-1"))).Status.Should().Be(PublishStatus.NoTarget);
     }
+
+    [Fact]
+    public async Task AReferenceCorrelationInUpperCaseReachesTheWaitAndCompletesTheInstance()
+    {
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("wait-ref"));
+        const string reference = "3f2b8c1e-0a4d-4c7e-9b1a-5d6e7f8091a2";
+        var id = await rig.StartAsync("host.waitref", "k-1", "{\"case_ref\":\"" + reference + "\"}");
+
+        var result = await rig.Engine.PublishEventAsync(Reply("e-1", reference.ToUpperInvariant()));
+        await rig.DrainAsync();
+
+        result.Should().Be(new PublishResult(PublishStatus.Queued, 1));
+        var info = await rig.Engine.GetInstanceAsync(rig.Tenant, id);
+        info!.Status.Should().Be(ProcessStatus.Completed);
+        info.Result.Should().Be("replied");
+        (await rig.CountAsync("process_inbox", "status = 2 and code is null")).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AReferenceStoredFromAnUpperCaseInputIsFoundByALowerCaseCorrelationToo()
+    {
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("wait-ref"));
+        const string reference = "3f2b8c1e-0a4d-4c7e-9b1a-5d6e7f8091a2";
+        var id = await rig.StartAsync("host.waitref", "k-1", "{\"case_ref\":\"" + reference.ToUpperInvariant() + "\"}");
+
+        var result = await rig.Engine.PublishEventAsync(Reply("e-1", reference));
+        await rig.DrainAsync();
+
+        result.Should().Be(new PublishResult(PublishStatus.Queued, 1));
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, id))!.Result.Should().Be("replied");
+    }
+
+    [Theory]
+    [InlineData("wait-reply", "host.wait")]
+    [InlineData("wait-accepts", "host.waitaccepts")]
+    public async Task ACodeCorrelationThatDiffersOnlyInCaseIsNoTargetWhetherOrNotTheInstanceAcceptsTheEvent(string fixture, string processId)
+    {
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host(fixture));
+        var id = await rig.StartAsync(processId, "k-1", "{\"case_ref\":\"case-a\"}");
+        var revision = await rig.ScalarAsync<long>("select revision from {schema}.process_instance where instance_id = @i", ("i", id));
+
+        var result = await rig.Engine.PublishEventAsync(Reply("e-1", "CASE-A"));
+        var again = await rig.Engine.PublishEventAsync(Reply("e-1", "CASE-A"));
+        await rig.DrainAsync();
+
+        result.Should().Be(new PublishResult(PublishStatus.NoTarget, 0));
+        again.Should().Be(new PublishResult(PublishStatus.Duplicate, 0), "the event id is consumed by the answer NoTarget");
+        (await rig.CountAsync("process_inbox")).Should().Be(0);
+        (await rig.ScalarAsync<long>("select revision from {schema}.process_instance where instance_id = @i", ("i", id))).Should().Be(revision);
+        var info = await rig.Engine.GetInstanceAsync(rig.Tenant, id);
+        info!.Status.Should().Be(ProcessStatus.Waiting);
+        info.State!.Inbox.Should().BeEmpty();
+        (await rig.Engine.PublishEventAsync(Reply("e-2", "case-a"))).Should().Be(new PublishResult(PublishStatus.Queued, 1));
+    }
+
+    [Fact]
+    public async Task ACandidateThatMatchesOnlyWithoutRegardToCaseIsAskedAndAnExactOneIsNot()
+    {
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("wait-reply"), Fixtures.Host("wait-ref"));
+        const string reference = "3f2b8c1e-0a4d-4c7e-9b1a-5d6e7f8091a2";
+        var byReference = await rig.StartAsync("host.waitref", "k-1", "{\"case_ref\":\"" + reference + "\"}");
+        var byCode = await rig.StartAsync("host.wait", "k-2", "{\"case_ref\":\"" + reference.ToUpperInvariant() + "\"}");
+
+        var upper = await rig.Engine.PublishEventAsync(Reply("e-1", reference.ToUpperInvariant()));
+        await rig.DrainAsync();
+
+        upper.Should().Be(new PublishResult(PublishStatus.Queued, 2), "the Code wait holds the upper-case text as it was given, so it matches exactly, and the Reference wait matches by the interpreter's own rule");
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, byReference))!.Result.Should().Be("replied");
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, byCode))!.Result.Should().Be("replied");
+    }
 }

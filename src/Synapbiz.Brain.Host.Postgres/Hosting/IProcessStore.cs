@@ -16,8 +16,12 @@ internal interface IProcessStore
     /// <summary>Opens a transaction.</summary>
     Task<IProcessSession> BeginAsync(CancellationToken cancellationToken);
 
-    /// <summary>Scans for work items of one kind, oldest first, without locking anything.</summary>
-    Task<IReadOnlyList<WorkRef>> ScanAsync(WorkKind kind, DateTimeOffset now, int limit, CancellationToken cancellationToken);
+    /// <summary>
+    /// Scans for work items of one kind, oldest first, without locking anything. One page of at most <paramref name="limit"/> items
+    /// that sort strictly after <paramref name="after"/> (the last item of the previous page; null for the first page). The ordering
+    /// key is total: lease expiry or due time, then tenant, then id; the inbox is ordered by its id.
+    /// </summary>
+    Task<IReadOnlyList<WorkRef>> ScanAsync(WorkKind kind, DateTimeOffset now, int limit, WorkRef? after, CancellationToken cancellationToken);
 
     /// <summary>Reads an instance row.</summary>
     Task<InstanceRecord?> GetInstanceAsync(string tenantId, string instanceId, CancellationToken cancellationToken);
@@ -128,8 +132,12 @@ internal interface IProcessSession : IAsyncDisposable
     /// <summary>Records an event id; false when it was already recorded.</summary>
     Task<bool> TryInsertEventAsync(string tenantId, string eventId, string name, DateTimeOffset now, CancellationToken cancellationToken);
 
-    /// <summary>The ids of the instances that wait for an event, in id order.</summary>
-    Task<IReadOnlyList<string>> FindWaitingInstancesAsync(string tenantId, string eventName, string? correlation, CancellationToken cancellationToken);
+    /// <summary>
+    /// The instances that wait for an event, in id order: those whose wait has no correlation or a correlation equal to the given
+    /// one without regard to case. Each is marked exact or not, so that the caller can ask the interpreter about the ones that matched
+    /// only by case.
+    /// </summary>
+    Task<IReadOnlyList<WaitCandidate>> FindWaitingInstancesAsync(string tenantId, string eventName, string? correlation, CancellationToken cancellationToken);
 
     /// <summary>Commits the transaction.</summary>
     Task CommitAsync(CancellationToken cancellationToken);

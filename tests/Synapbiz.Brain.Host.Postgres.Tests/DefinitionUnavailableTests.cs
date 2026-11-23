@@ -81,16 +81,10 @@ public sealed class DefinitionUnavailableTests
         await using var rig = await Rig.CreateAsync();
         var process = Fixtures.Host("delivery");
         rig.Catalog.Add(process);
-        using var crash = new CancellationTokenSource();
         var port = rig.Port("t.send");
-        port.Handler = async (_, _) =>
-        {
-            await crash.CancelAsync();
-            return new PortCompleted("{}");
-        };
+        EffectTests.CrashOnFirstCall(rig, port);
         var id = await rig.StartAsync("host.delivery", "k-1");
-        var pass = () => rig.Pump.RunOnceAsync(crash.Token);
-        await pass.Should().ThrowAsync<OperationCanceledException>();
+        await rig.Pump.RunOnceAsync();
         rig.Catalog.Remove("host.delivery");
         rig.Time.Advance(TimeSpan.FromMinutes(5));
 

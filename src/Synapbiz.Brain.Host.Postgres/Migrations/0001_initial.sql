@@ -59,7 +59,8 @@ create table process_wait (
     constraint pk_process_wait primary key (tenant_id, wait_id)
 );
 
-create index ix_process_wait_event on process_wait (tenant_id, event, correlation);
+-- Correlation is compared without regard to case when an event is routed, so the index is on the lower-cased value.
+create index ix_process_wait_event on process_wait (tenant_id, event, lower(correlation));
 create index ix_process_wait_instance on process_wait (tenant_id, instance_id);
 
 create table process_task (

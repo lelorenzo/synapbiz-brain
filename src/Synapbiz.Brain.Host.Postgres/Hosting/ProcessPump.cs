@@ -63,15 +63,62 @@ internal sealed class ProcessPump : IProcessPump
 
     private async Task<int> ExpiredLeasesAsync(CancellationToken cancellationToken)
     {
-        var items = await store.ScanAsync(WorkKind.ExpiredLease, runtime.Time.GetUtcNow(), options.BatchSize, cancellationToken).ConfigureAwait(false);
+        return await ScanAsync(
+            WorkKind.ExpiredLease,
+            item => WithInstanceAsync(item, true, (session, instance) => ExpireLeaseAsync(session, instance, item.ItemId, cancellationToken), cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reads the scan of one kind page by page (keyset paging on its ordering key) and handles the items one by one, until the scan is
+    /// exhausted or <see cref="ProcessHostOptions.BatchSize"/> items have been handled in this pass. Items that are left untouched
+    /// (an instance locked elsewhere, a definition that is not available, an item that failed) therefore cannot hide the items
+    /// behind them. An item that throws is isolated: it is logged and left as it was, and the pass goes on.
+    /// </summary>
+    private async Task<int> ScanAsync(WorkKind kind, Func<WorkRef, Task<bool>> handle, CancellationToken cancellationToken)
+    {
+        var now = runtime.Time.GetUtcNow();
         var handled = 0;
-        foreach (var item in items)
+        WorkRef? after = null;
+        while (handled < options.BatchSize)
         {
-            var done = await WithInstanceAsync(item, true, (session, instance) => ExpireLeaseAsync(session, instance, item.ItemId, cancellationToken), cancellationToken).ConfigureAwait(false);
-            handled += done ? 1 : 0;
+            var page = await store.ScanAsync(kind, now, options.BatchSize, after, cancellationToken).ConfigureAwait(false);
+            foreach (var item in page)
+            {
+                if (handled >= options.BatchSize)
+                {
+                    break;
+                }
+
+                handled += await IsolatedAsync(kind.ToString(), item, async () => await handle(item).ConfigureAwait(false), cancellationToken).ConfigureAwait(false) ? 1 : 0;
+            }
+
+            if (page.Count < options.BatchSize)
+            {
+                break;
+            }
+
+            after = page[^1];
         }
 
         return handled;
+    }
+
+    /// <summary>
+    /// Runs the handling of one item and turns any exception except the cancellation of the pass into a warning (item kind, tenant,
+    /// ids and the exception type; never its message, which could carry a protected value). The item is then left as it was.
+    /// </summary>
+    private async Task<bool> IsolatedAsync(string kind, WorkRef item, Func<Task<bool>> handle, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await handle().ConfigureAwait(false);
+        }
+        catch (Exception exception) when (!(exception is OperationCanceledException && cancellationToken.IsCancellationRequested))
+        {
+            HostLog.ItemFailed(runtime.Logger, kind, item.TenantId, item.InstanceId, item.ItemId, exception.GetType().FullName ?? nameof(Exception));
+            return false;
+        }
     }
 
     private async Task<bool> ExpireLeaseAsync(IProcessSession session, InstanceRecord instance, string effectId, CancellationToken cancellationToken)
@@ -115,16 +162,14 @@ internal sealed class ProcessPump : IProcessPump
 
     private async Task<int> InboxAsync(CancellationToken cancellationToken)
     {
-        var items = await store.ScanAsync(WorkKind.Inbox, runtime.Time.GetUtcNow(), options.BatchSize, cancellationToken).ConfigureAwait(false);
-        var handled = 0;
-        foreach (var item in items)
-        {
-            var inboxId = long.Parse(item.ItemId, CultureInfo.InvariantCulture);
-            var done = await WithInstanceAsync(item, true, (session, instance) => ApplyInboxAsync(session, instance, inboxId, cancellationToken), cancellationToken).ConfigureAwait(false);
-            handled += done ? 1 : 0;
-        }
-
-        return handled;
+        return await ScanAsync(
+            WorkKind.Inbox,
+            item =>
+            {
+                var inboxId = long.Parse(item.ItemId, CultureInfo.InvariantCulture);
+                return WithInstanceAsync(item, true, (session, instance) => ApplyInboxAsync(session, instance, inboxId, cancellationToken), cancellationToken);
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<bool> ApplyInboxAsync(IProcessSession session, InstanceRecord instance, long inboxId, CancellationToken cancellationToken)
@@ -213,15 +258,10 @@ internal sealed class ProcessPump : IProcessPump
 
     private async Task<int> TimersAsync(CancellationToken cancellationToken)
     {
-        var items = await store.ScanAsync(WorkKind.DueTimer, runtime.Time.GetUtcNow(), options.BatchSize, cancellationToken).ConfigureAwait(false);
-        var handled = 0;
-        foreach (var item in items)
-        {
-            var done = await WithInstanceAsync(item, true, (session, instance) => FireTimerAsync(session, instance, item.ItemId, cancellationToken), cancellationToken).ConfigureAwait(false);
-            handled += done ? 1 : 0;
-        }
-
-        return handled;
+        return await ScanAsync(
+            WorkKind.DueTimer,
+            item => WithInstanceAsync(item, true, (session, instance) => FireTimerAsync(session, instance, item.ItemId, cancellationToken), cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<bool> FireTimerAsync(IProcessSession session, InstanceRecord instance, string timerId, CancellationToken cancellationToken)
@@ -247,15 +287,78 @@ internal sealed class ProcessPump : IProcessPump
         return true;
     }
 
+    /// <summary>
+    /// Step 4 for effects. For every due effect the pump first takes a concurrency slot, then claims that one effect (its lease starts
+    /// at the claim), then invokes the port at once. An effect that did not get a slot is not claimed and stays Pending, so its lease
+    /// cannot run out while it waits. Once the pass token is cancelled no further effect is claimed; the calls already in flight are
+    /// awaited and their results recorded whatever the token says, because the port did its work and dropping the result would turn
+    /// the effect into an unknown outcome.
+    /// </summary>
     private async Task<int> EffectsAsync(CancellationToken cancellationToken)
     {
-        var items = await store.ScanAsync(WorkKind.DueEffect, runtime.Time.GetUtcNow(), options.BatchSize, cancellationToken).ConfigureAwait(false);
+        var now = runtime.Time.GetUtcNow();
         var handled = 0;
-        var claimed = new List<EffectRecord>();
-        foreach (var item in items)
+        WorkRef? after = null;
+        var running = new List<Task>();
+        using var gate = new SemaphoreSlim(options.MaxConcurrentEffects);
+        try
         {
-            EffectRecord? taken = null;
-            var done = await WithInstanceAsync(
+            while (handled < options.BatchSize && !cancellationToken.IsCancellationRequested)
+            {
+                var page = await store.ScanAsync(WorkKind.DueEffect, now, options.BatchSize, after, cancellationToken).ConfigureAwait(false);
+                foreach (var item in page)
+                {
+                    if (handled >= options.BatchSize || cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    var slotHeld = true;
+                    try
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var claim = await ClaimIsolatedAsync(item, cancellationToken).ConfigureAwait(false);
+                        handled += claim.Handled ? 1 : 0;
+                        if (claim.Claimed is not null)
+                        {
+                            running.Add(RunEffectAsync(claim.Claimed, gate, cancellationToken));
+                            slotHeld = false;
+                        }
+                    }
+                    finally
+                    {
+                        if (slotHeld)
+                        {
+                            gate.Release();
+                        }
+                    }
+                }
+
+                if (page.Count < options.BatchSize)
+                {
+                    break;
+                }
+
+                after = page[^1];
+            }
+        }
+        finally
+        {
+            await Task.WhenAll(running).ConfigureAwait(false);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return handled;
+    }
+
+    private async Task<(bool Handled, EffectRecord? Claimed)> ClaimIsolatedAsync(WorkRef item, CancellationToken cancellationToken)
+    {
+        EffectRecord? taken = null;
+        var done = await IsolatedAsync(
+            nameof(WorkKind.DueEffect),
+            item,
+            () => WithInstanceAsync(
                 item,
                 true,
                 async (session, instance) =>
@@ -264,20 +367,9 @@ internal sealed class ProcessPump : IProcessPump
                     taken = claim.Claimed;
                     return claim.Handled;
                 },
-                cancellationToken).ConfigureAwait(false);
-            if (done)
-            {
-                handled++;
-                if (taken is not null)
-                {
-                    claimed.Add(taken);
-                }
-            }
-        }
-
-        using var gate = new SemaphoreSlim(options.MaxConcurrentEffects);
-        await Task.WhenAll(claimed.Select(effect => RunEffectAsync(effect, gate, cancellationToken))).ConfigureAwait(false);
-        return handled;
+                cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+        return (done, done ? taken : null);
     }
 
     /// <summary>
@@ -318,13 +410,29 @@ internal sealed class ProcessPump : IProcessPump
         return (true, effect);
     }
 
+    /// <summary>
+    /// Invokes the port of a claimed effect and records what came back, then gives the slot back. Nothing escapes: a failure of the
+    /// recording is logged and leaves the row Running, so that its lease expires and a later pass handles it.
+    /// </summary>
     private async Task RunEffectAsync(EffectRecord effect, SemaphoreSlim gate, CancellationToken cancellationToken)
     {
-        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var trigger = await InvokeAsync(effect, cancellationToken).ConfigureAwait(false);
-            await ApplyResultAsync(effect, trigger, cancellationToken).ConfigureAwait(false);
+            // Isolated with no token: the pass token must not turn the recording of a result into an exception.
+            await IsolatedAsync(
+                nameof(WorkKind.DueEffect),
+                new WorkRef(effect.TenantId, effect.InstanceId, effect.EffectId),
+                async () =>
+                {
+                    var trigger = await InvokeAsync(effect, cancellationToken).ConfigureAwait(false);
+                    if (trigger is not null)
+                    {
+                        await ApplyResultAsync(effect, trigger).ConfigureAwait(false);
+                    }
+
+                    return trigger is not null;
+                },
+                CancellationToken.None).ConfigureAwait(false);
         }
         finally
         {
@@ -332,8 +440,12 @@ internal sealed class ProcessPump : IProcessPump
         }
     }
 
-    /// <summary>Invokes the port outside any transaction and turns what happened into the trigger of section 7.</summary>
-    private async Task<ProcessTrigger> InvokeAsync(EffectRecord effect, CancellationToken cancellationToken)
+    /// <summary>
+    /// Invokes the port outside any transaction and turns what happened into the trigger of section 7. Null when the pass was
+    /// cancelled and the port gave way to it (it threw the cancellation): there is no result to record, the row stays Running, and
+    /// its lease decides what a later pass does with it. A result that does arrive is returned whatever the state of the token.
+    /// </summary>
+    private async Task<ProcessTrigger?> InvokeAsync(EffectRecord effect, CancellationToken cancellationToken)
     {
         var port = ports[effect.Port];
         var request = new EffectRequest(
@@ -357,7 +469,6 @@ internal sealed class ProcessPump : IProcessPump
         // Task.Run turns a port that throws before it returns a task into a faulted task, so that one code path sees every failure.
         var invocation = Task.Run(() => port.InvokeAsync(call, linked.Token), CancellationToken.None);
         await Task.WhenAny(invocation, expired.Task).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
 
         if (invocation.IsCompletedSuccessfully)
         {
@@ -383,6 +494,11 @@ internal sealed class ProcessPump : IProcessPump
             return Failure(effect, "process.port.timeout", null);
         }
 
+        if (cancellationToken.IsCancellationRequested && (invocation.IsCanceled || cause is OperationCanceledException))
+        {
+            return null;
+        }
+
         return Failure(effect, "process.port.exception", cause?.GetType().FullName ?? typeof(OperationCanceledException).FullName!);
     }
 
@@ -401,25 +517,26 @@ internal sealed class ProcessPump : IProcessPump
 
     /// <summary>
     /// Step 4, second half: a section 4 transaction that re-validates the row is still Running with this owner, applies the trigger
-    /// and closes the row. It waits for the instance lock: the port has already been called, so the result must not be dropped
-    /// merely because someone else holds the instance for a moment.
+    /// and closes the row. It waits for the instance lock and takes no cancellation token: the port has already been called, so the
+    /// result must not be dropped because someone else holds the instance for a moment, or because the pass is being stopped.
     /// </summary>
-    private async Task ApplyResultAsync(EffectRecord effect, ProcessTrigger trigger, CancellationToken cancellationToken)
+    private async Task ApplyResultAsync(EffectRecord effect, ProcessTrigger trigger)
     {
+        var none = CancellationToken.None;
         var item = new WorkRef(effect.TenantId, effect.InstanceId, effect.EffectId);
         await WithInstanceAsync(
             item,
             false,
             async (session, instance) =>
             {
-                var current = await session.GetEffectAsync(instance.Key, effect.EffectId, cancellationToken).ConfigureAwait(false);
+                var current = await session.GetEffectAsync(instance.Key, effect.EffectId, none).ConfigureAwait(false);
                 if (current is not { Status: EffectStatus.Running } || current.LeaseOwner != owner)
                 {
                     return true;
                 }
 
-                return await AdvanceEffectAsync(session, instance, effect.EffectId, trigger, runtime.Clock(instance.TenantId), cancellationToken).ConfigureAwait(false);
+                return await AdvanceEffectAsync(session, instance, effect.EffectId, trigger, runtime.Clock(instance.TenantId), none).ConfigureAwait(false);
             },
-            cancellationToken).ConfigureAwait(false);
+            none).ConfigureAwait(false);
     }
 }

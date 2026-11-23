@@ -8,22 +8,29 @@ public sealed class EffectTests
 {
     private static readonly TimeSpan Lease = TimeSpan.FromSeconds(120);
 
-    /// <summary>A port that simulates a crash of the pump on its first call: it cancels the pass and then answers, so that the answer is never applied.</summary>
-    private static (FakePort Port, CancellationTokenSource Crash) CrashingOnce(Rig rig, string name)
+    /// <summary>
+    /// A port that simulates a crash of the pump on its first call: the port does its work, but the row no longer belongs to the pump
+    /// that made the call (its owner is changed), so that the answer is never applied and the row stays Running until its lease ends.
+    /// </summary>
+    private static FakePort CrashingOnce(Rig rig, string name)
     {
-        var crash = new CancellationTokenSource();
         var port = rig.Port(name);
+        CrashOnFirstCall(rig, port);
+        return port;
+    }
+
+    internal static void CrashOnFirstCall(Rig rig, FakePort port)
+    {
         var calls = 0;
-        port.Handler = async (_, _) =>
+        port.Handler = async (call, _) =>
         {
             if (Interlocked.Increment(ref calls) == 1)
             {
-                await crash.CancelAsync();
+                await rig.ExecuteAsync("update {schema}.process_effect set lease_owner = 'a-crashed-pump' where effect_id = @e", ("e", call.Request.EffectId));
             }
 
             return new PortCompleted("{}");
         };
-        return (port, crash);
     }
 
     [Fact]
@@ -100,11 +107,10 @@ public sealed class EffectTests
     {
         await using var rig = await Rig.CreateAsync();
         rig.Catalog.Add(Fixtures.Host("repeat"));
-        var (port, crash) = CrashingOnce(rig, "t.send");
+        var port = CrashingOnce(rig, "t.send");
         var id = await rig.StartAsync("host.repeat", "k-1");
 
-        var pass = () => rig.Pump.RunOnceAsync(crash.Token);
-        await pass.Should().ThrowAsync<OperationCanceledException>();
+        await rig.Pump.RunOnceAsync();
         (await rig.ColumnAsync<short>("select status from {schema}.process_effect")).Should().Equal((short)2);
 
         rig.Time.Advance(Lease - TimeSpan.FromSeconds(1));
@@ -128,11 +134,10 @@ public sealed class EffectTests
     {
         await using var rig = await Rig.CreateAsync();
         rig.Catalog.Add(Fixtures.Host("delivery"));
-        var (port, crash) = CrashingOnce(rig, "t.send");
+        var port = CrashingOnce(rig, "t.send");
         var id = await rig.StartAsync("host.delivery", "k-1");
 
-        var pass = () => rig.Pump.RunOnceAsync(crash.Token);
-        await pass.Should().ThrowAsync<OperationCanceledException>();
+        await rig.Pump.RunOnceAsync();
         rig.Time.Advance(Lease);
         await rig.DrainAsync();
         rig.Time.Advance(TimeSpan.FromHours(1));
@@ -336,6 +341,134 @@ public sealed class EffectTests
         await Task.WhenAll(pumps.Select(pump => Task.Run(() => Rig.DrainAsync(pump))));
 
         port.Calls.Select(call => call.Request.EffectId).Should().OnlyHaveUniqueItems().And.HaveCount(10);
+    }
+
+    [Fact]
+    public async Task AnEffectIsClaimedOnlyWhenASlotIsFreeAndAStopLeavesTheOthersPendingAndNeverUnknown()
+    {
+        await using var rig = await Rig.CreateAsync(configureHost: options => options.MaxConcurrentEffects = 1);
+        rig.Catalog.Add(Fixtures.Host("delivery"));
+        using var stop = new CancellationTokenSource();
+        var port = rig.Port("t.send");
+        var calls = 0;
+        port.Handler = async (_, _) =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                await stop.CancelAsync();
+            }
+
+            return new PortCompleted("{}");
+        };
+        var ids = new List<string>();
+        for (var index = 0; index < 3; index++)
+        {
+            ids.Add(await rig.StartAsync("host.delivery", "k-" + index));
+        }
+
+        var pass = () => rig.Pump.RunOnceAsync(stop.Token);
+        await pass.Should().ThrowAsync<OperationCanceledException>();
+
+        port.Calls.Should().ContainSingle();
+        (await rig.ColumnAsync<short>("select status from {schema}.process_effect order by status")).Should().Equal((short)1, (short)1, (short)3);
+        (await rig.CountAsync("process_effect", "lease_owner is not null or lease_until is not null")).Should().Be(0, "an effect that was never claimed has no lease");
+        (await rig.CountAsync("process_history", "code = 'process.effect.outcome_unknown'")).Should().Be(0);
+
+        rig.Time.Advance(Lease * 3);
+        (await rig.CountAsync("process_effect", "status = 1")).Should().Be(2);
+        await rig.DrainAsync();
+
+        port.Calls.Select(call => call.Request.EffectId).Should().OnlyHaveUniqueItems().And.HaveCount(3, "each effect is invoked exactly once");
+        (await rig.CountAsync("process_instance", "result = 'sent'")).Should().Be(3);
+        (await rig.CountAsync("process_history", "code = 'process.effect.outcome_unknown'")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task AResultThatArrivesAfterTheStopTokenFiredIsApplied()
+    {
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("delivery"));
+        using var stop = new CancellationTokenSource();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<PortResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        rig.Port("t.send").Handler = (_, _) =>
+        {
+            started.SetResult();
+            return release.Task;
+        };
+        var id = await rig.StartAsync("host.delivery", "k-1");
+
+        var pass = rig.Pump.RunOnceAsync(stop.Token);
+        await started.Task;
+        await stop.CancelAsync();
+        release.SetResult(new PortCompleted("{}"));
+
+        await FluentActions.Awaiting(() => pass).Should().ThrowAsync<OperationCanceledException>();
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, id))!.Result.Should().Be("sent");
+        (await rig.ColumnAsync<short>("select status from {schema}.process_effect")).Should().Equal((short)3);
+    }
+
+    [Fact]
+    public async Task APortThatGivesWayToTheStopTokenLeavesItsRowRunningForTheLeaseToDecide()
+    {
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("delivery"));
+        using var stop = new CancellationTokenSource();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var port = rig.Port("t.send");
+        port.Handler = async (_, token) =>
+        {
+            started.SetResult();
+            await Task.Delay(Timeout.Infinite, token);
+            return new PortCompleted("{}");
+        };
+        var id = await rig.StartAsync("host.delivery", "k-1");
+
+        var pass = rig.Pump.RunOnceAsync(stop.Token);
+        await started.Task;
+        await stop.CancelAsync();
+
+        await FluentActions.Awaiting(() => pass).Should().ThrowAsync<OperationCanceledException>();
+        (await rig.ColumnAsync<short>("select status from {schema}.process_effect")).Should().Equal((short)2);
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, id))!.Status.Should().Be(ProcessStatus.Waiting);
+        rig.Time.Advance(Lease);
+        await rig.DrainAsync();
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, id))!.Result.Should().Be("unknown");
+        port.Calls.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task AnEffectThatWaitsForASlotIsNotClaimedAndItsLeaseDoesNotRunWhileItWaits()
+    {
+        await using var rig = await Rig.CreateAsync(configureHost: options => options.MaxConcurrentEffects = 1);
+        rig.Catalog.Add(Fixtures.Host("delivery"));
+        var firstStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<PortResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var port = rig.Port("t.send");
+        var calls = 0;
+        port.Handler = (_, _) =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                firstStarted.SetResult();
+                return release.Task;
+            }
+
+            return Task.FromResult<PortResult>(new PortCompleted("{}"));
+        };
+        await rig.StartAsync("host.delivery", "k-1");
+        await rig.StartAsync("host.delivery", "k-2");
+
+        var pass = rig.Pump.RunOnceAsync();
+        await firstStarted.Task;
+
+        (await rig.ColumnAsync<short>("select status from {schema}.process_effect order by status")).Should().Equal((short)1, (short)2);
+        (await rig.CountAsync("process_effect", "status = 1 and (lease_owner is not null or lease_until is not null)")).Should().Be(0);
+        release.SetResult(new PortCompleted("{}"));
+        (await pass).Should().Be(2);
+
+        port.Calls.Select(call => call.Request.EffectId).Should().OnlyHaveUniqueItems().And.HaveCount(2);
+        (await rig.CountAsync("process_instance", "result = 'sent'")).Should().Be(2);
     }
 
     [Fact]

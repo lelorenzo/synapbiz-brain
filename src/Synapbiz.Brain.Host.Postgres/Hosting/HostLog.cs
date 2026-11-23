@@ -40,4 +40,7 @@ internal static partial class HostLog
 
     [LoggerMessage(EventId = 11, Level = LogLevel.Information, Message = "process.worker.started: the process worker started with a poll interval of {PollInterval}")]
     internal static partial void WorkerStarted(ILogger logger, TimeSpan pollInterval);
+
+    [LoggerMessage(EventId = 12, Level = LogLevel.Warning, Message = "process.item.failed: {Kind} item of tenant {TenantId} instance {InstanceId} item {ItemId} failed with {ExceptionType}; the item is left as it was and the pass goes on")]
+    internal static partial void ItemFailed(ILogger logger, string kind, string tenantId, string instanceId, string itemId, string exceptionType);
 }

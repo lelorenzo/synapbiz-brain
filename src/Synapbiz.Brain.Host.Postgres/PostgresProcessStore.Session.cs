@@ -403,13 +403,13 @@ internal sealed partial class PostgresProcessStore
             return count > 0;
         }
 
-        public async Task<IReadOnlyList<string>> FindWaitingInstancesAsync(string tenantId, string eventName, string? correlation, CancellationToken cancellationToken) =>
+        public async Task<IReadOnlyList<WaitCandidate>> FindWaitingInstancesAsync(string tenantId, string eventName, string? correlation, CancellationToken cancellationToken) =>
             await QueryAsync(
                 connection,
                 transaction,
-                owner.Bake("select distinct instance_id from {wait} where tenant_id = @t and event = @e and (correlation is null or correlation = @c) order by instance_id"),
+                owner.Bake("select instance_id, bool_or(correlation is null or correlation = @c) from {wait} where tenant_id = @t and event = @e and (correlation is null or lower(correlation) = lower(@c)) group by instance_id order by instance_id"),
                 [Text("t", tenantId), Text("e", eventName), Text("c", correlation)],
-                reader => reader.GetString(0),
+                reader => new WaitCandidate(reader.GetString(0), reader.GetBoolean(1)),
                 cancellationToken).ConfigureAwait(false);
 
         private void RequireLock(InstanceKey key)

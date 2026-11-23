@@ -139,8 +139,15 @@ internal sealed record TaskRecord(
 /// <summary>A history row as stored; the data is still protected.</summary>
 internal sealed record HistoryRecord(long Sequence, DateTimeOffset At, string? Step, long Entry, int Attempt, ProcessHistoryKind Kind, string? Code, string? ProtectedData);
 
-/// <summary>A reference to a work item found by a scan: the instance to lock and the item to re-validate under that lock.</summary>
-internal sealed record WorkRef(string TenantId, string InstanceId, string ItemId);
+/// <summary>
+/// A reference to a work item found by a scan: the instance to lock and the item to re-validate under that lock. <paramref name="SortAt"/>
+/// is the time the scan ordered the item by (lease expiry or due time); null for the inbox, which is ordered by its numeric id. The
+/// last item of a page is the keyset cursor of the next page.
+/// </summary>
+internal sealed record WorkRef(string TenantId, string InstanceId, string ItemId, DateTimeOffset? SortAt = null);
+
+/// <summary>An instance that has a wait for an event; <paramref name="Exact"/> is false when the correlation matched only without regard to case.</summary>
+internal sealed record WaitCandidate(string InstanceId, bool Exact);
 
 /// <summary>The kind of a work item the pump scans for.</summary>
 internal enum WorkKind

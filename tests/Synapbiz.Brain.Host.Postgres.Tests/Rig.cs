@@ -1,3 +1,4 @@
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
@@ -65,11 +66,30 @@ internal sealed class Rig : IAsyncDisposable
         return rig;
     }
 
-    /// <summary>A second host over the same schema, clock, catalog and ports: another process in a real deployment.</summary>
-    internal IProcessPump NewPump()
+    /// <summary>
+    /// A second host over the same schema, clock, catalog and ports: another process in a real deployment. A decorator wraps the
+    /// store of that host, so that a test can look at, or interfere with, what the pump reads between two of its steps.
+    /// </summary>
+    internal IProcessPump NewPump(Func<IProcessStore, IProcessStore>? decorate = null)
     {
-        var provider = Build();
+        var provider = Build(decorate);
         return provider.GetRequiredService<IProcessPump>();
+    }
+
+    /// <summary>Opens a transaction on the store of the rig and locks the row of an instance, as another session of a real deployment would.</summary>
+    internal async Task<IProcessSession> HoldAsync(string instanceId, string? tenant = null)
+    {
+        var session = await Provider.GetRequiredService<IProcessStore>().BeginAsync(CancellationToken.None);
+        try
+        {
+            (await session.LockInstanceAsync(new InstanceKey(tenant ?? Tenant, instanceId), skipLocked: false, CancellationToken.None)).Should().NotBeNull();
+            return session;
+        }
+        catch
+        {
+            await session.DisposeAsync();
+            throw;
+        }
     }
 
     /// <summary>A second migrator over the same schema, as another process of the same deployment would have.</summary>
@@ -185,7 +205,7 @@ internal sealed class Rig : IAsyncDisposable
         }
     }
 
-    private ServiceProvider Build()
+    private ServiceProvider Build(Func<IProcessStore, IProcessStore>? decorate = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(Time);
@@ -208,6 +228,11 @@ internal sealed class Rig : IAsyncDisposable
                 store.Schema = Schema;
             },
             configureHost);
+        if (decorate is not null)
+        {
+            services.AddSingleton<IProcessStore>(sp => decorate(sp.GetRequiredService<PostgresProcessStore>()));
+        }
+
         var provider = services.BuildServiceProvider();
         providers.Add(provider);
         return provider;

@@ -110,3 +110,52 @@ internal sealed class CapturingLoggerProvider : ILoggerProvider
         }
     }
 }
+
+/// <summary>
+/// A store that passes everything to the real one and lets a test act between a scan and the handling of what it found, or
+/// replace what the scan found: the seam that simulates another session working at the same time.
+/// </summary>
+internal sealed class HookedStore : IProcessStore
+{
+    private readonly IProcessStore inner;
+
+    internal HookedStore(IProcessStore inner) => this.inner = inner;
+
+    /// <summary>Runs after a scan and returns the items the pump gets to see.</summary>
+    internal Func<WorkKind, IReadOnlyList<WorkRef>, Task<IReadOnlyList<WorkRef>>>? AfterScan { get; set; }
+
+    public Task<IProcessSession> BeginAsync(CancellationToken cancellationToken) => inner.BeginAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<WorkRef>> ScanAsync(WorkKind kind, DateTimeOffset now, int limit, WorkRef? after, CancellationToken cancellationToken)
+    {
+        var found = await inner.ScanAsync(kind, now, limit, after, cancellationToken);
+        return AfterScan is null || after is not null ? found : await AfterScan(kind, found);
+    }
+
+    public Task<InstanceRecord?> GetInstanceAsync(string tenantId, string instanceId, CancellationToken cancellationToken) => inner.GetInstanceAsync(tenantId, instanceId, cancellationToken);
+
+    public Task<InstanceRecord?> FindInstanceAsync(string tenantId, string processId, string businessKey, CancellationToken cancellationToken) => inner.FindInstanceAsync(tenantId, processId, businessKey, cancellationToken);
+
+    public Task<IReadOnlyList<HistoryRecord>> GetHistoryAsync(string tenantId, string instanceId, CancellationToken cancellationToken) => inner.GetHistoryAsync(tenantId, instanceId, cancellationToken);
+
+    public Task<IReadOnlyList<TaskRecord>> ListOpenTasksAsync(string tenantId, string queue, CancellationToken cancellationToken) => inner.ListOpenTasksAsync(tenantId, queue, cancellationToken);
+
+    public Task<string?> FindTaskInstanceAsync(string tenantId, string taskId, CancellationToken cancellationToken) => inner.FindTaskInstanceAsync(tenantId, taskId, cancellationToken);
+}
+
+/// <summary>A protector that stores text as it is, except that it refuses to read anything of one tenant once it is armed.</summary>
+internal sealed class FailingProtector : IPayloadProtector
+{
+    internal const string Message = "a message that the host must not copy anywhere";
+
+    private readonly string failingTenant;
+
+    internal FailingProtector(string failingTenant) => this.failingTenant = failingTenant;
+
+    internal bool Armed { get; set; }
+
+    public string Protect(string tenantId, string plaintext) => plaintext;
+
+    public string Unprotect(string tenantId, string protectedText) =>
+        Armed && tenantId == failingTenant ? throw new InvalidOperationException(Message) : protectedText;
+}
