@@ -672,7 +672,7 @@ public sealed class RefinementTests
         harness.Press("Export the review");
 
         harness.Exports.Should().ContainSingle();
-        harness.Exports[0].Files[0].Review.Items.Where(item => item.State is ReviewState.NeedsFix or ReviewState.Question)
+        harness.Exports[0].Files[0].Review!.Items.Where(item => item.State is ReviewState.NeedsFix or ReviewState.Question)
             .Should().OnlyContain(item => item.Note.Length > 0);
         harness.Find(".wb-saved").TextContent.Should().Be("Review saved to the demo folder.");
     }

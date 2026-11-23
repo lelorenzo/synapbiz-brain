@@ -14,7 +14,7 @@ public sealed partial class StylesheetTests
         "--wb-accent", "--wb-accent-ink", "--wb-accent-hover", "--wb-control-edge", "--wb-focus",
         "--wb-ok-bg", "--wb-ok-ink", "--wb-ok-edge", "--wb-warn-bg", "--wb-warn-ink", "--wb-warn-edge",
         "--wb-bad-bg", "--wb-bad-ink", "--wb-bad-edge", "--wb-neutral-bg", "--wb-neutral-ink", "--wb-neutral-edge",
-        "--wb-notice-bg", "--wb-notice-ink", "--wb-notice-edge", "--wb-radius", "--wb-radius-sm",
+        "--wb-notice-bg", "--wb-notice-ink", "--wb-notice-edge", "--wb-radius", "--wb-radius-sm", "--wb-scrim",
     ];
 
     private static readonly string[] ColourNames =
@@ -165,6 +165,14 @@ public sealed partial class StylesheetTests
     {
         var rule = Rules().First(item => item.Selector == ".wb-root :focus-visible");
         rule.Body.Should().Contain("outline: 2px solid var(--wb-focus)").And.Contain("outline-offset: 2px");
+    }
+
+    [Fact]
+    public void TheMoreButtonDrawsItsCaretWithABorderTriangleOfATokenColourAndNoContent()
+    {
+        var caret = Rules().First(item => item.Selector == ".wb-btn-more::after").Body;
+        caret.Should().Contain("content: \"\"").And.Contain("border-top: 5px solid var(--wb-ink-2)").And.Contain("border-left: 4px solid transparent");
+        Rules().First(item => item.Selector == ".wb-btn-more[aria-expanded=\"true\"]::after").Body.Should().Contain("border-bottom: 5px solid var(--wb-ink-2)");
     }
 
     [Fact]

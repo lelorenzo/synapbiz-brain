@@ -49,7 +49,7 @@ A host that is not Blazor (the source repository's React back office) can consum
 Owner decision 3: the expert changes a rule through forms and gets a draft revision with its diff; never JSON, never activation. Two parts.
 
 - **W-C1, the headless part** (`Synapbiz.Brain.Workbench`, brief `docs/briefs/W-C1-rule-draft-library.md`): a closed set of typed edits; `RuleDrafter`, a pure text-to-text function that applies edits to the text of a `brain.rule@1` document and returns the draft (the host loads it with `BrainRuleLoader.Load`, so a draft is judged by the production code); `RuleChoiceCatalog`, what a form may offer; `RuleChangeDescriber`, the diff as sentences with the cases that change; `DraftErrorLocator`, a loader error path in the terms of a form; and `brain.rule-proposal@1`, the message that carries a draft to the maintainers, bound to the base text by content hash. Reference: [rule-workbench](../../reference/rule-workbench.md#drafts-and-proposals).
-- **W-C2, the panels** (`Synapbiz.Brain.Workbench.Blazor`): a "Changes" tab and row forms. Pending design; a later brief.
+- **W-C2, the panels** (`Synapbiz.Brain.Workbench.Blazor`, brief `docs/briefs/W-C2-guided-editing-panels.md`, design [guided-editing-design](guided-editing-design.md)): an explicit draft kept in the session; a draft bar and view switch; row forms, a row menu, refusals and warnings; test cases that change result and what the reviewer decides about them; a "Changes" tab and the export of a `brain.rule-proposal@1` through `OnExport`. Guided editing is offered only when the host supplies `LoadDraft`. Reference: [rule-workbench-panels](../../reference/rule-workbench-panels.md#guided-editing).
 
 Nothing in W-C1 changes a decision, activates a rule or keeps state.
 

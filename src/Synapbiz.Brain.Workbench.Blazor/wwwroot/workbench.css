@@ -759,6 +759,320 @@
   margin-top: 6px;
 }
 
+/* ----- draft bar, view switch, dialog and refusal -------------------------------------------------------------------------- */
+
+.wb-pill-draft {
+  background: transparent;
+  border: 1px dashed var(--wb-notice-edge);
+  color: var(--wb-notice-ink);
+}
+
+.wb-draftbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--wb-notice-edge);
+  background: var(--wb-notice-bg);
+  color: var(--wb-notice-ink);
+  font-size: var(--wb-text-small);
+}
+
+.wb-draftbar-t {
+  flex: 1 1 320px;
+}
+
+.wb-switch {
+  display: inline-flex;
+  border: 1px solid var(--wb-control-edge);
+  border-radius: var(--wb-radius-sm);
+  overflow: hidden;
+}
+
+.wb-switch-part {
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 12px;
+  border: 0;
+  border-left: 1px solid var(--wb-line);
+  border-radius: 0;
+  background: var(--wb-surface);
+  color: var(--wb-ink-2);
+  font-size: var(--wb-text-small);
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+
+.wb-switch-part:first-child {
+  border-left: 0;
+}
+
+.wb-switch-part:hover {
+  background: var(--wb-hover);
+  color: var(--wb-ink);
+}
+
+.wb-switch-part[aria-pressed="true"],
+.wb-switch-part[aria-pressed="true"]:active {
+  background: var(--wb-accent);
+  color: var(--wb-accent-ink);
+  font-weight: 600;
+}
+
+.wb-switch-part[aria-pressed="true"]:hover {
+  background: var(--wb-accent-hover);
+  color: var(--wb-accent-ink);
+}
+
+.wb-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--wb-scrim);
+}
+
+.wb-dialog {
+  width: 100%;
+  max-width: 460px;
+  padding: 20px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface);
+  color: var(--wb-ink);
+}
+
+.wb-dialog-body {
+  margin: 0;
+}
+
+.wb-refusal {
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--wb-bad-edge);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-bad-bg);
+  color: var(--wb-bad-ink);
+  font-size: var(--wb-text-small);
+}
+
+.wb-refusal-list {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.wb-refusal-stays {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.wb-refusal-t {
+  font-weight: 700;
+}
+
+/* ----- guided editing: the rows of a draft, their menu and their form ----------------------------------------------------- */
+
+.wb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.wb-rowctl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.wb-row-removed {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.wb-struck {
+  text-decoration: line-through;
+}
+
+.wb-before {
+  font-weight: 600;
+}
+
+.wb-row-add {
+  margin: 0 0 8px;
+}
+
+.wb-notice-row {
+  margin: -4px 0 8px;
+}
+
+.wb-menuwrap {
+  position: relative;
+  display: inline-block;
+}
+
+.wb-btn-more::after {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-left: 6px;
+  border-top: 5px solid var(--wb-ink-2);
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  vertical-align: middle;
+}
+
+.wb-btn-more[aria-expanded="true"]::after {
+  border-top: 0;
+  border-bottom: 5px solid var(--wb-ink-2);
+}
+
+.wb-menu {
+  position: absolute;
+  right: 0;
+  z-index: 2;
+  min-width: 220px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-surface);
+  box-shadow: 0 4px 12px var(--wb-scrim);
+}
+
+.wb-menu-i {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--wb-radius-sm);
+  background: transparent;
+  color: var(--wb-ink);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-menu-i:disabled {
+  color: var(--wb-muted);
+  cursor: not-allowed;
+}
+
+.wb-rowform {
+  margin: 0 0 12px;
+  padding: 14px;
+  border: 2px solid var(--wb-accent);
+  border-radius: var(--wb-radius-sm);
+}
+
+.wb-fsec {
+  margin: 14px 0 6px;
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wb-muted);
+}
+
+.wb-fline {
+  display: grid;
+  grid-template-columns: 150px 190px 1fr;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 8px;
+}
+
+.wb-fline-out .wb-fvalue {
+  grid-column: 2 / 4;
+}
+
+.wb-flabel {
+  padding-top: 6px;
+  font-size: var(--wb-text-small);
+  font-weight: 500;
+}
+
+.wb-hint-inline {
+  font-weight: 400;
+  color: var(--wb-muted);
+}
+
+.wb-fvalue {
+  min-width: 0;
+}
+
+.wb-between {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wb-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.wb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--wb-line);
+  border-radius: 999px;
+  background: var(--wb-neutral-bg);
+  color: var(--wb-neutral-ink);
+  font-size: var(--wb-text-small);
+}
+
+.wb-chip-x {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.wb-preview {
+  margin: 14px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--wb-selected-edge);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-selected);
+}
+
+.wb-preview .wb-fsec {
+  margin-top: 0;
+}
+
+.wb-preview-t {
+  font-weight: 500;
+}
+
 /* ----- narrow screens and motion ------------------------------------------------------------------------------------------ */
 
 @media (max-width: 1100px) {
@@ -777,8 +1091,13 @@
 
 @media (max-width: 760px) {
   .wb-grid2,
-  .wb-grid-review {
+  .wb-grid-review,
+  .wb-fline {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wb-fline-out .wb-fvalue {
+    grid-column: auto;
   }
 }
 
@@ -786,7 +1105,44 @@
   .wb-rule,
   .wb-tab,
   .wb-btn,
-  .wb-seg-part {
+  .wb-seg-part,
+  .wb-switch-part {
     transition: none;
   }
+}
+
+/* ----- test cases in the draft view -------------------------------------------------------------------------------------------- */
+
+.wb-row-gone td {
+  opacity: 0.75;
+}
+
+.wb-ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.wb-ask-diff {
+  flex: 1 1 100%;
+}
+
+.wb-notice-act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ----- changes and proposal ---------------------------------------------------------------------------------------------------- */
+
+.wb-changed .wb-sent {
+  margin-top: 4px;
+}
+
+.wb-warnings {
+  margin: 0;
+  padding-left: 20px;
 }

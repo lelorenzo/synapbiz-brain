@@ -62,7 +62,13 @@ public sealed class WorkbenchSession
     /// <summary>The number of rules whose review items or proposed cases changed since the last export.</summary>
     public int UnexportedRuleCount => work.Values.Count(entry => entry.HasUnexportedChanges);
 
-    /// <summary>Forgets everything: the selection, the reviewer's name and the work on every rule.</summary>
+    /// <summary>
+    /// The number of rules whose draft was never exported, or was changed after it was exported, and has at least one change. A host's
+    /// leave guard uses it together with <see cref="UnexportedRuleCount"/>.
+    /// </summary>
+    public int UnexportedDraftCount => work.Values.Count(entry => entry.Draft is { IsUnexported: true });
+
+    /// <summary>Forgets everything: the selection, the reviewer's name, the drafts and the work on every rule.</summary>
     public void Clear()
     {
         work.Clear();

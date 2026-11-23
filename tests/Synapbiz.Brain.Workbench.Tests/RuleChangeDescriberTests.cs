@@ -52,7 +52,9 @@ public sealed class RuleChangeDescriberTests
             1,
             1,
             "If urgent is yes and Contact channel is the phone line, then Route is escalation, queue is urgent, notify is yes and priority is 1.",
-            "If urgent is yes and Contact channel is the phone line, then Route is manual review, queue is urgent, notify is yes and priority is 1."));
+            "If urgent is yes and Contact channel is the phone line, then Route is manual review, queue is urgent, notify is yes and priority is 1.",
+            "Urgent calls",
+            "Urgent calls"));
     }
 
     [Fact]
@@ -80,7 +82,7 @@ public sealed class RuleChangeDescriberTests
 
         view.Summary.Should().Be("This draft changes no rows, adds 1 and removes none.");
         view.Rows.Should().Equal(new RowChangeView(
-            "new-row", "new row", RowChangeTag.Added, null, 4, null, "If Contact channel is the website, then Route is fast handling and queue is w."));
+            "new-row", "new row", RowChangeTag.Added, null, 4, null, "If Contact channel is the website, then Route is fast handling and queue is w.", null, null));
     }
 
     [Fact]
@@ -173,6 +175,114 @@ public sealed class RuleChangeDescriberTests
             new RemoveCase("An urgent phone request is escalated"));
 
         view.Rows.Select(row => (row.Key, row.Label)).Should().Equal(("urgent-phone", "Urgent calls"), ("billing-topic", "Billing"));
+    }
+
+    // ---- a row whose only change is its name ---------------------------------------------------
+
+    [Fact]
+    public void AnUnlabelledRowGivenANameIsListedAsChangedWithEqualSentencesAndBothNames()
+    {
+        var view = Describe(new SetRowLabel("billing-topic", WorkbenchLocale.En, "Billing"));
+
+        view.Summary.Should().Be("This draft changes 1 row, adds none and removes none.");
+        var row = view.Rows.Should().ContainSingle().Subject;
+        (row.Key, row.Label, row.Tag, row.NumberBefore, row.NumberAfter).Should().Be(("billing-topic", "Billing", RowChangeTag.Changed, 2, 2));
+        row.SentenceBefore.Should().NotBeNull().And.Be(row.SentenceAfter);
+        (row.NameBefore, row.NameAfter).Should().Be((null, "Billing"));
+    }
+
+    [Fact]
+    public void ARenamedRowIsListedAsChangedWithTheOldAndTheNewName()
+    {
+        var view = Describe(new SetRowLabel("urgent-phone", WorkbenchLocale.En, "Phone escalations"));
+
+        var row = view.Rows.Should().ContainSingle().Subject;
+        (row.Tag, row.Label, row.NameBefore, row.NameAfter).Should().Be((RowChangeTag.Changed, "Phone escalations", "Urgent calls", "Phone escalations"));
+        row.SentenceBefore.Should().Be(row.SentenceAfter);
+    }
+
+    [Fact]
+    public void ARowWhoseNameIsClearedIsListedAsChangedWithNoNameAfter()
+    {
+        var view = Describe(new SetRowLabel("urgent-phone", WorkbenchLocale.En, null));
+
+        var row = view.Rows.Should().ContainSingle().Subject;
+        (row.Tag, row.Label, row.NameBefore, row.NameAfter).Should().Be((RowChangeTag.Changed, "urgent phone", "Urgent calls", null));
+    }
+
+    [Fact]
+    public void ANameAndAStructuralChangeOnOneRowCountOnce()
+    {
+        var view = Describe(new SetRowLabel("urgent-phone", WorkbenchLocale.En, "Phone escalations"), new SetOutcome("urgent-phone", "route", Member("Manual")));
+
+        view.Summary.Should().Be("This draft changes 1 row, adds none and removes none.");
+        var row = view.Rows.Should().ContainSingle().Subject;
+        (row.Tag, row.NameBefore, row.NameAfter).Should().Be((RowChangeTag.Changed, "Urgent calls", "Phone escalations"));
+        row.SentenceBefore.Should().NotBe(row.SentenceAfter);
+    }
+
+    [Fact]
+    public void AMovedRowThatIsAlsoRenamedStaysMovedAndCountsOnce()
+    {
+        var view = Describe(new SetRowLabel("no-account", WorkbenchLocale.En, "No account"), new MoveRow("no-account", null));
+
+        var row = view.Rows.Should().ContainSingle().Subject;
+        (row.Tag, row.NameBefore, row.NameAfter).Should().Be((RowChangeTag.Moved, null, "No account"));
+        view.Summary.Should().Be("This draft changes no rows, adds none and removes none. Moves 1 row.");
+    }
+
+    [Fact]
+    public void AWhiteSpaceNameCountsAsNoName()
+    {
+        var before = TestFiles.LoadIntakeText(FirstText);
+        var named = RuleLabels.FromMeta(before.Meta, WorkbenchLocale.En);
+        var blank = new RuleLabels { Rows = new Dictionary<string, string> { ["urgent-phone"] = "   " } };
+
+        var view = RuleChangeDescriber.Describe(before, before, named, blank, WorkbenchLocale.En);
+
+        var row = view.Rows.Should().ContainSingle().Subject;
+        (row.NameBefore, row.NameAfter).Should().Be(("Urgent calls", null));
+        RuleChangeDescriber.Describe(before, before, blank, new RuleLabels { Rows = new Dictionary<string, string> { ["urgent-phone"] = "" } }, WorkbenchLocale.En)
+            .Rows.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EveryRowCarriesTheNamesOfItsSides()
+    {
+        var view = Describe(
+            new SetRowLabel("billing-topic", WorkbenchLocale.En, "Billing"),
+            new RemoveRow("urgent-phone"),
+            new RemoveCase("An urgent phone request is escalated"),
+            new AddRow("new-row", null, [], Outcome(("route", Member("Fast")), ("queue", DecisionValue.Code("w")))));
+
+        view.Rows.Select(row => (row.Key, row.Tag, row.NameBefore, row.NameAfter)).Should().Equal(
+            ("urgent-phone", RowChangeTag.Removed, "Urgent calls", null),
+            ("new-row", RowChangeTag.Added, null, null),
+            ("billing-topic", RowChangeTag.Changed, null, "Billing"));
+    }
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, "This draft changes 2 rows, adds none and removes none.")]
+    [InlineData(WorkbenchLocale.Es, "Este borrador cambia 2 filas, no agrega ninguna y no quita ninguna.")]
+    public void NameOnlyRowsAreCountedInTheSummaryInBothLocales(WorkbenchLocale locale, string summary)
+    {
+        var view = Describe(
+            FirstText,
+            [new SetRowLabel("billing-topic", locale, "Billing"), new SetRowLabel("urgent-phone", locale, "Phone escalations")],
+            locale);
+
+        view.Summary.Should().Be(summary);
+        view.Rows.Select(row => row.Key).Should().Equal("urgent-phone", "billing-topic");
+        view.Rows.Select(row => row.Tag).Should().OnlyContain(tag => tag == RowChangeTag.Changed);
+    }
+
+    [Fact]
+    public void ANameInTheOtherLocaleOnlyChangesNothingInThisOne()
+    {
+        var view = Describe(FirstText, [new SetRowLabel("billing-topic", WorkbenchLocale.Es, "Facturación")], WorkbenchLocale.En);
+
+        view.Rows.Should().BeEmpty();
+        view.Summary.Should().Be("This draft does not change the rule.");
     }
 
     // ---- summary forms ---------------------------------------------------------------------------

@@ -30,6 +30,12 @@ internal sealed class CaseForm
     /// <summary>The engine key of the row the case pins, when it comes from the simulator or from an uncovered row.</summary>
     internal string? PinnedRowKey { get; set; }
 
+    /// <summary>The name of the draft's case whose expectation the form changes; null for the form that adds a case.</summary>
+    internal string? EditName { get; init; }
+
+    /// <summary>The lines of the loader's refusal of what the form built; null when there is none.</summary>
+    internal IReadOnlyList<string>? Refusal { get; set; }
+
     internal string? NameError { get; set; }
 
     internal string? ExpectedError { get; set; }

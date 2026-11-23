@@ -10,7 +10,7 @@
 @implements IDisposable
 
 <div class="wb-root" lang="@LangCode">
-    <div class="wb-main">
+    <div class="wb-main" inert="@DialogOpen">
         <div class="wb-panel wb-list-panel">
             <div class="wb-ph">
                 <h2 class="wb-title">@Rich("list.title")</h2>
@@ -94,11 +94,13 @@
             }
         </div>
     </div>
+    @if (DialogOpen && SelectedRule is { } asked)
+    {
+        @DiscardDialog(asked)
+    }
 </div>
 
 @code {
-    private sealed record Ctx(WorkbenchRule Rule, BrainRule Brain, RuleView View, RuleWork Work, List<ShownFact> Shown);
-
     private static readonly (ReviewState State, string Key, string PressedKey)[] ReviewParts =
     [
         (ReviewState.Confirmed, "review.confirm", "review.confirmed"),
@@ -112,11 +114,14 @@
         (WorkbenchTab.Simulate, "tabs.simulate"),
         (WorkbenchTab.Tests, "tabs.tests"),
         (WorkbenchTab.Review, "tabs.review"),
+        (WorkbenchTab.Changes, "tabs.changes"),
     ];
+
+    private RenderFragment BrokenNote() => @<div class="wb-sub" role="status">@Rich("draft.unreadable.fix")</div>;
 
     private RenderFragment PrivacyNotice() => @<div class="wb-notice" role="note">@Rich("notice.privacy")</div>;
 
-    private RenderFragment Band(string key) => @<div class="wb-band"><span class="@PillClass("sim")">@Rich("pill.simulation")</span><span>@Rich(key)</span></div>;
+    private RenderFragment Band(string key, bool onDraft = false) => @<div class="wb-band"><span class="@PillClass("sim")">@Rich("pill.simulation")</span><span>@if (onDraft){<strong>@Rich(key + "Draft")</strong>@(" ")}@Rich(key)</span></div>;
 
     private RenderFragment DetailPanel(WorkbenchRule rule)
     {
@@ -130,13 +135,13 @@
             </text>;
         }
 
-        var brain = rule.Rule!;
-        var work = Session.Work(rule.Key);
-        var view = work.View(rule, Locale);
-        var ctx = new Ctx(rule, brain, view, work, FactForm.Shown(brain, view));
-        var run = work.Tests(brain);
+        var ctx = Context(rule);
+        var work = ctx.Work;
+        var run = ctx.Run;
         var exportedItems = work.Reviews.Values.Count(entry => entry.IsExported);
-        var current = Session.SelectedTab;
+        var changing = ChangingCount(ctx);
+        var changeCount = ctx.Draft is null ? 0 : ChangeCount(rule, ctx.Draft);
+        var current = Session.SelectedTab == WorkbenchTab.Changes && ctx.Draft is null ? WorkbenchTab.Read : Session.SelectedTab;
 
         return @<text>
             <div class="wb-ph">
@@ -144,22 +149,38 @@
                     <h1 class="wb-title">@TitleOf(rule)</h1>
                     <span class="@PillClass(rule.State == RuleApprovalState.Approved ? "ok" : "warn")">@Rich(rule.State == RuleApprovalState.Approved ? "state.approved" : "state.draft")</span>
                     <span class="wb-sp"></span>
-                    <span class="wb-meta">@Rich("panel.version", ("n", brain.Version.ToString(CultureInfo.InvariantCulture)))</span>
+                    <span class="wb-meta">@Rich("panel.version", ("n", rule.Rule!.Version.ToString(CultureInfo.InvariantCulture)))</span>
+                    @if (rule.CanDraft)
+                    {
+                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => ToggleDraft(rule)" @ref="refs[DraftToggleRef]">@Rich(ctx.Draft is null ? "draft.start" : "draft.discard")</button>
+                    }
                 </div>
                 <div class="wb-meta">@StateLineOf(rule)@if (!string.IsNullOrWhiteSpace(rule.SourceLine)){@(" " + rule.SourceLine)}</div>
                 <div class="wb-meta wb-small">@Rich("state.elsewhere")</div>
             </div>
+            @if (ctx.Draft is { } draft)
+            {
+                @DraftBar(rule, draft)
+            }
             <div class="wb-tabs" role="tablist" aria-label="@Plain("tabs.label")">
-                @foreach (var entry in TabKeys)
+                @foreach (var entry in TabKeys.Where(item => item.Tab != WorkbenchTab.Changes || ctx.Draft is not null))
                 {
                     var tab = entry.Tab;
                     var number = (int)tab;
                     var on = tab == current;
                     <button type="button" role="tab" id="@(idp + "-tab-" + number)" class="wb-tab" aria-selected="@(on ? "true" : "false")" aria-controls="@(idp + "-panel")" tabindex="@(on ? 0 : -1)" @onclick="() => SelectTab(tab)" @onkeydown="OnTabKeyDown" @ref="refs[TabRef(number)]">
                         @Rich(entry.Key)
-                        @if (tab == WorkbenchTab.Tests && run.Cases.Count > 0)
+                        @if (tab == WorkbenchTab.Tests && changing > 0)
+                        {
+                            <span class="wb-pill wb-pill-n wb-pill-bad">@PluralText("tabs.casesChange", changing)</span>
+                        }
+                        else if (tab == WorkbenchTab.Tests && run.Cases.Count > 0)
                         {
                             <span class="@(run.FailedCount > 0 ? "wb-pill wb-pill-n wb-pill-bad" : "wb-pill wb-pill-n")">@(run.FailedCount > 0 ? PluralText("fail.count", run.FailedCount) : OutcomeFormat.Number(run.Cases.Count))</span>
+                        }
+                        @if (tab == WorkbenchTab.Changes && changeCount > 0)
+                        {
+                            <span class="wb-pill wb-pill-n">@OutcomeFormat.Number(changeCount)</span>
                         }
                         @if (tab == WorkbenchTab.Review && exportedItems > 0)
                         {
@@ -180,12 +201,63 @@
                     case WorkbenchTab.Tests:
                         @TestsPanel(ctx)
                         break;
+                    case WorkbenchTab.Changes:
+                        @ChangesPanel(Context(rule, forceDraft: true))
+                        break;
                     default:
-                        @ReviewPanel(ctx)
+                        @ReviewPanel(Context(rule, baseOnly: true))
                         break;
                 }
             </div>
         </text>;
+    }
+
+    // ----- draft bar and dialog ---------------------------------------------------------------------------------------
+
+    private RenderFragment DraftBar(WorkbenchRule rule, DraftState draft) => @<div class="wb-draftbar" role="note">
+        <span class="wb-pill wb-pill-draft">@Rich("pill.draft")</span>
+        <span class="wb-draftbar-t">@DraftSentence(rule, draft)</span>
+        <div class="wb-switch" role="group" aria-label="@Plain("draft.switch")">
+            <button type="button" class="wb-switch-part" aria-pressed="@(draft.ViewDraft ? "false" : "true")" @onclick="() => SetView(rule, false)">@Rich("draft.view.rule")</button>
+            <button type="button" class="wb-switch-part" aria-pressed="@(draft.ViewDraft ? "true" : "false")" @onclick="() => SetView(rule, true)">@Rich("draft.view.draft")</button>
+        </div>
+    </div>;
+
+    private RenderFragment DiscardDialog(WorkbenchRule rule)
+    {
+        var draft = Session.Work(rule.Key).Draft!;
+        var rows = PluralText("discard.rows", ChangeCount(rule, draft));
+        var cases = PluralText("discard.cases", draft.CaseStepCount);
+        return @<div class="wb-scrim">
+            <div class="wb-dialog" role="dialog" aria-modal="true" aria-labelledby="@(idp + "-dlg-t")" aria-describedby="@(idp + "-dlg-b")" @onkeydown="OnDialogKeyDown">
+                <h2 class="wb-h2" id="@(idp + "-dlg-t")">@Rich("discard.title")</h2>
+                <p class="wb-dialog-body" id="@(idp + "-dlg-b")">@Rich("discard.body", ("rows", rows), ("cases", cases))</p>
+                <div class="wb-actions">
+                    <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => Discard(rule)">@Rich("discard.confirm")</button>
+                    <button type="button" class="wb-btn wb-btn-primary" @onclick="CloseDialog" @ref="refs[KeepRef]">@Rich("discard.keep")</button>
+                </div>
+            </div>
+        </div>;
+    }
+
+    /// <summary>The box that stands in for the rows of a draft the loader cannot read, with the reasons and the two ways out.</summary>
+    private RenderFragment UnreadableBox(Ctx c)
+    {
+        var draft = c.Draft!;
+        var lines = DraftWording.Lines(text, draft.Problems, c.View, null, EmptyWords);
+        return @<div class="wb-refusal" role="alert">
+            <h2 class="wb-h2 wb-h2-flush">@Rich("draft.unreadable.title")</h2>
+            <ul class="wb-refusal-list">
+                @foreach (var line in lines)
+                {
+                    <li>@line</li>
+                }
+            </ul>
+            <div class="wb-actions wb-actions-tight">
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@(!draft.HasChanges)" @onclick="() => UndoLast(c.Rule, draft)">@Rich("draft.unreadable.undo")</button>
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => ToggleDraft(c.Rule)">@Rich("draft.discard")</button>
+            </div>
+        </div>;
     }
 
     // ----- shared pieces ----------------------------------------------------------------------------------------------
@@ -347,7 +419,452 @@
 
     // ----- Read -------------------------------------------------------------------------------------------------------
 
-    private RenderFragment ReadPanel(Ctx c) => @<text>
+    private RenderFragment ReadPanel(Ctx c)
+    {
+        if (c.Broken)
+        {
+            return UnreadableBox(c);
+        }
+
+        return c.Editing ? DraftReadPanel(c) : RuleReadPanel(c);
+    }
+
+    private RenderFragment FactsBlock(Ctx c) => @<text>
+        <h2 class="wb-h2 wb-h2-gap">@Rich("read.facts")</h2>
+        <dl class="wb-kv">
+            @foreach (var fact in c.View.Facts)
+            {
+                <dt>@fact.Label</dt>
+                <dd>@TypeWord(fact) · @Rich(fact.Nullable ? "read.optional" : "read.required")</dd>
+            }
+        </dl>
+    </text>;
+
+    private RenderFragment DraftReadPanel(Ctx c)
+    {
+        var draft = c.Draft!;
+        var readOnly = IsStale(c.Rule, draft);
+        var items = DraftItems(c);
+        var form = readOnly ? null : draft.Form;
+        var catalog = form is null ? null : RuleChoiceCatalog.For(c.Brain, c.Labels, Locale);
+        var findings = draft.Findings!;
+        var unreachable = findings.Unreachable.Where(key => !draft.BaseFindings.Unreachable.Contains(key)).ToHashSet(StringComparer.Ordinal);
+        var incomplete = findings.Incomplete && !draft.BaseFindings.Incomplete;
+        var defaultKey = c.Brain.Table.DefaultRow?.Key;
+        var defaultChanged = ChangesOf(c.Rule, draft).DefaultRowChanged;
+        var changingCases = readOnly ? 0 : ChangingCount(c);
+        return @<text>
+            <div class="wb-sr" role="status" aria-live="polite">@liveMessage</div>
+            @if (changingCases > 0)
+            {
+                <div class="wb-notice wb-notice-gap wb-notice-act" role="note">
+                    <span>@Rich(UiText.Plural("read.casesNotice", changingCases), ("n", OutcomeFormat.Number(changingCases)))</span>
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => SeeChangingCases(c)">@Rich(UiText.Plural("read.casesSee", changingCases))</button>
+                </div>
+            }
+            <h2 class="wb-h2">@Rich(PolicyKey(c.View.HitPolicy))</h2>
+            @if (draft.Refusal is { RowKey: null } top)
+            {
+                @RefusalBox(top.Lines, false)
+            }
+            @if (incomplete)
+            {
+                <div class="wb-notice wb-notice-gap" role="note">@Rich("edit.incomplete")</div>
+            }
+            @if (form is { IsNew: true, AfterKey: null })
+            {
+                @RowFormPanel(c, form, catalog!)
+            }
+            @foreach (var item in items)
+            {
+                @DraftRow(c, item, form, catalog, readOnly, unreachable)
+                @if (form is { IsNew: true } added && item.Row is not null && string.Equals(added.AfterKey, item.Key, StringComparison.Ordinal))
+                {
+                    @RowFormPanel(c, form, catalog!)
+                }
+            }
+            @if (!readOnly)
+            {
+                <div class="wb-row-add">
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => AddAtEnd(c)" @ref="refs[AddEndRef]">@Rich(items.Count == 0 ? "row.addFirst" : "row.addEnd")</button>
+                </div>
+            }
+            @if (c.View.DefaultRow is { } fallback)
+            {
+                @if (form is { IsDefault: true })
+                {
+                    @RowFormPanel(c, form, catalog!)
+                }
+                else
+                {
+                    <div class="wb-row wb-row-default">
+                        <span class="wb-num">@SimulationPresenter.Number(fallback)</span>
+                        <div><div class="wb-sent">@fallback.Sentence</div></div>
+                        <div class="wb-rowctl">
+                            @if (defaultChanged)
+                            {
+                                <span class="@PillClass("warn")">@Rich("tag.changed")</span>
+                                @if (!readOnly)
+                                {
+                                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.undoFor", ("n", "–"))" @onclick="() => UndoRow(c, defaultKey!, step => step.Key == defaultKey && step.Kind == StepKind.Row)">@Rich("row.undo")</button>
+                                }
+                            }
+                            @if (!readOnly)
+                            {
+                                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("form.titleDefault")" @onclick="() => OpenEdit(c, defaultKey!, true)" @ref="refs[EditRef(defaultKey!)]">@Rich("row.edit")</button>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="wb-row wb-row-default">
+                    <span class="wb-num">–</span>
+                    <div><div class="wb-sent">@Rich("read.noDefaultRow")</div></div>
+                    <span></span>
+                </div>
+            }
+            @FactsBlock(c)
+        </text>;
+    }
+
+    /// <summary>
+    /// The "Más" button and its menu: the one menu of a row and of a test case. <paramref name="key"/> names the menu in
+    /// <c>menuFor</c> and the focus targets; an entry that is not enabled is shown and cannot be chosen.
+    /// </summary>
+    private RenderFragment MoreMenu(string key, string label, (string Key, bool Enabled, Action Run)[] entries)
+    {
+        var open = menuFor == key;
+        var enabledAt = entries.Select((entry, index) => (entry, index)).Where(pair => pair.entry.Enabled).Select(pair => pair.index).ToList();
+        return @<span class="wb-menuwrap">
+            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm wb-btn-more" aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")" aria-label="@label" @onclick="() => ToggleMenu(key, enabledAt[0])" @ref="refs[MoreRef(key)]">@Rich("row.more")</button>
+            @if (open)
+            {
+                <div class="wb-menu" role="menu" aria-label="@label">
+                    @for (var index = 0; index < entries.Length; index++)
+                    {
+                        var at = index;
+                        var entry = entries[index];
+                        <button type="button" role="menuitem" class="wb-menu-i" disabled="@(!entry.Enabled)" @onclick="entry.Run" @onkeydown="args => OnMenuKey(args, key, enabledAt, at)" @ref="refs[MenuItemRef(key, at)]">@Rich(entry.Key)</button>
+                    }
+                </div>
+            }
+        </span>;
+    }
+
+    private RenderFragment DraftRow(Ctx c, DraftItem item, RowForm? form, RuleChoices? catalog, bool readOnly, HashSet<string> unreachable)
+    {
+        var draft = c.Draft!;
+        var key = item.Key;
+        if (form is { IsNew: false, IsDefault: false } && item.Row is not null && string.Equals(form.RowKey, key, StringComparison.Ordinal))
+        {
+            return RowFormPanel(c, form, catalog!);
+        }
+
+        var row = item.Row;
+        var removed = row is null;
+        var tag = item.Change?.Tag;
+        var moved = tag == RowChangeTag.Moved || IsMoved(draft, item);
+        var number = removed ? string.Empty : SimulationPresenter.Number(row!);
+        var rows = c.View.Rows;
+        var position = removed ? -1 : row!.Index;
+        var entries = new (string Key, bool Enabled, Action Run)[]
+        {
+            ("row.up", position > 0, () => MoveRow(c, key, -1)),
+            ("row.down", position >= 0 && position < rows.Count - 1, () => MoveRow(c, key, 1)),
+            ("row.addBelow", true, () => AddBelow(c, key)),
+            ("row.remove", true, () => RemoveRowAction(c, key)),
+        };
+        return @<div>
+            <div class="@(removed ? "wb-row wb-row-removed" : "wb-row")">
+                <span class="wb-num">@number</span>
+                <div>
+                    @if (row?.Title is { } title)
+                    {
+                        <div class="wb-row-title">@title</div>
+                    }
+                    <div class="@(removed ? "wb-sent wb-struck" : "wb-sent")">@(removed ? item.Change!.SentenceBefore : row!.Sentence)</div>
+                    @if (tag == RowChangeTag.Changed && item.Change?.SentenceBefore is { } before)
+                    {
+                        <div class="wb-sub"><span class="wb-before">@Rich("row.before")</span> @before</div>
+                    }
+                    @if (moved && item.Change?.NumberBefore is { } was && item.Change.NumberAfter != was)
+                    {
+                        <div class="wb-sub">@Rich("row.wasRow", ("n", was.ToString(CultureInfo.InvariantCulture)))</div>
+                    }
+                </div>
+                <div class="wb-rowctl">
+                    @if (tag is { } shown)
+                    {
+                        <span class="@PillClass(TagTone(shown))">@Rich(TagKey(shown == RowChangeTag.Moved ? RowChangeTag.Moved : shown))</span>
+                    }
+                    @if (moved && tag == RowChangeTag.Changed)
+                    {
+                        <span class="@PillClass("neutral")">@Rich("tag.moved")</span>
+                    }
+                    @if (!readOnly)
+                    {
+                        @if (removed)
+                        {
+                            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => UndoRow(c, key, step => step.Kind == StepKind.Remove && step.Key == key)" @ref="refs[RestoreRef(key)]">@Rich("row.restore")</button>
+                        }
+                        else
+                        {
+                            @if (tag is RowChangeTag.Changed or RowChangeTag.Moved && HasRowSteps(draft, key))
+                            {
+                                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.undoFor", ("n", number))" @onclick="() => UndoRow(c, key, step => step.Key == key && step.Kind is StepKind.Row or StepKind.Move)">@Rich("row.undo")</button>
+                            }
+                            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.editFor", ("n", number))" @onclick="() => OpenEdit(c, key, false)" @ref="refs[EditRef(key)]">@Rich("row.edit")</button>
+                            @MoreMenu(key, Plain("row.moreFor", ("n", number)), entries)
+                        }
+                    }
+                </div>
+            </div>
+            @if (!removed && unreachable.Contains(key))
+            {
+                <div class="wb-notice wb-notice-row" role="note">@Rich("edit.unreachable", ("n", number))</div>
+            }
+            @if (draft.Refusal is { } refusal && string.Equals(refusal.RowKey, key, StringComparison.Ordinal))
+            {
+                @RefusalBox(refusal.Lines, false)
+            }
+        </div>;
+    }
+
+    private RenderFragment RefusalBox(IReadOnlyList<string> lines, bool internalOnly) => @<div class="wb-refusal" role="alert" tabindex="-1" @ref="refs[BoxRef]">
+        <div class="wb-refusal-t">@Rich("refuse.edit.title")</div>
+        <ul class="wb-refusal-list">
+            @foreach (var line in lines)
+            {
+                <li>@line</li>
+            }
+        </ul>
+        @if (!internalOnly)
+        {
+            <div class="wb-refusal-stays">@Rich("refuse.edit.stays")</div>
+        }
+    </div>;
+
+    private RenderFragment RowFormPanel(Ctx c, RowForm form, RuleChoices catalog)
+    {
+        var titleId = idp + "-ft";
+        var title = TitleOf(form);
+        var hidden = form.IsDefault ? 0 : c.Shown.Count(item => !FactVisible(form, item.Fact.Name));
+        var nameId = idp + "-fname";
+        return @<div class="wb-rowform" role="group" aria-labelledby="@titleId">
+            <h3 class="wb-h2 wb-h2-flush" id="@titleId">@title</h3>
+            @if (!form.IsDefault)
+            {
+                <div class="wb-fsec">@Rich("form.when")</div>
+                @foreach (var item in c.Shown.Where(item => FactVisible(form, item.Fact.Name)))
+                {
+                    @FactLineFragment(c, form, item, catalog.Facts.First(choice => choice.Fact == item.Fact.Name))
+                }
+                @if (hidden > 0)
+                {
+                    <button type="button" class="wb-link" @onclick="() => ShowUnused(form)">@Rich(UiText.Plural("form.unused", hidden), ("n", OutcomeFormat.Number(hidden)))</button>
+                }
+            }
+            <div class="wb-fsec">@Rich("form.then")</div>
+            @foreach (var field in c.Brain.Kind.OutcomeFields)
+            {
+                @OutcomeLine(c, form, field)
+            }
+            @if (!form.IsDefault)
+            {
+                <div class="wb-fline wb-fline-out">
+                    <label class="wb-flabel" for="@nameId">@Rich("form.name") <span class="wb-hint-inline">· @Rich("form.optional")</span></label>
+                    <div class="wb-fvalue"><input id="@nameId" type="text" autocomplete="off" maxlength="60" class="wb-in" value="@form.Name" @onchange="args => SetRowName(c, form, args)" /></div>
+                </div>
+            }
+            <div class="wb-preview">
+                <div class="wb-fsec">@Rich("form.preview")</div>
+                <div class="wb-preview-t" aria-live="polite">@(form.Preview.Length > 0 ? form.Preview : "–")</div>
+            </div>
+            @foreach (var warning in form.Warnings)
+            {
+                <div class="wb-notice wb-notice-row" role="note">@warning</div>
+            }
+            @if (form.Refusal is { } refusal)
+            {
+                @RefusalBox(refusal.Lines, form.RefusalIsInternal)
+            }
+            @if (form.Blocked.Length > 0)
+            {
+                <div class="wb-sub" role="status">@form.Blocked</div>
+            }
+            <div class="wb-actions">
+                <button type="button" class="wb-btn wb-btn-primary" @onclick="() => ApplyForm(c)">@Rich("form.apply")</button>
+                <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => CancelForm(c)">@Rich("form.cancel")</button>
+            </div>
+        </div>;
+    }
+
+    private RenderFragment FactLineFragment(Ctx c, RowForm form, ShownFact item, FactChoices choices)
+    {
+        var name = item.Fact.Name;
+        var line = form.LineFor(name);
+        var key = "fact:" + name;
+        var id = idp + "-fl-" + item.Index.ToString(CultureInfo.InvariantCulture);
+        var problem = form.Problems.GetValueOrDefault(key);
+        var invalid = problem is not null || form.Marked.Contains(key);
+        var wordings = RowForm.WordingsFor(choices);
+        return @<div class="wb-fline">
+            <span class="wb-flabel">@item.View.Label</span>
+            <select id="@(id + "-op")" class="@(invalid ? "wb-in wb-in-err" : "wb-in")" aria-label="@Plain("form.opLabel", ("fact", item.View.Label))" aria-invalid="@(invalid ? "true" : null)" value="@line.Wording" @onchange="args => SetWording(c, form, item, args)" @ref="refs[FactCtlRef(name)]">
+                @foreach (var wording in wordings)
+                {
+                    <option value="@wording">@Rich("op." + wording)</option>
+                }
+            </select>
+            <div class="wb-fvalue">
+                @ValueInputs(c, form, item, line, id, invalid)
+                @if (problem is not null)
+                {
+                    <div class="wb-errt" role="alert">@ProblemText(c, key, problem)</div>
+                }
+            </div>
+        </div>;
+    }
+
+    private RenderFragment ValueInputs(Ctx c, RowForm form, ShownFact item, FactLine line, string id, bool invalid)
+    {
+        var wording = line.Wording;
+        if (RowForm.TakesNoValue(wording))
+        {
+            return @<text></text>;
+        }
+
+        if (RowForm.IsSet(wording))
+        {
+            return item.Fact.Type == FactType.Enum && item.View.AllowedValues.Count > 0 ? SetChecks(c, form, item, line) : SetChips(c, form, item, line, invalid);
+        }
+
+        if (wording == "between")
+        {
+            return @<div class="wb-between">
+                @SingleInput(c, form, item, line, id + "-a", false, Plain("form.from"), invalid)
+                <span>@Rich("form.and")</span>
+                @SingleInput(c, form, item, line, id + "-b", true, Plain("form.to"), invalid)
+            </div>;
+        }
+
+        return SingleInput(c, form, item, line, id + "-a", false, Plain("form.valLabel", ("fact", item.View.Label)), invalid);
+    }
+
+    private RenderFragment SetChecks(Ctx c, RowForm form, ShownFact item, FactLine line) => @<fieldset class="wb-checks">
+        <legend class="wb-sr">@Plain("form.valLabel", ("fact", item.View.Label))</legend>
+        @foreach (var option in item.View.AllowedValues)
+        {
+            <label class="wb-radio"><input type="checkbox" checked="@line.Items.Contains(option.Value, StringComparer.Ordinal)" @onchange="args => ToggleItem(c, form, item.Fact.Name, option.Value, args.Value is true)" />@option.Label</label>
+        }
+    </fieldset>;
+
+    private RenderFragment SetChips(Ctx c, RowForm form, ShownFact item, FactLine line, bool invalid) => @<div class="wb-chips">
+        @foreach (var chip in line.Items)
+        {
+            <span class="wb-chip">@chip<button type="button" class="wb-chip-x" aria-label="@Plain("form.chipRemove", ("value", chip))" @onclick="() => RemoveChip(c, form, item.Fact.Name, chip)">×</button></span>
+        }
+        <input type="text" autocomplete="off" class="@(invalid ? "wb-in wb-in-err" : "wb-in")" aria-label="@Plain("form.chipLabel", ("fact", item.View.Label))" value="@line.ChipText" @onchange="args => AddChip(c, form, item.Fact.Name, args)" />
+    </div>;
+
+    private RenderFragment SingleInput(Ctx c, RowForm form, ShownFact item, FactLine line, string id, bool upper, string label, bool invalid)
+    {
+        var fact = item.Fact;
+        var name = fact.Name;
+        var value = upper ? line.Upper : line.Value;
+        var inputClass = invalid ? "wb-in wb-in-err" : "wb-in";
+        if (fact.Type == FactType.Boolean || (fact.Type == FactType.Enum && item.View.AllowedValues.Count > 0))
+        {
+            var options = fact.Type == FactType.Boolean
+                ? new List<(string Value, string Label)> { ("true", Plain("sim.yes")), ("false", Plain("sim.no")) }
+                : [.. item.View.AllowedValues.Select(option => (option.Value, option.Label))];
+            return @<select id="@id" class="@inputClass" aria-label="@label" value="@value" @onchange="args => SetLineText(c, form, name, upper, args)">
+                @foreach (var option in options)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>;
+        }
+
+        if (fact.Type == FactType.Date)
+        {
+            return @<input id="@id" type="date" lang="@LangCode" class="@inputClass" aria-label="@label" value="@value" @onchange="args => SetLineText(c, form, name, upper, args)" />;
+        }
+
+        if (fact.Type == FactType.Money)
+        {
+            var currencies = FactForm.CurrencyOptions(c.Brain, name, line.Currency);
+            return @<div class="wb-money">
+                <input id="@id" type="text" inputmode="decimal" autocomplete="off" class="@inputClass" aria-label="@label" value="@value" @onchange="args => SetLineText(c, form, name, upper, args)" />
+                @if (!upper)
+                {
+                    <select class="@(inputClass + " wb-in-currency")" aria-label="@Plain("sim.currency")" value="@line.Currency" @onchange="args => SetLineCurrency(c, form, name, args)">
+                        @foreach (var currency in currencies)
+                        {
+                            <option value="@currency">@currency</option>
+                        }
+                    </select>
+                }
+            </div>;
+        }
+
+        return @<input id="@id" type="text" autocomplete="off" inputmode="@InputMode(fact.Type)" class="@inputClass" aria-label="@label" value="@value" @onchange="args => SetLineText(c, form, name, upper, args)" />;
+    }
+
+    private RenderFragment OutcomeLine(Ctx c, RowForm form, OutcomeFieldDescriptor field)
+    {
+        var name = field.Name;
+        var label = c.View.OutcomeFields.First(item => item.Name == name).Label;
+        var key = "out:" + name;
+        var id = idp + "-fo-" + name.GetHashCode(StringComparison.Ordinal).ToString("x", CultureInfo.InvariantCulture);
+        var problem = form.Problems.GetValueOrDefault(key);
+        var invalid = problem is not null || form.Marked.Contains(key);
+        var inputClass = invalid ? "wb-in wb-in-err" : "wb-in";
+        var choices = OutcomeChoicesOf(c, field);
+        var current = form.Outcome.GetValueOrDefault(name, string.Empty);
+        return @<div class="wb-fline wb-fline-out">
+            <label class="wb-flabel" for="@id">@label</label>
+            <div class="wb-fvalue">
+                @if (choices is not null)
+                {
+                    <select id="@id" class="@inputClass" aria-invalid="@(invalid ? "true" : null)" value="@current" @onchange="args => SetOutcomeText(c, form, name, args)" @ref="refs[OutCtlRef(name)]">
+                        @foreach (var option in choices)
+                        {
+                            <option value="@option.Value">@option.Label</option>
+                        }
+                    </select>
+                }
+                else if (field.Type == FactType.Money)
+                {
+                    <div class="wb-money">
+                        <input id="@id" type="text" inputmode="decimal" autocomplete="off" class="@inputClass" aria-invalid="@(invalid ? "true" : null)" value="@current" @onchange="args => SetOutcomeText(c, form, name, args)" @ref="refs[OutCtlRef(name)]" />
+                        <select class="@(inputClass + " wb-in-currency")" aria-label="@Plain("sim.currency")" value="@form.OutcomeCurrency.GetValueOrDefault(name, FactForm.DefaultCurrency)" @onchange="args => SetOutcomeCurrency(c, form, name, args)">
+                            @foreach (var currency in FactForm.CurrencyOptions(c.Brain, name, form.OutcomeCurrency.GetValueOrDefault(name, string.Empty)))
+                            {
+                                <option value="@currency">@currency</option>
+                            }
+                        </select>
+                    </div>
+                }
+                else if (field.Type == FactType.Date)
+                {
+                    <input id="@id" type="date" lang="@LangCode" class="@inputClass" aria-invalid="@(invalid ? "true" : null)" value="@current" @onchange="args => SetOutcomeText(c, form, name, args)" @ref="refs[OutCtlRef(name)]" />
+                }
+                else
+                {
+                    <input id="@id" type="text" autocomplete="off" inputmode="@InputMode(field.Type)" class="@inputClass" aria-invalid="@(invalid ? "true" : null)" value="@current" @onchange="args => SetOutcomeText(c, form, name, args)" @ref="refs[OutCtlRef(name)]" />
+                }
+                @if (problem is not null)
+                {
+                    <div class="wb-errt" role="alert">@ProblemText(c, key, problem)</div>
+                }
+            </div>
+        </div>;
+    }
+
+    private RenderFragment RuleReadPanel(Ctx c) => @<text>
         <h2 class="wb-h2">@Rich(PolicyKey(c.View.HitPolicy))</h2>
         @foreach (var row in c.View.Rows)
         {
@@ -391,34 +908,32 @@
                 <span></span>
             </div>
         }
-        <h2 class="wb-h2 wb-h2-gap">@Rich("read.facts")</h2>
-        <dl class="wb-kv">
-            @foreach (var fact in c.View.Facts)
-            {
-                <dt>@fact.Label</dt>
-                <dd>@TypeWord(fact) · @Rich(fact.Nullable ? "read.optional" : "read.required")</dd>
-            }
-        </dl>
+        @FactsBlock(c)
     </text>;
 
     // ----- Simulate ---------------------------------------------------------------------------------------------------
 
     private RenderFragment SimulatePanel(Ctx c)
     {
+        if (c.Broken)
+        {
+            return BrokenNote();
+        }
+
         var work = c.Work;
         var form = work.Simulator;
         form.EnsureDefaults(c.Shown);
-        var run = work.Tests(c.Brain);
+        var run = c.Run;
         var selectId = idp + "-load";
 
         return @<text>
-            @Band("band.simulate")
+            @Band("band.simulate", c.Editing)
             <div class="wb-grid2">
                 <div class="wb-card">
                     <h2 class="wb-h2">@Rich("sim.title")</h2>
                     @FactFields(c.Brain, form, c.Shown, "sim", () => FieldChanged(work))
                     <div class="wb-actions">
-                        <button type="button" class="wb-btn wb-btn-primary" @onclick="() => RunSimulation(c.Rule, work, c.Shown)">@Rich("sim.run")</button>
+                        <button type="button" class="wb-btn wb-btn-primary" @onclick="() => RunSimulation(c, work)">@Rich("sim.run")</button>
                         <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => ClearSimulation(work, c.Shown)">@Rich("sim.clear")</button>
                     </div>
                     @if (run.Cases.Count > 0)
@@ -480,7 +995,7 @@
             </div>;
         }
 
-        var labels = c.Rule.Labels;
+        var labels = c.Labels;
         var decided = result.Outcome as Decided;
         var groups = decided is null ? [] : OutcomeFormat.Groups(c.View, labels, Locale, decided.OutcomeJson);
         var why = SimulationPresenter.Why(text, c.Brain, c.View, labels, result);
@@ -524,7 +1039,7 @@
                     <div class="wb-sub">@Rich("sim.composedNote")</div>
                 }
                 <div class="wb-actions wb-actions-tight">
-                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenFormFromSimulation(c.Rule, work, c.Shown, c.View, labels)">@Rich("sim.saveAsCase")</button>
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenFormFromSimulation(c.Rule, c.Brain, work, c.Shown, c.View, labels)">@Rich("sim.saveAsCase")</button>
                 </div>
             </div>
             @if (result.Rows.Count > 0)
@@ -579,14 +1094,24 @@
 
     private RenderFragment TestsPanel(Ctx c)
     {
+        if (c.Broken)
+        {
+            return BrokenNote();
+        }
+
+        if (c.Editing)
+        {
+            return DraftTestsPanel(c);
+        }
+
         var work = c.Work;
-        var run = work.Tests(c.Brain);
-        var labels = c.Rule.Labels;
+        var run = c.Run;
+        var labels = c.Labels;
         var form = caseForm is not null && string.Equals(caseForm.RuleKey, c.Rule.Key, StringComparison.Ordinal) ? caseForm : null;
         var failing = run.FailedCount > 0;
 
         return @<text>
-            @Band("band.tests")
+            @Band("band.tests", c.Editing)
             @if (form is not null)
             {
                 @CaseFormPanel(c, form)
@@ -702,7 +1227,199 @@
                     <div class="wb-row">
                         <span class="wb-num">@SimulationPresenter.Number(row)</span>
                         <div class="wb-sent">@row.Sentence</div>
-                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenFormForRow(c.Rule, c.Shown, c.View, labels, key)">@Rich("tests.createFor")</button>
+                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenFormForRow(c.Rule, c.Brain, c.Shown, c.View, labels, key)">@Rich("tests.createFor")</button>
+                    </div>
+                }
+            }
+        </text>;
+    }
+
+    private RenderFragment DraftTestsPanel(Ctx c)
+    {
+        var draft = c.Draft!;
+        var readOnly = IsStale(c.Rule, draft);
+        var run = c.Run;
+        var labels = c.Labels;
+        var form = readOnly || caseForm is null || !string.Equals(caseForm.RuleKey, c.Rule.Key, StringComparison.Ordinal) ? null : caseForm;
+        var lines = CaseLines(c);
+        var changedRows = ChangedRowKeys(c);
+        var failing = lines.Exists(line => !line.Removed && !line.Case.Passed && !line.Changes);
+        var changing = lines.Count(line => line.Changes);
+
+        return @<text>
+            @Band("band.tests", true)
+            @if (draft.Refusal is { RowKey: null } top)
+            {
+                @RefusalBox(top.Lines, false)
+            }
+            @if (form is not null)
+            {
+                @CaseFormPanel(c, form)
+            }
+            <div class="wb-bar">
+                <h2 class="wb-h2 wb-h2-flush">@TestsHeading(run, changing)</h2>
+                <span class="wb-sp"></span>
+                @if (!readOnly)
+                {
+                    <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => OpenCaseForm(c.Rule, c.Shown)" @ref="refs[CaseAddRef]">@Rich("tests.add")</button>
+                }
+                <button type="button" class="wb-btn wb-btn-primary" disabled="@testsRunning" @onclick="() => RunDraftAgainAsync(draft)">@Rich(testsRunning ? "tests.running" : "tests.runAll")</button>
+            </div>
+            @if (lines.Count > 0)
+            {
+                <table class="wb-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">@Rich("tests.th.case")</th>
+                            <th scope="col">@Rich("tests.th.data")</th>
+                            <th scope="col">@Rich("tests.th.expected")</th>
+                            <th scope="col">@Rich("tests.th.draft")</th>
+                            <th scope="col">@Rich("tests.th.status")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in lines)
+                        {
+                            var testCase = line.Case;
+                            var name = line.Name;
+                            var bad = !line.Removed && !testCase.Passed;
+                            <tr class="@CaseRowClass(line)">
+                                <td>
+                                    @if (line.Removed)
+                                    {
+                                        <span class="wb-struck">@name</span>
+                                    }
+                                    else if (bad)
+                                    {
+                                        <strong>@name</strong>
+                                    }
+                                    else
+                                    {
+                                        @name
+                                    }
+                                    @if (line.IsNew || line.Removed)
+                                    {
+                                        <div class="wb-sub"><span class="@PillClass(line.IsNew ? "ok" : "neutral")">@Rich(line.IsNew ? "case.tagNew" : "case.tagRemoved")</span></div>
+                                    }
+                                </td>
+                                <td>@OutcomeFormat.FactsText(c.Brain, c.View, labels, Locale, testCase.Facts)</td>
+                                <td>
+                                    <span class="@(line.Removed ? "wb-struck" : null)">@ExpectedText(c.View, labels, testCase.Expected)</span>
+                                    @if (line.Changes)
+                                    {
+                                        <div class="wb-sub">@Rich("case.currentGives")</div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (line.Removed)
+                                    {
+                                        <span class="wb-struck">@ActualText(c.View, labels, testCase)</span>
+                                    }
+                                    else if (!bad)
+                                    {
+                                        @ActualText(c.View, labels, testCase)
+                                    }
+                                    else
+                                    {
+                                        @if (line.Changes)
+                                        {
+                                            var sides = SidesOf(c, name);
+                                            @ResultParts(sides.After, sides.Before)
+                                            <div class="wb-sub">@NowDecidedBy(c, line, changedRows)</div>
+                                        }
+                                        else
+                                        {
+                                            <strong>@ActualText(c.View, labels, testCase)</strong>
+                                            @if (testCase.Failure is null)
+                                            {
+                                                <div class="wb-sub">@DecidedByText(c.View, testCase)</div>
+                                            }
+                                        }
+                                    }
+                                </td>
+                                <td>
+                                    @if (line.Removed)
+                                    {
+                                        @if (!readOnly)
+                                        {
+                                            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("case.restoreFor", ("name", name))" @onclick="() => RestoreCase(c, name)" @ref="refs[CaseRestoreRef(name)]">@Rich("row.restore")</button>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="@PillClass(line.Changes || !testCase.Passed ? "bad" : "ok")">@Rich(CasePillKey(line))</span>
+                                        @if (line.Decided)
+                                        {
+                                            <div class="wb-cell-gap"><span class="@PillClass("neutral")">@Rich("case.expectChanged")</span></div>
+                                            @if (!readOnly)
+                                            {
+                                                <div class="wb-cell-gap"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("case.undoFor", ("name", name))" @onclick="() => UndoCaseDecision(c, name)" @ref="refs[CaseUndoRef(name)]">@Rich("row.undo")</button></div>
+                                            }
+                                        }
+                                        @if (bad && !line.Changes)
+                                        {
+                                            <div class="wb-cell-gap"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenCaseInSimulator(c.Work, c.Shown, testCase)">@Rich("tests.openSim")</button></div>
+                                        }
+                                        @if (!readOnly)
+                                        {
+                                            <div class="wb-cell-gap">@MoreMenu(CaseMenuKey(name), Plain("case.moreFor", ("name", name)), CaseMenu(c, line))</div>
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                            @if (line.Changes && !readOnly)
+                            {
+                                var askId = idp + "-ask-" + lines.IndexOf(line).ToString(CultureInfo.InvariantCulture);
+                                var answers = AnswersFor(c, line);
+                                <tr class="wb-review-line">
+                                    <td colspan="5">
+                                        <div class="wb-ask" role="group" aria-labelledby="@askId">
+                                            <strong id="@askId">@Rich("case.ask")</strong>
+                                            @if (answers.Lines.Count > 0)
+                                            {
+                                                <div class="wb-ask-diff">
+                                                    @foreach (var item in answers.Lines)
+                                                    {
+                                                        <div class="wb-sub wb-sub-flush">@item</div>
+                                                    }
+                                                </div>
+                                            }
+                                            <button type="button" class="wb-btn wb-btn-primary wb-btn-sm" @onclick="() => AcceptCase(c, line)" @ref="refs[AcceptRef(name)]">@(answers.AcceptResult is { } now ? Rich("case.accept", ("result", now)) : Rich("case.acceptPlain"))</button>
+                                            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => ReviewMyChange(c, line)">@(answers.ReviewResult is { } was ? Rich("case.reviewMine", ("result", was)) : Rich("case.reviewPlain"))</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (failing)
+            {
+                <div class="wb-notice wb-notice-gap" role="note">@Rich("tests.failNote")</div>
+            }
+            <h2 class="wb-h2 wb-h2-gap">@Rich("tests.uncovered")</h2>
+            @if (run.UncoveredRowKeys.Count == 0)
+            {
+                <div class="wb-sub wb-sub-flush">@Rich("tests.allCovered")</div>
+            }
+            else
+            {
+                foreach (var key in run.UncoveredRowKeys)
+                {
+                    var row = SimulationPresenter.RowByKey(c.View, key);
+                    if (row is null)
+                    {
+                        continue;
+                    }
+
+                    <div class="wb-row">
+                        <span class="wb-num">@SimulationPresenter.Number(row)</span>
+                        <div class="wb-sent">@row.Sentence</div>
+                        @if (!readOnly)
+                        {
+                            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenFormForRow(c.Rule, c.Brain, c.Shown, c.View, labels, key)">@Rich("tests.createFor")</button>
+                        }
                     </div>
                 }
             }
@@ -711,7 +1428,7 @@
 
     private RenderFragment CaseFormPanel(Ctx c, CaseForm form)
     {
-        var options = CaseForm.Options(c.Brain, c.View, c.Rule.Labels, Locale);
+        var options = CaseForm.Options(c.Brain, c.View, c.Labels, Locale);
         var collect = c.View.HitPolicy == HitPolicy.Collect;
         var nameId = idp + "-case-name";
         var expectedId = idp + "-case-expected";
@@ -719,16 +1436,19 @@
 
         return @<div class="wb-card wb-case-form">
             @PrivacyNotice()
-            <h2 class="wb-h2">@Rich("tests.add")</h2>
-            <div class="wb-field">
-                <label class="wb-label" for="@nameId">@Rich("case.name")</label>
-                <input id="@nameId" type="text" autocomplete="off" maxlength="200" class="@(form.NameError is null ? "wb-in" : "wb-in wb-in-err")" value="@form.Name" aria-describedby="@(form.NameError is null ? null : nameId + "-err")" aria-invalid="@(form.NameError is null ? null : "true")" @onchange="args => SetCaseName(form, args)" @ref="refs[CaseNameRef]" />
-                @if (form.NameError is not null)
-                {
-                    <div class="wb-errt" id="@(nameId + "-err")">@Rich(form.NameError)</div>
-                }
-            </div>
-            @FactFields(c.Brain, form.Facts, c.Shown, "case", null)
+            <h2 class="wb-h2">@(form.EditName is { } editing ? Rich("case.editTitle", ("name", editing)) : Rich("tests.add"))</h2>
+            @if (form.EditName is null)
+            {
+                <div class="wb-field">
+                    <label class="wb-label" for="@nameId">@Rich("case.name")</label>
+                    <input id="@nameId" type="text" autocomplete="off" maxlength="200" class="@(form.NameError is null ? "wb-in" : "wb-in wb-in-err")" value="@form.Name" aria-describedby="@(form.NameError is null ? null : nameId + "-err")" aria-invalid="@(form.NameError is null ? null : "true")" @onchange="args => SetCaseName(form, args)" @ref="refs[CaseNameRef]" />
+                    @if (form.NameError is not null)
+                    {
+                        <div class="wb-errt" id="@(nameId + "-err")">@Rich(form.NameError)</div>
+                    }
+                </div>
+                @FactFields(c.Brain, form.Facts, c.Shown, "case", null)
+            }
             <div class="wb-field">
                 @if (collect)
                 {
@@ -739,13 +1459,13 @@
                             var index = option.Index;
                             <label class="wb-radio"><input type="checkbox" checked="@form.Chosen.Contains(index)" @onchange="args => ChooseOption(form, index, c.View.HitPolicy, args.Value is true)" />@option.Text</label>
                         }
-                        <label class="wb-radio"><input type="checkbox" checked="@form.ExpectNone" @onchange="args => ChooseNone(form, args.Value is true)" />@Rich("result.none")</label>
+                        <label class="wb-radio"><input type="checkbox" checked="@form.ExpectNone" @onchange="args => ChooseNone(form, args.Value is true)" @ref="refs[CaseExpectedRef]" />@Rich("result.none")</label>
                     </div>
                 }
                 else
                 {
                     <label class="wb-label" for="@expectedId">@Rich("case.expected")</label>
-                    <select id="@expectedId" class="@(form.ExpectedError is null ? "wb-in" : "wb-in wb-in-err")" value="@current" @onchange="args => ChooseOptionFromSelect(form, args, c.View.HitPolicy)">
+                    <select id="@expectedId" class="@(form.ExpectedError is null ? "wb-in" : "wb-in wb-in-err")" value="@current" @onchange="args => ChooseOptionFromSelect(form, args, c.View.HitPolicy)" @ref="refs[CaseExpectedRef]">
                         <option value="">@Plain("case.pick")</option>
                         <option value="none">@Plain("result.none")</option>
                         @foreach (var option in options)
@@ -759,11 +1479,234 @@
                     <div class="wb-errt">@Rich(form.ExpectedError)</div>
                 }
             </div>
+            @if (form.Refusal is { } refusal)
+            {
+                @RefusalBox(refusal, false)
+            }
             <div class="wb-actions">
-                <button type="button" class="wb-btn wb-btn-primary" @onclick="() => SaveCase(c.Rule, c.Work, c.Shown, c.View, c.Rule.Labels)">@Rich("case.save")</button>
+                <button type="button" class="wb-btn wb-btn-primary" @onclick="() => SaveAnyCase(c)">@Rich(c.Editing ? "case.apply" : "case.save")</button>
                 <button type="button" class="wb-btn wb-btn-secondary" @onclick="CancelCaseForm">@Rich("case.cancel")</button>
             </div>
         </div>;
+    }
+
+    // ----- Changes ----------------------------------------------------------------------------------------------------
+
+    private RenderFragment ChangesPanel(Ctx c)
+    {
+        if (c.Broken)
+        {
+            return BrokenNote();
+        }
+
+        var draft = c.Draft!;
+        var readOnly = IsStale(c.Rule, draft);
+        var change = ChangesOf(c.Rule, draft);
+        var rowItems = change.Rows;
+        var baseView = Context(c.Rule, baseOnly: true).View;
+        var lines = CaseLines(c);
+        var changing = readOnly ? 0 : lines.Count(line => line.Changes);
+        var warnings = DraftWarnings(c);
+        var changed = rowItems.Count + (change.DefaultRowChanged ? 1 : 0);
+        var counts = PluralText("discard.rows", changed) + Separator + PluralText("discard.cases", draft.CaseStepCount);
+        var reasonId = idp + "-reason";
+        var nameId = idp + "-proposer";
+        var canExport = draft.HasChanges && changing == 0;
+
+        return @<text>
+            <div class="wb-notice" role="note">@Rich("notice.privacyReason")</div>
+            <div class="wb-grid2 wb-grid-review">
+                <div>
+                    <h2 class="wb-h2">@Rich("changes.rows")</h2>
+                    <div class="wb-sub wb-sub-flush">@change.Summary</div>
+                    @foreach (var item in rowItems)
+                    {
+                        var key = item.Key;
+                        var number = (item.NumberAfter ?? item.NumberBefore ?? 0).ToString(CultureInfo.InvariantCulture);
+                        <div class="wb-card wb-card-gap wb-changed" data-tag="@item.Tag.ToString().ToLowerInvariant()">
+                            <div class="wb-card-head">
+                                <strong>@ChangeTitle(item, number)</strong>
+                                <span class="@PillClass(TagTone(item.Tag))">@Rich(TagKey(item.Tag))</span>
+                                <span class="wb-sp"></span>
+                                @if (!readOnly)
+                                {
+                                    @if (item.Tag == RowChangeTag.Removed)
+                                    {
+                                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.restoreFor", ("n", number))" @onclick="() => UndoFromChanges(c, key, step => step.Kind == StepKind.Remove && step.Key == key)">@Rich("row.restore")</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.undoFor", ("n", number))" @onclick="() => UndoFromChanges(c, key, step => step.Key == key && step.Kind is StepKind.Add or StepKind.Row or StepKind.Move)">@Rich("row.undo")</button>
+                                    }
+                                }
+                            </div>
+                            @if (item.SentenceBefore is { } before && !IsNameOnly(item))
+                            {
+                                <div class="wb-sub wb-sub-flush"><span class="wb-before">@Rich("row.before")</span> <span class="@(item.Tag == RowChangeTag.Removed ? "wb-struck" : null)">@before</span></div>
+                            }
+                            @if (IsRenamed(item))
+                            {
+                                <div class="wb-sent">@RenameText(item)</div>
+                            }
+                            @if (item.SentenceAfter is { } after && !IsNameOnly(item))
+                            {
+                                <div class="wb-sent"><span class="wb-before">@Rich("changes.now")</span> @after</div>
+                            }
+                        </div>
+                    }
+                    @if (change.DefaultRowChanged && baseView.DefaultRow is { } was && c.View.DefaultRow is { } now)
+                    {
+                        var defaultKey = c.Brain.Table.DefaultRow!.Key;
+                        <div class="wb-card wb-card-gap wb-changed" data-tag="default">
+                            <div class="wb-card-head">
+                                <strong>@Rich("changes.defaultRow")</strong>
+                                <span class="@PillClass("warn")">@Rich("tag.changed")</span>
+                                <span class="wb-sp"></span>
+                                @if (!readOnly)
+                                {
+                                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.undoFor", ("n", "–"))" @onclick="() => UndoFromChanges(c, defaultKey, step => step.Key == defaultKey && step.Kind == StepKind.Row)">@Rich("row.undo")</button>
+                                }
+                            </div>
+                            <div class="wb-sub wb-sub-flush"><span class="wb-before">@Rich("row.before")</span> @was.Sentence</div>
+                            <div class="wb-sent"><span class="wb-before">@Rich("changes.now")</span> @now.Sentence</div>
+                        </div>
+                    }
+                    @if (warnings.Count > 0)
+                    {
+                        <h2 class="wb-h2 wb-h2-gap">@Rich("changes.warnings")</h2>
+                        <ul class="wb-warnings">
+                            @foreach (var warning in warnings)
+                            {
+                                <li>@warning</li>
+                            }
+                        </ul>
+                    }
+                    <h2 class="wb-h2 wb-h2-gap">@Rich("changes.cases")</h2>
+                    @if (change.CasesThatChange.Count == 0)
+                    {
+                        <div class="wb-sub wb-sub-flush">@Rich("changes.noCases")</div>
+                    }
+                    else
+                    {
+                        <table class="wb-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">@Rich("tests.th.case")</th>
+                                    <th scope="col">@Rich("changes.th.before")</th>
+                                    <th scope="col">@Rich("changes.th.now")</th>
+                                    <th scope="col">@Rich("changes.th.decision")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var caseName in change.CasesThatChange.Select(entry => entry.Name))
+                                {
+                                    var line = lines.Find(item => item.Name == caseName);
+                                    var sides = SidesOf(c, caseName);
+                                    <tr>
+                                        <td>@caseName</td>
+                                        <td>@ResultParts(sides.Before, sides.After)</td>
+                                        <td>@ResultParts(sides.After, sides.Before)</td>
+                                        <td>@CaseDecisionPill(line)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                <div class="wb-card">
+                    <h2 class="wb-h2">@Rich("changes.card")</h2>
+                    <div class="wb-sub wb-sub-flush">@counts</div>
+                    @if (OnExport is not null)
+                    {
+                        <div class="wb-field wb-field-gap">
+                            <label class="wb-label" for="@reasonId">@Rich("changes.reason")</label>
+                            <textarea id="@reasonId" class="@(draft.ReasonError ? "wb-in wb-in-err" : "wb-in")" rows="4" maxlength="@NoteMax" value="@draft.Reason" aria-describedby="@(draft.ReasonError ? reasonId + "-err" : null)" aria-invalid="@(draft.ReasonError ? "true" : null)" @onchange="args => SetReason(draft, args)" @ref="refs[ReasonRef]"></textarea>
+                            @if (draft.Reason.Length >= NoteCounterFrom)
+                            {
+                                <div class="wb-hint">@Plain("review.counter", ("n", OutcomeFormat.Number(draft.Reason.Length)), ("max", OutcomeFormat.Number(NoteMax)))</div>
+                            }
+                            @if (draft.ReasonError)
+                            {
+                                <div class="wb-errt" id="@(reasonId + "-err")">@Rich("changes.reasonRequired")</div>
+                            }
+                        </div>
+                        <div class="wb-field wb-field-gap">
+                            <label class="wb-label" for="@nameId">@Rich("review.name")</label>
+                            <input id="@nameId" type="text" autocomplete="off" class="@(draft.NameError ? "wb-in wb-in-err" : "wb-in")" value="@Session.Reviewer" aria-describedby="@(draft.NameError ? nameId + "-err" : null)" aria-invalid="@(draft.NameError ? "true" : null)" @onchange="args => SetProposalName(draft, args)" @ref="refs[ProposalNameRef]" />
+                            @if (draft.NameError)
+                            {
+                                <div class="wb-errt" id="@(nameId + "-err")">@Rich("changes.nameRequired")</div>
+                            }
+                        </div>
+                        <div class="wb-actions">
+                            <button type="button" class="wb-btn wb-btn-primary" disabled="@(!canExport)" @onclick="() => ExportProposalAsync(c.Rule)">@Rich("changes.export")</button>
+                        </div>
+                        @if (changing > 0)
+                        {
+                            <div class="wb-errt" role="note">@Rich(UiText.Plural("changes.held", changing), ("n", OutcomeFormat.Number(changing)))</div>
+                        }
+                        @if (!draft.HasChanges)
+                        {
+                            <div class="wb-hint">@Rich("changes.nothing")</div>
+                        }
+                        <div class="wb-hint">@Rich("export.proposal.explain")</div>
+                        @if (draft.IsExported)
+                        {
+                            <div class="wb-saved" role="status">@(draft.ExportPlace is null ? Rich("changes.savedNoPlace") : Rich("changes.saved", ("place", draft.ExportPlace)))</div>
+                        }
+                    }
+                </div>
+            </div>
+        </text>;
+    }
+
+    /// <summary>
+    /// A result in the short form of the test table, with a <c>strong</c> only around the parts whose value differs from
+    /// <paramref name="other"/>, the result it is compared with. A side that decides nothing is said in one differing part.
+    /// </summary>
+    private RenderFragment ResultParts(List<List<OutcomeField>>? mine, List<List<OutcomeField>>? other) => mine is null
+        ? @<strong>@Plain("result.none")</strong>
+        : @<text>
+            @for (var group = 0; group < mine.Count; group++)
+            {
+                @if (group > 0)
+                {
+                    <text>; </text>
+                }
+
+                @for (var position = 0; position < mine[group].Count; position++)
+                {
+                    var field = mine[group][position];
+                    @if (position > 0)
+                    {
+                        <text>, </text>
+                    }
+
+                    @if (PartDiffers(field, group, other))
+                    {
+                        <strong>@field.Labelled</strong>
+                    }
+                    else
+                    {
+                        @field.Labelled
+                    }
+                }
+            }
+        </text>;
+
+    private RenderFragment CaseDecisionPill(CaseLine? line)
+    {
+        if (line is { Removed: true })
+        {
+            return @<span class="@PillClass("neutral")">@Rich("case.tagRemoved")</span>;
+        }
+
+        if (line is { Decided: true })
+        {
+            return @<span class="@PillClass("neutral")">@Rich("case.expectChanged")</span>;
+        }
+
+        return line is { Changes: true } ? @<span class="@PillClass("bad")">@Rich("changes.undecided")</span> : @<text>–</text>;
     }
 
     // ----- Review -----------------------------------------------------------------------------------------------------
@@ -772,8 +1715,8 @@
     {
         var work = c.Work;
         var counts = CountReview(c.Rule, work, c.View);
-        var run = work.Tests(c.Brain);
-        var labels = c.Rule.Labels;
+        var run = c.Run;
+        var labels = c.Labels;
         var rowItems = c.View.Rows.Where(row => work.Review(RowTarget(row)).IsExported).ToList();
         var unreviewed = c.View.Rows.Where(row => !work.Review(RowTarget(row)).IsExported).ToList();
         var goldenItems = c.Brain.Goldens.Where(golden => work.Review(CaseTarget(golden.Name)).IsExported).ToList();

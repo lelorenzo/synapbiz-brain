@@ -52,6 +52,7 @@
   --wb-notice-edge: #e8cf86;
   --wb-radius: 12px;
   --wb-radius-sm: 8px;
+  --wb-scrim: rgba(23, 34, 45, 0.55);
 }
 
 .demo[data-theme="dark"] {
@@ -96,6 +97,7 @@
   --wb-notice-bg: #3a2c05;
   --wb-notice-ink: #f2d27a;
   --wb-notice-edge: #6b5210;
+  --wb-scrim: rgba(3, 6, 9, 0.7);
 }
 
 html,
