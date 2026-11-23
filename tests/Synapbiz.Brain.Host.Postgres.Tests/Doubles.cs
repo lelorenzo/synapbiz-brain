@@ -124,6 +124,9 @@ internal sealed class HookedStore : IProcessStore
     /// <summary>Runs after a scan and returns the items the pump gets to see.</summary>
     internal Func<WorkKind, IReadOnlyList<WorkRef>, Task<IReadOnlyList<WorkRef>>>? AfterScan { get; set; }
 
+    /// <summary>Runs after a scan of finished roots, before the call looks at what it found: another session changes the rows in between.</summary>
+    internal Func<IReadOnlyList<FinishedRoot>, Task>? AfterFinishedScan { get; set; }
+
     public Task<IProcessSession> BeginAsync(CancellationToken cancellationToken) => inner.BeginAsync(cancellationToken);
 
     public async Task<IReadOnlyList<WorkRef>> ScanAsync(WorkKind kind, DateTimeOffset now, int limit, WorkRef? after, CancellationToken cancellationToken)
@@ -149,6 +152,19 @@ internal sealed class HookedStore : IProcessStore
     public Task<CaseRecord?> GetCaseAsync(string tenantId, string instanceId, CancellationToken cancellationToken) => inner.GetCaseAsync(tenantId, instanceId, cancellationToken);
 
     public Task<IReadOnlyList<InstanceSummaryRecord>> ListChildrenAsync(string tenantId, string instanceId, CancellationToken cancellationToken) => inner.ListChildrenAsync(tenantId, instanceId, cancellationToken);
+
+    public async Task<IReadOnlyList<FinishedRoot>> ScanFinishedRootsAsync(string tenantId, DateTimeOffset before, int limit, FinishedRoot? after, CancellationToken cancellationToken)
+    {
+        var found = await inner.ScanFinishedRootsAsync(tenantId, before, limit, after, cancellationToken);
+        if (AfterFinishedScan is not null)
+        {
+            await AfterFinishedScan(found);
+        }
+
+        return found;
+    }
+
+    public Task<EventPurge> PurgeEventsAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken) => inner.PurgeEventsAsync(tenantId, before, limit, cancellationToken);
 }
 
 /// <summary>A protector that stores text as it is, except that it refuses to read anything of one tenant once it is armed.</summary>

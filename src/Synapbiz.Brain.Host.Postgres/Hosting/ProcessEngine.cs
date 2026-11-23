@@ -9,7 +9,11 @@ internal sealed class ProcessEngine : IProcessEngine
     private const string NotFound = "process.instance.not_found";
     private const string Stale = "process.trigger.stale";
     private const string Unavailable = "process.definition.unavailable";
+    private const string NotRoot = "process.purge.not_root";
+    private const string NotFinished = "process.purge.not_finished";
     private const int MaxPageSize = 500;
+    private const int MaxPurgeTrees = 500;
+    private const int MaxPurgeEvents = 5000;
 
     private readonly IProcessStore store;
     private readonly ProcessRuntime runtime;
@@ -431,6 +435,133 @@ internal sealed class ProcessEngine : IProcessEngine
         Guard.NoControlCharacters(instanceId, nameof(instanceId));
         var rows = await store.ListChildrenAsync(tenantId, instanceId, cancellationToken).ConfigureAwait(false);
         return [.. rows.Select(ToSummary)];
+    }
+
+    /// <inheritdoc />
+    public async Task<PurgeResult> PurgeInstanceAsync(string tenantId, string instanceId, PurgeMode mode, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.Id(instanceId, nameof(instanceId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(instanceId, nameof(instanceId));
+        if (!Enum.IsDefined(mode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mode), mode, "The value must be a defined purge mode.");
+        }
+
+        var session = await store.BeginAsync(cancellationToken).ConfigureAwait(false);
+        await using (session.ConfigureAwait(false))
+        {
+            // The root row is locked first, waiting for a pump that is working on it: the rule of every transaction of the host.
+            var root = await session.LockInstanceAsync(new InstanceKey(tenantId, instanceId), false, cancellationToken).ConfigureAwait(false);
+            if (root is null)
+            {
+                return new PurgeResult(PurgeStatus.NotFound, PurgeCounts.None);
+            }
+
+            if (root.ParentInstanceId is not null)
+            {
+                return new PurgeResult(PurgeStatus.Refused, PurgeCounts.None, NotRoot);
+            }
+
+            if (mode == PurgeMode.FinishedOnly && !StoredStatus.IsFinished(root.Status))
+            {
+                return new PurgeResult(PurgeStatus.Refused, PurgeCounts.None, NotFinished);
+            }
+
+            return new PurgeResult(PurgeStatus.Purged, await PurgeLockedTreeAsync(session, root.Key, cancellationToken).ConfigureAwait(false));
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<PurgeBatchResult> PurgeFinishedBeforeAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.InRange(limit, 1, MaxPurgeTrees, nameof(limit));
+        var cutoff = ToStoredPrecision(before);
+        var trees = 0;
+        var counts = PurgeCounts.None;
+        FinishedRoot? after = null;
+        while (trees < limit)
+        {
+            var page = await store.ScanFinishedRootsAsync(tenantId, cutoff, limit, after, cancellationToken).ConfigureAwait(false);
+            foreach (var candidate in page)
+            {
+                var purged = await TryPurgeFinishedRootAsync(tenantId, candidate.InstanceId, cutoff, cancellationToken).ConfigureAwait(false);
+                if (purged is not null)
+                {
+                    trees++;
+                    counts = counts.Plus(purged);
+                    if (trees == limit)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (page.Count < limit)
+            {
+                break;
+            }
+
+            after = page[^1];
+        }
+
+        var further = await store.ScanFinishedRootsAsync(tenantId, cutoff, 1, null, cancellationToken).ConfigureAwait(false);
+        return new PurgeBatchResult(trees, counts, further.Count > 0);
+    }
+
+    /// <inheritdoc />
+    public async Task<PurgeEventsResult> PurgeEventsBeforeAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.InRange(limit, 1, MaxPurgeEvents, nameof(limit));
+        var purged = await store.PurgeEventsAsync(tenantId, ToStoredPrecision(before), limit, cancellationToken).ConfigureAwait(false);
+        return new PurgeEventsResult(purged.Deleted, purged.More);
+    }
+
+    /// <summary>The instant at the precision the database stores (a microsecond), so that the scan and the check under the lock compare the same value.</summary>
+    private static DateTimeOffset ToStoredPrecision(DateTimeOffset moment) => new(moment.UtcTicks - (moment.UtcTicks % 10), TimeSpan.Zero);
+
+    /// <summary>
+    /// Purges one finished root found by a scan: its row is locked with <c>skip locked</c> (a tree that someone holds is left for a later
+    /// call) and everything the scan said is checked again under the lock. Null when the tree was not purged.
+    /// </summary>
+    private async Task<PurgeCounts?> TryPurgeFinishedRootAsync(string tenantId, string rootId, DateTimeOffset before, CancellationToken cancellationToken)
+    {
+        var session = await store.BeginAsync(cancellationToken).ConfigureAwait(false);
+        await using (session.ConfigureAwait(false))
+        {
+            var root = await session.LockInstanceAsync(new InstanceKey(tenantId, rootId), true, cancellationToken).ConfigureAwait(false);
+            if (root is null || root.ParentInstanceId is not null || !StoredStatus.IsFinished(root.Status) || root.UpdatedAt >= before)
+            {
+                return null;
+            }
+
+            return await PurgeLockedTreeAsync(session, root.Key, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Locks the rest of the tree of a root the session holds, deletes the rows of every table (children first, instances last) and
+    /// commits; the transaction either removes every row of the tree or none. Logs one line with the counts, after the commit.
+    /// </summary>
+    private async Task<PurgeCounts> PurgeLockedTreeAsync(IProcessSession session, InstanceKey root, CancellationToken cancellationToken)
+    {
+        await session.LockTreeAsync(root, cancellationToken).ConfigureAwait(false);
+        var history = await session.DeleteTreeRowsAsync(root, PurgeTable.History, cancellationToken).ConfigureAwait(false);
+        var timers = await session.DeleteTreeRowsAsync(root, PurgeTable.Timers, cancellationToken).ConfigureAwait(false);
+        var waits = await session.DeleteTreeRowsAsync(root, PurgeTable.Waits, cancellationToken).ConfigureAwait(false);
+        var tasks = await session.DeleteTreeRowsAsync(root, PurgeTable.Tasks, cancellationToken).ConfigureAwait(false);
+        var effects = await session.DeleteTreeRowsAsync(root, PurgeTable.Effects, cancellationToken).ConfigureAwait(false);
+        var inbox = await session.DeleteTreeRowsAsync(root, PurgeTable.Inbox, cancellationToken).ConfigureAwait(false);
+        var instances = await session.DeleteTreeRowsAsync(root, PurgeTable.Instances, cancellationToken).ConfigureAwait(false);
+        await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+        var counts = new PurgeCounts(instances, history, timers, waits, tasks, effects, inbox);
+        HostLog.InstancePurged(runtime.Logger, root.TenantId, root.InstanceId, counts);
+        return counts;
     }
 
     private static ProcessInstanceSummary ToSummary(InstanceSummaryRecord row) => new(

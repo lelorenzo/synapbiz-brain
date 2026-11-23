@@ -12,7 +12,7 @@ It is not:
 - a set of connectors. Every contact with the outside world is a port the consumer implements.
 - an HTTP service or a message broker. Events are published by a method call; the host has no endpoint of its own.
 - a place that decides. A process observes through read ports and hands every judgement to a rule (`brain.rule@1`) or to a human task. The reference flows never submit or change a claim and never write to a record.
-- a retention or purging tool. Finished instances stay in the tables; deleting them is not part of this release.
+- a retention policy. It deletes a case when asked and reports what it removed (section 11), but the rule and the dates are the consumer's, and nothing is deleted unless the consumer calls the commands.
 
 ## 2. Packages
 
@@ -384,7 +384,7 @@ internal sealed class Cockpit(IProcessEngine engine)
 internal sealed record CaseView(string? Stage, ProcessStatus Status, string? CurrentStep, string? Result, string? ProblemCode, int OpenTasks, DateTimeOffset? NextTimerDue, IReadOnlyList<string> ChildKeys);
 ```
 
-Useful things to draw: a stage track from the `stages` of the document and `Stage`; a timeline from the history; the open task and its queue; the problem code of a suspended instance; the counts per stage as a header. What the engine still does not give you, because it is outside this release, is retention (finished cases stay), reopening a case under the same business key, and counts over time: for those keep your own index (the `process.instance.finished` and `process.instance.suspended` log events, or a row you write when you open a case).
+Useful things to draw: a stage track from the `stages` of the document and `Stage`; a timeline from the history; the open task and its queue; the problem code of a suspended instance; the counts per stage as a header. What the engine still does not give you, because it is outside this release, is reopening a finished case, and counts over time (a purged case leaves no trace in the tables): for those keep your own index (the `process.instance.finished` and `process.instance.suspended` log events, or a row you write when you open a case).
 
 ## 9. Delivery guarantees, and what to do with `Unknown`
 
@@ -405,7 +405,7 @@ A delivery window is applied when its timer is stored and is not checked again w
 - Some columns are plain text because the host queries them: the business key, the correlation value of a wait, the ids, the step names and the codes, and the code a port returns in `PortFailed`. Use opaque references (`c-1001`, never a name or a number a person owns) as business keys and correlation values, and plain codes as failure codes.
 - The log never carries a variable, an input, an output, a payload, a business key or the message of an exception: a port that throws is logged by the exception type. It does carry tenant ids, instance ids, step names, ids of effects, timers and tasks, kinds and codes (section 11).
 - Tests use synthetic data. The reference flows use `c-1001` and `C-100` and a placeholder model id, and the tests check that nothing a sentinel value went through shows up in a log record or in a protected column.
-- Retention is not part of this release: finished instances, their history and their tasks stay until the consumer removes them.
+- Retention is the consumer's rule: finished instances, their history and their tasks stay until the consumer calls a purge command (section 11), and what a deleted row still leaves in vacuum, the write-ahead log and backups is described in the host reference ("What remains after a purge"). The clear columns (business key, correlation, ids, codes) are why those must be opaque references.
 
 ## 11. Operations
 
@@ -431,7 +431,59 @@ A delivery window is applied when its timer is stored and is not checked again w
 | `process.schedule.fired`, `process.schedule.misfired` | Information, Warning | A schedule occurrence started, or occurrences were missed. |
 | `process.window.zone_unknown` | Warning | A delivery window names a zone the machine cannot resolve. |
 | `process.activation.saved`, `process.activation.removed` | Information | An activation was written or removed. |
+| `process.instance.purged` | Information | A case was purged: tenant, root instance and the number of rows deleted per table. |
+| `process.effect.orphaned` | Warning | A port call finished after its case was purged; its result was dropped. Nothing to fix: the call could not be recalled. |
 | `process.worker.started`, `process.worker.pass_failed` | Information, Error | The worker loop. |
+
+**Retention and erasure.** Nothing is deleted until the consumer says so. `PurgeFinishedBeforeAsync` removes the finished cases whose root was last written before a date you choose, oldest first, a tree per transaction; `PurgeEventsBeforeAsync` removes the event ids that de-duplicate `PublishEventAsync`; `PurgeInstanceAsync` removes one case now, `PurgeMode.FinishedOnly` refusing a case that is still going and `PurgeMode.Force` erasing it whatever its state (no history is written, no port is called, nobody is told). Each purge is all or nothing per case and returns the number of rows it deleted per table, which is the line to keep in your own audit log (the host logs `process.instance.purged` with the same numbers and never a business key). Run the job from your own scheduler; a loop stops when a call purged nothing, because a case that another transaction holds is skipped and found by a later run. Purging event ids shortens the de-duplication window to what you keep: an id older than the cut-off is a new event if it is published again. A port call that was already running when its case was purged cannot be recalled: its result is dropped and `process.effect.orphaned` is logged.
+
+```csharp
+internal sealed class Retention(IProcessEngine engine, TimeProvider time)
+{
+    // The consumer's rules, not the host's: finished cases are kept 35 days; an event id is remembered for 7 days.
+    private static readonly TimeSpan CaseRetention = TimeSpan.FromDays(35);
+    private static readonly TimeSpan EventWindow = TimeSpan.FromDays(7);
+
+    /// <summary>The job of one tenant, run once a night: purges the cases that finished longer ago than the retention, then the event ids older than the window.</summary>
+    internal async Task<RetentionReport> RunAsync(string tenantId, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        var trees = 0;
+        var instances = 0;
+        PurgeBatchResult batch;
+        do
+        {
+            batch = await engine.PurgeFinishedBeforeAsync(tenantId, now - CaseRetention, 100, cancellationToken);
+            trees += batch.Trees;
+            instances += batch.Counts.Instances;
+        }
+        while (batch.More && batch.Trees > 0);
+
+        var events = 0;
+        PurgeEventsResult page;
+        do
+        {
+            page = await engine.PurgeEventsBeforeAsync(tenantId, now - EventWindow, 5000, cancellationToken);
+            events += page.Events;
+        }
+        while (page.More);
+
+        return new RetentionReport(trees, instances, events);
+    }
+
+    /// <summary>A request to erase a case now, whatever its state: finds the root by its business key and removes the whole tree. The report holds numbers only, so it can go to an audit log.</summary>
+    internal async Task<PurgeResult> EraseAsync(string tenantId, string caseRef, CancellationToken cancellationToken)
+    {
+        var root = await engine.FindInstanceAsync(tenantId, "case.lifecycle", caseRef, cancellationToken);
+        return root is null
+            ? new PurgeResult(PurgeStatus.NotFound, PurgeCounts.None)
+            : await engine.PurgeInstanceAsync(tenantId, root.InstanceId, PurgeMode.Force, cancellationToken);
+    }
+}
+
+internal sealed record RetentionReport(int Trees, int Instances, int Events);
+
+```
 
 **Suspended instances.** An instance whose step failed with no route for the failure (or whose rule or data was invalid) is `Suspended` with a problem code: the instance stays as it is, its outstanding work is cancelled, and nothing happens until someone acts. A suspension is not a failure: the parent of a suspended child is told nothing and keeps waiting, so the routes of a parent (`onError`) never see it, and no task is raised. Three ways to learn of it: the log event `process.instance.suspended` (tenant, instance, step and code, no business key), the status and `Problem` of an instance you look at (`GetInstanceAsync`, or `FindInstanceAsync` with the business key), and the cockpit queries of section 8: `ListInstancesAsync` with `Statuses` set to `Suspended`, or with `NeedsAttention` to include the cases whose child is suspended (`SuspendedDescendants` on the row says how many).
 
@@ -441,4 +493,4 @@ A delivery window is applied when its timer is stored and is not checked again w
 
 An instance is pinned to the version and the content hash of the document it started with; every later trigger finds that exact definition through the catalog. Publishing a new version of a process therefore changes nothing for the instances that are running. A new instance starts on the latest version: an event trigger or schedule on the version pinned by the last activation, a child on the latest version in the catalog at the moment its parent reaches the subprocess step. To move new cases to a new version, add it to the catalog and call `ActivateAsync` again; keep the old version in the catalog until its last instance has finished. There is no way to move a running instance to a new version.
 
-A change to the package is a change of the library, not of the documents: `brain.process@1` documents keep loading, and a new version of the library says in the changelog when the format gains something. This guide describes version 0.2.0.
+A change to the package is a change of the library, not of the documents: `brain.process@1` documents keep loading, and a new version of the library says in the changelog when the format gains something. This guide describes version 0.3.0.

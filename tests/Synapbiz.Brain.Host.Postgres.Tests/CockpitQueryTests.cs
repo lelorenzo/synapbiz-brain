@@ -755,14 +755,14 @@ public sealed class CockpitQueryTests
     public async Task TheMigrationAppliesOnADatabaseAtTheSecondScriptThatHoldsInstances()
     {
         await using var rig = await Rig.CreateAsync();
-        await rig.ExecuteAsync("drop index {schema}.ix_process_instance_created; drop index {schema}.ix_process_instance_status; delete from {schema}.process_schema_version where version = 3");
+        await rig.ExecuteAsync("drop index {schema}.ix_process_instance_created; drop index {schema}.ix_process_instance_status; drop index {schema}.ix_process_instance_purge; drop index {schema}.ix_process_event_received; delete from {schema}.process_schema_version where version >= 3");
         await AddInstance(rig, A, "root", "p", "k0", Waiting, "s", created: T0);
         await AddInstance(rig, A, "child", "p", "k1", Suspended, "s", "root", T0.AddMinutes(1));
         (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version order by version")).Should().Equal(1, 2);
 
         await rig.Provider.GetRequiredService<IProcessStoreMigrator>().MigrateAsync();
 
-        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version order by version")).Should().Equal(1, 2, 3);
+        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version order by version")).Should().Equal(1, 2, 3, 4);
         (await rig.ColumnAsync<string>("select indexname from pg_indexes where schemaname = @s and tablename = 'process_instance' and indexname in ('ix_process_instance_created', 'ix_process_instance_status') order by indexname", ("s", rig.Schema)))
             .Should().Equal("ix_process_instance_created", "ix_process_instance_status");
         (await rig.ColumnAsync<string>("select indexdef from pg_indexes where schemaname = @s and indexname = 'ix_process_instance_created'", ("s", rig.Schema)))

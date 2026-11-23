@@ -144,6 +144,50 @@ public interface IProcessEngine
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The children ordered by creation time and then id, oldest first; empty when the tenant has no such instance.</returns>
     Task<IReadOnlyList<ProcessInstanceSummary>> ListChildrenAsync(string tenantId, string instanceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a case completely: a root instance and all its descendants, at any depth, with their history, timers, waits, tasks,
+    /// effects and inbox rows, in one transaction (all or nothing). The host keeps no copy, tombstone or archive; afterwards the
+    /// business key is free and <see cref="StartAsync"/> with it creates a new instance. Nothing is cancelled through the interpreter
+    /// first, no port is called and nobody is notified. A port call that a worker had already started cannot be recalled: when it
+    /// comes back its result is dropped and <c>process.effect.orphaned</c> is logged.
+    /// </summary>
+    /// <param name="tenantId">The tenant.</param>
+    /// <param name="instanceId">The root instance to purge.</param>
+    /// <param name="mode"><see cref="PurgeMode.FinishedOnly"/> refuses a root that is not completed or cancelled; <see cref="PurgeMode.Force"/> removes the case whatever its statuses.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>Purged with the number of rows deleted per table; not found (zero counts, also for the id of another tenant) so that a retry after a crash is safe; or refused with <c>process.purge.not_root</c> (a child is purged with its root) or <c>process.purge.not_finished</c>.</returns>
+    /// <exception cref="ArgumentException">An id is invalid (empty, over 200 characters or holding a control character).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The mode is not a defined value.</exception>
+    Task<PurgeResult> PurgeInstanceAsync(string tenantId, string instanceId, PurgeMode mode, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A safety net for a retention rule: purges up to <paramref name="limit"/> trees of the tenant whose root is completed or
+    /// cancelled and whose root update time is earlier than <paramref name="before"/> (not equal to it), oldest first, one
+    /// transaction per tree. A tree that another transaction holds is skipped in this call and found by a later one.
+    /// </summary>
+    /// <param name="tenantId">The tenant.</param>
+    /// <param name="before">The cut-off instant, exclusive; the consumer owns the rule and the date.</param>
+    /// <param name="limit">The most trees to purge in this call, from 1 to 500.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The trees purged, the sum of their counts, and whether at least one further tree qualified when the call ended (a tree that was skipped because it was locked counts).</returns>
+    /// <exception cref="ArgumentException">The tenant id is invalid.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The limit is not between 1 and 500.</exception>
+    Task<PurgeBatchResult> PurgeFinishedBeforeAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes up to <paramref name="limit"/> event ids (the rows that de-duplicate <see cref="PublishEventAsync"/>) of the tenant that
+    /// were received before an instant, oldest first. An event id that was purged is unknown again: publishing it is treated as a new
+    /// event, so the de-duplication window is what the consumer keeps.
+    /// </summary>
+    /// <param name="tenantId">The tenant.</param>
+    /// <param name="before">The cut-off instant, exclusive.</param>
+    /// <param name="limit">The most rows to delete in this call, from 1 to 5000.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The number of rows deleted and whether more rows qualified when the call ended.</returns>
+    /// <exception cref="ArgumentException">The tenant id is invalid.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The limit is not between 1 and 5000.</exception>
+    Task<PurgeEventsResult> PurgeEventsBeforeAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken = default);
 }
 
 /// <summary>A request to start an instance.</summary>
@@ -335,3 +379,74 @@ public sealed record ProcessCaseView(
     IReadOnlyList<ProcessTaskInfo> OpenTasks,
     DateTimeOffset? NextTimerDue,
     IReadOnlyList<string> WaitingForEvents);
+
+/// <summary>Which trees <see cref="IProcessEngine.PurgeInstanceAsync"/> may remove.</summary>
+[SuppressMessage(
+    "Design",
+    "CA1008:Enums should have zero value",
+    Justification = "Ordinals start at 1 by design and by project convention (the same documented CA1008 suppression as PublishStatus): default(PurgeMode) == 0 is deliberately not a valid mode, so an uninitialized value can never be read as the destructive mode.")]
+public enum PurgeMode
+{
+    /// <summary>Only a tree whose root is completed or cancelled; a root in any other status is refused. Only the root is looked at.</summary>
+    FinishedOnly = 1,
+
+    /// <summary>The tree is removed whatever the statuses of its instances (the "erase now" path).</summary>
+    Force = 2,
+}
+
+/// <summary>What <see cref="IProcessEngine.PurgeInstanceAsync"/> did.</summary>
+[SuppressMessage(
+    "Design",
+    "CA1008:Enums should have zero value",
+    Justification = "Ordinals start at 1 by design and by project convention (the same documented CA1008 suppression as PublishStatus): default(PurgeStatus) == 0 is deliberately not a valid status.")]
+public enum PurgeStatus
+{
+    /// <summary>The tree was removed.</summary>
+    Purged = 1,
+
+    /// <summary>The tenant has no such instance; nothing changed.</summary>
+    NotFound = 2,
+
+    /// <summary>The instance was not purged; <see cref="PurgeResult.Code"/> says why.</summary>
+    Refused = 3,
+}
+
+/// <summary>The number of rows a purge deleted, per table.</summary>
+/// <param name="Instances">Rows of <c>process_instance</c>: the root and its descendants.</param>
+/// <param name="History">Rows of <c>process_history</c>.</param>
+/// <param name="Timers">Rows of <c>process_timer</c>.</param>
+/// <param name="Waits">Rows of <c>process_wait</c>.</param>
+/// <param name="Tasks">Rows of <c>process_task</c>, open or closed.</param>
+/// <param name="Effects">Rows of <c>process_effect</c>, in any status.</param>
+/// <param name="Inbox">Rows of <c>process_inbox</c>, in any status.</param>
+public sealed record PurgeCounts(int Instances, int History, int Timers, int Waits, int Tasks, int Effects, int Inbox)
+{
+    /// <summary>The counts of a purge that deleted nothing.</summary>
+    public static PurgeCounts None { get; } = new(0, 0, 0, 0, 0, 0, 0);
+
+    internal PurgeCounts Plus(PurgeCounts other) => new(
+        Instances + other.Instances,
+        History + other.History,
+        Timers + other.Timers,
+        Waits + other.Waits,
+        Tasks + other.Tasks,
+        Effects + other.Effects,
+        Inbox + other.Inbox);
+}
+
+/// <summary>The result of purging one tree.</summary>
+/// <param name="Status">What happened.</param>
+/// <param name="Counts">The rows deleted per table; all zero unless the status is <see cref="PurgeStatus.Purged"/>.</param>
+/// <param name="Code">The reason of a refusal (<c>process.purge.not_root</c> or <c>process.purge.not_finished</c>); null otherwise.</param>
+public sealed record PurgeResult(PurgeStatus Status, PurgeCounts Counts, string? Code = null);
+
+/// <summary>The result of <see cref="IProcessEngine.PurgeFinishedBeforeAsync"/>.</summary>
+/// <param name="Trees">The number of trees purged.</param>
+/// <param name="Counts">The sum of the rows deleted per table.</param>
+/// <param name="More">True when at least one further tree qualified when the call ended.</param>
+public sealed record PurgeBatchResult(int Trees, PurgeCounts Counts, bool More);
+
+/// <summary>The result of <see cref="IProcessEngine.PurgeEventsBeforeAsync"/>.</summary>
+/// <param name="Events">The number of event id rows deleted.</param>
+/// <param name="More">True when more rows qualified when the call ended.</param>
+public sealed record PurgeEventsResult(int Events, bool More);

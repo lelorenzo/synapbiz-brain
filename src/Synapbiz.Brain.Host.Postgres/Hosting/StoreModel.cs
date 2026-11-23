@@ -234,3 +234,21 @@ internal sealed record CaseRecord(
     IReadOnlyList<TaskRecord> Tasks,
     DateTimeOffset? NextTimerDue,
     IReadOnlyList<string> Events);
+
+/// <summary>The tables whose rows a purge deletes for the instances of a tree; <see cref="Instances"/> is last because it carries the tree.</summary>
+internal enum PurgeTable
+{
+    History = 1,
+    Timers = 2,
+    Waits = 3,
+    Tasks = 4,
+    Effects = 5,
+    Inbox = 6,
+    Instances = 7,
+}
+
+/// <summary>A finished root instance found by the purge scan; the keyset cursor of the scan is its update time and id.</summary>
+internal sealed record FinishedRoot(string InstanceId, DateTimeOffset UpdatedAt);
+
+/// <summary>The outcome of purging event ids: how many rows went and whether more of them qualify.</summary>
+internal sealed record EventPurge(int Deleted, bool More);
