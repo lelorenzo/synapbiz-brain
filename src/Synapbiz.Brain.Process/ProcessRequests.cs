@@ -112,4 +112,8 @@ public sealed record ChildStartRequest(string Step, string ChildKey, string Proc
 /// <param name="Days">The local days of the week the window is open on.</param>
 /// <param name="From">The local time the window opens, inclusive.</param>
 /// <param name="To">The local time the window closes, exclusive; <c>00:00</c> means 24:00 when <paramref name="From"/> is later.</param>
-public sealed record WindowRequest(string Step, string TimerId, string Zone, IReadOnlyList<DayOfWeek> Days, TimeOnly From, TimeOnly To) : ProcessRequest(Step);
+public sealed record WindowRequest(string Step, string TimerId, string Zone, IReadOnlyList<DayOfWeek> Days, TimeOnly From, TimeOnly To) : ProcessRequest(Step)
+{
+    /// <summary>The local days of the week the window is open on: a read-only copy, so that a cast cannot change the definition the request came from.</summary>
+    public IReadOnlyList<DayOfWeek> Days { get; init; } = Array.AsReadOnly(Days.ToArray());
+}

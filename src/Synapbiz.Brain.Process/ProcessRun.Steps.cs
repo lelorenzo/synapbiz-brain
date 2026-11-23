@@ -345,6 +345,12 @@ internal sealed partial class ProcessRun
             }
 
             correlation = JsonText.Text(JsonNode.Parse(text));
+            if (correlation?.Contains('\0', StringComparison.Ordinal) == true)
+            {
+                // No store keeps a text with U+0000, so no host could match this wait to an event: the step is not entered.
+                Suspend("process.wait.correlation_invalid", null);
+                return null;
+            }
         }
 
         var index = inbox.FindIndex(buffered =>

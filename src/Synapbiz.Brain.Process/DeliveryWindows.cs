@@ -63,6 +63,14 @@ public static class DeliveryWindows
         throw new InvalidOperationException("The window never opens.");
     }
 
+    /// <summary>
+    /// True when the text has the shape of a time zone id that the format accepts: <c>UTC</c>, or <c>Area/Location</c> with up to two
+    /// locations (<c>^[A-Za-z_]+(/[A-Za-z0-9_+\-]+){1,2}$</c>). Nothing is looked up: a host calls this before it asks its time zone
+    /// database, so that an id such as <c>localtime</c>, <c>EST5EDT</c>, <c>Factory</c>, a path or an empty text never reaches it.
+    /// </summary>
+    /// <param name="text">The text to check; null is not a zone id.</param>
+    public static bool IsZoneIdShape(string? text) => LocalTimes.IsZoneIdShape(text);
+
     private static bool IsOpen(DateTimeOffset instant, TimeZoneInfo zone, IReadOnlyList<DayOfWeek> days, TimeSpan opens, TimeSpan closes)
     {
         var (_, timeOfDay, day) = LocalTimes.Local(instant, zone);

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -49,7 +50,8 @@ internal sealed partial class ModelReader(List<BrainSpecError> errors)
         };
     }
 
-    private static List<ProcessTriggerDeclaration> ReadTriggers(JsonNode? node)
+    // The declarations are handed out through BrainProcess.Triggers, so the list and the input maps are read-only: a cast cannot change the definition.
+    private static ReadOnlyCollection<ProcessTriggerDeclaration> ReadTriggers(JsonNode? node)
     {
         var result = new List<ProcessTriggerDeclaration>();
         foreach (var item in (node as JsonArray ?? []).Select(item => item!.AsObject()))
@@ -60,19 +62,19 @@ internal sealed partial class ModelReader(List<BrainSpecError> errors)
                 : ReadSchedule(item, input));
         }
 
-        return result;
+        return result.AsReadOnly();
     }
 
-    private static ScheduleTriggerDeclaration ReadSchedule(JsonObject item, SortedDictionary<string, string> input)
+    private static ScheduleTriggerDeclaration ReadSchedule(JsonObject item, ReadOnlyDictionary<string, string> input)
     {
         var misfire = JsonText.Text(item["misfire"]) == "skip" ? ProcessMisfire.Skip : ProcessMisfire.FireOnce;
         return new ScheduleTriggerDeclaration(JsonText.Text(item["id"])!, JsonText.Text(item["cron"])!, JsonText.Text(item["zone"]), misfire, input);
     }
 
-    private static SortedDictionary<string, string> ReadInput(JsonNode? node) =>
-        new(
+    private static ReadOnlyDictionary<string, string> ReadInput(JsonNode? node) =>
+        new(new SortedDictionary<string, string>(
             (node as JsonObject ?? []).ToDictionary(entry => entry.Key, entry => JsonText.Text(entry.Value)!, StringComparer.Ordinal),
-            StringComparer.Ordinal);
+            StringComparer.Ordinal));
 
     private Dictionary<string, WindowDef> ReadWindows(JsonNode? node)
     {
