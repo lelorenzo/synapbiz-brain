@@ -55,7 +55,7 @@ internal sealed class Rig : IAsyncDisposable
     internal static async Task<Rig> CreateAsync(IPayloadProtector? protector = null, Action<ProcessHostOptions>? configureHost = null, bool migrate = true)
     {
         var connection = await TestDatabase.ConnectionStringAsync();
-        var builder = new NpgsqlConnectionStringBuilder(connection) { MaxPoolSize = 12, Pooling = true };
+        var builder = new NpgsqlConnectionStringBuilder(connection) { MaxPoolSize = 8, Pooling = true };
         var rig = new Rig(builder.ConnectionString, "t_" + Guid.NewGuid().ToString("N")[..16], protector, configureHost);
         if (migrate)
         {
@@ -117,8 +117,13 @@ internal sealed class Rig : IAsyncDisposable
             command.Parameters.AddWithValue(name, value ?? DBNull.Value);
         }
 
-        var value1 = await command.ExecuteScalarAsync();
-        return value1 is null or DBNull ? default! : (T)value1;
+        var scalar = await command.ExecuteScalarAsync();
+        return scalar switch
+        {
+            null or DBNull => default!,
+            DateTime moment when typeof(T) == typeof(DateTimeOffset) => (T)(object)new DateTimeOffset(DateTime.SpecifyKind(moment, DateTimeKind.Utc)),
+            _ => (T)scalar,
+        };
     }
 
     internal async Task<long> CountAsync(string table, string where = "true", params (string Name, object? Value)[] parameters) =>

@@ -116,18 +116,8 @@ internal sealed class ProcessEngine : IProcessEngine
         return await RunCommandAsync(
             key,
             new TaskCompleted(taskId, outcome, dataJson),
-            async (session, applied) =>
-            {
-                if (applied)
-                {
-                    await session.CloseTaskAsync(key, taskId, HumanTaskStatus.Completed, runtime.Time.GetUtcNow(), cancellationToken).ConfigureAwait(false);
-                }
-            },
-            async session =>
-            {
-                var task = await session.GetTaskAsync(key, taskId, cancellationToken).ConfigureAwait(false);
-                return task is { Status: HumanTaskStatus.Open };
-            },
+            session => session.CloseTaskAsync(key, taskId, HumanTaskStatus.Completed, runtime.Time.GetUtcNow(), cancellationToken),
+            async session => await session.GetTaskAsync(key, taskId, cancellationToken).ConfigureAwait(false) is { Status: HumanTaskStatus.Open },
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -219,12 +209,12 @@ internal sealed class ProcessEngine : IProcessEngine
 
     /// <summary>
     /// Section 4 for a command: lock the instance (waiting for it), check the precondition under the lock, advance, and let the
-    /// caller update its own row (the task) when the trigger applied.
+    /// caller update its own row (the task) when the trigger applied, before the instance's outstanding work is cleared.
     /// </summary>
     private async Task<CommandResult> RunCommandAsync(
         InstanceKey key,
         ProcessTrigger trigger,
-        Func<IProcessSession, bool, Task>? afterAdvance,
+        Func<IProcessSession, Task>? whenApplied,
         Func<IProcessSession, Task<bool>>? precondition,
         CancellationToken cancellationToken)
     {
@@ -249,11 +239,15 @@ internal sealed class ProcessEngine : IProcessEngine
             }
 
             var process = runtime.Resolve(instance) ?? throw new InvalidOperationException(Unavailable);
-            var result = await runtime.AdvanceAsync(session, instance, process, state, trigger, runtime.Clock(key.TenantId), cancellationToken).ConfigureAwait(false);
-            if (afterAdvance is not null)
-            {
-                await afterAdvance(session, result.Disposition == AdvanceDisposition.Applied).ConfigureAwait(false);
-            }
+            var result = await runtime.AdvanceAsync(
+                session,
+                instance,
+                process,
+                state,
+                trigger,
+                runtime.Clock(key.TenantId),
+                cancellationToken,
+                whenApplied is null ? null : () => whenApplied(session)).ConfigureAwait(false);
 
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
             return new CommandResult(result.Disposition, result.Code);

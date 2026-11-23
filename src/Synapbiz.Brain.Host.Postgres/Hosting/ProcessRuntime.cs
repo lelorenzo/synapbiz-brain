@@ -85,7 +85,11 @@ internal sealed class ProcessRuntime
             state);
     }
 
-    /// <summary>Steps 4 and 5 of the transaction shape: run <c>Advance</c> and, when it applied, write the outcome.</summary>
+    /// <summary>
+    /// Steps 4 and 5 of the transaction shape: run <c>Advance</c> and, when it applied, write the outcome. <paramref name="whenApplied"/>
+    /// runs first when the trigger applied, so that a row the trigger consumed (a task) is closed before the work of a finished
+    /// instance is cleared.
+    /// </summary>
     internal async Task<AdvanceResult> AdvanceAsync(
         IProcessSession session,
         InstanceRecord instance,
@@ -93,11 +97,17 @@ internal sealed class ProcessRuntime
         ProcessState state,
         ProcessTrigger trigger,
         ProcessClock clock,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<Task>? whenApplied = null)
     {
         var result = process.Advance(state, trigger, clock);
         if (result.Disposition == AdvanceDisposition.Applied)
         {
+            if (whenApplied is not null)
+            {
+                await whenApplied().ConfigureAwait(false);
+            }
+
             await PersistAsync(session, instance, result, clock.Now, cancellationToken).ConfigureAwait(false);
         }
 

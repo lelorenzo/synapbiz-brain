@@ -301,6 +301,11 @@ internal sealed class ProcessPump : IProcessPump
             return (true, null);
         }
 
+        if (runtime.Resolve(instance) is null)
+        {
+            return (false, null);
+        }
+
         var clock = runtime.Clock(instance.TenantId);
         if (!ports.ContainsKey(effect.Port))
         {
