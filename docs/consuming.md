@@ -1,6 +1,6 @@
 # Consuming the packages
 
-The packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, and from the next release `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
+The packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, and from the next release `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
 
 ## Feed
 

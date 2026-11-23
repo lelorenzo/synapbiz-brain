@@ -186,13 +186,13 @@ public sealed class HostAssemblyCouplingTests
     }
 
     [Fact]
-    public void ThePurityScanStillCoversTheFivePureLibrariesAndDoesNotCoverTheHost()
+    public void ThePurityScanStillCoversThePureLibrariesAndDoesNotCoverTheHost()
     {
         var field = typeof(LibraryPurityArchTests).GetField("LibraryList", BindingFlags.NonPublic | BindingFlags.Static);
 
         Assert.NotNull(field);
         var libraries = (string[])field.GetValue(null)!;
-        Assert.Equal(["Contracts", "Engine", "Process", "Spec", "Workbench"], libraries.Order(StringComparer.Ordinal));
+        Assert.Equal(["Contracts", "Engine", "Process", "Spec", "Workbench", "WorkbenchBlazor"], libraries.Order(StringComparer.Ordinal));
         Assert.DoesNotContain(libraries, name => name.Contains("Host", StringComparison.Ordinal));
     }
 

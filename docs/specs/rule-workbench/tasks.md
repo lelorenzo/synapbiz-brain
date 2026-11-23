@@ -16,7 +16,16 @@
 
 ## W-B — Blazor panels
 
-- [ ] Brief
+- [x] Brief
+- [x] `RuleLabels.ValueFormatter` in the headless library
+- [x] Project, solution entry, package metadata, demo host
+- [x] `RuleWorkbench`: list, Read, Simulate, Test cases, Review, export
+- [x] Fixed strings in Spanish and English, overridable, with the four markings protected
+- [x] `--wb-*` token stylesheet, light and dark
+- [x] bUnit tests, architecture tests (coupling, purity, identifier guard)
+- [x] Screenshots of the demo in light, dark and English
+- [x] Docs: reference page, overview, changelog, README, consuming guide
+- [x] Independent verification of every gate
 
 ## W-C — guided editing
 
