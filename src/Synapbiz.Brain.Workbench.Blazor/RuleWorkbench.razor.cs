@@ -466,6 +466,7 @@ public sealed partial class RuleWorkbench : IDisposable
 
             return form;
         });
+        Session.SelectedTab = WorkbenchTab.Tests;
     }
 
     private void OpenFormForRow(WorkbenchRule rule, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels, string rowKey)

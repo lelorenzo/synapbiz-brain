@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Nuvora.Decisions.Contracts.Kinds;
 using Nuvora.Decisions.Contracts.Tables;
 using Synapbiz.Brain.Spec;
 using Synapbiz.Brain.Workbench;
@@ -168,6 +169,50 @@ internal static class Fx
         Read("tests/fixtures/workbench/intake.contract.json"),
         "(\"name\": \"account\",\\s*\"type\": \"Reference\",\\s*\"nullable\": )true",
         "$1false"));
+
+    /// <summary>The intake contract with the channel and the urgent flag optional, so their inputs offer "no value".</summary>
+    internal static BrainContract OptionalContract()
+    {
+        var root = JsonNode.Parse(Read("tests/fixtures/workbench/intake.contract.json"))!.AsObject();
+        foreach (var fact in root["facts"]!.AsArray().Select(item => item!.AsObject()))
+        {
+            if (fact["name"]!.GetValue<string>() is "channel" or "urgent")
+            {
+                fact["nullable"] = true;
+            }
+        }
+
+        return BrainContract.Parse(root.ToJsonString());
+    }
+
+    /// <summary>The first intake rule with a fact computed from another kind, which the panels cannot resolve.</summary>
+    internal static WorkbenchRule Composed()
+    {
+        var source = Rule("intake.first");
+        var kind = source.Rule!.Kind with
+        {
+            Facts = [.. source.Rule.Kind.Facts, new FactDescriptor("derived", FactType.Integer, true, null, DecisionKindKey.From("sample.other"))],
+        };
+        return source with { Key = "composed", Rule = WithTable(source.Rule, source.Rule.Table, kind) };
+    }
+
+    /// <summary>The readiness rule with many more rows that never match, to fold the rows that do not apply.</summary>
+    internal static string ManyRows() => Edited("readiness", root =>
+    {
+        var rows = root["body"]!["rows"]!.AsArray();
+        for (var index = 4; index <= 15; index++)
+        {
+            var id = "extra-" + index;
+            rows.Add(JsonNode.Parse(
+                "{\"id\":\"" + id + "\",\"version\":1,\"legacyKey\":\"" + id + "\",\"conditions\":[{\"fact\":\"score\",\"op\":\"range\","
+                + "\"value\":{\"type\":\"Integer\",\"value\":\"" + (1000 + index) + "\"},\"upper\":{\"type\":\"Integer\",\"value\":\"" + (2000 + index) + "\"},"
+                + "\"lowerInclusive\":true,\"upperInclusive\":true}],\"outcome\":{\"note\":\"low-score\"}}"));
+        }
+    });
+
+    /// <summary>The first readiness row with no condition that says anything, so its sentence has nothing to give as a reason.</summary>
+    internal static string AlwaysRow() => Edited("readiness", root =>
+        root["body"]!["rows"]![0]!["conditions"] = JsonNode.Parse("[{\"fact\":\"score\",\"op\":\"any\"}]"));
 
     /// <summary>A rule read from edited text, with the labels and row texts of its fixture.</summary>
     internal static WorkbenchRule FromText(
