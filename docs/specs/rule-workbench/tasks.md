@@ -25,7 +25,7 @@
 - [x] bUnit tests, architecture tests (coupling, purity, identifier guard)
 - [x] Screenshots of the demo in light, dark and English
 - [x] Docs: reference page, overview, changelog, README, consuming guide
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate
 
 ## W-C — guided editing
 
