@@ -107,9 +107,48 @@ Routing an event by correlation compares the correlation without regard to case,
 
 Identifiers (`tenantId`, `processId`, `businessKey`, `eventId`, `taskId`) must be non-empty and at most 200 characters; `InputJson`, `PayloadJson` and `dataJson` must be the text of a JSON object. Otherwise the call throws `ArgumentException` before touching the database.
 
+## Activation, event triggers, schedules and delivery windows
+
+The `triggers` of a definition (see [brain-process-v1](brain-process-v1.md)) do nothing until the consumer activates the process for a tenant:
+
+```csharp
+// The latest version in the catalog is pinned. Zone is the zone of every schedule that declares none; InputJson is the
+// input every instance started by a trigger begins with (it must satisfy the `input: true` variables).
+var activation = await engine.ActivateAsync(new ProcessActivation("t-1", "previsit.followup", Zone: "America/New_York", InputJson: "{\"channel\":\"sms\"}"));
+// activation.ProcessVersion is the pinned version; activation.Changed is false when nothing was different.
+
+await engine.DeactivateAsync("t-1", "previsit.followup");   // true when there was an activation; running instances are not touched
+```
+
+`ActivateAsync` validates the input with a dry run of the interpreter's `Start`, resolves every zone a schedule needs (the zone of the trigger, else `ProcessActivation.Zone`; a schedule with neither, or a zone id the host cannot resolve, is an `ArgumentException` naming the schedule id) and writes, in one transaction taken under an advisory lock per tenant and process, one activation row (pinned version and hash, zone, protected input), one row per event trigger and one row per schedule. It is idempotent: the same activation again returns `Changed = false` and keeps every `next_fire_at`. A new version, zone or input replaces the rows; a schedule whose cron expression and zone did not change keeps its `next_fire_at`, so changing the input does not skip or repeat an occurrence. The catalog is asked once, at activation: later passes use the pinned version, so a newer version of the definition changes nothing until the process is activated again.
+
+### Event triggers
+
+`PublishEventAsync` first de-duplicates the event id, as before. It then looks at the event triggers of the tenant for the event name. For each one it reads the business key member of the payload; a member that is missing, not a JSON string, empty, longer than 200 characters, or written twice means no start for that trigger (logged as `process.trigger.no_business_key` with ids only, never the payload). Otherwise it queues a start through the same code path as `StartAsync`, so the unique business key guarantees one instance per key: publishing the same event again (a new event id with the same key), or publishing concurrently, never creates a second instance, and an instance that already has the key is left alone. The input is the activation input with the mapped payload members laid over it; a mapped member the payload does not carry leaves the variable as the activation has it. `PublishResult.Instances` counts the started instances as well as the targeted ones, and the status is `Queued` when at least one instance was targeted or started. The event routing to waiting instances is unchanged.
+
+### Schedules
+
+Due schedule rows (`next_fire_at <= now`) are the first step of every pump pass, before expired leases. Each one is handled in one transaction that locks the schedule row with `for update skip locked` and reads it again under the lock, so several pumps never fire the same occurrence twice; a row another pump holds is left for the next pass. The occurrences `o1 < ... < ok <= now` since `next_fire_at` are computed in the zone of the schedule:
+
+- when there is exactly one and it is on time, it fires; an occurrence is on time when `now - o` is at most `ProcessHostOptions.ScheduleMisfireGrace` (default 5 minutes, zero allowed, negative invalid). Exactly the grace is on time.
+- otherwise the schedule misfired (the host was down or late). With `skip`, every occurrence that is not on time is dropped and the last one fires only if it is on time. With `fireOnce`, the earlier ones are dropped and the last one fires whether or not it is on time. A misfire is logged as `process.schedule.misfired`. The host never starts one instance per missed occurrence.
+- `next_fire_at` becomes the first occurrence after `now`.
+
+A fired occurrence queues a start with the business key `{scheduleId}/{yyyyMMddTHHmmZ}` (the occurrence in UTC) and the input of the activation with `scheduledFor` (an instant, `yyyy-MM-ddTHH:mm:ssZ`) and `scheduledDate` (the date of the occurrence in the zone of the schedule) laid over it as the declaration maps them. The unique business key means a retry after a crash, or any second pump, cannot start a second instance for the occurrence. When the catalog cannot supply the pinned version the row is left untouched and `process.definition.unavailable` is logged. Schedule items follow the same item isolation and paging rules as every other work kind.
+
+Occurrences are computed on the wall clock of the zone, not by adding 24 hours. A local time that does not exist on a day of the spring transition fires once, at the first valid instant after the gap (a `30 2` schedule fires at 03:00 local); a local time that occurs twice on a day of the autumn transition fires at its first occurrence only.
+
+### Delivery windows
+
+When the interpreter asks for a window (`WindowRequest`, a `contact` action outside its days and hours), the host stores a timer whose due time is `DeliveryWindows.NextOpen` for the zone the request names, so the contact is made at the opening and never before, and the retry of a failed contact passes the same gate again. When the zone id cannot be resolved nothing is stored and a `WindowFailed` trigger with the code `process.window.zone_unknown` is queued through the inbox of the instance: the step routes through its `onError` or the instance is suspended, as the interpreter decides. Firing re-checks nothing: the due time was inside the window by construction and timer precision is the pump tick.
+
+### Time zones
+
+Zone ids are resolved through one internal seam, `IZoneResolver`. The default implementation asks the machine's time zone database (the only place in the host that does) and returns no zone for an unknown id. The interface is internal and not part of the public surface: the tests of the host (which see it through `InternalsVisibleTo`) register their own resolver and inject zones built with `TimeZoneInfo.CreateCustomTimeZone`, so none of them depends on the system database.
+
 ## The one transaction shape
 
-Every change to an instance happens in one transaction of this shape:
+Every change to an instance happens in one transaction of this shape (a schedule is handled in the same spirit: the schedule row is locked first, with `skip locked`, re-read under the lock, and the start it queues is written in the same transaction; an activation is written under a transaction-scoped advisory lock per tenant and process):
 
 1. Lock the instance row (`select ... for update`; the pump adds `skip locked` and leaves a locked instance for the next pass, the engine commands wait). The one exception to the waiting rule is the pump applying the result of a port call it has already made: it waits for the lock too, because the call happened and its result must not be dropped or deferred to a lease expiry.
 2. Re-validate the work item under that lock: the timer row still exists, the inbox row is still Pending, the effect row is still Running for this owner.
@@ -140,7 +179,7 @@ Delivery order across effects is not guaranteed. Inbox rows are applied in id or
 
 ## What a pass does
 
-`IProcessPump.RunOnceAsync` handles, in this order and up to `BatchSize` of each: expired effect leases, inbox rows, due timers, pending effects (claim, invoke, apply the result). It returns the number of items handled (applied, discarded or found gone; items left because an instance was locked, a definition was unavailable or the item failed do not count). Tests and hosts without the worker can drive it directly.
+`IProcessPump.RunOnceAsync` handles, in this order and up to `BatchSize` of each: due schedules, expired effect leases, inbox rows, due timers, pending effects (claim, invoke, apply the result). It returns the number of items handled (applied, discarded or found gone; items left because an instance was locked, a definition was unavailable or the item failed do not count). Tests and hosts without the worker can drive it directly.
 
 Two properties keep a stuck item from harming the others:
 
@@ -160,10 +199,13 @@ All tables live in the configured schema, carry `tenant_id` as the first column 
 | `process_task` | Human tasks: queue, outcomes, protected `show`, status Open, Completed or Cancelled |
 | `process_effect` | Port calls: id, idempotency key, port, protected input, attempt, delivery, status Pending, Running, Done or Discarded, due time, lease and owner |
 | `process_event` | De-duplication record of published event ids |
-| `process_inbox` | Triggers waiting to be applied: Start, Event, ChildCompleted, ChildFailed, Cancel, with status Pending, Done or Rejected and the code |
+| `process_inbox` | Triggers waiting to be applied: Start, Event, ChildCompleted, ChildFailed, Cancel, WindowFailed, with status Pending, Done or Rejected and the code |
+| `process_activation` | One row per tenant and process: pinned version and hash, the zone the consumer supplied, the protected input every triggered instance begins with, the activation time |
+| `process_event_trigger` | One row per event trigger of an activated process (tenant, event, process): the business key member and the map of payload members to input variables, both copied from the pinned definition (names, never values) |
+| `process_schedule` | One row per schedule trigger of an activated process (tenant, process, schedule id): cron text, the zone it is evaluated in, the misfire policy and `next_fire_at`, the first occurrence not handled yet; indexed by due time |
 | `process_schema_version` | Applied migration scripts |
 
-Protected columns (instance state, history data, effect input, task `show`, inbox payload) go through `IPayloadProtector.Protect(tenantId, text)` and are read only through `Unprotect`. The business key, the wait correlation, ids, step names, kinds and codes are stored as plain text because the host has to query them. In particular `process_wait.correlation` and the failure codes that a port returns (`PortFailed.Code`, which end up in the history) are stored in clear: a consumer must use opaque references as correlation values and plain codes as failure codes, never personal data. Retention and purging of finished instances are not part of this release.
+Protected columns (instance state, history data, effect input, task `show`, inbox payload, activation input) go through `IPayloadProtector.Protect(tenantId, text)` and are read only through `Unprotect`. The business key, the wait correlation, ids, step names, kinds and codes are stored as plain text because the host has to query them. In particular `process_wait.correlation` and the failure codes that a port returns (`PortFailed.Code`, which end up in the history) are stored in clear: a consumer must use opaque references as correlation values and plain codes as failure codes, never personal data. Retention and purging of finished instances are not part of this release.
 
 ## What is logged
 
@@ -177,7 +219,13 @@ Log messages carry tenant ids, instance ids, step names, ids of timers, effects 
 | `process.effect.lease_expired` | Warning | A Running effect's lease ran out |
 | `process.instance.finished`, `process.instance.suspended` | Information, Warning | An instance ended, or stopped on a problem |
 | `process.inbox.refused` | Information | An inbox row was rejected, with its code (rows that were applied or ignored are not logged) |
-| `process.item.failed` | Warning | One work item threw while the pump handled it (kind, tenant, ids, exception type); it is left as it was |
+| `process.item.failed` | Warning | One work item threw while the pump handled it (kind, tenant, ids, exception type; for a schedule the process id and schedule id); it is left as it was |
+| `process.trigger.no_business_key` | Warning | An event trigger found no usable business key in the payload (tenant, event id, event name, process id; no payload) |
+| `process.schedule.fired` | Information | A schedule occurrence queued its start (schedule id, the occurrence, whether the instance was new) |
+| `process.schedule.misfired` | Warning | Occurrences were missed: the policy, the last missed occurrence and whether it fired |
+| `process.definition.unavailable` | Warning | (also for a schedule whose pinned version the catalog cannot supply) |
+| `process.window.zone_unknown` | Warning | A delivery window names a zone the host cannot resolve; `WindowFailed` is queued |
+| `process.activation.saved`, `process.activation.removed` | Information | An activation was written (with whether it changed anything) or removed |
 | `process.worker.started`, `process.worker.pass_failed` | Information, Error | The worker loop |
 
 ## Testing against PostgreSQL

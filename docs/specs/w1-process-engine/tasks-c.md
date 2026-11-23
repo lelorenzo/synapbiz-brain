@@ -23,16 +23,16 @@ Spec: [spec-c-triggers.md](spec-c-triggers.md). The core is the pure library `Sy
 
 ## Host (`Synapbiz.Brain.Host.Postgres`)
 
-- [ ] Migration `0002_triggers.sql`: `process_activation`, `process_event_trigger`, `process_schedule`
-- [ ] `IProcessEngine.ActivateAsync` and `DeactivateAsync`; `ProcessActivation`, `ActivationResult`; zone resolution behind one internal seam
-- [ ] Event triggers: `PublishEventAsync` starts one instance per business key inside the existing de-duplication
-- [ ] Schedules: first step of the pump pass, `skip` and `fireOnce`, `ScheduleMisfireGrace`, `next_fire_at`, business key `{scheduleId}/{occurrence}`
-- [ ] Windows: `WindowRequest` stored as a timer at `DeliveryWindows.NextOpen`; `WindowFailed` when the zone cannot be resolved
-- [ ] Applying `WindowRequest` and the new history kinds in the request switch
-- [ ] Tests on PostgreSQL with a fake clock: activation, schedule concurrency (4 pumps), misfire policies, grace boundary, both daylight saving transitions, input mappings, deactivation, event triggers, tenant isolation, protected input, contact action at the opening, unknown zone, poll end to end, logging hygiene
-- [ ] Architecture guards unchanged except for what spec B allows
-- [ ] Docs: host reference page, architecture overview, CHANGELOG under Unreleased, `plan.md`
-- [ ] Gates of spec B section 9, the three concurrency tests 20 times in a row each
+- [x] Migration `0002_triggers.sql`: `process_activation`, `process_event_trigger`, `process_schedule`
+- [x] `IProcessEngine.ActivateAsync` and `DeactivateAsync`; `ProcessActivation`, `ActivationResult`; zone resolution behind one internal seam
+- [x] Event triggers: `PublishEventAsync` starts one instance per business key inside the existing de-duplication
+- [x] Schedules: first step of the pump pass, `skip` and `fireOnce`, `ScheduleMisfireGrace`, `next_fire_at`, business key `{scheduleId}/{occurrence}`
+- [x] Windows: `WindowRequest` stored as a timer at `DeliveryWindows.NextOpen`; `WindowFailed` when the zone cannot be resolved
+- [x] Applying `WindowRequest` and the new history kinds in the request switch
+- [x] Tests on PostgreSQL with a fake clock: activation, schedule concurrency (4 pumps), misfire policies, grace boundary, both daylight saving transitions, input mappings, deactivation, event triggers, tenant isolation, protected input, contact action at the opening, unknown zone, poll end to end, logging hygiene
+- [x] Architecture guards unchanged except for what spec B allows
+- [x] Docs: host reference page, architecture overview, CHANGELOG under Unreleased, `plan.md`
+- [x] Gates of spec B section 9, the three concurrency tests 20 times in a row each
 
 ## Independent verification
 

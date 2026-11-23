@@ -95,8 +95,10 @@ public sealed class ConcurrencyTests
             var running = pumps.Select(pump => Task.Run(async () =>
             {
                 await gate.Task;
-                while (await pump.RunOnceAsync() > 0)
+                var handled = await pump.RunOnceAsync();
+                while (handled > 0)
                 {
+                    handled = await pump.RunOnceAsync();
                 }
             })).ToList();
             gate.SetResult();
