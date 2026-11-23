@@ -168,7 +168,7 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
     private void CheckPoll(PollStep step, string path)
     {
         // A duration that did not parse is reported already and reads as zero: there is nothing to count then.
-        if (step.Every > TimeSpan.Zero && step.MaxDuration > TimeSpan.Zero && step.CountRounds(MaximumPollRounds) > MaximumPollRounds)
+        if (step.Every > TimeSpan.Zero && step.MaxDuration > TimeSpan.Zero && step.Max is not { Ticks: <= 0 } && step.CountRounds(MaximumPollRounds) > MaximumPollRounds)
         {
             errors.Add(Diagnostics.TooManyRounds(path + "/maxDuration"));
         }
