@@ -18,7 +18,13 @@ public sealed class ConcurrencyTests
     [Fact]
     public async Task FourPumpsInParallelCompleteEveryInstanceAndInvokeEveryEffectOnce()
     {
-        await using var rig = await Rig.CreateAsync();
+        // The clock jumps in this test (the instances wait for 30 second timers), and a lease that expires because the clock
+        // jumped while a port call is in flight would legitimately deliver that effect again. Leases this long cannot expire.
+        await using var rig = await Rig.CreateAsync(configureHost: host =>
+        {
+            host.PortTimeout = TimeSpan.FromDays(1);
+            host.EffectLease = TimeSpan.FromDays(7);
+        });
         rig.Catalog.Add(Fixtures.Host("read-timer-action"));
         var invoked = new ConcurrentBag<string>();
         rig.Port("t.read").Handler = (call, _) =>
@@ -47,12 +53,13 @@ public sealed class ConcurrencyTests
                     continue;
                 }
 
-                // Idle: either everything is done, or the instances wait for their 30 second timers.
+                // Idle: either everything is done, or the instances wait for their 30 second timers. The clock only moves when
+                // no port call is outstanding anywhere.
                 if (await rig.CountAsync("process_instance", "status = 4") == Instances)
                 {
                     Volatile.Write(ref finished, 1);
                 }
-                else
+                else if (await rig.CountAsync("process_effect", "status in (1, 2)") == 0)
                 {
                     rig.Time.Advance(TimeSpan.FromSeconds(31));
                 }
