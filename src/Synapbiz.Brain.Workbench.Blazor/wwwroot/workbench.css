@@ -1093,3 +1093,24 @@
     transition: none;
   }
 }
+
+/* ----- test cases in the draft view -------------------------------------------------------------------------------------------- */
+
+.wb-row-gone td {
+  opacity: 0.75;
+}
+
+.wb-ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.wb-notice-act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+}

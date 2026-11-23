@@ -474,9 +474,8 @@ public sealed partial class RuleWorkbench : IDisposable
         Session.Touch();
     }
 
-    private void OpenFormFromSimulation(WorkbenchRule rule, RuleWork work, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels)
+    private void OpenFormFromSimulation(WorkbenchRule rule, BrainRule brain, RuleWork work, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels)
     {
-        var brain = rule.Rule!;
         var options = CaseForm.Options(brain, view, labels, Locale);
         OpenCaseForm(rule, shown, form =>
         {
@@ -526,9 +525,8 @@ public sealed partial class RuleWorkbench : IDisposable
         Session.SelectedTab = WorkbenchTab.Tests;
     }
 
-    private void OpenFormForRow(WorkbenchRule rule, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels, string rowKey)
+    private void OpenFormForRow(WorkbenchRule rule, BrainRule brain, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels, string rowKey)
     {
-        var brain = rule.Rule!;
         var options = CaseForm.Options(brain, view, labels, Locale);
         OpenCaseForm(rule, shown, form =>
         {

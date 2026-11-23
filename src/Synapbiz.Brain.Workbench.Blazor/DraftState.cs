@@ -170,6 +170,9 @@ internal sealed class DraftState
         labels = null;
     }
 
+    /// <summary>Runs the test cases of the draft again.</summary>
+    internal void RunAgain() => Run = RuleTester.Run(Rule!);
+
     /// <summary>Keeps the reasons the first draft could not be read; the draft then has no rule.</summary>
     internal void Unreadable(RebuildResult result)
     {
