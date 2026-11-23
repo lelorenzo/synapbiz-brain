@@ -252,11 +252,238 @@ public sealed class CockpitQueryTests
     [InlineData("MTIzfA")]
     [InlineData("LTF8eA")]
     [InlineData("OTk5OTk5OTk5OTk5OTk5OTk5OTk5fHg")]
+    [InlineData("MXwA")]
     public async Task ACursorThatDoesNotParseIsAnArgumentException(string cursor)
     {
         await using var rig = await Rig.CreateAsync();
 
         await FluentActions.Awaiting(() => rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, After: cursor))).Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task ACursorWhoseIdHoldsAControlCharacterIsRejected()
+    {
+        await using var rig = await Rig.CreateAsync();
+        foreach (var id in new[] { "a\0b", "\0", "a\nb", "a\u007fb" })
+        {
+            var cursor = Base64Url.EncodeToString(Encoding.UTF8.GetBytes("1|" + id));
+
+            await FluentActions.Awaiting(() => rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, After: cursor))).Should().ThrowAsync<ArgumentException>();
+        }
+    }
+
+    [Fact]
+    public async Task ACursorLongerThanTheBoundIsRejectedAndTheLongestRealCursorIsAccepted()
+    {
+        await using var rig = await Rig.CreateAsync();
+        var longestId = new string('z', Guard.MaxIdLength);
+        await AddInstance(rig, A, longestId, "p", "k", Waiting, created: T0);
+        var longest = Base64Url.EncodeToString(Encoding.UTF8.GetBytes("1|" + longestId));
+
+        InstanceCursors.MaxLength.Should().Be((4 * Guard.MaxIdLength) + 64);
+        longest.Length.Should().BeLessThan(InstanceCursors.MaxLength);
+        (await rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, After: longest))).Items.Should().BeEmpty("the one row is newer than the instant 1 of the cursor");
+        await FluentActions.Awaiting(() => rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, After: new string('A', InstanceCursors.MaxLength + 1)))).Should().ThrowAsync<ArgumentException>();
+        await FluentActions.Awaiting(() => rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, After: new string('A', 5_000_000)))).Should().ThrowAsync<ArgumentException>();
+        InstanceCursors.Parse(longest).InstanceId.Should().Be(longestId);
+    }
+
+    [Fact]
+    public async Task AControlCharacterInATenantProcessStageOrInstanceIdIsAnArgumentException()
+    {
+        await using var rig = await Rig.CreateAsync();
+        var engine = rig.Engine;
+        var bad = new[] { "a\0b", "\0", "a\nb" };
+
+        foreach (var value in bad)
+        {
+            await FluentActions.Awaiting(() => engine.ListInstancesAsync(new ProcessInstanceQuery(A, Stage: value))).Should().ThrowAsync<ArgumentException>();
+            await FluentActions.Awaiting(() => engine.ListInstancesAsync(new ProcessInstanceQuery(A, ProcessId: value))).Should().ThrowAsync<ArgumentException>();
+            await FluentActions.Awaiting(() => engine.ListInstancesAsync(new ProcessInstanceQuery(value))).Should().ThrowAsync<ArgumentException>();
+            await FluentActions.Awaiting(() => engine.CountInstancesAsync(value, null, false)).Should().ThrowAsync<ArgumentException>();
+            await FluentActions.Awaiting(() => engine.CountInstancesAsync(A, value, false)).Should().ThrowAsync<ArgumentException>();
+            await FluentActions.Awaiting(() => engine.GetCaseAsync(value, "i")).Should().ThrowAsync<ArgumentException>();
+            await FluentActions.Awaiting(() => engine.GetCaseAsync(A, value)).Should().ThrowAsync<ArgumentException>();
+            await FluentActions.Awaiting(() => engine.ListChildrenAsync(value, "i")).Should().ThrowAsync<ArgumentException>();
+            await FluentActions.Awaiting(() => engine.ListChildrenAsync(A, value)).Should().ThrowAsync<ArgumentException>();
+        }
+
+        (await engine.ListInstancesAsync(new ProcessInstanceQuery(A, Stage: "a b"))).Items.Should().BeEmpty("an ordinary space is not a control character");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(501)]
+    public async Task TheLimitErrorNamesTheLimit(int limit)
+    {
+        await using var rig = await Rig.CreateAsync();
+
+        var thrown = await FluentActions.Awaiting(() => rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, Limit: limit))).Should().ThrowAsync<ArgumentOutOfRangeException>();
+
+        thrown.Which.ParamName.Should().Be("Limit");
+        thrown.Which.ActualValue.Should().Be(limit);
+    }
+
+    [Fact]
+    public async Task TenantsWithTheSameInstanceAndParentIdsNeverSeeEachOthersTrees()
+    {
+        await using var rig = await Rig.CreateAsync();
+        foreach (var (id, parent, status) in new[] { ("root", (string?)null, Waiting), ("child", "root", Suspended), ("grand", "child", Suspended) })
+        {
+            await AddInstance(rig, B, id, "p", "k-" + id, status, "s", parent, T0);
+            await AddTask(rig, B, "t-" + id, id, T0);
+        }
+
+        await AddTimer(rig, B, "tm-1", "grand", T0.AddHours(1));
+        await AddTimer(rig, B, "tm-2", "root", T0.AddHours(2));
+        await AddWait(rig, B, "w-1", "child", "ev.b");
+        await AddWait(rig, B, "w-2", "grand", "ev.b2");
+
+        // Tenant A: the same ids, the same parent links, and nothing that needs attention.
+        foreach (var (id, parent) in new[] { ("root", (string?)null), ("child", "root"), ("grand", "child") })
+        {
+            await AddInstance(rig, A, id, "p", "k-" + id, Waiting, "s", parent, T0);
+        }
+
+        var engine = rig.Engine;
+        var roots = await engine.ListInstancesAsync(new ProcessInstanceQuery(A));
+        var all = await engine.ListInstancesAsync(new ProcessInstanceQuery(A, RootsOnly: false));
+        var attention = await engine.ListInstancesAsync(new ProcessInstanceQuery(A, NeedsAttention: true, RootsOnly: false));
+        var counts = await engine.CountInstancesAsync(A, null, false);
+        var rootCase = (await engine.GetCaseAsync(A, "root"))!;
+        var childCase = (await engine.GetCaseAsync(A, "child"))!;
+
+        roots.Items.Should().ContainSingle().Which.Should().BeEquivalentTo(new { TenantId = A, InstanceId = "root", Status = ProcessStatus.Waiting, OpenTasks = 0, SuspendedDescendants = 0 });
+        all.Items.Should().HaveCount(3).And.OnlyContain(item => item.TenantId == A && item.OpenTasks == 0 && item.SuspendedDescendants == 0 && item.Status == ProcessStatus.Waiting);
+        attention.Items.Should().BeEmpty();
+        (await engine.ListInstancesAsync(new ProcessInstanceQuery(A, NeedsAttention: true))).Items.Should().BeEmpty();
+        counts.Should().Equal(new ProcessInstanceCount("p", ProcessStatus.Waiting, "s", 3));
+        foreach (var view in new[] { rootCase, childCase })
+        {
+            view.Instance.Should().BeEquivalentTo(new { TenantId = A, OpenTasks = 0, SuspendedDescendants = 0 });
+            view.Descendants.Should().OnlyContain(item => item.TenantId == A && item.OpenTasks == 0 && item.SuspendedDescendants == 0);
+            view.OpenTasks.Should().BeEmpty();
+            view.NextTimerDue.Should().BeNull();
+            view.WaitingForEvents.Should().BeEmpty();
+        }
+
+        rootCase.Descendants.Select(item => item.InstanceId).Should().Equal("child", "grand");
+        childCase.Descendants.Select(item => item.InstanceId).Should().Equal("grand");
+        (await engine.ListChildrenAsync(A, "root")).Should().ContainSingle().Which.Should().BeEquivalentTo(new { TenantId = A, InstanceId = "child", OpenTasks = 0, SuspendedDescendants = 0 });
+        (await engine.ListChildrenAsync(A, "child")).Should().ContainSingle().Which.InstanceId.Should().Be("grand");
+
+        // The fixture is not vacuous: tenant B sees all of what A must not see.
+        var bCase = (await engine.GetCaseAsync(B, "root"))!;
+        bCase.Instance.SuspendedDescendants.Should().Be(2);
+        bCase.OpenTasks.Should().HaveCount(3);
+        bCase.NextTimerDue.Should().Be(T0.AddHours(1));
+        bCase.WaitingForEvents.Should().Equal("ev.b", "ev.b2");
+        (await engine.ListInstancesAsync(new ProcessInstanceQuery(B, NeedsAttention: true, RootsOnly: false))).Items.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task AChildOfAnotherTenantNeverJoinsTheWalkOfAnInstanceWithTheSameId()
+    {
+        await using var rig = await Rig.CreateAsync();
+        await AddInstance(rig, B, "root", "p", "k-root", Waiting, created: T0);
+        await AddInstance(rig, B, "x", "p", "k-x", Waiting, parent: "root", created: T0.AddMinutes(1));
+        await AddInstance(rig, A, "root", "p", "k-root", Waiting, created: T0);
+        await AddInstance(rig, A, "x", "p", "k-x", Suspended, created: T0.AddMinutes(1));
+
+        var view = (await rig.Engine.GetCaseAsync(A, "root"))!;
+        var all = (await rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, RootsOnly: false))).Items.ToDictionary(item => item.InstanceId);
+        var attention = await rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, NeedsAttention: true));
+
+        view.Descendants.Should().BeEmpty();
+        view.Instance.SuspendedDescendants.Should().Be(0);
+        all["root"].SuspendedDescendants.Should().Be(0);
+        all["x"].Status.Should().Be(ProcessStatus.Suspended);
+        attention.Items.Select(item => item.InstanceId).Should().Equal("x");
+        (await rig.Engine.ListChildrenAsync(A, "root")).Should().BeEmpty();
+        (await rig.Engine.GetCaseAsync(B, "root"))!.Descendants.Should().ContainSingle().Which.InstanceId.Should().Be("x");
+    }
+
+    [Fact]
+    public async Task TheCaseIsOneSnapshotWhateverAnotherSessionCommitsBetweenItsReads()
+    {
+        await using var rig = await Rig.CreateAsync();
+        await AddInstance(rig, A, "root", "p", "k0", Waiting, created: T0);
+        await AddInstance(rig, A, "child", "p", "k1", Waiting, parent: "root", created: T0.AddMinutes(1));
+        var store = rig.Provider.GetRequiredService<PostgresProcessStore>();
+        store.AfterCaseSummaries = async (_, _) =>
+        {
+            // Committed from another connection after the first read of the case: none of it may show.
+            await AddInstance(rig, A, "late", "p", "k2", Suspended, parent: "root", created: T0.AddMinutes(2));
+            await AddTask(rig, A, "t-late", "child", T0);
+            await AddTimer(rig, A, "tm-late", "child", T0.AddHours(1));
+            await AddWait(rig, A, "w-late", "child", "ev.late");
+        };
+
+        var view = (await rig.Engine.GetCaseAsync(A, "root"))!;
+        store.AfterCaseSummaries = null;
+        var after = (await rig.Engine.GetCaseAsync(A, "root"))!;
+
+        view.Descendants.Select(item => item.InstanceId).Should().Equal("child");
+        view.Instance.SuspendedDescendants.Should().Be(0);
+        view.OpenTasks.Should().BeEmpty();
+        view.NextTimerDue.Should().BeNull();
+        view.WaitingForEvents.Should().BeEmpty();
+        after.Descendants.Select(item => item.InstanceId).Should().Equal("child", "late");
+        after.OpenTasks.Should().ContainSingle();
+        after.NextTimerDue.Should().Be(T0.AddHours(1));
+        after.WaitingForEvents.Should().Equal("ev.late");
+    }
+
+    [Fact]
+    public async Task TheCaseRunsInOneReadOnlyTransactionAtRepeatableRead()
+    {
+        await using var rig = await Rig.CreateAsync();
+        await AddInstance(rig, A, "root", "p", "k0", Waiting, created: T0);
+        var store = rig.Provider.GetRequiredService<PostgresProcessStore>();
+        string? isolation = null;
+        string? readOnly = null;
+        var calls = 0;
+        store.AfterCaseSummaries = async (connection, transaction) =>
+        {
+            calls++;
+            await using var command = new Npgsql.NpgsqlCommand("select current_setting('transaction_isolation'), current_setting('transaction_read_only')", connection, transaction);
+            await using var reader = await command.ExecuteReaderAsync();
+            (await reader.ReadAsync()).Should().BeTrue();
+            isolation = reader.GetString(0);
+            readOnly = reader.GetString(1);
+        };
+
+        (await rig.Engine.GetCaseAsync(A, "root")).Should().NotBeNull();
+
+        calls.Should().Be(1);
+        isolation.Should().Be("repeatable read");
+        readOnly.Should().Be("on");
+    }
+
+    [Theory]
+    [InlineData(17, 0)]
+    [InlineData(16, 1)]
+    [InlineData(1, 1)]
+    public async Task ASuspendedInstanceAndAnOpenTaskCountOnlyToDepthSixteenBelowTheRoot(int depth, int expected)
+    {
+        await using var rig = await Rig.CreateAsync();
+        await AddInstance(rig, A, "n0", "p", "k0", Waiting, created: T0);
+        for (var level = 1; level <= depth; level++)
+        {
+            await AddInstance(rig, A, "n" + level, "p", "k" + level, level == depth ? Suspended : Waiting, parent: "n" + (level - 1), created: T0.AddMinutes(level));
+        }
+
+        await AddTask(rig, A, "t-deepest", "n" + depth, T0);
+
+        var view = (await rig.Engine.GetCaseAsync(A, "n0"))!;
+        var attention = await rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A, NeedsAttention: true));
+        var listed = (await rig.Engine.ListInstancesAsync(new ProcessInstanceQuery(A))).Items.Single();
+
+        view.Instance.SuspendedDescendants.Should().Be(expected);
+        listed.SuspendedDescendants.Should().Be(expected);
+        view.Descendants.Should().HaveCount(Math.Min(depth, 16));
+        view.OpenTasks.Should().HaveCount(expected);
+        attention.Items.Should().HaveCount(expected);
     }
 
     [Fact]
@@ -539,7 +766,7 @@ public sealed class CockpitQueryTests
         (await rig.ColumnAsync<string>("select indexname from pg_indexes where schemaname = @s and tablename = 'process_instance' and indexname in ('ix_process_instance_created', 'ix_process_instance_status') order by indexname", ("s", rig.Schema)))
             .Should().Equal("ix_process_instance_created", "ix_process_instance_status");
         (await rig.ColumnAsync<string>("select indexdef from pg_indexes where schemaname = @s and indexname = 'ix_process_instance_created'", ("s", rig.Schema)))
-            .Single().Should().Contain("(tenant_id, created_at DESC, instance_id DESC)");
+            .Single().Should().Contain("(tenant_id, created_at DESC, instance_id COLLATE \"C\" DESC)");
         (await rig.CountAsync("process_instance")).Should().Be(2);
         (await rig.Engine.GetCaseAsync(A, "root"))!.Instance.SuspendedDescendants.Should().Be(1);
     }

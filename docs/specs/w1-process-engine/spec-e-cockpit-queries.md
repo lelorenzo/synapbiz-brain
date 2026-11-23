@@ -30,7 +30,7 @@ A new public record, the row of every list here. It is `ProcessInstanceInfo` wit
 - `RootsOnly` keeps instances with no parent.
 - `NeedsAttention` keeps instances that are suspended, or have at least one suspended descendant, or have at least one open task of their own or of a descendant.
 - `Limit` is 1 to 500; outside that range is an `ArgumentOutOfRangeException`.
-- Order: `created_at` descending, then `instance_id` descending. Paging is by keyset: `After` is the `Next` value of the previous page.
+- Order: `created_at` descending, then `instance_id` descending. Paging is by keyset: `After` is the `Next` value of the previous page. The id ordering and the keyset comparison are in byte order (`collate "C"`), independent of the locale of the database.
 - Returns `ProcessInstancePage(Items, Next)`. `Next` is null on the last page. The cursor is an opaque string; a cursor that does not parse is an `ArgumentException`. A cursor carries only the creation instant and the instance id of the last row.
 - Rows inserted or changed between pages may be missed or seen under their new values; no row is returned twice in one walk.
 
@@ -44,7 +44,7 @@ Returns `ProcessCaseView?` (null when the tenant has no such instance):
 
 - `Instance`: the summary of the instance.
 - `Descendants`: the summaries of its descendants, ordered by `created_at` then `instance_id` ascending. `ParentInstanceId` lets the consumer rebuild the tree.
-- `OpenTasks`: the open tasks of the instance and of its descendants as `ProcessTaskInfo`, oldest first, then by task id.
+- `OpenTasks`: the open tasks of the instance and of its descendants as `ProcessTaskInfo`, oldest first, then by task id; every ordering on an instance id or task id in these queries is in byte order (`collate "C"`), independent of the locale of the database.
 - `NextTimerDue`: the earliest `due_at` among the timers of the instance and of its descendants; null when there is none.
 - `WaitingForEvents`: the distinct event names the instance and its descendants wait for, ordered; names only, never a correlation value.
 
@@ -54,7 +54,7 @@ The reads of one call run in one read-only transaction at repeatable read, so th
 
 ## 7. Storage
 
-Migration `0003_cockpit.sql`: an index for the list order, `(tenant_id, created_at desc, instance_id desc)` on `process_instance`, and an index on `process_instance (tenant_id, status)`. No table or column changes. The migration is additive and applies on a database at `0002` with data.
+Migration `0003_cockpit.sql`: an index for the list order, `(tenant_id, created_at desc, instance_id collate "C" desc)` on `process_instance` (the collation matches the byte-order sort of the queries, so the plan still reads the index in order and stops early), and an index on `process_instance (tenant_id, status)`. No table or column changes. The migration is additive and applies on a database at `0002` with data. The status index serves the suspended-descendant lookup; the status filter of the list is evaluated on the rows of the tenant (it maps `Created` to `Running`, so it cannot use that index).
 
 `IProcessStore` (internal) gains the read methods; `PostgresProcessStore` implements them. No new public type outside `Synapbiz.Brain.Process.Hosting`.
 

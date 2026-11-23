@@ -7,7 +7,7 @@ namespace Synapbiz.Brain.Host.Postgres;
 
 /// <summary>
 /// The read-only cockpit queries of <see cref="PostgresProcessStore"/>. Every statement filters by tenant first, takes values only
-/// as parameters, and never selects the <c>state</c> column. A descendant walk is a recursive query bounded by depth 16.
+/// as parameters, and never selects the <c>state</c> column. A descendant walk is a recursive query bounded by depth 16. Every ordering and comparison on an instance id or task id is bytewise (<c>collate "C"</c>), so it does not depend on the locale of the database.
 /// </summary>
 internal sealed partial class PostgresProcessStore
 {
@@ -35,13 +35,13 @@ internal sealed partial class PostgresProcessStore
         + "and (@statuses is null or (case when status = 0 then 1 else status end) = any(@statuses)) "
         + "and (@stage is null or stage = @stage) "
         + "and (not @roots or parent_instance_id is null) "
-        + "and (@at is null or (created_at, instance_id) < (@at, @id))) ";
+        + "and (@at is null or (created_at, instance_id collate \"C\") < (@at, @id collate \"C\"))) ";
 
-    private const string ListOrder = "order by r.created_at desc, r.instance_id desc limit @n";
+    private const string ListOrder = "order by r.created_at desc, r.instance_id collate \"C\" desc limit @n";
 
     // Without the attention filter the page is cut first, so the walk runs only for the rows that are returned.
     private const string ListPlain =
-        "with recursive " + CandidateCte + ", roots as (select * from cand order by created_at desc, instance_id desc limit @n), " + WalkCtes + SummarySelect + ListOrder;
+        "with recursive " + CandidateCte + ", roots as (select * from cand order by created_at desc, instance_id collate \"C\" desc limit @n), " + WalkCtes + SummarySelect + ListOrder;
 
     // With it the filter needs the walk of every candidate before the page can be cut.
     private const string ListAttention =
@@ -53,11 +53,17 @@ internal sealed partial class PostgresProcessStore
 
     private const string CaseSummaries =
         "with recursive " + CaseNodes + ", roots as (select " + SummaryColumns + " from {instance} where tenant_id = @t and instance_id in (select instance_id from nodes)), "
-        + WalkCtes + SummarySelect + "order by r.created_at, r.instance_id";
+        + WalkCtes + SummarySelect + "order by r.created_at, r.instance_id collate \"C\"";
 
     private const string ChildSummaries =
         "with recursive roots as (select " + SummaryColumns + " from {instance} where tenant_id = @t and parent_instance_id = @i), "
-        + WalkCtes + SummarySelect + "order by r.created_at, r.instance_id";
+        + WalkCtes + SummarySelect + "order by r.created_at, r.instance_id collate \"C\"";
+
+    /// <summary>
+    /// A seam for tests, null in production: runs inside the transaction of <see cref="GetCaseAsync"/>, after its first read and
+    /// before the others, so a test can change the data from another connection or look at the transaction itself.
+    /// </summary>
+    internal Func<NpgsqlConnection, NpgsqlTransaction, Task>? AfterCaseSummaries { get; set; }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<InstanceSummaryRecord>> ListSummariesAsync(InstanceListFilter filter, CancellationToken cancellationToken)
@@ -116,6 +122,11 @@ internal sealed partial class PostgresProcessStore
                 var withNodes = "with recursive " + CaseNodes;
                 NpgsqlParameter[] Key() => [Text("t", tenantId), Text("i", instanceId)];
                 var summaries = await QueryAsync(connection, transaction, Bake(CaseSummaries), [Text("t", tenantId), Text("i", instanceId), Bool("attn", false)], ReadSummary, cancellationToken).ConfigureAwait(false);
+                if (AfterCaseSummaries is { } afterSummaries)
+                {
+                    await afterSummaries(connection, transaction).ConfigureAwait(false);
+                }
+
                 var root = summaries.FirstOrDefault(row => string.Equals(row.InstanceId, instanceId, StringComparison.Ordinal));
                 if (root is null)
                 {
@@ -125,7 +136,7 @@ internal sealed partial class PostgresProcessStore
                 var tasks = await QueryAsync(
                     connection,
                     transaction,
-                    Bake(withNodes + "select " + TaskColumns + " from {task} where tenant_id = @t and status = 1 and instance_id in (select instance_id from nodes) order by created_at, task_id"),
+                    Bake(withNodes + "select " + TaskColumns + " from {task} where tenant_id = @t and status = 1 and instance_id in (select instance_id from nodes) order by created_at, task_id collate \"C\""),
                     Key(),
                     ReadTask,
                     cancellationToken).ConfigureAwait(false);

@@ -10,6 +10,13 @@ namespace Synapbiz.Brain.Process.Hosting;
 /// </summary>
 internal static class InstanceCursors
 {
+    /// <summary>
+    /// The longest cursor that is read: four times the longest instance id plus 64 characters. A real cursor (up to 19 digits of
+    /// ticks, a bar and an id of at most 200 characters, in UTF-8 and base64) is far shorter; the bound keeps a hostile value from
+    /// being decoded at all.
+    /// </summary>
+    internal const int MaxLength = (4 * Guard.MaxIdLength) + 64;
+
     internal static string Format(InstanceSummaryRecord last) =>
         Base64Url.EncodeToString(Encoding.UTF8.GetBytes(last.CreatedAt.UtcTicks.ToString(CultureInfo.InvariantCulture) + "|" + last.InstanceId));
 
@@ -17,6 +24,12 @@ internal static class InstanceCursors
     internal static InstanceCursor Parse(string cursor)
     {
         const string Message = "The cursor is not a cursor of this engine.";
+        ArgumentNullException.ThrowIfNull(cursor);
+        if (cursor.Length > MaxLength)
+        {
+            throw new ArgumentException(Message, nameof(cursor));
+        }
+
         var buffer = new byte[cursor.Length];
         if (Base64Url.IsValid(cursor) && Base64Url.TryDecodeFromChars(cursor, buffer, out var written))
         {
@@ -27,7 +40,7 @@ internal static class InstanceCursors
                 && ticks <= DateTime.MaxValue.Ticks)
             {
                 var id = text[(bar + 1)..];
-                if (id.Length is >= 1 and <= Guard.MaxIdLength)
+                if (id.Length is >= 1 and <= Guard.MaxIdLength && !id.Any(char.IsControl))
                 {
                     return new InstanceCursor(new DateTimeOffset(ticks, TimeSpan.Zero), id);
                 }

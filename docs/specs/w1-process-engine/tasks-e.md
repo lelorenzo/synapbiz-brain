@@ -33,4 +33,15 @@ Spec: [spec-e-cockpit-queries.md](spec-e-cockpit-queries.md). Read-only queries 
 
 ## Open
 
-- [ ] The five `MigratorTests` that pin the applied versions to `1, 2` must expect `1, 2, 3` once the owner allows an existing test to change
+- [x] The `MigratorTests` that pinned the applied versions to `1, 2` now expect `1, 2, 3` (commit b0e3fba changed the pinned list and the setup of the upgrade test)
+
+## Repair pass
+
+- [x] R1: a cursor longer than `InstanceCursors.MaxLength` (4 x the longest id + 64) or whose id holds a control character is an `ArgumentException`; the cockpit queries reject a control character (NUL included) in the tenant id, process id, stage or instance id, on their own paths only; tests for `MXwA`, an over-long cursor and the longest real cursor
+- [x] R2: tenant isolation tests with the same instance and parent ids in both tenants, and the shape that catches a dropped tenant filter in a recursion; each of the eight tenant filters proven by mutation
+- [x] R3: `GetCaseAsync` is proven to be one read-only repeatable-read snapshot (interleaved commit through the `AfterCaseSummaries` test seam, and the transaction settings read inside the transaction), both proven by mutation
+- [x] R4: depth boundary tests, a suspended instance and an open task at depth 17 (not counted) and at depth 16 (counted), for the root summary, the list, the case descendants and the case tasks
+- [x] R5: every ordering and comparison on an instance id or task id uses `collate "C"`; the list index declares `instance_id collate "C" desc`; reference page and spec sections 4, 6 and 7 say so
+- [x] R6: the limit error names the member `Limit` (`Guard.InRange`) and a test asserts it
+- [x] R7: this file, and the spec section 7 sentence on the status index
+

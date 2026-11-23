@@ -369,10 +369,10 @@ internal sealed class ProcessEngine : IProcessEngine
             Guard.Id(query.ProcessId, nameof(query.ProcessId));
         }
 
-        if (query.Limit is < 1 or > MaxPageSize)
-        {
-            throw new ArgumentOutOfRangeException(nameof(query), query.Limit, "The limit must be between 1 and " + MaxPageSize + ".");
-        }
+        Guard.NoControlCharacters(query.TenantId, nameof(query.TenantId));
+        Guard.NoControlCharacters(query.ProcessId, nameof(query.ProcessId));
+        Guard.NoControlCharacters(query.Stage, nameof(query.Stage));
+        Guard.InRange(query.Limit, 1, MaxPageSize, nameof(query.Limit));
 
         var after = query.After is null ? null : InstanceCursors.Parse(query.After);
         var statuses = query.Statuses is { Count: > 0 } ? query.Statuses.Select(status => (int)status).Distinct().ToArray() : null;
@@ -395,6 +395,8 @@ internal sealed class ProcessEngine : IProcessEngine
             Guard.Id(processId, nameof(processId));
         }
 
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(processId, nameof(processId));
         var rows = await store.CountInstancesAsync(tenantId, processId, rootsOnly, cancellationToken).ConfigureAwait(false);
         return [.. rows.Select(row => new ProcessInstanceCount(row.ProcessId, (ProcessStatus)row.Status, row.Stage, row.Count))];
     }
@@ -404,6 +406,8 @@ internal sealed class ProcessEngine : IProcessEngine
     {
         Guard.Id(tenantId, nameof(tenantId));
         Guard.Id(instanceId, nameof(instanceId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(instanceId, nameof(instanceId));
         var row = await store.GetCaseAsync(tenantId, instanceId, cancellationToken).ConfigureAwait(false);
         if (row is null)
         {
@@ -423,6 +427,8 @@ internal sealed class ProcessEngine : IProcessEngine
     {
         Guard.Id(tenantId, nameof(tenantId));
         Guard.Id(instanceId, nameof(instanceId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(instanceId, nameof(instanceId));
         var rows = await store.ListChildrenAsync(tenantId, instanceId, cancellationToken).ConfigureAwait(false);
         return [.. rows.Select(ToSummary)];
     }
