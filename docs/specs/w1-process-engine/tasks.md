@@ -9,4 +9,4 @@
 - [x] Tests: conformance file, interpreter branches, state round trip, determinism, reference outreach process, provenance
 - [x] Architecture tests: purity scan includes the new library, reference coupling of the new library
 - [x] Docs: `docs/reference/brain-process-v1.md`, architecture overview, changelog, README
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate (verifier found 9 conformance defects; repaired and re-run green)
