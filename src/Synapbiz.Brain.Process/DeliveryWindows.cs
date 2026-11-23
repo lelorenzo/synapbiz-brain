@@ -12,9 +12,10 @@ public static class DeliveryWindows
 
     /// <summary>
     /// <paramref name="now"/> (in UTC) when the window is open at <paramref name="now"/>, else the next instant at which it
-    /// opens (in UTC). The window is evaluated on the local wall clock. An opening time that falls inside a daylight saving gap
-    /// opens at the end of the gap; an opening time that occurs twice opens at its first occurrence; a day on which the window
-    /// does not exist any more because a gap swallows it is skipped.
+    /// opens (in UTC). On each listed local day the window is the interval from its opening instant, inclusive, to its closing
+    /// instant, exclusive. The instant of a local time that occurs twice is its first occurrence; the instant of a local time
+    /// inside a daylight saving gap is the end of the gap; a window whose two instants coincide (a gap swallows it) is empty that
+    /// day. A window that spans a repeated hour stays open through both passes; one that closes inside it closes on the first pass.
     /// </summary>
     /// <param name="now">The instant to start from.</param>
     /// <param name="zone">The time zone whose wall clock the window is read on.</param>
@@ -39,13 +40,9 @@ public static class DeliveryWindows
         }
 
         var instant = now.ToUniversalTime();
-        if (IsOpen(instant, zone, days, opens, closes))
-        {
-            return instant;
-        }
-
         var today = LocalTimes.Local(instant, zone).Date;
-        for (var offset = -1; offset < SearchDays; offset++)
+        DateTimeOffset? earliest = null;
+        for (var offset = -2; offset < SearchDays; offset++)
         {
             var day = today.AddDays(offset);
             if (!days.Contains(day.DayOfWeek))
@@ -53,14 +50,22 @@ public static class DeliveryWindows
                 continue;
             }
 
-            var opening = LocalTimes.ToInstant(zone, day.ToDateTime(TimeOnly.MinValue) + opens);
-            if (opening > instant && IsOpen(opening, zone, days, opens, closes))
+            // The window of the day is the interval between two instants; a repeated local time stands for its first occurrence.
+            var midnight = day.ToDateTime(TimeOnly.MinValue);
+            var opening = LocalTimes.ToInstant(zone, midnight + opens);
+            var closing = LocalTimes.ToInstant(zone, midnight + closes);
+            if (opening <= instant && instant < closing)
             {
-                return opening;
+                return instant;
+            }
+
+            if (opening > instant && opening < closing && (earliest is null || opening < earliest))
+            {
+                earliest = opening;
             }
         }
 
-        throw new InvalidOperationException("The window never opens.");
+        return earliest ?? throw new InvalidOperationException("The window never opens.");
     }
 
     /// <summary>
@@ -70,10 +75,4 @@ public static class DeliveryWindows
     /// </summary>
     /// <param name="text">The text to check; null is not a zone id.</param>
     public static bool IsZoneIdShape(string? text) => LocalTimes.IsZoneIdShape(text);
-
-    private static bool IsOpen(DateTimeOffset instant, TimeZoneInfo zone, IReadOnlyList<DayOfWeek> days, TimeSpan opens, TimeSpan closes)
-    {
-        var (_, timeOfDay, day) = LocalTimes.Local(instant, zone);
-        return days.Contains(day) && timeOfDay >= opens && timeOfDay < closes;
-    }
 }

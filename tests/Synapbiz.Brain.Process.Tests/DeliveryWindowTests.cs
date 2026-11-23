@@ -116,10 +116,11 @@ public sealed class DeliveryWindowTests
 
         // 7 November 2027 is a Sunday: 01:30 is 05:30 UTC (daylight) and 06:30 UTC (standard).
         Open(Zones.Utc(2027, 11, 7, 4), sunday, new TimeOnly(1, 30), new TimeOnly(5, 0)).Should().Be(Zones.Utc(2027, 11, 7, 5, 30));
-        // In the second pass the wall clock reads 01:45: open. At 01:15 on the second pass it is not yet 01:30: closed, and the first occurrence has passed.
+        // The window is the interval from the first 01:30 (05:30 UTC): it stays open through the second pass of the hour, also at 01:15 on it.
         var second = Zones.Utc(2027, 11, 7, 6, 45);
         Open(second, sunday, new TimeOnly(1, 30), new TimeOnly(5, 0)).Should().Be(second);
-        Open(Zones.Utc(2027, 11, 7, 6, 15), sunday, new TimeOnly(1, 30), new TimeOnly(5, 0)).Should().Be(Zones.Utc(2027, 11, 14, 6, 30));
+        var early = Zones.Utc(2027, 11, 7, 6, 15);
+        Open(early, sunday, new TimeOnly(1, 30), new TimeOnly(5, 0)).Should().Be(early);
     }
 
     [Fact]
