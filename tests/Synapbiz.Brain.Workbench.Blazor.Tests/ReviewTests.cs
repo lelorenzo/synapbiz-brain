@@ -224,11 +224,11 @@ public sealed class ReviewTests
             var parsed = RuleReviewJson.Parse(file.Json);
             parsed.IsValid.Should().BeTrue();
             parsed.Review.Should().BeEquivalentTo(file.Review);
-            file.Review.Reviewer.Should().Be("Reviewer One");
+            file.Review!.Reviewer.Should().Be("Reviewer One");
             file.Review.CreatedAt.Should().Be(Fx.Moment);
         }
 
-        var readiness = files[0].Review;
+        var readiness = files[0].Review!;
         readiness.RuleId.Should().Be("readiness-notes");
         readiness.RuleVersion.Should().Be(3);
         readiness.RuleContentHash.Should().Be(RuleReviewJson.ContentHash(Fx.TextOf("readiness")));
@@ -248,7 +248,7 @@ public sealed class ReviewTests
             ["score"] = DecisionValue.Integer(50),
         });
 
-        var unique = files[1].Review;
+        var unique = files[1].Review!;
         unique.RuleContentHash.Should().Be(RuleReviewJson.ContentHash(Fx.TextOf("intake.unique")));
         unique.Items.Should().ContainSingle().Which.Should().Be(new ReviewItem("row:phone-any-urgency", ReviewState.Question, "Why should phone win?"));
         unique.ProposedCases.Should().BeEmpty();
@@ -281,7 +281,7 @@ public sealed class ReviewTests
         harness.Type("Your name", "Reviewer One");
         harness.Press("Export the review");
 
-        var cases = harness.Exports[0].Files[0].Review.ProposedCases;
+        var cases = harness.Exports[0].Files[0].Review!.ProposedCases;
         cases.Select(item => (item.Name, item.ExpectNoDecision, item.ExpectedRowId)).Should().Equal(
             ("Phone first", true, null),
             ("Pinned", false, "urgent-phone"));
@@ -307,7 +307,7 @@ public sealed class ReviewTests
         harness.Type("Your name", "Reviewer One");
         harness.Press("Export the review");
 
-        harness.Exports[0].Files[0].Review.Items.Should().ContainSingle().Which.Should().Be(new ReviewItem("row:late-stage", ReviewState.Unreviewed, "Only a note."));
+        harness.Exports[0].Files[0].Review!.Items.Should().ContainSingle().Which.Should().Be(new ReviewItem("row:late-stage", ReviewState.Unreviewed, "Only a note."));
     }
 
     [Fact]
@@ -400,7 +400,7 @@ public sealed class ReviewTests
         harness.Find(".wb-detail").TextContent.Should().NotContain("engine code");
         harness.Press("Export the review");
 
-        var item = harness.Exports[0].Files[0].Review.Items.Should().ContainSingle().Subject;
+        var item = harness.Exports[0].Files[0].Review!.Items.Should().ContainSingle().Subject;
         item.Target.Should().Be("rule");
         item.State.Should().Be(ReviewState.NeedsFix);
         item.Note.Should().Be("Both rows match.\n(engine code: decisions.evaluation.multiple_matches)");
@@ -426,7 +426,7 @@ public sealed class ReviewTests
         harness.Exports.Should().BeEmpty();
         harness.Find(".wb-card-head .wb-rv").QuerySelectorAll("button")[0].Click();
         harness.Press("Export the review");
-        harness.Exports[0].Files[0].Review.Items[0].Note.Should().Be("(engine code: decisions.evaluation.multiple_matches)");
+        harness.Exports[0].Files[0].Review!.Items[0].Note.Should().Be("(engine code: decisions.evaluation.multiple_matches)");
     }
 
     [Fact]
@@ -450,7 +450,7 @@ public sealed class ReviewTests
         table.QuerySelectorAll("b, i, script").Should().BeEmpty();
         harness.Type("Your name", "Reviewer One");
         harness.Press("Export the review");
-        harness.Exports[0].Files[0].Review.Items[0].Note.Should().Be("<b>bold</b> & <script>x</script>");
+        harness.Exports[0].Files[0].Review!.Items[0].Note.Should().Be("<b>bold</b> & <script>x</script>");
     }
 
     [Fact]

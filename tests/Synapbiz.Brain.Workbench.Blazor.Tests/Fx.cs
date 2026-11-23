@@ -146,6 +146,20 @@ internal static class Fx
         };
     }
 
+    /// <summary>A fixture the host lets the reviewer propose changes to: its loader is the real one, with the fixture's contract.</summary>
+    internal static WorkbenchRule Editable(string name, WorkbenchLocale locale = WorkbenchLocale.En, string? key = null, BrainContract? contract = null)
+    {
+        var loading = contract ?? ContractOf(name);
+        return Rule(name, locale, key) with { LoadDraft = text => BrainRuleLoader.Load(text, [loading]) };
+    }
+
+    /// <summary>A rule read from text the host lets the reviewer propose changes to; <paramref name="draftContract"/> is the contract its loader uses for drafts.</summary>
+    internal static WorkbenchRule EditableText(string name, string text, WorkbenchLocale locale = WorkbenchLocale.En, BrainContract? draftContract = null)
+    {
+        var loading = draftContract ?? ContractOf(name);
+        return FromText(name, text, null, locale) with { LoadDraft = draft => BrainRuleLoader.Load(draft, [loading]) };
+    }
+
     /// <summary>Every fixture in one list, the intake ones grouped under a heading.</summary>
     internal static List<WorkbenchRule> All(WorkbenchLocale locale = WorkbenchLocale.En) =>
     [

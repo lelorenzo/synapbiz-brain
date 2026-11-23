@@ -233,6 +233,6 @@ public sealed class StringsTests
     {
         var names = typeof(RuleWorkbench).Assembly.GetExportedTypes().Select(type => type.Name).Order(StringComparer.Ordinal);
         names.Should().Equal(
-            "RuleApprovalState", "RuleWorkbench", "WorkbenchExport", "WorkbenchExportFile", "WorkbenchRule", "WorkbenchSession", "WorkbenchStrings", "WorkbenchTab");
+            "RuleApprovalState", "RuleWorkbench", "WorkbenchExport", "WorkbenchExportFile", "WorkbenchOutcomeText", "WorkbenchRule", "WorkbenchSession", "WorkbenchStrings", "WorkbenchTab");
     }
 }
