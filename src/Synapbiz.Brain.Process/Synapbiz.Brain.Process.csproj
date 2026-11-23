@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Synapbiz.Brain.Process</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Process</AssemblyName>
+    <PackageId>Synapbiz.Brain.Process</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>brain.process@1 documents for the Brain workflow engine: schema, validation, loading, the pure process interpreter and the scenario runner.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Schemas/brain.process.v1.json" />
+  </ItemGroup>
+
+</Project>

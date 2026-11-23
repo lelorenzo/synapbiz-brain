@@ -6,7 +6,8 @@
     <RootNamespace>Synapbiz.Brain.Workbench.Demo</RootNamespace>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!-- An SDK 10 that builds this net9.0 host does not restore the framework script of the interactive server render mode; an SDK 9 brings it by itself. -->
+  <ItemGroup Condition="$([MSBuild]::VersionGreaterThanOrEquals('$(NETCoreSdkVersion)', '10.0'))">
     <PackageReference Include="Microsoft.AspNetCore.App.Internal.Assets" />
   </ItemGroup>
 
