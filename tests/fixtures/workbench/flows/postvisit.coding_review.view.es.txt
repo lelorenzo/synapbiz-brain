@@ -1,0 +1,57 @@
+flow postvisit.coding_review v1
+title: Revisión de codificación posterior a la visita
+start: read_note
+stage postvisit: Después de la visita
+step read_note [Lectura] Leer los datos de la nota
+  stage: Después de la visita
+  does: Lee información de `records.note_facts`. Envía `case_ref`. Guarda `flagged` y `items`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 3 intentos en total.
+  next: Si sale bien: ir a Buscar oportunidades de codificación
+  onError: Si falla: ir a Revisión del médico
+  onNotAvailable: Si la conexión no está disponible: ir a Revisión del médico
+step find_opportunities [Decisión] Buscar oportunidades de codificación
+  stage: Después de la visita
+  does: Decide con la regla `postvisit.opportunities` usando `flagged` y `items`. Cada resultado que coincide se guarda en `opportunities`.
+  next: Después: ir a Decidir si se consulta al asistente
+  onNoDecision: Si la regla no da resultado: ir a Revisión del médico
+  onError: Si no se puede aplicar la regla: ir a Revisión del médico
+step assist_gate [Decisión] Decidir si se consulta al asistente
+  stage: Después de la visita
+  does: Decide con la regla `postvisit.assist_gate` usando `assist_enabled` y `items`. El campo de resultado `use` indica adónde va el flujo.
+  on:no: Si `use` es no: ir a Revisión del médico
+  on:yes: Si `use` es yes: ir a Consultar al asistente
+  onNoDecision: Si la regla no da resultado: ir a Revisión del médico
+  onError: Si no se puede aplicar la regla: ir a Revisión del médico
+step suggest [Respuesta de IA] Consultar al asistente
+  stage: Después de la visita
+  does: Consulta a un modelo de IA (`model-a`, instrucción `coding-suggest` versión 1) mediante `assist.suggest`. Envía `case_ref` y `opportunities`. Guarda `suggested_code` y `confidence`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 2 intentos en total. A continuación la regla `postvisit.suggestion_check` juzga la respuesta.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia
+  onError: Si falla: ir a Revisión del médico
+  onNotAvailable: Si la conexión no está disponible: ir a Revisión del médico
+  onInvalid: Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+  ai input: case_ref, opportunities
+  ai input schema: {"properties":{"case":{"type":"string"},"opportunities":{"type":"array"}},"required":["case","opportunities"],"type":"object"}
+  ai output schema: {"additionalProperties":false,"properties":{"code":{"pattern":"^C-[0-9]{3}$","type":"string"},"confidence":{"type":"integer"}},"required":["code"],"type":"object"}
+  ai fills: suggested_code, confidence
+  ai judged by: postvisit.suggestion_check
+  ai note: El modelo y la instrucción están fijados en el documento: `model-a`, instrucción `coding-suggest` versión 1.
+  ai note: Tiene 2 intentos para dar una respuesta que cumpla la forma esperada.
+  ai note: A continuación la regla `postvisit.suggestion_check` juzga la respuesta.
+  ai note: Cuando la respuesta nunca cumple la forma, la llamada falla o la IA no está disponible, el flujo no se detiene: sigue en Revisión del médico.
+step check_suggestion [Decisión] Comprobar la sugerencia
+  stage: Después de la visita
+  does: Decide con la regla `postvisit.suggestion_check` usando `confidence`. Guarda `suggestion_usable`.
+  next: Después: ir a Revisión del médico
+  onNoDecision: Si la regla no da resultado: ir a Revisión del médico
+  onError: Si no se puede aplicar la regla: ir a Revisión del médico
+step physician_review [Tarea para una persona] Revisión del médico
+  stage: Después de la visita
+  does: Entrega una tarea a la cola Revisión médica. Una persona elige Aprobada, Modificada o Rechazada. La persona ve `case_ref`, `opportunities`, `suggested_code`, `confidence` y `suggestion_usable`. Guarda `final_code`.
+  on:approved: Si la persona elige Aprobada: ir a Codificación aprobada
+  on:changed: Si la persona elige Modificada: ir a Codificación aprobada
+  on:rejected: Si la persona elige Rechazada: ir a Codificación rechazada
+step approved [Fin] Codificación aprobada
+  stage: Después de la visita
+  does: Cierra el caso con el resultado Codificación aprobada.
+step rejected [Fin] Codificación rechazada
+  stage: Después de la visita
+  does: Cierra el caso con el resultado Codificación rechazada.

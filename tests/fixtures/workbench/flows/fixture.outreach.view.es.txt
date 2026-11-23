@@ -1,0 +1,50 @@
+flow previsit.outreach v1
+title: previsit outreach
+start: cycle
+stage previsit: previsit
+step cycle [Repetición] cycle
+  stage: previsit
+  does: Se repite hasta 2 veces.
+  body: En cada vuelta: ir a check
+  onExhausted: Si se agotan las vueltas: ir a escalate final
+step check [Lectura] check
+  stage: -
+  does: Lee información de `intake.status`. Envía `case_ref`. Guarda `missing`.
+  next: Si sale bien: ir a assess
+  onError: Si falla: ir a escalate
+step assess [Decisión] assess
+  stage: -
+  does: Decide con la regla `previsit.missing_items` usando `missing`. El campo de resultado `action` indica adónde va el flujo.
+  on:none: Si `action` es none: ir a done
+  on:remind: Si `action` es remind: ir a send
+  onNoDecision: Si la regla no da resultado: ir a escalate
+  onError: Si no se puede aplicar la regla: ir a escalate
+step send [Acción] send
+  stage: -
+  does: Pide a `messaging.notice` que haga algo. Nunca se envía dos veces. Envía `case_ref` y `missing`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 3 intentos en total.
+  next: Si sale bien: ir a reply
+  onError: Si falla: ir a escalate
+  onUnknown: Si no se sabe si salió: ir a escalate
+step reply [Espera de un evento] reply
+  stage: -
+  does: Espera el evento `form_submitted`. Solo cuenta el evento que trae el mismo `case_ref`.
+  next: Cuando llega el evento: ir a cycle
+  onTimeout: Si no llega respuesta en 1 día: ir a cycle
+step escalate [Tarea para una persona] escalate
+  stage: -
+  does: Entrega una tarea a la cola front desk. Una persona elige resolved o unreachable. La persona ve `case_ref` y `missing`.
+  on:resolved: Si la persona elige resolved: ir a cycle
+  on:unreachable: Si la persona elige unreachable: ir a closed
+  onTimeout: Si no llega respuesta en 3 días: ir a closed
+step escalate_final [Tarea para una persona] escalate final
+  stage: -
+  does: Entrega una tarea a la cola front desk. Una persona elige resolved o unreachable. La persona ve `case_ref` y `missing`.
+  on:resolved: Si la persona elige resolved: ir a done
+  on:unreachable: Si la persona elige unreachable: ir a closed
+  onTimeout: Si no llega respuesta en 3 días: ir a closed
+step done [Fin] done
+  stage: -
+  does: Cierra el caso con el resultado ready.
+step closed [Fin] closed
+  stage: -
+  does: Cierra el caso con el resultado unreachable.

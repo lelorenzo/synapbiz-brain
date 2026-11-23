@@ -1,0 +1,24 @@
+flow notice.followup v1
+title: notice followup
+start: send
+stage notice: notice
+step send [Action] send
+  stage: notice
+  does: Asks `messaging.notice` to do something. It contacts a person. It only goes out inside the delivery window contact hours. It sends `case_ref`. If the call fails for a passing reason it tries again, up to 2 attempts in all.
+  next: When it succeeds: go to await reply
+  onError: If it fails: go to failed
+step await_reply [Repeated read] await reply
+  stage: -
+  does: Reads `intake.replies` again and again until `state` is `answered`. It reads after 1 hour and doubles the wait each time, for at most 6 hours. The wait never grows beyond 4 hours. It sends `case_ref` and `replies`. It keeps `replies`.
+  next: When the answer says it is done: go to done
+  onError: If it fails: go to failed
+  onExpired: If the time runs out: go to expired
+step done [End] done
+  stage: -
+  does: Ends the case with the result answered.
+step expired [End] expired
+  stage: -
+  does: Ends the case with the result expired.
+step failed [End] failed
+  stage: -
+  does: Ends the case with the result failed.

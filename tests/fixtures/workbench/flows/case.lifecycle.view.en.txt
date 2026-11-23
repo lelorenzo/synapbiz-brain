@@ -1,0 +1,75 @@
+flow case.lifecycle v1
+title: Case lifecycle
+start: zone_check
+stage previsit: Before the visit
+stage visit: Visit
+stage postvisit: After the visit
+stage collection: Collection
+step zone_check [Decision] Check the zone of the case
+  stage: Before the visit
+  does: Judges with the rule `lifecycle.zone_ready` using `practice_zone`. The result field `ready` says where the flow goes.
+  on:yes: If `ready` is yes: go to Pre-visit stage
+  onNoDecision: If the rule gives no result: go to Operations: zone missing
+  onError: If the rule cannot be applied: go to Operations: zone missing
+step previsit [Child process] Pre-visit stage
+  stage: Before the visit
+  does: Starts the process `previsit.outreach` and waits until it ends. It sends `case_ref` and `practice_zone`. It keeps `missing_at_close`.
+  on:previsit_closed: If the process ends with previsit closed: go to Visit stage
+  on:previsit_unreachable: If the process ends with previsit unreachable: go to Visit stage
+  onError: If the process fails: go to Operations: pre-visit problem
+step visit [Child process] Visit stage
+  stage: Visit
+  does: Starts the process `visit.note_wait` and waits until it ends. It sends `case_ref`.
+  on:note_signed: If the process ends with note signed: go to Post-visit stage
+  on:visit_cancelled: If the process ends with visit cancelled: go to Closed, no visit
+  onError: If the process fails: go to Operations: visit problem
+step postvisit [Child process] Post-visit stage
+  stage: After the visit
+  does: Starts the process `postvisit.coding_review` and waits until it ends. It sends `assist_enabled` and `case_ref`.
+  on:coding_approved: If the process ends with coding approved: go to Collection stage
+  on:coding_rejected: If the process ends with coding rejected: go to Closed, not billed
+  onError: If the process fails: go to Operations: post-visit problem
+step collection [Child process] Collection stage
+  stage: Collection
+  does: Starts the process `collection.followup` and waits until it ends. It sends `case_ref`.
+  on:collected: If the process ends with collected: go to Collected
+  on:manual_close: If the process ends with manual close: go to Closed by a person
+  on:written_off: If the process ends with written off: go to Written off
+  onError: If the process fails: go to Operations: collection problem
+step ops_zone [Task for a person] Operations: zone missing
+  stage: Before the visit
+  does: Gives a task to the queue Operations. A person chooses Continue or Close the case. The person sees `case_ref`.
+  on:close: If the person chooses Close the case: go to Closed by a person
+  on:continue: If the person chooses Continue: go to Visit stage
+step ops_previsit [Task for a person] Operations: pre-visit problem
+  stage: Before the visit
+  does: Gives a task to the queue Operations. A person chooses Continue or Close the case. The person sees `case_ref`.
+  on:close: If the person chooses Close the case: go to Closed by a person
+  on:continue: If the person chooses Continue: go to Visit stage
+step ops_visit [Task for a person] Operations: visit problem
+  stage: Visit
+  does: Gives a task to the queue Operations. A person chooses Close the case. The person sees `case_ref` and `missing_at_close`.
+  on:close: If the person chooses Close the case: go to Closed by a person
+step ops_postvisit [Task for a person] Operations: post-visit problem
+  stage: After the visit
+  does: Gives a task to the queue Operations. A person chooses Close the case. The person sees `case_ref`.
+  on:close: If the person chooses Close the case: go to Closed by a person
+step ops_collection [Task for a person] Operations: collection problem
+  stage: Collection
+  does: Gives a task to the queue Operations. A person chooses Close the case. The person sees `case_ref`.
+  on:close: If the person chooses Close the case: go to Closed by a person
+step collected [End] Collected
+  stage: Collection
+  does: Ends the case with the result Collected.
+step written_off [End] Written off
+  stage: Collection
+  does: Ends the case with the result Written off.
+step closed_no_visit [End] Closed, no visit
+  stage: Visit
+  does: Ends the case with the result Closed, no visit.
+step closed_not_billed [End] Closed, not billed
+  stage: After the visit
+  does: Ends the case with the result Closed, not billed.
+step manual_close [End] Closed by a person
+  stage: Collection
+  does: Ends the case with the result Closed by a person.

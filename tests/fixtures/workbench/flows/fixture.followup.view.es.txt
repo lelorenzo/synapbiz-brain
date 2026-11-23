@@ -1,0 +1,24 @@
+flow notice.followup v1
+title: notice followup
+start: send
+stage notice: notice
+step send [Acción] send
+  stage: notice
+  does: Pide a `messaging.notice` que haga algo. Contacta a una persona. Solo sale dentro de la ventana de envío contact hours. Envía `case_ref`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 2 intentos en total.
+  next: Si sale bien: ir a await reply
+  onError: Si falla: ir a failed
+step await_reply [Lectura repetida] await reply
+  stage: -
+  does: Lee `intake.replies` una y otra vez hasta que `state` sea `answered`. Lee tras 1 hora y duplica la espera cada vez, durante 6 horas como máximo. La espera nunca supera 4 horas. Envía `case_ref` y `replies`. Guarda `replies`.
+  next: Cuando la respuesta indica que terminó: ir a done
+  onError: Si falla: ir a failed
+  onExpired: Si se acaba el tiempo: ir a expired
+step done [Fin] done
+  stage: -
+  does: Cierra el caso con el resultado answered.
+step expired [Fin] expired
+  stage: -
+  does: Cierra el caso con el resultado expired.
+step failed [Fin] failed
+  stage: -
+  does: Cierra el caso con el resultado failed.

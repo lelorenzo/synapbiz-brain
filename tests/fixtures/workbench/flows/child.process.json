@@ -1,0 +1,69 @@
+{
+  "$spec": "brain.process@1",
+  "id": "flow.child",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": {
+    "title": "Child step of a batch",
+    "display": {
+      "en": {
+        "title": "Batch child",
+        "steps": {
+          "finish": "Finish"
+        },
+        "results": {
+          "done": "Done"
+        }
+      },
+      "es": {
+        "title": "Hijo del lote",
+        "steps": {
+          "finish": "Terminar"
+        },
+        "results": {
+          "done": "Hecho"
+        }
+      }
+    }
+  },
+  "body": {
+    "subject": "batch",
+    "stages": [],
+    "variables": {
+      "item_ref": {
+        "type": "Json",
+        "input": true
+      }
+    },
+    "start": "finish",
+    "steps": {
+      "finish": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": [
+      {
+        "name": "the child ends at once",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": {
+            "item_ref": {
+              "id": "a-1"
+            }
+          }
+        },
+        "events": [],
+        "expect": {
+          "status": "Completed",
+          "result": "done",
+          "trace": [
+            "finish"
+          ]
+        }
+      }
+    ]
+  }
+}

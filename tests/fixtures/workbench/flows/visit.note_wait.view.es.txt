@@ -1,0 +1,28 @@
+flow visit.note_wait v1
+title: Espera de la nota de la visita
+start: await_note
+stage visit: Visita
+step await_note [Lectura repetida] Esperar la nota firmada
+  stage: Visita
+  does: Lee `records.note_status` una y otra vez hasta que `ready` sea `yes`. Lee tras 1 hora y duplica la espera cada vez, durante 2 días como máximo. La espera nunca supera 8 horas. Envía `case_ref` y `note_status`. Guarda `note_status`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 3 intentos en total.
+  next: Cuando la respuesta indica que terminó: ir a Nota firmada
+  onError: Si falla: ir a Reclamar la nota
+  onNotAvailable: Si la conexión no está disponible: ir a Confirmar la nota
+  onNotEntitled: Si el plan no lo incluye: ir a Confirmar la nota
+  onExpired: Si se acaba el tiempo: ir a Reclamar la nota
+step chase_note [Tarea para una persona] Reclamar la nota
+  stage: Visita
+  does: Entrega una tarea a la cola Seguimiento de notas. Una persona elige Firmada o Sin visita. La persona ve `case_ref` y `note_status`.
+  on:no_visit: Si la persona elige Sin visita: ir a Visita cancelada
+  on:signed: Si la persona elige Firmada: ir a Nota firmada
+step confirm_note [Tarea para una persona] Confirmar la nota
+  stage: Visita
+  does: Entrega una tarea a la cola Confirmación de notas. Una persona elige Firmada o Sin visita. La persona ve `case_ref`.
+  on:no_visit: Si la persona elige Sin visita: ir a Visita cancelada
+  on:signed: Si la persona elige Firmada: ir a Nota firmada
+step signed [Fin] Nota firmada
+  stage: Visita
+  does: Cierra el caso con el resultado Nota firmada.
+step cancelled [Fin] Visita cancelada
+  stage: Visita
+  does: Cierra el caso con el resultado Visita cancelada.

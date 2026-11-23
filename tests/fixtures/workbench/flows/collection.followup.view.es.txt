@@ -1,0 +1,68 @@
+flow collection.followup v1
+title: Seguimiento de cobro
+start: await_submitted
+stage collection: Cobro
+step await_submitted [Espera de un evento] Esperar el envío del reclamo
+  stage: Cobro
+  does: Espera el evento `claim.submitted`. Solo cuenta el evento que trae el mismo `case_ref`.
+  next: Cuando llega el evento: ir a Ronda de consulta de estado
+  onTimeout: Si no llega respuesta en 10 días: ir a Reclamo atrasado
+step overdue [Tarea para una persona] Reclamo atrasado
+  stage: Cobro
+  does: Entrega una tarea a la cola Seguimiento de facturación. Una persona elige Enviado o Cerrar a mano. La persona ve `case_ref`.
+  on:manual_close: Si la persona elige Cerrar a mano: ir a Cerrado por una persona
+  on:submitted: Si la persona elige Enviado: ir a Ronda de consulta de estado
+step cycle [Repetición] Ronda de consulta de estado
+  stage: Cobro
+  does: Se repite hasta 3 veces.
+  body: En cada vuelta: ir a Consultar el estado del reclamo
+  onExhausted: Si se agotan las vueltas: ir a Consultas agotadas
+step poll_claim [Lectura repetida] Consultar el estado del reclamo
+  stage: Cobro
+  does: Lee `claims.status` una y otra vez hasta que `progress` sea `settled`. Lee tras 1 día y duplica la espera cada vez, durante 30 días como máximo. La espera nunca supera 7 días. Envía `case_ref` y `claim_status`. Guarda `claim_status`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 3 intentos en total.
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado
+  onError: Si falla: ir a Reclamo detenido
+  onNotAvailable: Si la conexión no está disponible: ir a Confirmar el pago
+  onNotEntitled: Si el plan no lo incluye: ir a Confirmar el pago
+  onExpired: Si se acaba el tiempo: ir a Reclamo detenido
+step route_claim [Decisión] Encaminar según el estado
+  stage: Cobro
+  does: Decide con la regla `collection.claim_result` usando `claim_status`. El campo de resultado `result` indica adónde va el flujo.
+  on:denied: Si `result` es denied: ir a Atender la denegación
+  on:paid: Si `result` es paid: ir a Cobrado
+  on:pending: Si `result` es pending: ir a Esperar el saldo
+  onNoDecision: Si la regla no da resultado: ir a Reclamo detenido
+  onError: Si no se puede aplicar la regla: ir a Reclamo detenido
+step denial [Tarea para una persona] Atender la denegación
+  stage: Cobro
+  does: Entrega una tarea a la cola Denegaciones. Una persona elige Reenviado o Dado de baja. La persona ve `case_ref` y `claim_status`.
+  on:resubmitted: Si la persona elige Reenviado: ir a Ronda de consulta de estado
+  on:written_off: Si la persona elige Dado de baja: ir a Dado de baja
+step balance_wait [Temporizador] Esperar el saldo
+  stage: Cobro
+  does: Espera 7 días.
+  next: Cuando llega la hora: ir a Ronda de consulta de estado
+step stalled [Tarea para una persona] Reclamo detenido
+  stage: Cobro
+  does: Entrega una tarea a la cola Seguimiento de facturación. Una persona elige Seguir esperando o Cerrar a mano. La persona ve `case_ref` y `claim_status`.
+  on:keep_waiting: Si la persona elige Seguir esperando: ir a Ronda de consulta de estado
+  on:manual_close: Si la persona elige Cerrar a mano: ir a Cerrado por una persona
+step exhausted [Tarea para una persona] Consultas agotadas
+  stage: Cobro
+  does: Entrega una tarea a la cola Seguimiento de facturación. Una persona elige Dado de baja o Cerrar a mano. La persona ve `case_ref` y `claim_status`.
+  on:manual_close: Si la persona elige Cerrar a mano: ir a Cerrado por una persona
+  on:written_off: Si la persona elige Dado de baja: ir a Dado de baja
+step confirm [Tarea para una persona] Confirmar el pago
+  stage: Cobro
+  does: Entrega una tarea a la cola Confirmación de facturación. Una persona elige Pagado o Dado de baja. La persona ve `case_ref`.
+  on:paid: Si la persona elige Pagado: ir a Cobrado
+  on:written_off: Si la persona elige Dado de baja: ir a Dado de baja
+step collected [Fin] Cobrado
+  stage: Cobro
+  does: Cierra el caso con el resultado Cobrado.
+step written_off [Fin] Dado de baja
+  stage: Cobro
+  does: Cierra el caso con el resultado Dado de baja.
+step closed_manual [Fin] Cerrado por una persona
+  stage: Cobro
+  does: Cierra el caso con el resultado Cerrado por una persona.

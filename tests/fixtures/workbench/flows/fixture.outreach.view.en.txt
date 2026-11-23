@@ -1,0 +1,50 @@
+flow previsit.outreach v1
+title: previsit outreach
+start: cycle
+stage previsit: previsit
+step cycle [Repetition] cycle
+  stage: previsit
+  does: Repeats up to 2 times.
+  body: For each round: go to check
+  onExhausted: If the rounds run out: go to escalate final
+step check [Read] check
+  stage: -
+  does: Reads information from `intake.status`. It sends `case_ref`. It keeps `missing`.
+  next: When it succeeds: go to assess
+  onError: If it fails: go to escalate
+step assess [Decision] assess
+  stage: -
+  does: Judges with the rule `previsit.missing_items` using `missing`. The result field `action` says where the flow goes.
+  on:none: If `action` is none: go to done
+  on:remind: If `action` is remind: go to send
+  onNoDecision: If the rule gives no result: go to escalate
+  onError: If the rule cannot be applied: go to escalate
+step send [Action] send
+  stage: -
+  does: Asks `messaging.notice` to do something. It is never sent twice. It sends `case_ref` and `missing`. If the call fails for a passing reason it tries again, up to 3 attempts in all.
+  next: When it succeeds: go to reply
+  onError: If it fails: go to escalate
+  onUnknown: If it is not known whether it went out: go to escalate
+step reply [Wait for an event] reply
+  stage: -
+  does: Waits for the event `form_submitted`. Only the event that carries the same `case_ref` counts.
+  next: When the event arrives: go to cycle
+  onTimeout: If no answer arrives within 1 day: go to cycle
+step escalate [Task for a person] escalate
+  stage: -
+  does: Gives a task to the queue front desk. A person chooses resolved or unreachable. The person sees `case_ref` and `missing`.
+  on:resolved: If the person chooses resolved: go to cycle
+  on:unreachable: If the person chooses unreachable: go to closed
+  onTimeout: If no answer arrives within 3 days: go to closed
+step escalate_final [Task for a person] escalate final
+  stage: -
+  does: Gives a task to the queue front desk. A person chooses resolved or unreachable. The person sees `case_ref` and `missing`.
+  on:resolved: If the person chooses resolved: go to done
+  on:unreachable: If the person chooses unreachable: go to closed
+  onTimeout: If no answer arrives within 3 days: go to closed
+step done [End] done
+  stage: -
+  does: Ends the case with the result ready.
+step closed [End] closed
+  stage: -
+  does: Ends the case with the result unreachable.

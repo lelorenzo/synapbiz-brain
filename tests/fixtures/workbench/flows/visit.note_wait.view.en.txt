@@ -1,0 +1,28 @@
+flow visit.note_wait v1
+title: Visit note wait
+start: await_note
+stage visit: Visit
+step await_note [Repeated read] Wait for the signed note
+  stage: Visit
+  does: Reads `records.note_status` again and again until `ready` is `yes`. It reads after 1 hour and doubles the wait each time, for at most 2 days. The wait never grows beyond 8 hours. It sends `case_ref` and `note_status`. It keeps `note_status`. If the call fails for a passing reason it tries again, up to 3 attempts in all.
+  next: When the answer says it is done: go to Note signed
+  onError: If it fails: go to Chase the note
+  onNotAvailable: If the connection is not available: go to Confirm the note
+  onNotEntitled: If the plan does not include it: go to Confirm the note
+  onExpired: If the time runs out: go to Chase the note
+step chase_note [Task for a person] Chase the note
+  stage: Visit
+  does: Gives a task to the queue Note follow-up. A person chooses Signed or No visit. The person sees `case_ref` and `note_status`.
+  on:no_visit: If the person chooses No visit: go to Visit cancelled
+  on:signed: If the person chooses Signed: go to Note signed
+step confirm_note [Task for a person] Confirm the note
+  stage: Visit
+  does: Gives a task to the queue Note confirmation. A person chooses Signed or No visit. The person sees `case_ref`.
+  on:no_visit: If the person chooses No visit: go to Visit cancelled
+  on:signed: If the person chooses Signed: go to Note signed
+step signed [End] Note signed
+  stage: Visit
+  does: Ends the case with the result Note signed.
+step cancelled [End] Visit cancelled
+  stage: Visit
+  does: Ends the case with the result Visit cancelled.

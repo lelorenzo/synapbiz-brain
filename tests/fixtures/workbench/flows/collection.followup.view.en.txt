@@ -1,0 +1,68 @@
+flow collection.followup v1
+title: Collection follow-up
+start: await_submitted
+stage collection: Collection
+step await_submitted [Wait for an event] Wait for the claim to be submitted
+  stage: Collection
+  does: Waits for the event `claim.submitted`. Only the event that carries the same `case_ref` counts.
+  next: When the event arrives: go to Status check round
+  onTimeout: If no answer arrives within 10 days: go to Claim overdue
+step overdue [Task for a person] Claim overdue
+  stage: Collection
+  does: Gives a task to the queue Billing follow-up. A person chooses Submitted or Close by hand. The person sees `case_ref`.
+  on:manual_close: If the person chooses Close by hand: go to Closed by a person
+  on:submitted: If the person chooses Submitted: go to Status check round
+step cycle [Repetition] Status check round
+  stage: Collection
+  does: Repeats up to 3 times.
+  body: For each round: go to Check the claim status
+  onExhausted: If the rounds run out: go to Checks used up
+step poll_claim [Repeated read] Check the claim status
+  stage: Collection
+  does: Reads `claims.status` again and again until `progress` is `settled`. It reads after 1 day and doubles the wait each time, for at most 30 days. The wait never grows beyond 7 days. It sends `case_ref` and `claim_status`. It keeps `claim_status`. If the call fails for a passing reason it tries again, up to 3 attempts in all.
+  next: When the answer says it is done: go to Route by claim status
+  onError: If it fails: go to Claim stalled
+  onNotAvailable: If the connection is not available: go to Confirm the payment
+  onNotEntitled: If the plan does not include it: go to Confirm the payment
+  onExpired: If the time runs out: go to Claim stalled
+step route_claim [Decision] Route by claim status
+  stage: Collection
+  does: Judges with the rule `collection.claim_result` using `claim_status`. The result field `result` says where the flow goes.
+  on:denied: If `result` is denied: go to Handle the denial
+  on:paid: If `result` is paid: go to Collected
+  on:pending: If `result` is pending: go to Wait for the balance
+  onNoDecision: If the rule gives no result: go to Claim stalled
+  onError: If the rule cannot be applied: go to Claim stalled
+step denial [Task for a person] Handle the denial
+  stage: Collection
+  does: Gives a task to the queue Denials. A person chooses Resubmitted or Written off. The person sees `case_ref` and `claim_status`.
+  on:resubmitted: If the person chooses Resubmitted: go to Status check round
+  on:written_off: If the person chooses Written off: go to Written off
+step balance_wait [Timer] Wait for the balance
+  stage: Collection
+  does: Waits 7 days.
+  next: When the time comes: go to Status check round
+step stalled [Task for a person] Claim stalled
+  stage: Collection
+  does: Gives a task to the queue Billing follow-up. A person chooses Keep waiting or Close by hand. The person sees `case_ref` and `claim_status`.
+  on:keep_waiting: If the person chooses Keep waiting: go to Status check round
+  on:manual_close: If the person chooses Close by hand: go to Closed by a person
+step exhausted [Task for a person] Checks used up
+  stage: Collection
+  does: Gives a task to the queue Billing follow-up. A person chooses Written off or Close by hand. The person sees `case_ref` and `claim_status`.
+  on:manual_close: If the person chooses Close by hand: go to Closed by a person
+  on:written_off: If the person chooses Written off: go to Written off
+step confirm [Task for a person] Confirm the payment
+  stage: Collection
+  does: Gives a task to the queue Billing confirmation. A person chooses Paid or Written off. The person sees `case_ref`.
+  on:paid: If the person chooses Paid: go to Collected
+  on:written_off: If the person chooses Written off: go to Written off
+step collected [End] Collected
+  stage: Collection
+  does: Ends the case with the result Collected.
+step written_off [End] Written off
+  stage: Collection
+  does: Ends the case with the result Written off.
+step closed_manual [End] Closed by a person
+  stage: Collection
+  does: Ends the case with the result Closed by a person.

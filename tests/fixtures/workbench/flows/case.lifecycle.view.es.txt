@@ -1,0 +1,75 @@
+flow case.lifecycle v1
+title: Ciclo de vida del caso
+start: zone_check
+stage previsit: Antes de la visita
+stage visit: Visita
+stage postvisit: Después de la visita
+stage collection: Cobro
+step zone_check [Decisión] Comprobar la zona del caso
+  stage: Antes de la visita
+  does: Decide con la regla `lifecycle.zone_ready` usando `practice_zone`. El campo de resultado `ready` indica adónde va el flujo.
+  on:yes: Si `ready` es yes: ir a Etapa previa a la visita
+  onNoDecision: Si la regla no da resultado: ir a Operaciones: falta la zona
+  onError: Si no se puede aplicar la regla: ir a Operaciones: falta la zona
+step previsit [Proceso hijo] Etapa previa a la visita
+  stage: Antes de la visita
+  does: Inicia el proceso `previsit.outreach` y espera a que termine. Envía `case_ref` y `practice_zone`. Guarda `missing_at_close`.
+  on:previsit_closed: Si el proceso termina con previsit closed: ir a Etapa de la visita
+  on:previsit_unreachable: Si el proceso termina con previsit unreachable: ir a Etapa de la visita
+  onError: Si el proceso falla: ir a Operaciones: problema previo a la visita
+step visit [Proceso hijo] Etapa de la visita
+  stage: Visita
+  does: Inicia el proceso `visit.note_wait` y espera a que termine. Envía `case_ref`.
+  on:note_signed: Si el proceso termina con note signed: ir a Etapa posterior a la visita
+  on:visit_cancelled: Si el proceso termina con visit cancelled: ir a Cerrado, sin visita
+  onError: Si el proceso falla: ir a Operaciones: problema en la visita
+step postvisit [Proceso hijo] Etapa posterior a la visita
+  stage: Después de la visita
+  does: Inicia el proceso `postvisit.coding_review` y espera a que termine. Envía `assist_enabled` y `case_ref`.
+  on:coding_approved: Si el proceso termina con coding approved: ir a Etapa de cobro
+  on:coding_rejected: Si el proceso termina con coding rejected: ir a Cerrado, sin facturar
+  onError: Si el proceso falla: ir a Operaciones: problema posterior a la visita
+step collection [Proceso hijo] Etapa de cobro
+  stage: Cobro
+  does: Inicia el proceso `collection.followup` y espera a que termine. Envía `case_ref`.
+  on:collected: Si el proceso termina con collected: ir a Cobrado
+  on:manual_close: Si el proceso termina con manual close: ir a Cerrado por una persona
+  on:written_off: Si el proceso termina con written off: ir a Dado de baja
+  onError: Si el proceso falla: ir a Operaciones: problema de cobro
+step ops_zone [Tarea para una persona] Operaciones: falta la zona
+  stage: Antes de la visita
+  does: Entrega una tarea a la cola Operaciones. Una persona elige Continuar o Cerrar el caso. La persona ve `case_ref`.
+  on:close: Si la persona elige Cerrar el caso: ir a Cerrado por una persona
+  on:continue: Si la persona elige Continuar: ir a Etapa de la visita
+step ops_previsit [Tarea para una persona] Operaciones: problema previo a la visita
+  stage: Antes de la visita
+  does: Entrega una tarea a la cola Operaciones. Una persona elige Continuar o Cerrar el caso. La persona ve `case_ref`.
+  on:close: Si la persona elige Cerrar el caso: ir a Cerrado por una persona
+  on:continue: Si la persona elige Continuar: ir a Etapa de la visita
+step ops_visit [Tarea para una persona] Operaciones: problema en la visita
+  stage: Visita
+  does: Entrega una tarea a la cola Operaciones. Una persona elige Cerrar el caso. La persona ve `case_ref` y `missing_at_close`.
+  on:close: Si la persona elige Cerrar el caso: ir a Cerrado por una persona
+step ops_postvisit [Tarea para una persona] Operaciones: problema posterior a la visita
+  stage: Después de la visita
+  does: Entrega una tarea a la cola Operaciones. Una persona elige Cerrar el caso. La persona ve `case_ref`.
+  on:close: Si la persona elige Cerrar el caso: ir a Cerrado por una persona
+step ops_collection [Tarea para una persona] Operaciones: problema de cobro
+  stage: Cobro
+  does: Entrega una tarea a la cola Operaciones. Una persona elige Cerrar el caso. La persona ve `case_ref`.
+  on:close: Si la persona elige Cerrar el caso: ir a Cerrado por una persona
+step collected [Fin] Cobrado
+  stage: Cobro
+  does: Cierra el caso con el resultado Cobrado.
+step written_off [Fin] Dado de baja
+  stage: Cobro
+  does: Cierra el caso con el resultado Dado de baja.
+step closed_no_visit [Fin] Cerrado, sin visita
+  stage: Visita
+  does: Cierra el caso con el resultado Cerrado, sin visita.
+step closed_not_billed [Fin] Cerrado, sin facturar
+  stage: Después de la visita
+  does: Cierra el caso con el resultado Cerrado, sin facturar.
+step manual_close [Fin] Cerrado por una persona
+  stage: Cobro
+  does: Cierra el caso con el resultado Cerrado por una persona.

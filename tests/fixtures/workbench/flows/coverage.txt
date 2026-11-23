@@ -1,0 +1,40 @@
+previsit.outreach: routes 22/22, steps 9/9
+visit.note_wait: routes 9/9, steps 5/5
+postvisit.coding_review: routes 20/20, steps 8/8
+collection.followup: routes 24/25, steps 13/13
+  never: route_claim onError -> stalled
+case.lifecycle: routes 23/23, steps 15/15
+practice.daily_refresh: routes 3/3, steps 4/4
+fixture.outreach: routes 11/19, steps 9/9
+  never: check onError -> escalate
+  never: assess onNoDecision -> escalate
+  never: assess onError -> escalate
+  never: send onError -> escalate
+  never: escalate on:unreachable -> closed
+  never: escalate onTimeout -> closed
+  never: escalate_final on:resolved -> done
+  never: escalate_final onTimeout -> closed
+fixture.followup: routes 5/5, steps 5/5
+fixture.reminder: routes 8/11, steps 7/7
+  never: remind onError -> call_patient
+  never: remind onUnknown -> call_patient
+  never: handle_reply onTimeout -> lapsed
+flow.bare: routes 3/6, steps 4/4
+  never: judge on:high -> fine
+  never: judge on:low -> fine
+  never: judge onNoDecision -> fine
+flow.batch: routes 10/23, steps 9/9
+  never: each onExhausted -> broken
+  never: child onError -> broken
+  never: ask onError -> broken
+  never: ask onNotAvailable -> broken
+  never: check onError -> broken
+  never: check onNotAvailable -> broken
+  never: check onNotEntitled -> broken
+  never: check onExpired -> broken
+  never: judge on:low -> broken
+  never: judge onNoDecision -> ok
+  never: judge onError -> broken
+  never: verify onNoDecision -> broken
+  never: verify onError -> broken
+flow.child: routes 0/0, steps 1/1

@@ -1,0 +1,6 @@
+flow flow.child v1
+title: Hijo del lote
+start: finish
+step finish [Fin] Terminar
+  stage: -
+  does: Cierra el caso con el resultado Hecho.

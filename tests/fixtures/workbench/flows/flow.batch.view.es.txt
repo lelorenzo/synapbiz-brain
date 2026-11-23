@@ -1,0 +1,63 @@
+flow flow.batch v1
+title: Ejecución por lotes
+start: each
+stage run: Ejecución
+step each [Repetición] Cada elemento
+  stage: Ejecución
+  does: Recorre `items` elemento por elemento, hasta 5 elementos; el elemento actual está en `current`.
+  body: En cada vuelta: ir a Ejecutar el hijo
+  onExhausted: Si se agotan las vueltas: ir a Roto
+  next: Cuando se han tratado todos los elementos: ir a Esperar hasta la visita
+step child [Proceso hijo] Ejecutar el hijo
+  stage: Ejecución
+  does: Inicia el proceso `flow.child` y espera a que termine. Envía `current`.
+  next: Cuando el proceso termina: ir a Cada elemento
+  onError: Si el proceso falla: ir a Roto
+step nap [Temporizador] Esperar hasta la visita
+  stage: Ejecución
+  does: Espera hasta 1 hora después de `visit_at`.
+  next: Cuando llega la hora: ir a Pedir una elección
+step ask [Respuesta de IA] Pedir una elección
+  stage: Ejecución
+  does: Consulta a un modelo de IA (`model-a`, instrucción `pick` versión 2) mediante `assist.pick`. Envía `batch_ref`. Guarda `pick` y `count`. A continuación la regla `conf.flag_rule` juzga la respuesta.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la elección
+  onError: Si falla: ir a Roto
+  onNotAvailable: Si la conexión no está disponible: ir a Roto
+  onInvalid: Si la respuesta no cumple la forma esperada: ir a Roto
+  ai input: batch_ref
+  ai input schema: {"properties":{"batch":{"type":"string"}},"required":["batch"],"type":"object"}
+  ai output schema: {"additionalProperties":false,"properties":{"pick":{"type":"string"},"size":{"type":"integer"}},"required":["pick"],"type":"object"}
+  ai fills: pick, count
+  ai judged by: conf.flag_rule
+  ai note: El modelo y la instrucción están fijados en el documento: `model-a`, instrucción `pick` versión 2.
+  ai note: Tiene 1 intento para dar una respuesta que cumpla la forma esperada.
+  ai note: A continuación la regla `conf.flag_rule` juzga la respuesta.
+  ai note: Cuando la respuesta nunca cumple la forma, la llamada falla o la IA no está disponible, el flujo no se detiene: sigue en Roto.
+step check [Lectura repetida] Revisar la elección
+  stage: Ejecución
+  does: Lee `records.state` una y otra vez hasta que `flag` sea `true`. Lee cada 1 minuto, durante 45 minutos como máximo. Envía `batch_ref` y `state_count`. Guarda `state_count`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 2 intentos en total.
+  next: Cuando la respuesta indica que terminó: ir a Juzgar el conteo
+  onError: Si falla: ir a Roto
+  onNotAvailable: Si la conexión no está disponible: ir a Roto
+  onNotEntitled: Si el plan no lo incluye: ir a Roto
+  onExpired: Si se acaba el tiempo: ir a Roto
+step judge [Decisión] Juzgar el conteo
+  stage: Ejecución
+  does: Decide con la regla `conf.default_rule` usando `count`. El campo de resultado `level` indica adónde va el flujo.
+  on:high: Si `level` es high: ir a Terminado
+  on:low: Si `level` es low: ir a Roto
+  onNoDecision: Si la regla no da resultado: ir a Terminado
+  onError: Si no se puede aplicar la regla: ir a Roto
+step ok [Fin] Terminado
+  stage: Ejecución
+  does: Cierra el caso con el resultado Terminado.
+step broken [Fin] Roto
+  stage: Ejecución
+  does: Cierra el caso con el resultado Roto.
+step verify [Decisión] Comprobar la elección
+  stage: Ejecución
+  does: Decide con la regla `conf.flag_rule` usando `count`. El campo de resultado `flag` indica adónde va el flujo.
+  on:false: Si `flag` es false: ir a Roto
+  on:true: Si `flag` es true: ir a Revisar la elección
+  onNoDecision: Si la regla no da resultado: ir a Roto
+  onError: Si no se puede aplicar la regla: ir a Roto

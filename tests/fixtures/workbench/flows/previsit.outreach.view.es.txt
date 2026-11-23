@@ -1,0 +1,53 @@
+flow previsit.outreach v1
+title: Contacto previo a la visita
+start: cycle
+stage previsit: Antes de la visita
+step cycle [Repetición] Ronda de recordatorios
+  stage: Antes de la visita
+  does: Se repite hasta 3 veces.
+  body: En cada vuelta: ir a Revisar lo que falta
+  onExhausted: Si se agotan las vueltas: ir a Seguimiento final de recepción
+step check [Lectura] Revisar lo que falta
+  stage: Antes de la visita
+  does: Lee información de `intake.requirements`. Envía `case_ref`. Guarda `missing`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 3 intentos en total.
+  next: Si sale bien: ir a Decidir si se recuerda
+  onError: Si falla: ir a Seguimiento de recepción
+  onNotAvailable: Si la conexión no está disponible: ir a Seguimiento final de recepción
+step assess [Decisión] Decidir si se recuerda
+  stage: Antes de la visita
+  does: Decide con la regla `previsit.missing_items` usando `missing`. El campo de resultado `action` indica adónde va el flujo.
+  on:none: Si `action` es none: ir a Listo para la visita
+  on:some: Si `action` es some: ir a Enviar recordatorio
+  onNoDecision: Si la regla no da resultado: ir a Seguimiento de recepción
+  onError: Si no se puede aplicar la regla: ir a Seguimiento de recepción
+step send [Acción] Enviar recordatorio
+  stage: Antes de la visita
+  does: Pide a `messaging.reminder` que haga algo. Contacta a una persona. Nunca se envía dos veces. Solo sale dentro de la ventana de envío Horario de contacto. Envía `case_ref` y `missing`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 3 intentos en total.
+  next: Si sale bien: ir a Esperar la respuesta
+  onError: Si falla: ir a Seguimiento de recepción
+  onNotAvailable: Si la conexión no está disponible: ir a Seguimiento final de recepción
+  onNotEntitled: Si el plan no lo incluye: ir a Seguimiento final de recepción
+  onUnknown: Si no se sabe si salió: ir a Seguimiento de recepción
+step reply [Espera de un evento] Esperar la respuesta
+  stage: Antes de la visita
+  does: Espera el evento `case.reply_received`. Solo cuenta el evento que trae el mismo `case_ref`.
+  next: Cuando llega el evento: ir a Ronda de recordatorios
+  onTimeout: Si no llega respuesta en 1 día: ir a Ronda de recordatorios
+step escalate [Tarea para una persona] Seguimiento de recepción
+  stage: Antes de la visita
+  does: Entrega una tarea a la cola Recepción. Una persona elige Resuelto o Sin contacto. La persona ve `case_ref` y `missing`.
+  on:resolved: Si la persona elige Resuelto: ir a Ronda de recordatorios
+  on:unreachable: Si la persona elige Sin contacto: ir a Caso sin contacto
+  onTimeout: Si no llega respuesta en 3 días: ir a Caso sin contacto
+step escalate_final [Tarea para una persona] Seguimiento final de recepción
+  stage: Antes de la visita
+  does: Entrega una tarea a la cola Recepción. Una persona elige Resuelto o Sin contacto. La persona ve `case_ref` y `missing`.
+  on:resolved: Si la persona elige Resuelto: ir a Listo para la visita
+  on:unreachable: Si la persona elige Sin contacto: ir a Caso sin contacto
+  onTimeout: Si no llega respuesta en 3 días: ir a Caso sin contacto
+step done [Fin] Listo para la visita
+  stage: Antes de la visita
+  does: Cierra el caso con el resultado Listo.
+step closed [Fin] Caso sin contacto
+  stage: Antes de la visita
+  does: Cierra el caso con el resultado Sin contacto.

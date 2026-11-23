@@ -1,0 +1,63 @@
+flow flow.batch v1
+title: Batch run
+start: each
+stage run: Run
+step each [Repetition] Each item
+  stage: Run
+  does: Goes through `items` one item at a time, up to 5 items; the current item is in `current`.
+  body: For each round: go to Run the child
+  onExhausted: If the rounds run out: go to Broken
+  next: When every item has been handled: go to Wait until the visit
+step child [Child process] Run the child
+  stage: Run
+  does: Starts the process `flow.child` and waits until it ends. It sends `current`.
+  next: When the process ends: go to Each item
+  onError: If the process fails: go to Broken
+step nap [Timer] Wait until the visit
+  stage: Run
+  does: Waits until 1 hour after `visit_at`.
+  next: When the time comes: go to Ask for a pick
+step ask [AI answer] Ask for a pick
+  stage: Run
+  does: Asks an AI model (`model-a`, prompt `pick` version 2) through `assist.pick`. It sends `batch_ref`. It keeps `pick` and `count`. The rule `conf.flag_rule` judges the answer next.
+  next: When an answer fits: go to Verify the pick
+  onError: If it fails: go to Broken
+  onNotAvailable: If the connection is not available: go to Broken
+  onInvalid: If the answer does not fit the expected form: go to Broken
+  ai input: batch_ref
+  ai input schema: {"properties":{"batch":{"type":"string"}},"required":["batch"],"type":"object"}
+  ai output schema: {"additionalProperties":false,"properties":{"pick":{"type":"string"},"size":{"type":"integer"}},"required":["pick"],"type":"object"}
+  ai fills: pick, count
+  ai judged by: conf.flag_rule
+  ai note: The model and the prompt are fixed in the document: `model-a`, prompt `pick` version 2.
+  ai note: It gets 1 attempt to give an answer that fits the expected form.
+  ai note: The rule `conf.flag_rule` judges the answer next.
+  ai note: When the answer never fits, the call fails or the AI is not available, the flow does not stop: it goes on at Broken.
+step check [Repeated read] Check the pick
+  stage: Run
+  does: Reads `records.state` again and again until `flag` is `true`. It reads every 1 minute, for at most 45 minutes. It sends `batch_ref` and `state_count`. It keeps `state_count`. If the call fails for a passing reason it tries again, up to 2 attempts in all.
+  next: When the answer says it is done: go to Judge the count
+  onError: If it fails: go to Broken
+  onNotAvailable: If the connection is not available: go to Broken
+  onNotEntitled: If the plan does not include it: go to Broken
+  onExpired: If the time runs out: go to Broken
+step judge [Decision] Judge the count
+  stage: Run
+  does: Judges with the rule `conf.default_rule` using `count`. The result field `level` says where the flow goes.
+  on:high: If `level` is high: go to Finished
+  on:low: If `level` is low: go to Broken
+  onNoDecision: If the rule gives no result: go to Finished
+  onError: If the rule cannot be applied: go to Broken
+step ok [End] Finished
+  stage: Run
+  does: Ends the case with the result Finished.
+step broken [End] Broken
+  stage: Run
+  does: Ends the case with the result Broken.
+step verify [Decision] Verify the pick
+  stage: Run
+  does: Judges with the rule `conf.flag_rule` using `count`. The result field `flag` says where the flow goes.
+  on:false: If `flag` is false: go to Broken
+  on:true: If `flag` is true: go to Check the pick
+  onNoDecision: If the rule gives no result: go to Broken
+  onError: If the rule cannot be applied: go to Broken
