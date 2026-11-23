@@ -6,17 +6,7 @@
 @inject DemoRules Demo
 
 <div class="demo" data-theme="@ThemeName">
-    <header class="demo-top">
-        <span class="demo-brand">@(IsSpanish ? "Banco de pruebas de reglas" : "Rule workbench demo")</span>
-        <span class="demo-tag">@(IsSpanish ? "SINTÉTICO" : "SYNTHETIC")</span>
-        <span class="demo-sp"></span>
-        <nav class="demo-switch" aria-label="@(IsSpanish ? "Idioma y tema" : "Language and theme")">
-            <a href="?theme=@ThemeName&locale=es" aria-current="@(IsSpanish ? "true" : null)">ES</a>
-            <a href="?theme=@ThemeName&locale=en" aria-current="@(IsSpanish ? null : "true")">EN</a>
-            <a href="?theme=light&locale=@LocaleName" aria-current="@(ThemeName == "light" ? "true" : null)">@(IsSpanish ? "Claro" : "Light")</a>
-            <a href="?theme=dark&locale=@LocaleName" aria-current="@(ThemeName == "dark" ? "true" : null)">@(IsSpanish ? "Oscuro" : "Dark")</a>
-        </nav>
-    </header>
+    <DemoHeader Page="rules" Theme="@ThemeName" Locale="@LocaleName" />
     <main class="demo-main">
         <RuleWorkbench Rules="Demo.For(Locale)" Locale="Locale" Session="Session" Now="Clock" OnExport="SaveNowhere" />
     </main>

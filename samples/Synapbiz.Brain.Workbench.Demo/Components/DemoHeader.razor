@@ -1,0 +1,33 @@
+<header class="demo-top">
+    <span class="demo-brand">@(Spanish ? "Banco de pruebas de reglas y flujos" : "Rule and flow workbench demo")</span>
+    <span class="demo-tag">@(Spanish ? "SINTÉTICO" : "SYNTHETIC")</span>
+    <nav class="demo-switch" aria-label="@(Spanish ? "Páginas" : "Pages")">
+        <a href="/?theme=@Theme&locale=@Locale" aria-current="@(Page == "rules" ? "true" : null)">@(Spanish ? "Reglas" : "Rules")</a>
+        <a href="/flows?theme=@Theme&locale=@Locale" aria-current="@(Page == "flows" ? "true" : null)">@(Spanish ? "Flujos" : "Flows")</a>
+    </nav>
+    <span class="demo-sp"></span>
+    <nav class="demo-switch" aria-label="@(Spanish ? "Idioma y tema" : "Language and theme")">
+        <a href="@Path?theme=@Theme&locale=es" aria-current="@(Spanish ? "true" : null)">ES</a>
+        <a href="@Path?theme=@Theme&locale=en" aria-current="@(Spanish ? null : "true")">EN</a>
+        <a href="@Path?theme=light&locale=@Locale" aria-current="@(Theme == "light" ? "true" : null)">@(Spanish ? "Claro" : "Light")</a>
+        <a href="@Path?theme=dark&locale=@Locale" aria-current="@(Theme == "dark" ? "true" : null)">@(Spanish ? "Oscuro" : "Dark")</a>
+    </nav>
+</header>
+
+@code {
+    /// <summary>"rules" or "flows".</summary>
+    [Parameter, EditorRequired]
+    public string Page { get; set; } = "rules";
+
+    /// <summary>"light" or "dark".</summary>
+    [Parameter, EditorRequired]
+    public string Theme { get; set; } = "light";
+
+    /// <summary>"es" or "en".</summary>
+    [Parameter, EditorRequired]
+    public string Locale { get; set; } = "es";
+
+    private bool Spanish => Locale == "es";
+
+    private string Path => Page == "flows" ? "/flows" : "/";
+}

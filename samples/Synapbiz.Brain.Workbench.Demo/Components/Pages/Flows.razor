@@ -1,0 +1,33 @@
+@page "/flows"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using Synapbiz.Brain.Workbench
+@using Synapbiz.Brain.Workbench.Blazor
+@inject FlowWorkbenchSession Session
+@inject DemoFlows Demo
+
+<div class="demo" data-theme="@ThemeName">
+    <DemoHeader Page="flows" Theme="@ThemeName" Locale="@LocaleName" />
+    <main class="demo-main">
+        <FlowWorkbench Flows="Demo.For(Locale)" Locale="Locale" Session="Session" Now="Clock" Zones="Demo.Zones" AnswerSource="Demo.Answers" OnExport="SaveNowhere" />
+    </main>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "theme")]
+    public string? Theme { get; set; }
+
+    [SupplyParameterFromQuery(Name = "locale")]
+    public string? LocaleText { get; set; }
+
+    private string ThemeName => string.Equals(Theme, "dark", StringComparison.Ordinal) ? "dark" : "light";
+
+    private WorkbenchLocale Locale => string.Equals(LocaleText, "en", StringComparison.Ordinal) ? WorkbenchLocale.En : WorkbenchLocale.Es;
+
+    private string LocaleName => Locale == WorkbenchLocale.Es ? "es" : "en";
+
+    private static DateTimeOffset Clock() => DateTimeOffset.UtcNow;
+
+    /// <summary>The demo saves nothing: it names a fixed place and writes no file.</summary>
+    private Task<string?> SaveNowhere(FlowWorkbenchExport export) =>
+        Task.FromResult<string?>(Locale == WorkbenchLocale.Es ? "la carpeta de demostración" : "the demo folder");
+}

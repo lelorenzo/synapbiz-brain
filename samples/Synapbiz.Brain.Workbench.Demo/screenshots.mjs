@@ -1,8 +1,10 @@
 // Captures the panels of the demo host in light and dark (Spanish) and once in English, plus two light pictures of the
 // review line in the test table and of an item that still needs its note, and the guided editing states (the row form, a refusal,
 // the draft in Read, the test cases that change, the Changes tab and the discard dialog).
+// The flow panels (the /flows page) are captured too: the list, Read, Diagram, Try it in the middle of a run and Review, in
+// Spanish and English, wide and narrow, as wf-<state>-<theme>[-en][-narrow].png.
 // Run the demo first:  dotnet run -c Release --urls http://127.0.0.1:5219
-// Then:                node screenshots.mjs [baseUrl] [outputFolder]
+// Then:                node screenshots.mjs [baseUrl] [outputFolder] [all|rules|flows]
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
 
@@ -11,6 +13,9 @@ const { chromium } = require('playwright');
 
 const base = process.argv[2] ?? 'http://127.0.0.1:5219';
 const out = process.argv[3] ?? '/mnt/project-files/app-local/reglas/capturas';
+const only = process.argv[4] ?? 'all'; // 'all', 'rules' or 'flows'
+const doRules = only !== 'flows';
+const doFlows = only !== 'rules';
 mkdirSync(out, { recursive: true });
 
 const text = {
@@ -41,6 +46,19 @@ const text = {
     route: 'Route', routeValue: 'manual review', queue: 'Queue', queueValue: 'Phone queue', addEnd: 'Add a row at the end',
     age: 'Age in days', atLeast: 'is at least', changesTab: 'Changes', reason: 'Reason for the change',
     reasonText: 'Billing requests must be reviewed by hand.', rowName: 'Row name', rowNameText: 'Invoices on the web', exportProposal: 'Export the proposal', discard: 'Discard my draft',
+  },
+};
+
+const flowText = {
+  es: {
+    tabs: { read: 'Leer', diagram: 'Diagrama', try: 'Probar', tests: 'Pruebas', review: 'Revisión' },
+    like: 'Empezar como la prueba', start: 'Empezar', answer: 'Responder como la prueba', fix: 'Corregir', confirm: 'Confirmar',
+    note: 'Nota', reviewer: 'Su nombre', person: 'Revisor de ejemplo', noteText: '¿Es suficiente con tres recordatorios?',
+  },
+  en: {
+    tabs: { read: 'Read', diagram: 'Diagram', try: 'Try it', tests: 'Tests', review: 'Review' },
+    like: 'Start like the test', start: 'Start', answer: 'Answer like the test', fix: 'Needs a fix', confirm: 'Confirm',
+    note: 'Note', reviewer: 'Your name', person: 'Example reviewer', noteText: 'Are three reminders enough?',
   },
 };
 
@@ -267,16 +285,79 @@ async function edits(theme, locale, states) {
   await context.close();
 }
 
-for (const theme of ['light', 'dark']) {
-  await session(theme, 'es', ['read', 'simulate', 'error', 'refusal', 'tests', 'review']);
+/** The flow panels: wide (1408) or narrow (480, where the list is a select) in one language and theme. */
+async function flows(theme, locale, narrow) {
+  const t = flowText[locale];
+  const viewport = narrow ? { width: 480, height: 900 } : { width: 1408, height: 1025 };
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 2, locale: locale === 'es' ? 'es-ES' : 'en-US' });
+  const page = await context.newPage();
+  await page.goto(`${base}/flows?theme=${theme}&locale=${locale}`);
+  await page.waitForSelector('.wb-root .wb-tabs');
+  await settle(page);
+  const suffix = (locale === 'en' ? '-en' : '') + (narrow ? '-narrow' : '');
+  const snap = async (state) => {
+    await page.screenshot({ path: `${out}/wf-${state}-${theme}${suffix}.png`, fullPage: true });
+    console.log(`wrote wf-${state}-${theme}${suffix}.png`);
+  };
+  const tab = async (key) => {
+    await page.getByRole('tab', { name: t.tabs[key] }).click();
+    await settle(page);
+  };
+
+  // The first flow of the list is previsit.outreach.
+  await snap('list');
+
+  await tab('read');
+  await page.locator('.wb-step').nth(0).locator('.wb-card-head .wb-rv').getByRole('button', { name: t.confirm, exact: true }).click();
+  await settle(page);
+  await page.locator('.wb-step').nth(1).locator('.wb-card-head .wb-rv').getByRole('button', { name: t.fix, exact: true }).click();
+  await settle(page);
+  await setText(page.locator('.wb-step').nth(1).locator('textarea').first(), t.noteText, page);
+  await snap('read');
+
+  await tab('diagram');
+  await page.locator('g.wb-node').nth(1).click();
+  await settle(page);
+  await snap('diagram');
+
+  await tab('try');
+  await page.getByLabel(t.like, { exact: true }).selectOption('a reply after the first reminder closes the stage');
+  await settle(page);
+  await page.getByRole('button', { name: t.start, exact: true }).click();
+  await settle(page);
+  await page.getByRole('button', { name: `${t.answer} a reply after the first reminder closes the stage`, exact: true }).first().click();
+  await settle(page);
+  await snap('try');
+
+  await tab('review');
+  await setText(page.getByLabel(t.reviewer, { exact: true }), t.person, page);
+  await snap('review');
+  await context.close();
 }
-await session('light', 'en', ['simulate']);
-await session('light', 'es', ['tests-review']);
-await session('light', 'es', ['review-note-missing']);
-for (const theme of ['light', 'dark']) {
-  await edits(theme, 'es', ['edit-refusal']);
-  await edits(theme, 'es', ['edit-form', 'edit-draft', 'edit-cases', 'edit-changes', 'edit-discard']);
+
+if (doRules) {
+  for (const theme of ['light', 'dark']) {
+    await session(theme, 'es', ['read', 'simulate', 'error', 'refusal', 'tests', 'review']);
+  }
+  await session('light', 'en', ['simulate']);
+  await session('light', 'es', ['tests-review']);
+  await session('light', 'es', ['review-note-missing']);
+  for (const theme of ['light', 'dark']) {
+    await edits(theme, 'es', ['edit-refusal']);
+    await edits(theme, 'es', ['edit-form', 'edit-draft', 'edit-cases', 'edit-changes', 'edit-discard']);
+  }
+  await edits('light', 'en', ['edit-draft', 'edit-cases']);
+
 }
-await edits('light', 'en', ['edit-draft', 'edit-cases']);
+
+if (doFlows) {
+  for (const theme of ['light', 'dark']) {
+    await flows(theme, 'es', false);
+    await flows(theme, 'es', true);
+  }
+  await flows('light', 'en', false);
+  await flows('light', 'en', true);
+
+}
 
 await browser.close();
