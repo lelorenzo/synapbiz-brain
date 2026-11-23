@@ -114,6 +114,7 @@
         (WorkbenchTab.Simulate, "tabs.simulate"),
         (WorkbenchTab.Tests, "tabs.tests"),
         (WorkbenchTab.Review, "tabs.review"),
+        (WorkbenchTab.Changes, "tabs.changes"),
     ];
 
     private RenderFragment BrokenNote() => @<div class="wb-sub" role="status">@Rich("draft.unreadable.fix")</div>;
@@ -139,7 +140,8 @@
         var run = ctx.Run;
         var exportedItems = work.Reviews.Values.Count(entry => entry.IsExported);
         var changing = ChangingCount(ctx);
-        var current = Session.SelectedTab;
+        var changeCount = ctx.Draft is null ? 0 : ChangeCount(rule, ctx.Draft);
+        var current = Session.SelectedTab == WorkbenchTab.Changes && ctx.Draft is null ? WorkbenchTab.Read : Session.SelectedTab;
 
         return @<text>
             <div class="wb-ph">
@@ -161,7 +163,7 @@
                 @DraftBar(rule, draft)
             }
             <div class="wb-tabs" role="tablist" aria-label="@Plain("tabs.label")">
-                @foreach (var entry in TabKeys)
+                @foreach (var entry in TabKeys.Where(item => item.Tab != WorkbenchTab.Changes || ctx.Draft is not null))
                 {
                     var tab = entry.Tab;
                     var number = (int)tab;
@@ -175,6 +177,10 @@
                         else if (tab == WorkbenchTab.Tests && run.Cases.Count > 0)
                         {
                             <span class="@(run.FailedCount > 0 ? "wb-pill wb-pill-n wb-pill-bad" : "wb-pill wb-pill-n")">@(run.FailedCount > 0 ? PluralText("fail.count", run.FailedCount) : OutcomeFormat.Number(run.Cases.Count))</span>
+                        }
+                        @if (tab == WorkbenchTab.Changes && changeCount > 0)
+                        {
+                            <span class="wb-pill wb-pill-n">@OutcomeFormat.Number(changeCount)</span>
                         }
                         @if (tab == WorkbenchTab.Review && exportedItems > 0)
                         {
@@ -194,6 +200,9 @@
                         break;
                     case WorkbenchTab.Tests:
                         @TestsPanel(ctx)
+                        break;
+                    case WorkbenchTab.Changes:
+                        @ChangesPanel(Context(rule, forceDraft: true))
                         break;
                     default:
                         @ReviewPanel(Context(rule, baseOnly: true))
@@ -1455,6 +1464,185 @@
                 <button type="button" class="wb-btn wb-btn-secondary" @onclick="CancelCaseForm">@Rich("case.cancel")</button>
             </div>
         </div>;
+    }
+
+    // ----- Changes ----------------------------------------------------------------------------------------------------
+
+    private RenderFragment ChangesPanel(Ctx c)
+    {
+        if (c.Broken)
+        {
+            return BrokenNote();
+        }
+
+        var draft = c.Draft!;
+        var readOnly = IsStale(c.Rule, draft);
+        var change = ChangesOf(c.Rule, draft);
+        var baseView = Context(c.Rule, baseOnly: true).View;
+        var lines = CaseLines(c);
+        var changing = readOnly ? 0 : lines.Count(line => line.Changes);
+        var warnings = DraftWarnings(c);
+        var changed = change.Rows.Count + (change.DefaultRowChanged ? 1 : 0);
+        var counts = PluralText("discard.rows", changed) + Separator + PluralText("discard.cases", draft.CaseStepCount);
+        var reasonId = idp + "-reason";
+        var nameId = idp + "-proposer";
+        var canExport = draft.HasChanges && changing == 0;
+
+        return @<text>
+            <div class="wb-notice" role="note">@Rich("notice.privacyReason")</div>
+            <div class="wb-grid2 wb-grid-review">
+                <div>
+                    <h2 class="wb-h2">@Rich("changes.rows")</h2>
+                    <div class="wb-sub wb-sub-flush">@change.Summary</div>
+                    @foreach (var item in change.Rows)
+                    {
+                        var key = item.Key;
+                        var number = (item.NumberAfter ?? item.NumberBefore ?? 0).ToString(CultureInfo.InvariantCulture);
+                        <div class="wb-card wb-card-gap wb-changed" data-tag="@item.Tag.ToString().ToLowerInvariant()">
+                            <div class="wb-card-head">
+                                <strong>@Plain("row.label", ("n", number))</strong>
+                                <span class="@PillClass(TagTone(item.Tag))">@Rich(TagKey(item.Tag))</span>
+                                <span class="wb-sp"></span>
+                                @if (!readOnly)
+                                {
+                                    @if (item.Tag == RowChangeTag.Removed)
+                                    {
+                                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.restoreFor", ("n", number))" @onclick="() => UndoFromChanges(c, key, step => step.Kind == StepKind.Remove && step.Key == key)">@Rich("row.restore")</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.undoFor", ("n", number))" @onclick="() => UndoFromChanges(c, key, step => step.Key == key && step.Kind is StepKind.Add or StepKind.Row or StepKind.Move)">@Rich("row.undo")</button>
+                                    }
+                                }
+                            </div>
+                            @if (item.SentenceBefore is { } before)
+                            {
+                                <div class="wb-sub wb-sub-flush"><span class="wb-before">@Rich("row.before")</span> <span class="@(item.Tag == RowChangeTag.Removed ? "wb-struck" : null)">@before</span></div>
+                            }
+                            @if (item.SentenceAfter is { } after)
+                            {
+                                <div class="wb-sent"><span class="wb-before">@Rich("changes.now")</span> @after</div>
+                            }
+                        </div>
+                    }
+                    @if (change.DefaultRowChanged && baseView.DefaultRow is { } was && c.View.DefaultRow is { } now)
+                    {
+                        var defaultKey = c.Brain.Table.DefaultRow!.Key;
+                        <div class="wb-card wb-card-gap wb-changed" data-tag="default">
+                            <div class="wb-card-head">
+                                <strong>@Rich("changes.defaultRow")</strong>
+                                <span class="@PillClass("warn")">@Rich("tag.changed")</span>
+                                <span class="wb-sp"></span>
+                                @if (!readOnly)
+                                {
+                                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.undoFor", ("n", "–"))" @onclick="() => UndoFromChanges(c, defaultKey, step => step.Key == defaultKey && step.Kind == StepKind.Row)">@Rich("row.undo")</button>
+                                }
+                            </div>
+                            <div class="wb-sub wb-sub-flush"><span class="wb-before">@Rich("row.before")</span> @was.Sentence</div>
+                            <div class="wb-sent"><span class="wb-before">@Rich("changes.now")</span> @now.Sentence</div>
+                        </div>
+                    }
+                    @if (warnings.Count > 0)
+                    {
+                        <h2 class="wb-h2 wb-h2-gap">@Rich("changes.warnings")</h2>
+                        <ul class="wb-warnings">
+                            @foreach (var warning in warnings)
+                            {
+                                <li>@warning</li>
+                            }
+                        </ul>
+                    }
+                    <h2 class="wb-h2 wb-h2-gap">@Rich("changes.cases")</h2>
+                    @if (change.CasesThatChange.Count == 0)
+                    {
+                        <div class="wb-sub wb-sub-flush">@Rich("changes.noCases")</div>
+                    }
+                    else
+                    {
+                        <table class="wb-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">@Rich("tests.th.case")</th>
+                                    <th scope="col">@Rich("changes.th.before")</th>
+                                    <th scope="col">@Rich("changes.th.now")</th>
+                                    <th scope="col">@Rich("changes.th.decision")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var entry in change.CasesThatChange)
+                                {
+                                    var line = lines.Find(item => item.Name == entry.Name);
+                                    <tr>
+                                        <td>@entry.Name</td>
+                                        <td>@entry.Before</td>
+                                        <td>@entry.After</td>
+                                        <td>@CaseDecisionPill(line)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                <div class="wb-card">
+                    <h2 class="wb-h2">@Rich("changes.card")</h2>
+                    <div class="wb-sub wb-sub-flush">@counts</div>
+                    @if (OnExport is not null)
+                    {
+                        <div class="wb-field wb-field-gap">
+                            <label class="wb-label" for="@reasonId">@Rich("changes.reason")</label>
+                            <textarea id="@reasonId" class="@(draft.ReasonError ? "wb-in wb-in-err" : "wb-in")" rows="4" maxlength="@NoteMax" value="@draft.Reason" aria-describedby="@(draft.ReasonError ? reasonId + "-err" : null)" aria-invalid="@(draft.ReasonError ? "true" : null)" @onchange="args => SetReason(draft, args)" @ref="refs[ReasonRef]"></textarea>
+                            @if (draft.Reason.Length >= NoteCounterFrom)
+                            {
+                                <div class="wb-hint">@Plain("review.counter", ("n", OutcomeFormat.Number(draft.Reason.Length)), ("max", OutcomeFormat.Number(NoteMax)))</div>
+                            }
+                            @if (draft.ReasonError)
+                            {
+                                <div class="wb-errt" id="@(reasonId + "-err")">@Rich("changes.reasonRequired")</div>
+                            }
+                        </div>
+                        <div class="wb-field wb-field-gap">
+                            <label class="wb-label" for="@nameId">@Rich("review.name")</label>
+                            <input id="@nameId" type="text" autocomplete="off" class="@(draft.NameError ? "wb-in wb-in-err" : "wb-in")" value="@Session.Reviewer" aria-describedby="@(draft.NameError ? nameId + "-err" : null)" aria-invalid="@(draft.NameError ? "true" : null)" @onchange="args => SetProposalName(draft, args)" @ref="refs[ProposalNameRef]" />
+                            @if (draft.NameError)
+                            {
+                                <div class="wb-errt" id="@(nameId + "-err")">@Rich("changes.nameRequired")</div>
+                            }
+                        </div>
+                        <div class="wb-actions">
+                            <button type="button" class="wb-btn wb-btn-primary" disabled="@(!canExport)" @onclick="() => ExportProposalAsync(c.Rule)">@Rich("changes.export")</button>
+                        </div>
+                        @if (changing > 0)
+                        {
+                            <div class="wb-errt" role="note">@Rich(UiText.Plural("changes.held", changing), ("n", OutcomeFormat.Number(changing)))</div>
+                        }
+                        @if (!draft.HasChanges)
+                        {
+                            <div class="wb-hint">@Rich("changes.nothing")</div>
+                        }
+                        <div class="wb-hint">@Rich("export.proposal.explain")</div>
+                        @if (draft.IsExported)
+                        {
+                            <div class="wb-saved" role="status">@(draft.ExportPlace is null ? Rich("changes.savedNoPlace") : Rich("changes.saved", ("place", draft.ExportPlace)))</div>
+                        }
+                    }
+                </div>
+            </div>
+        </text>;
+    }
+
+    private RenderFragment CaseDecisionPill(CaseLine? line)
+    {
+        if (line is { Removed: true })
+        {
+            return @<span class="@PillClass("neutral")">@Rich("case.tagRemoved")</span>;
+        }
+
+        if (line is { Decided: true })
+        {
+            return @<span class="@PillClass("neutral")">@Rich("case.expectChanged")</span>;
+        }
+
+        return line is { Changes: true } ? @<span class="@PillClass("bad")">@Rich("changes.undecided")</span> : @<text>–</text>;
     }
 
     // ----- Review -----------------------------------------------------------------------------------------------------

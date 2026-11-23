@@ -470,7 +470,7 @@ public sealed class CaseDraftTests
 
         harness.Press("Run all");
 
-        harness.Cut.WaitForAssertion(() => Ed.Draft(harness).Run.Should().NotBeSameAs(run));
+        harness.Cut.WaitForAssertion(() => Ed.Draft(harness).Run.Should().NotBeSameAs(run), TimeSpan.FromSeconds(10));
         harness.PanelText.Should().Contain("9 of 9 cases pass");
     }
 

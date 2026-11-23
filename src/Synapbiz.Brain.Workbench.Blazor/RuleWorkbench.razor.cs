@@ -22,7 +22,7 @@ public sealed partial class RuleWorkbench : IDisposable
     private const int NoteMax = 1000;
     private const int NoteCounterFrom = 900;
 
-    private static readonly string[] SelectorTabs = ["tabs.read", "tabs.simulate", "tabs.tests", "tabs.review"];
+    private static readonly string[] SelectorTabs = ["tabs.read", "tabs.simulate", "tabs.tests", "tabs.review", "tabs.changes"];
 
     private static int instances;
 
@@ -238,10 +238,10 @@ public sealed partial class RuleWorkbench : IDisposable
         var current = (int)Session.SelectedTab;
         var next = args.Key switch
         {
-            "ArrowRight" => (current + 1) % SelectorTabs.Length,
-            "ArrowLeft" => (current + SelectorTabs.Length - 1) % SelectorTabs.Length,
+            "ArrowRight" => (current + 1) % TabCount,
+            "ArrowLeft" => (current + TabCount - 1) % TabCount,
             "Home" => 0,
-            "End" => SelectorTabs.Length - 1,
+            "End" => TabCount - 1,
             _ => current,
         };
         if (next != current)

@@ -131,6 +131,18 @@ internal sealed class DraftState
     /// <summary>The revision that was exported; null when the draft was never exported.</summary>
     internal int? ExportedRevision { get; set; }
 
+    /// <summary>The reason for the change, as the reviewer is writing it for the proposal.</summary>
+    internal string Reason { get; set; } = string.Empty;
+
+    /// <summary>True when an export was tried with no reason.</summary>
+    internal bool ReasonError { get; set; }
+
+    /// <summary>True when an export was tried with no name.</summary>
+    internal bool NameError { get; set; }
+
+    /// <summary>Where the host said the last proposal was saved; null when it said nothing.</summary>
+    internal string? ExportPlace { get; set; }
+
     /// <summary>The row form that is open; null when none is.</summary>
     internal RowForm? Form { get; set; }
 

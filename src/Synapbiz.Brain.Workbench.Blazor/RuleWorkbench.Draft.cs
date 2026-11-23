@@ -34,12 +34,12 @@ public sealed partial class RuleWorkbench
 
     private bool DialogOpen => discardOpen;
 
-    /// <summary>The context of a rule's panels. <paramref name="baseOnly"/> asks for the rule as it is even when the draft is shown (the review is of the rule).</summary>
-    private Ctx Context(WorkbenchRule rule, bool baseOnly = false)
+    /// <summary>The context of a rule's panels. <paramref name="baseOnly"/> asks for the rule as it is even when the draft is shown (the review is of the rule), and <paramref name="forceDraft"/> for the draft even when the rule is shown (the changes are of the draft).</summary>
+    private Ctx Context(WorkbenchRule rule, bool baseOnly = false, bool forceDraft = false)
     {
         var work = Session.Work(rule.Key);
         var draft = rule.CanDraft ? work.Draft : null;
-        if (!baseOnly && draft is { ViewDraft: true, Rule: { } drawn })
+        if (!baseOnly && draft is { Rule: { } drawn } && (forceDraft || draft.ViewDraft))
         {
             var labels = draft.Labels(Locale, rule.Labels);
             var view = draft.View(Locale, labels);
@@ -48,7 +48,7 @@ public sealed partial class RuleWorkbench
 
         var brain = rule.Rule!;
         var baseView = work.View(rule, Locale);
-        return new Ctx(rule, brain, baseView, work, FactForm.Shown(brain, baseView), rule.Labels, work.Tests(brain), draft, false, !baseOnly && draft is { ViewDraft: true });
+        return new Ctx(rule, brain, baseView, work, FactForm.Shown(brain, baseView), rule.Labels, work.Tests(brain), draft, false, !baseOnly && draft is not null && (forceDraft || draft.ViewDraft));
     }
 
     /// <summary>True when the text of the rule is no longer the text the draft was started from.</summary>
