@@ -1,6 +1,6 @@
 # Flow workbench
 
-The flow workbench is the part of `Synapbiz.Brain.Workbench` that lets a person who owns a business flow read it in plain language, see it as a diagram, try it with a virtual clock, see which routes the tests cover, and send back a review. It is the headless half of the flows surface: it has no screen, reads no file, opens no connection and keeps no state. Everything it reports comes from `Synapbiz.Brain.Process` (the loader, the interpreter and the scenario format); a screen over it is a separate package.
+The flow workbench is the part of `Synapbiz.Brain.Workbench` that lets a person who owns a business flow read it in plain language, see it as a diagram, try it with a virtual clock, see which routes the tests cover, and send back a review. It is the headless half of the flows surface: it has no screen, reads no file, opens no connection and keeps no state. Everything it reports comes from `Synapbiz.Brain.Process` (the loader, the interpreter and the scenario format); the screen over it is the component `FlowWorkbench` of [flow-workbench-panels](flow-workbench-panels.md).
 
 Namespace `Synapbiz.Brain.Workbench.Flows`. The workbench now references `Synapbiz.Brain.Contracts`, `.Engine`, `.Process` and `.Spec`, and nothing else. Every sentence, label and message a person reads exists in English and Spanish (English is the default); `WorkbenchLocale` chooses. Every message the workbench produces, problems and findings included, exists in both languages and follows the locale asked for. Every call is deterministic: the same document, the same locale and the same inputs give the same text, byte for byte.
 
@@ -220,6 +220,16 @@ internal static class FlowReviews
     }
 }
 ```
+
+## Support for a screen (added with the panels)
+
+Five small pure additions let a screen draw a flow without holding any knowledge of flows itself. None changes what the library did before.
+
+- `FlowWords` (made with `FlowWords.For(process, locale, knownProcesses)`) names what a document talks about in the reader's language: `Title()`, `Stage(id)`, `Step(id)`, `Result(id)`, `Queue(id)`, `Outcome(id)`, `Event(id)`, `Window(id)` and `ChildResult(processId, result)`. Each is the label of `meta.display` in the asked language, else English, else a readable form of the id, like every other text of the library. `ChildResult` is null when the child is not among the known documents or has no label for the result.
+- `FlowForms` writes and reads the forms of a flow. `StartFields(process)` gives one `FlowFormField` (name, type name, `FlowFieldKind`) for each input variable; `PayloadFields(process, stepId)` one for each member a `wait` step keeps, typed by the variable it is kept in. `FlowFieldKind` is `Text`, `Number`, `Date`, `DateTime`, `YesNo` or `Lines` (a `Json` or `Money` variable: a JSON object or array, or one string for each non-empty line). `ToJson(fields, values)` turns the texts of the controls into the canonical JSON object the simulator takes and returns a `FlowFormResult`: the `Json` of the fields that were filled in and usable, and the names of the fields whose text could not be read as their type (`Invalid`). A field with no text is left out. `FromScenario(process, scenarioName)` gives the texts a start form would hold to start a case as an embedded scenario does, with its start instant, as `FlowStartValues`; an input the scenario writes as an empty text is the one thing a form cannot repeat, because an empty control means "not given". `DateTimeText(instant)` writes an instant as the text of a date-and-time control (UTC).
+- `FlowScenarioAnswers` (`For(process, step, occurrence)`) gives, for every embedded scenario that answers the step at least `occurrence + 1` times, the answer it gives the `occurrence`-th time (`complete` or `fail` command, counting from 0) as a `FlowScenarioAnswer` (scenario name and `FlowAnswer`). A screen counts the answers already given to a step in the session's log to offer "answer as this test does".
+- `ApplyAnswer(effectId, answer, source)` of `FlowSimulation` answers an outstanding effect with a `FlowAnswer` and writes `source` in the log entry (default `FlowSimulation.ScriptedSource`): the same command as `CompleteEffect` or `FailEffect`, with the source chosen by the caller.
+- `FlowSchemaFields` (`From(schemaJson)`) lists the top-level members of an output schema as `FlowSchemaField` (name, JSON type, whether required) in ordinal order, so that a screen says what an `ai` step must answer in a list.
 
 ## Codes
 
