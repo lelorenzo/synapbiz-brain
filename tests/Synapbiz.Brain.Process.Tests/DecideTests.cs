@@ -23,9 +23,11 @@ public sealed class DecideTests
         }
         """;
 
+    private static readonly string[] EndIds = ["yes", "no", "none", "err"];
+
     private static Driver Started(string decide, string input = """{ "count": 10 }""")
     {
-        var ends = new[] { "yes", "no", "none", "err" }
+        var ends = EndIds
             .Where(id => decide.Contains($": \"{id}\"", StringComparison.Ordinal))
             .Select(id => $$"""
                 "{{id}}": { "kind": "end", "result": "{{id}}" }

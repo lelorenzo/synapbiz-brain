@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- W1-A: `Synapbiz.Brain.Process`. The `brain.process@1` document (schema, loader with 20 static diagnostics in English and Spanish), the pure process interpreter (`BrainProcess.Start` and `Advance`: variables, read, action, ai, decide, humanTask, wait, timer, loop, subprocess and end steps, retries, events, cancel, resume, suspension, limits, deterministic identifiers), the serializable `ProcessState`, requests and history with decision provenance, and an embedded scenario runner with a virtual clock. Process conformance cases, interpreter, state, determinism and reference-process tests, the purity scan and a coupling test extended to the new library, and the reference page `docs/reference/brain-process-v1.md`. The solution now packs four packages.
+
 ## 0.1.0 (2026-11-22)
 
 - Release workflow publishing to the private GitHub Packages feed on a version tag, a manual live-parity workflow, and the consumer guide (`docs/consuming.md`).

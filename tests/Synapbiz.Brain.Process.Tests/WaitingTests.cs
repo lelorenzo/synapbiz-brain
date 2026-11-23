@@ -15,9 +15,11 @@ public sealed class WaitingTests
         }
         """;
 
+    private static readonly string[] EndIds = ["ok", "late", "yes", "no"];
+
     private static Driver Started(string steps, string input = """{ "case_ref": "c-1" }""", string extra = "")
     {
-        var ends = new[] { "ok", "late", "yes", "no" }
+        var ends = EndIds
             .Where(id => steps.Contains($": \"{id}\"", StringComparison.Ordinal))
             .Select(id => $$"""
                 "{{id}}": { "kind": "end", "result": "{{id}}" }

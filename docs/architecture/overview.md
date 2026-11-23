@@ -9,9 +9,12 @@ Design: [B0 spec](../specs/b0-decision-engine-extraction/spec.md). This page rec
 | `brain-engine` | `Synapbiz.Brain.Contracts` | The source repository's `Nuvora.Decisions.Contracts` minus `Traces/` (28 files), plus `ContentHash` and `BrainException` | BCL only |
 | `brain-engine` | `Synapbiz.Brain.Engine` | The source repository's `Nuvora.Decisions.Engine` (14 files) | `Synapbiz.Brain.Contracts` |
 | `brain-spec` | `Synapbiz.Brain.Spec` | `brain.rule@1` schema, contract reader, rule loader and `BrainRule` (compile, evaluate with provenance, validate, run goldens); see [the PR 2 spec](../specs/b0-brain-spec-rules/spec.md) | the two above, `JsonSchema.Net` 8.0.5 |
+| `brain-process` | `Synapbiz.Brain.Process` | `brain.process@1` schema, loader and `BrainProcess`: the pure process interpreter (start, advance with one trigger, state, requests, history) and the scenario runner; see [the W1-A spec](../specs/w1-process-engine/spec.md) | `Synapbiz.Brain.Spec`, `JsonSchema.Net` 8.0.5 (and through it Contracts and Engine) |
 | `brain-host-efcore` | later | persistence, lifecycle, traces | not started |
 
-Dependency rule: `Synapbiz.Brain.Contracts` and `Synapbiz.Brain.Engine` reference only the base class library and each other, and declare no package reference. `Synapbiz.Brain.Spec` references the base class library, those two and `JsonSchema.Net` with its transitive packages, nothing else. None of the three reads a clock, GUID generator, randomness, file or network; time and identity arrive as parameters. The purity scan covers methods, constructors and type initializers of all three assemblies. These rules are enforced by `tests/Synapbiz.Brain.ArchitectureTests`.
+Dependency rule: `Synapbiz.Brain.Contracts` and `Synapbiz.Brain.Engine` reference only the base class library and each other, and declare no package reference. `Synapbiz.Brain.Spec` references the base class library, those two and `JsonSchema.Net` with its transitive packages, nothing else. `Synapbiz.Brain.Process` references the same and `Synapbiz.Brain.Spec`, nothing else. None of the four reads a clock, GUID generator, randomness, file or network; time and identity arrive as parameters. The purity scan covers methods, constructors and type initializers of all four assemblies. These rules are enforced by `tests/Synapbiz.Brain.ArchitectureTests`.
+
+Using the process library: [brain-process-v1](../reference/brain-process-v1.md) (how to write a process document, how a host runs it).
 
 Using the rule library: [brain-rule-v1](../reference/brain-rule-v1.md) (rule and contract formats) and [interim-rule-shape](../migration/interim-rule-shape.md) (moving an interim rule file to `brain.rule@1`).
 
@@ -55,5 +58,6 @@ Three independent proofs, none of which changes the source repository (its `bin/
 
 - `tests/Synapbiz.Brain.Engine.Tests`: the engine unit tests moved unchanged from the source repository, tests for `ContentHash` and `BrainException`, and the baseline parity test (it compiles the shared scenarios, which now include the `spec/` group, so it references `Synapbiz.Brain.Spec`).
 - `tests/Synapbiz.Brain.Spec.Tests`: the 77 rule conformance cases, contract reader, loader structure errors, provenance, the synthetic readiness example and the documentation example test.
-- `tests/Synapbiz.Brain.ArchitectureTests`: BCL-only references for Contracts and Engine, no package references for them, purity of all three libraries, the reference set of `Synapbiz.Brain.Spec`.
+- `tests/Synapbiz.Brain.Process.Tests`: the process conformance file (valid and invalid documents, one case per diagnostic code), interpreter tests for every branch of start, the run loop and each step kind, the state round trip, determinism, the reference outreach process with its five scenarios, the scenario runner and the documentation example test.
+- `tests/Synapbiz.Brain.ArchitectureTests`: BCL-only references for Contracts and Engine, no package references for them, purity of all four libraries, the reference sets of `Synapbiz.Brain.Spec` and `Synapbiz.Brain.Process`.
 - `tests/parity`: scenarios, the two drivers and the live parity test.

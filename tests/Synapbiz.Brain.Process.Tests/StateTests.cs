@@ -102,7 +102,7 @@ public sealed class StateTests
         states.Add(other.Send(new ResumeRequested()).State);
 
         states.Select(state => state.Status).Should().Contain([ProcessStatus.Waiting, ProcessStatus.Suspended]);
-        states.Last().Problem.Should().NotBeNull();
+        states[^1].Problem.Should().NotBeNull();
         driver.State.Inbox.Should().HaveCount(1);
         foreach (var state in states)
         {
@@ -244,9 +244,12 @@ public sealed class StateTests
         first.Equals(second).Should().BeTrue();
         first.Equals((object)second).Should().BeTrue();
         first.GetHashCode().Should().Be(second.GetHashCode());
-        first.Equals(null).Should().BeFalse();
-        first.Equals((object?)"text").Should().BeFalse();
-        first.Equals(ProcessState.FromJson(Suspended)).Should().BeFalse();
+        var other = ProcessState.FromJson(Suspended);
+        object stranger = new();
+        ProcessState? nothing = null;
+        first.Equals(other).Should().BeFalse();
+        first.Equals(stranger).Should().BeFalse();
+        first.Equals(nothing).Should().BeFalse();
     }
 
     private static void AssertMalformed(string text)
