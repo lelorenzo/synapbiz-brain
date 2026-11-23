@@ -226,8 +226,21 @@ Required cases:
 14. Options and argument validation, and the missing-protector error.
 15. Logging hygiene: with a capturing logger, across the end-to-end test no log message or argument contains any variable value, input or output used in the test.
 
-Architecture tests (in `tests/Synapbiz.Brain.ArchitectureTests`): the new assembly references only the base class library, `Synapbiz.Brain.Process` and its Brain dependencies, `Npgsql` and the four `Microsoft.Extensions.*` abstractions packages above (and their transitive assemblies, listed explicitly as the restore graph holds them); its project file declares exactly those packages and the one project reference; no type outside the PostgreSQL store class and the migrator references the `Npgsql` namespace; the five pure libraries stay in the purity scan and the host is **not** added to it.
+Architecture tests (in `tests/Synapbiz.Brain.ArchitectureTests`): the new assembly references only the base class library, `Synapbiz.Brain.Process` and its Brain dependencies, `Npgsql` and the four `Microsoft.Extensions.*` abstractions packages above (and their transitive assemblies, listed explicitly as the restore graph holds them); its project file declares exactly those packages and the one project reference; no type outside the PostgreSQL store class and the migrator references the `Npgsql` namespace; the pure libraries (six after the merge of the workbench panels) stay in the purity scan and the host is **not** added to it.
 
 ## 9. Gates
 
-`dotnet build Synapbiz.Brain.sln -c Release`: 0 errors, the same 2 base warnings and none in a new or touched file; no `NoWarn`, no `#pragma warning disable`, no analyzer switched off, no skipped test; `SuppressMessage` only with a written justification and only for a rule the code base already suppresses for the same reason. `dotnet test Synapbiz.Brain.sln -c Release --no-build --collect:"XPlat Code Coverage"`: all green, the existing 1228 tests unchanged. Line coverage of `Synapbiz.Brain.Host.Postgres` ≥ 85 %. `dotnet pack` produces six packages. No change to `.github/`, `Directory.Build.props`, `tools/` or the parity solution; `Directory.Packages.props` gains only the package versions this PR needs.
+`dotnet build Synapbiz.Brain.sln -c Release`: 0 errors, the same 2 base warnings and none in a new or touched file; no `NoWarn`, no `#pragma warning disable`, no analyzer switched off, no skipped test; `SuppressMessage` only with a written justification and only for a rule the code base already suppresses for the same reason. `dotnet test Synapbiz.Brain.sln -c Release --no-build --collect:"XPlat Code Coverage"`: all green, the existing tests unchanged (1228 at the base, 1436 after the merge of the workbench panels). Line coverage of `Synapbiz.Brain.Host.Postgres` ≥ 85 %. `dotnet pack` produces one more package than the base (seven after the merge of the workbench panels). No change to `.github/`, `Directory.Build.props`, `tools/` or the parity solution; `Directory.Packages.props` gains only the package versions this PR needs.
+
+## 10. Rulings on the implementer's interpretations (2026-11-23)
+
+These settle points the sections above left open. They are normative.
+
+1. An instance whose start has been accepted but not yet applied by a pump is reported by `GetInstanceAsync` and `FindInstanceAsync` with status `Running` and a null state. The interpreter has no "created" status and the host does not invent one.
+2. `CancelAsync` and `ResumeAsync` on such an instance return `Ignored` with `process.trigger.stale`. The caller retries after the first pump pass. Nothing is queued on its behalf.
+3. Parameter names of the port interface are not part of the contract; `portCall` stands.
+4. Appending an inbox row is the one write allowed outside the transaction shape of section 4: it is an insert guarded by the unique event key, it touches no instance row, and an event may precede its instance. Consuming an inbox row always happens inside the shape.
+5. An effect result is applied under the instance lock taken with a wait, not `SKIP LOCKED`: the port call has already happened and its result must not be dropped or deferred to a lease expiry.
+6. When the catalog cannot supply the pinned definition, a pending effect stays `Pending` and no port is invoked (same treatment as test 13).
+7. A rejected start leaves no row: the transaction is rolled back.
+8. The pump scans across tenants and every row it claims carries its `tenant_id`, which scopes every later statement of that unit of work. The engine's commands and queries always take the tenant from the caller.
