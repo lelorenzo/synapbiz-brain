@@ -1,0 +1,492 @@
+{
+  "$spec": "brain.process@1",
+  "id": "postvisit.coding_review",
+  "version": 1,
+  "uses": [
+    { "$ref": "rule/postvisit.opportunities" },
+    { "$ref": "rule/postvisit.assist_gate" },
+    { "$ref": "rule/postvisit.suggestion_check" }
+  ],
+  "requires": ["coding@1"],
+  "meta": {
+    "title": "Post-visit coding review",
+    "description": "Lists coding opportunities from the facts of a signed note, may ask an assistant for a suggestion under a contract, and always ends at a physician review: nothing reaches billing without it."
+  },
+  "body": {
+    "subject": "case",
+    "stages": ["postvisit"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "assist_enabled": { "type": "Boolean", "input": true },
+      "items": { "type": "Integer" },
+      "flagged": { "type": "Integer" },
+      "opportunities": { "type": "Json" },
+      "suggested_code": { "type": "Code" },
+      "confidence": { "type": "Integer" },
+      "suggestion_usable": { "type": "Boolean" },
+      "final_code": { "type": "Code" }
+    },
+    "start": "read_note",
+    "steps": {
+      "read_note": {
+        "kind": "read",
+        "stage": "postvisit",
+        "port": "records.note_facts",
+        "input": { "case": "case_ref" },
+        "output": { "items": "items", "flagged": "flagged" },
+        "retry": { "maxAttempts": 3, "backoff": "exponential", "initial": "PT30S", "max": "PT5M" },
+        "next": "find_opportunities",
+        "onError": "physician_review",
+        "onNotAvailable": "physician_review"
+      },
+      "find_opportunities": {
+        "kind": "decide",
+        "stage": "postvisit",
+        "rule": "postvisit.opportunities",
+        "facts": { "items": "items", "flagged": "flagged" },
+        "collectInto": "opportunities",
+        "next": "assist_gate",
+        "onNoDecision": "physician_review",
+        "onError": "physician_review"
+      },
+      "assist_gate": {
+        "kind": "decide",
+        "stage": "postvisit",
+        "rule": "postvisit.assist_gate",
+        "facts": { "assist_enabled": "assist_enabled", "items": "items" },
+        "route": "use",
+        "on": { "yes": "suggest", "no": "physician_review" },
+        "onNoDecision": "physician_review",
+        "onError": "physician_review"
+      },
+      "suggest": {
+        "kind": "ai",
+        "stage": "postvisit",
+        "port": "assist.suggest",
+        "model": "model-a",
+        "prompt": { "id": "coding-suggest", "version": 1 },
+        "input": { "case": "case_ref", "opportunities": "opportunities" },
+        "inputSchema": {
+          "type": "object",
+          "required": ["case", "opportunities"],
+          "properties": { "case": { "type": "string" }, "opportunities": { "type": "array" } }
+        },
+        "outputSchema": {
+          "type": "object",
+          "required": ["code"],
+          "properties": {
+            "code": { "type": "string", "pattern": "^C-[0-9]{3}$" },
+            "confidence": { "type": "integer" }
+          },
+          "additionalProperties": false
+        },
+        "output": { "code": "suggested_code", "confidence": "confidence" },
+        "maxAttempts": 2,
+        "retry": { "maxAttempts": 2, "backoff": "fixed", "initial": "PT1M" },
+        "next": "check_suggestion",
+        "onInvalid": "physician_review",
+        "onError": "physician_review",
+        "onNotAvailable": "physician_review"
+      },
+      "check_suggestion": {
+        "kind": "decide",
+        "stage": "postvisit",
+        "rule": "postvisit.suggestion_check",
+        "facts": { "confidence": "confidence" },
+        "output": { "usable": "suggestion_usable" },
+        "next": "physician_review",
+        "onNoDecision": "physician_review",
+        "onError": "physician_review"
+      },
+      "physician_review": {
+        "kind": "humanTask",
+        "stage": "postvisit",
+        "queue": "physician_review",
+        "outcomes": ["approved", "changed", "rejected"],
+        "show": ["case_ref", "opportunities", "suggested_code", "confidence", "suggestion_usable"],
+        "output": { "code": "final_code" },
+        "on": { "approved": "approved", "changed": "approved", "rejected": "rejected" }
+      },
+      "approved": { "kind": "end", "stage": "postvisit", "result": "coding_approved" },
+      "rejected": { "kind": "end", "stage": "postvisit", "result": "coding_rejected" }
+    },
+    "scenarios": [
+      {
+        "name": "the assistant is off and the physician approves",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": false }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 4, "flagged": 1 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "physician_review", "approved"],
+          "variables": {
+            "opportunities": [{ "opportunity": "C-100" }]
+          }
+        }
+      },
+      {
+        "name": "a usable suggestion is shown to the physician, who approves",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "complete": "suggest", "output": { "code": "C-100", "confidence": 85 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": [
+            "read_note",
+            "find_opportunities",
+            "assist_gate",
+            "suggest",
+            "check_suggestion",
+            "physician_review",
+            "approved"
+          ],
+          "variables": {
+            "opportunities": [{ "opportunity": "C-100" }, { "opportunity": "C-200" }],
+            "suggested_code": "C-100",
+            "confidence": 85,
+            "suggestion_usable": true
+          }
+        }
+      },
+      {
+        "name": "an unsure suggestion is marked so, and the physician changes the code",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "complete": "suggest", "output": { "code": "C-200", "confidence": 40 } },
+          { "task": "physician_review", "outcome": "changed", "data": { "code": "C-100" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": [
+            "read_note",
+            "find_opportunities",
+            "assist_gate",
+            "suggest",
+            "check_suggestion",
+            "physician_review",
+            "approved"
+          ],
+          "variables": {
+            "suggestion_usable": false,
+            "final_code": "C-100"
+          }
+        }
+      },
+      {
+        "name": "the physician rejects the coding",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": false }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 4, "flagged": 1 } },
+          { "task": "physician_review", "outcome": "rejected" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_rejected",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "physician_review", "rejected"]
+        }
+      },
+      {
+        "name": "an answer that breaks the output schema twice goes to the physician without a suggestion",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "complete": "suggest", "output": { "code": "not-a-code", "confidence": 90 } },
+          { "complete": "suggest", "output": { "confidence": 90 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "suggest", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "an answer with a member the schema does not allow, every time, goes to the physician without a suggestion",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "complete": "suggest", "output": { "code": "C-100", "confidence": 90, "explanation": "free text" } },
+          { "complete": "suggest", "output": { "code": "C-100", "confidence": 90, "explanation": "free text" } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "suggest", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "an answer without a confidence goes to the physician without a verdict",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "complete": "suggest", "output": { "code": "C-100" } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": [
+            "read_note",
+            "find_opportunities",
+            "assist_gate",
+            "suggest",
+            "check_suggestion",
+            "physician_review",
+            "approved"
+          ],
+          "variables": {
+            "suggested_code": "C-100"
+          }
+        }
+      },
+      {
+        "name": "an answer the rule cannot judge goes to the physician without a verdict",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "complete": "suggest", "output": { "code": "C-100", "confidence": 140 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": [
+            "read_note",
+            "find_opportunities",
+            "assist_gate",
+            "suggest",
+            "check_suggestion",
+            "physician_review",
+            "approved"
+          ]
+        }
+      },
+      {
+        "name": "a transient failure of the assistant is retried",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "fail": "suggest", "error": "Transient", "code": "assist.busy" },
+          { "advance": "PT1M" },
+          { "complete": "suggest", "output": { "code": "C-100", "confidence": 90 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": [
+            "read_note",
+            "find_opportunities",
+            "assist_gate",
+            "suggest",
+            "check_suggestion",
+            "physician_review",
+            "approved"
+          ],
+          "variables": {
+            "suggestion_usable": true
+          }
+        }
+      },
+      {
+        "name": "an assistant that fails goes to the physician without a suggestion",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "fail": "suggest", "error": "Permanent", "code": "assist.failed" },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "suggest", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "an assistant that is not available goes to the physician without a suggestion",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "fail": "suggest", "error": "NotAvailable", "code": "assist.not_configured" },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "suggest", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "a note that cannot be read still goes to the physician",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "fail": "read_note", "error": "NotAvailable", "code": "records.no_connector" },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "a note that fails to read still goes to the physician",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "fail": "read_note", "error": "Permanent", "code": "records.gone" },
+          { "task": "physician_review", "outcome": "rejected" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_rejected",
+          "trace": ["read_note", "physician_review", "rejected"]
+        }
+      },
+      {
+        "name": "a read that is retried and then answers",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": false }
+        },
+        "events": [
+          { "fail": "read_note", "error": "Transient", "code": "records.busy" },
+          { "advance": "PT30S" },
+          { "complete": "read_note", "output": { "items": 4, "flagged": 1 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "a note without opportunities goes straight to the physician",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": 2, "flagged": 0 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "a read without facts makes the rule fail and goes to the physician",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "a count the gate cannot judge goes to the physician",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "complete": "read_note", "output": { "items": -1, "flagged": 1 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "physician_review", "approved"]
+        }
+      },
+      {
+        "name": "a practice that never said whether the assistant is enabled goes to the physician",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "complete": "read_note", "output": { "items": 6, "flagged": 2 } },
+          { "task": "physician_review", "outcome": "approved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "coding_approved",
+          "trace": ["read_note", "find_opportunities", "assist_gate", "physician_review", "approved"]
+        }
+      }
+    ]
+  }
+}

@@ -10,7 +10,7 @@
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Company>VigiaSoft LLC</Company>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <RepositoryUrl>https://github.com/lelorenzo/synapbiz-brain</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>

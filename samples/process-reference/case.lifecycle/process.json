@@ -1,0 +1,405 @@
+{
+  "$spec": "brain.process@1",
+  "id": "case.lifecycle",
+  "version": 1,
+  "uses": [
+    { "$ref": "rule/lifecycle.zone_ready" },
+    { "$ref": "process/previsit.outreach" },
+    { "$ref": "process/visit.note_wait" },
+    { "$ref": "process/postvisit.coding_review" },
+    { "$ref": "process/collection.followup" }
+  ],
+  "requires": ["lifecycle@1"],
+  "meta": {
+    "title": "Case lifecycle",
+    "description": "One instance per case, started when the case is opened: one child process per stage, from before the visit until the money is collected."
+  },
+  "body": {
+    "subject": "case",
+    "stages": ["previsit", "visit", "postvisit", "collection"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "practice_zone": { "type": "Code", "input": true },
+      "assist_enabled": { "type": "Boolean", "input": true },
+      "missing_at_close": { "type": "Integer" }
+    },
+    "triggers": [
+      {
+        "kind": "event",
+        "event": "case.opened",
+        "businessKey": "case_ref",
+        "input": { "case_ref": "case_ref", "practice_zone": "practice_zone" }
+      }
+    ],
+    "start": "zone_check",
+    "steps": {
+      "zone_check": {
+        "kind": "decide",
+        "stage": "previsit",
+        "rule": "lifecycle.zone_ready",
+        "facts": { "practice_zone": "practice_zone" },
+        "route": "ready",
+        "on": { "yes": "previsit" },
+        "onNoDecision": "ops_zone",
+        "onError": "ops_zone"
+      },
+      "previsit": {
+        "kind": "subprocess",
+        "stage": "previsit",
+        "process": "previsit.outreach",
+        "input": { "case_ref": "case_ref", "practice_zone": "practice_zone" },
+        "output": { "missing": "missing_at_close" },
+        "on": { "previsit_closed": "visit", "previsit_unreachable": "visit" },
+        "onError": "ops_previsit"
+      },
+      "visit": {
+        "kind": "subprocess",
+        "stage": "visit",
+        "process": "visit.note_wait",
+        "input": { "case_ref": "case_ref" },
+        "on": { "note_signed": "postvisit", "visit_cancelled": "closed_no_visit" },
+        "onError": "ops_visit"
+      },
+      "postvisit": {
+        "kind": "subprocess",
+        "stage": "postvisit",
+        "process": "postvisit.coding_review",
+        "input": { "case_ref": "case_ref", "assist_enabled": "assist_enabled" },
+        "on": { "coding_approved": "collection", "coding_rejected": "closed_not_billed" },
+        "onError": "ops_postvisit"
+      },
+      "collection": {
+        "kind": "subprocess",
+        "stage": "collection",
+        "process": "collection.followup",
+        "input": { "case_ref": "case_ref" },
+        "on": { "collected": "collected", "written_off": "written_off", "manual_close": "manual_close" },
+        "onError": "ops_collection"
+      },
+      "ops_zone": {
+        "kind": "humanTask",
+        "stage": "previsit",
+        "queue": "operations",
+        "outcomes": ["continue", "close"],
+        "show": ["case_ref"],
+        "on": { "continue": "visit", "close": "manual_close" }
+      },
+      "ops_previsit": {
+        "kind": "humanTask",
+        "stage": "previsit",
+        "queue": "operations",
+        "outcomes": ["continue", "close"],
+        "show": ["case_ref"],
+        "on": { "continue": "visit", "close": "manual_close" }
+      },
+      "ops_visit": {
+        "kind": "humanTask",
+        "stage": "visit",
+        "queue": "operations",
+        "outcomes": ["close"],
+        "show": ["case_ref", "missing_at_close"],
+        "on": { "close": "manual_close" }
+      },
+      "ops_postvisit": {
+        "kind": "humanTask",
+        "stage": "postvisit",
+        "queue": "operations",
+        "outcomes": ["close"],
+        "show": ["case_ref"],
+        "on": { "close": "manual_close" }
+      },
+      "ops_collection": {
+        "kind": "humanTask",
+        "stage": "collection",
+        "queue": "operations",
+        "outcomes": ["close"],
+        "show": ["case_ref"],
+        "on": { "close": "manual_close" }
+      },
+      "collected": { "kind": "end", "stage": "collection", "result": "collected" },
+      "written_off": { "kind": "end", "stage": "collection", "result": "written_off" },
+      "closed_no_visit": { "kind": "end", "stage": "visit", "result": "closed_no_visit" },
+      "closed_not_billed": { "kind": "end", "stage": "postvisit", "result": "closed_not_billed" },
+      "manual_close": { "kind": "end", "stage": "collection", "result": "manual_close" }
+    },
+    "scenarios": [
+      {
+        "name": "a case runs its four stages and the money is collected",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "child": "visit", "result": "note_signed", "output": { } },
+          { "child": "postvisit", "result": "coding_approved", "output": { } },
+          { "child": "collection", "result": "collected", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "collected"],
+          "variables": {
+            "missing_at_close": 0
+          }
+        }
+      },
+      {
+        "name": "a case whose reminders went unanswered still goes on to the visit",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_unreachable", "output": { "missing": 2 } },
+          { "child": "visit", "result": "note_signed", "output": { } },
+          { "child": "postvisit", "result": "coding_approved", "output": { } },
+          { "child": "collection", "result": "collected", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "collected"],
+          "variables": {
+            "missing_at_close": 2
+          }
+        }
+      },
+      {
+        "name": "a visit that did not happen closes the case without a visit",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "child": "visit", "result": "visit_cancelled", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "closed_no_visit",
+          "trace": ["zone_check", "previsit", "visit", "closed_no_visit"]
+        }
+      },
+      {
+        "name": "a rejected coding closes the case without billing",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "child": "visit", "result": "note_signed", "output": { } },
+          { "child": "postvisit", "result": "coding_rejected", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "closed_not_billed",
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "closed_not_billed"]
+        }
+      },
+      {
+        "name": "a claim that is written off ends the case as written off",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "child": "visit", "result": "note_signed", "output": { } },
+          { "child": "postvisit", "result": "coding_approved", "output": { } },
+          { "child": "collection", "result": "written_off", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "written_off",
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "written_off"]
+        }
+      },
+      {
+        "name": "a collection stage closed by hand ends the case as a manual close",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "child": "visit", "result": "note_signed", "output": { } },
+          { "child": "postvisit", "result": "coding_approved", "output": { } },
+          { "child": "collection", "result": "manual_close", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "manual_close"]
+        }
+      },
+      {
+        "name": "a failed pre-visit stage raises an operations task, which lets the case go on",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "childFailed": "previsit", "code": "process.child.cancelled" },
+          { "task": "ops_previsit", "outcome": "continue" },
+          { "child": "visit", "result": "visit_cancelled", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "closed_no_visit",
+          "trace": ["zone_check", "previsit", "ops_previsit", "visit", "closed_no_visit"]
+        }
+      },
+      {
+        "name": "a failed pre-visit stage is closed by hand",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "childFailed": "previsit", "code": "process.child.cancelled" },
+          { "task": "ops_previsit", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "previsit", "ops_previsit", "manual_close"]
+        }
+      },
+      {
+        "name": "a failed visit stage raises an operations task",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "childFailed": "visit", "code": "process.child.cancelled" },
+          { "task": "ops_visit", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "previsit", "visit", "ops_visit", "manual_close"]
+        }
+      },
+      {
+        "name": "a failed coding stage raises an operations task and never reaches billing",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "child": "visit", "result": "note_signed", "output": { } },
+          { "childFailed": "postvisit", "code": "process.child.cancelled" },
+          { "task": "ops_postvisit", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "ops_postvisit", "manual_close"]
+        }
+      },
+      {
+        "name": "a result nobody listed raises the operations task of the stage",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "child": "visit", "result": "note_signed", "output": { } },
+          { "child": "postvisit", "result": "coding_unexpected", "output": { } },
+          { "task": "ops_postvisit", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "ops_postvisit", "manual_close"]
+        }
+      },
+      {
+        "name": "a failed collection stage raises an operations task",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York", "assist_enabled": true }
+        },
+        "events": [
+          { "child": "previsit", "result": "previsit_closed", "output": { "missing": 0 } },
+          { "child": "visit", "result": "note_signed", "output": { } },
+          { "child": "postvisit", "result": "coding_approved", "output": { } },
+          { "childFailed": "collection", "code": "process.child.cancelled" },
+          { "task": "ops_collection", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "previsit", "visit", "postvisit", "collection", "ops_collection", "manual_close"]
+        }
+      },
+      {
+        "name": "a case opened without its zone raises the operations task before any reminder, which lets the case go on",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "task": "ops_zone", "outcome": "continue" },
+          { "child": "visit", "result": "visit_cancelled", "output": { } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "closed_no_visit",
+          "trace": ["zone_check", "ops_zone", "visit", "closed_no_visit"]
+        }
+      },
+      {
+        "name": "a case opened without its zone is closed by hand",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "assist_enabled": true }
+        },
+        "events": [
+          { "task": "ops_zone", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "ops_zone", "manual_close"]
+        }
+      },
+      {
+        "name": "a zone that is empty raises the same task",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "", "assist_enabled": true }
+        },
+        "events": [
+          { "task": "ops_zone", "outcome": "close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["zone_check", "ops_zone", "manual_close"]
+        }
+      }
+    ]
+  }
+}

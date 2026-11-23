@@ -1,0 +1,35 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "lifecycle.zone_ready",
+  "version": 1,
+  "uses": [],
+  "requires": ["lifecycle@1"],
+  "meta": { "title": "The case may start its pre-visit stage only when the practice gave the zone of its contact hours" },
+  "body": {
+    "kind": "lifecycle.zone_ready",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "zone-given",
+        "version": 1,
+        "legacyKey": "zone-given",
+        "conditions": [
+          { "fact": "practice_zone", "op": "notEquals", "value": { "type": "Code", "value": "" } }
+        ],
+        "outcome": { "ready": "yes" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "A zone lets the case start",
+        "facts": { "practice_zone": { "type": "Code", "value": "America/New_York" } },
+        "expect": { "row": "zone-given", "outcome": { "ready": "yes" } }
+      },
+      {
+        "name": "An empty zone decides nothing",
+        "facts": { "practice_zone": { "type": "Code", "value": "" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

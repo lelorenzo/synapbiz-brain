@@ -1,0 +1,55 @@
+{
+  "module": "coding",
+  "schemaVersion": 1,
+  "facts": [
+    { "kind": "coding.opportunities", "name": "items", "type": "Integer", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "coding.opportunities", "name": "flagged", "type": "Integer", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "coding.assist_gate", "name": "assist_enabled", "type": "Boolean", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "coding.assist_gate", "name": "items", "type": "Integer", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "coding.suggestion_check", "name": "confidence", "type": "Integer", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null }
+  ],
+  "kinds": [
+    {
+      "id": "coding.opportunities",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "coding.decisions.read",
+        "author": "coding.decisions.author",
+        "approve": "coding.decisions.approve",
+        "readTrace": "coding.decisions.read_trace"
+      },
+      "outcomes": [
+        { "name": "opportunity", "type": "Code", "nullable": false, "labelSource": null }
+      ]
+    },
+    {
+      "id": "coding.assist_gate",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "coding.decisions.read",
+        "author": "coding.decisions.author",
+        "approve": "coding.decisions.approve",
+        "readTrace": "coding.decisions.read_trace"
+      },
+      "outcomes": [
+        { "name": "use", "type": "Enum", "nullable": false, "labelSource": null, "allowedValues": ["yes", "no"] }
+      ]
+    },
+    {
+      "id": "coding.suggestion_check",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "coding.decisions.read",
+        "author": "coding.decisions.author",
+        "approve": "coding.decisions.approve",
+        "readTrace": "coding.decisions.read_trace"
+      },
+      "outcomes": [
+        { "name": "usable", "type": "Boolean", "nullable": false, "labelSource": null }
+      ]
+    }
+  ]
+}

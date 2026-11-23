@@ -1,6 +1,6 @@
 # Consuming the packages
 
-The packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, and from the next release `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
+The seven packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) carry one version, 0.2.0 at the time of writing (0.1.0 held the first three only; the two workbench packages, the process library and the PostgreSQL host first appear in 0.2.0), and are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
 
 ## Feed
 
@@ -45,10 +45,10 @@ var result = loaded.Rule!.Evaluate(facts, asOf);
 // result.Trace:   VersionNumber, MatchedRowKeys, FactsJson, FactsHash
 ```
 
-The document and contract formats are in [reference/brain-rule-v1.md](reference/brain-rule-v1.md). Running processes durably on PostgreSQL: [reference/process-host-postgres.md](reference/process-host-postgres.md).
+The document and contract formats are in [reference/brain-rule-v1.md](reference/brain-rule-v1.md). Running processes durably on PostgreSQL: start with [the consumer guide](guides/process-engine.md) (packages, registration, the ports to implement, activation, tasks, operations); the host reference is [reference/process-host-postgres.md](reference/process-host-postgres.md).
 
 ## Releasing
 
-1. Update `CHANGELOG.md`.
-2. Push a tag `vX.Y.Z` on `main`. The workflow builds, tests, packs with that version and publishes.
+1. Update `CHANGELOG.md` (move `Unreleased` under the new version) and set `<Version>` in `Directory.Build.props` to the same number, so that a local `dotnet pack` agrees with the release.
+2. Push a tag `vX.Y.Z` on `main`. The workflow builds, tests, packs with the version of the tag (`-p:Version`, taken from the tag name, not from the file) and publishes every package of the solution.
 A published version is immutable: a fix is a new version.

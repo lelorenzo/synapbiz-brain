@@ -28,6 +28,7 @@ The drift guard and the live parity solution need a checkout of the source repos
 - [Rule and contract formats](docs/reference/brain-rule-v1.md), with a complete synthetic example.
 - [Rule workbench](docs/reference/rule-workbench.md): read, simulate, test, compare and review rules.
 - [Rule workbench panels](docs/reference/rule-workbench-panels.md): mount the `RuleWorkbench` component, tokens, string keys, what the host does.
+- [Running processes: the consumer guide](docs/guides/process-engine.md): what to implement, how to register the host, start cases, complete tasks and operate it; with [six reference process documents](samples/process-reference/README.md) to copy.
 - [Process documents](docs/reference/brain-process-v1.md) and [the PostgreSQL process host](docs/reference/process-host-postgres.md).
 - [Migrating an interim rule file](docs/migration/interim-rule-shape.md).
 

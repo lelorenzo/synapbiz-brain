@@ -1,0 +1,64 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "postvisit.suggestion_check",
+  "version": 1,
+  "uses": [],
+  "requires": ["coding@1"],
+  "meta": { "title": "A suggestion is shown as usable from a confidence of 70" },
+  "body": {
+    "kind": "coding.suggestion_check",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "confident",
+        "version": 1,
+        "legacyKey": "confident",
+        "conditions": [
+          {
+            "fact": "confidence",
+            "op": "range",
+            "value": { "type": "Integer", "value": "70" },
+            "upper": { "type": "Integer", "value": "100" }
+          }
+        ],
+        "outcome": { "usable": true }
+      },
+      {
+        "id": "unsure",
+        "version": 1,
+        "legacyKey": "unsure",
+        "conditions": [
+          {
+            "fact": "confidence",
+            "op": "range",
+            "value": { "type": "Integer", "value": "0" },
+            "upper": { "type": "Integer", "value": "69" }
+          }
+        ],
+        "outcome": { "usable": false }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "Seventy is usable",
+        "facts": { "confidence": { "type": "Integer", "value": "70" } },
+        "expect": { "row": "confident", "outcome": { "usable": true } }
+      },
+      {
+        "name": "Sixty-nine is not",
+        "facts": { "confidence": { "type": "Integer", "value": "69" } },
+        "expect": { "row": "unsure", "outcome": { "usable": false } }
+      },
+      {
+        "name": "A confidence above one hundred is an invalid answer and decides nothing",
+        "facts": { "confidence": { "type": "Integer", "value": "140" } },
+        "expect": { "noDecision": true }
+      },
+      {
+        "name": "A negative confidence decides nothing",
+        "facts": { "confidence": { "type": "Integer", "value": "-5" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}
