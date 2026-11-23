@@ -1,0 +1,142 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "intake-unique",
+  "version": 1,
+  "uses": [],
+  "requires": [
+    "sample@1"
+  ],
+  "meta": {
+    "title": "Intake, unique"
+  },
+  "body": {
+    "kind": "sample.intake",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "urgent-any-channel",
+        "version": 1,
+        "legacyKey": "urgent-any-channel",
+        "conditions": [
+          {
+            "fact": "urgent",
+            "op": "equals",
+            "value": {
+              "type": "Boolean",
+              "value": true
+            }
+          }
+        ],
+        "outcome": {
+          "route": "Escalate",
+          "queue": "urgent",
+          "priority": 1
+        }
+      },
+      {
+        "id": "phone-any-urgency",
+        "version": 1,
+        "legacyKey": "phone-any-urgency",
+        "conditions": [
+          {
+            "fact": "channel",
+            "op": "equals",
+            "value": {
+              "type": "Enum",
+              "value": "Phone"
+            }
+          }
+        ],
+        "outcome": {
+          "route": "Fast",
+          "queue": "phone",
+          "notify": true
+        }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "An urgent request on the web",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": true
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "5"
+          }
+        },
+        "expect": {
+          "row": "urgent-any-channel",
+          "outcome": {
+            "route": "Escalate",
+            "queue": "urgent",
+            "priority": 1
+          }
+        }
+      },
+      {
+        "name": "A calm call",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Phone"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "5"
+          }
+        },
+        "expect": {
+          "row": "phone-any-urgency",
+          "outcome": {
+            "route": "Fast",
+            "queue": "phone",
+            "notify": true
+          }
+        }
+      },
+      {
+        "name": "A calm request on the web matches nothing",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "5"
+          }
+        },
+        "expect": {
+          "noDecision": true
+        }
+      }
+    ]
+  }
+}

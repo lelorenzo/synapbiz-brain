@@ -1,0 +1,130 @@
+{
+  "module": "sample",
+  "schemaVersion": 1,
+  "facts": [
+    {
+      "kind": "sample.intake",
+      "name": "channel",
+      "type": "Enum",
+      "nullable": false,
+      "allowedValues": [
+        "Web",
+        "Phone",
+        "Email"
+      ],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "kind": "sample.intake",
+      "name": "topic",
+      "type": "Code",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "kind": "sample.intake",
+      "name": "urgent",
+      "type": "Boolean",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "kind": "sample.intake",
+      "name": "ageDays",
+      "type": "Integer",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "kind": "sample.intake",
+      "name": "rating",
+      "type": "Decimal",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "kind": "sample.intake",
+      "name": "amount",
+      "type": "Money",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "kind": "sample.intake",
+      "name": "receivedOn",
+      "type": "Date",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    },
+    {
+      "kind": "sample.intake",
+      "name": "account",
+      "type": "Reference",
+      "nullable": true,
+      "allowedValues": [],
+      "labelSource": {
+        "ownerModule": "sample",
+        "entityType": "sample.account"
+      },
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "sample.intake",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "sample.decisions.read",
+        "author": "sample.decisions.author",
+        "approve": "sample.decisions.approve",
+        "readTrace": "sample.decisions.read_trace"
+      },
+      "outcomes": [
+        {
+          "name": "route",
+          "type": "Enum",
+          "nullable": false,
+          "labelSource": null,
+          "allowedValues": [
+            "Standard",
+            "Fast",
+            "Escalate",
+            "Manual"
+          ]
+        },
+        {
+          "name": "queue",
+          "type": "Code",
+          "nullable": false,
+          "labelSource": null
+        },
+        {
+          "name": "notify",
+          "type": "Boolean",
+          "nullable": true,
+          "labelSource": null
+        },
+        {
+          "name": "priority",
+          "type": "Integer",
+          "nullable": true,
+          "labelSource": null
+        }
+      ]
+    }
+  ]
+}
