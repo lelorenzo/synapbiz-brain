@@ -74,6 +74,15 @@ public enum ProcessHistoryKind
 
     /// <summary>The instance completed.</summary>
     Completed,
+
+    /// <summary>An action step with a delivery window waits for the window to open.</summary>
+    WindowWaiting,
+
+    /// <summary>The delivery window of an action step opened and the effect was requested.</summary>
+    WindowOpened,
+
+    /// <summary>A <c>poll</c> step ran out of time before its condition held.</summary>
+    PollExpired,
 }
 
 /// <summary>One entry of the append-only history of an instance.</summary>

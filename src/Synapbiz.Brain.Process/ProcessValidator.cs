@@ -9,6 +9,14 @@ namespace Synapbiz.Brain.Process;
 /// <summary>The static rules of section 2.4 of the specification, applied to a document that passed the schema.</summary>
 internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoadContext context, List<BrainSpecError> errors)
 {
+    private const int MaximumPollRounds = 10_000;
+
+    private static readonly Dictionary<string, VariableType> ScheduleSources = new(StringComparer.Ordinal)
+    {
+        ["scheduledFor"] = VariableType.Instant,
+        ["scheduledDate"] = VariableType.Date,
+    };
+
     private readonly Dictionary<string, BrainRule> rules = IndexRules(context.Rules);
 
     internal void Validate()
@@ -22,6 +30,8 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
         }
 
         CheckUses(needed);
+        CheckWindows();
+        CheckTriggers();
         CheckReachability();
         CheckCycles();
         new ScenarioValidator(definition, errors).Validate();
@@ -79,6 +89,13 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
             case AiStep ai:
                 CheckAi(ai, path);
                 break;
+            case ActionStep action:
+                CheckAction(action, path);
+                break;
+            case PollStep poll:
+                needed.Add("rule/" + poll.Rule);
+                CheckPoll(poll, path);
+                break;
             case HumanTaskStep task:
                 CheckTask(task, path);
                 break;
@@ -135,16 +152,59 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
         }
     }
 
-    private void CheckDecide(DecideStep step, string path)
+    private void CheckAction(ActionStep step, string path)
     {
+        if (step.Window is { } name && !definition.Windows.ContainsKey(name))
+        {
+            errors.Add(Diagnostics.UnknownWindow(path + "/window"));
+        }
+
+        if (step.Contact && step.Window is null)
+        {
+            errors.Add(Diagnostics.WindowRequired(path + "/contact"));
+        }
+    }
+
+    private void CheckPoll(PollStep step, string path)
+    {
+        // A duration that did not parse is reported already and reads as zero: there is nothing to count then.
+        if (step.Every > TimeSpan.Zero && step.MaxDuration > TimeSpan.Zero && step.CountRounds(MaximumPollRounds) > MaximumPollRounds)
+        {
+            errors.Add(Diagnostics.TooManyRounds(path + "/maxDuration"));
+        }
+
         if (!rules.TryGetValue(step.Rule, out var rule))
         {
             errors.Add(Diagnostics.UnavailableRule(path + "/rule"));
             return;
         }
 
-        var kind = rule.Kind;
-        foreach (var (name, variable) in step.Facts.Entries)
+        CheckFacts(step.Facts, rule.Kind, path);
+        if (rule.Table.HitPolicy == HitPolicy.Collect)
+        {
+            errors.Add(Diagnostics.WrongHitPolicy(path));
+        }
+
+        var field = FindOutcome(rule.Kind, step.Field);
+        if (field is null || field.Type is not (FactType.Enum or FactType.Boolean))
+        {
+            errors.Add(Diagnostics.UnknownOutcome(path + "/field"));
+            return;
+        }
+
+        var possible = field.Type == FactType.Boolean ? new HashSet<string>(["true", "false"], StringComparer.Ordinal) : ProducedValues(rule, step.Field);
+        for (var index = 0; index < step.Until.Count; index++)
+        {
+            if (!possible.Contains(step.Until[index]))
+            {
+                errors.Add(Diagnostics.UnknownRouteValue(JsonText.Pointer(path + "/until", index)));
+            }
+        }
+    }
+
+    private void CheckFacts(Mapping facts, DecisionKindDescriptor kind, string path)
+    {
+        foreach (var (name, variable) in facts.Entries)
         {
             var member = JsonText.Pointer(path + "/facts", name);
             var fact = kind.Facts.FirstOrDefault(candidate => string.Equals(candidate.Name, name, StringComparison.Ordinal));
@@ -157,6 +217,18 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
                 errors.Add(Diagnostics.WrongVariableType(member));
             }
         }
+    }
+
+    private void CheckDecide(DecideStep step, string path)
+    {
+        if (!rules.TryGetValue(step.Rule, out var rule))
+        {
+            errors.Add(Diagnostics.UnavailableRule(path + "/rule"));
+            return;
+        }
+
+        var kind = rule.Kind;
+        CheckFacts(step.Facts, kind, path);
 
         foreach (var (name, variable) in step.Output.Entries)
         {
@@ -260,7 +332,13 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
         foreach (var step in definition.Steps)
         {
             var path = JsonText.Pointer("/body/steps", step.Id);
-            if (step is DecideStep decide && !listed.Contains("rule/" + decide.Rule))
+            var rule = step switch
+            {
+                DecideStep decide => decide.Rule,
+                PollStep poll => poll.Rule,
+                _ => null,
+            };
+            if (rule is not null && !listed.Contains("rule/" + rule))
             {
                 errors.Add(Diagnostics.MissingUse(path + "/rule"));
             }
@@ -273,6 +351,94 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
         foreach (var (_, index) in definition.Uses.Where(use => !needed.Contains(use.Reference)))
         {
             errors.Add(Diagnostics.UnusedUse(JsonText.Pointer("/uses", index)));
+        }
+    }
+
+    // A window that names its zone in a variable needs that variable to exist and to be a Code.
+    private void CheckWindows()
+    {
+        foreach (var window in definition.Windows.Values.Where(window => window.ZoneVariable is not null))
+        {
+            var path = JsonText.Pointer("/body/windows", window.Name) + "/zone/variable";
+            if (!definition.Variables.ContainsKey(window.ZoneVariable!))
+            {
+                errors.Add(Diagnostics.UnknownVariable(path));
+            }
+            else
+            {
+                CheckVariableType(window.ZoneVariable, path, VariableType.Code);
+            }
+        }
+    }
+
+    private void CheckTriggers()
+    {
+        var events = new HashSet<string>(StringComparer.Ordinal);
+        var schedules = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < definition.Triggers.Count; index++)
+        {
+            var path = JsonText.Pointer("/body/triggers", index);
+            switch (definition.Triggers[index])
+            {
+                case EventTriggerDeclaration declared:
+                    if (!events.Add(declared.Event))
+                    {
+                        errors.Add(Diagnostics.EventDuplicate(path + "/event"));
+                    }
+
+                    CheckTriggerInput(declared.Input, path + "/input", null);
+                    break;
+                case ScheduleTriggerDeclaration declared:
+                    CheckSchedule(declared, schedules, path);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    private void CheckSchedule(ScheduleTriggerDeclaration schedule, HashSet<string> seen, string path)
+    {
+        if (!seen.Add(schedule.Id))
+        {
+            errors.Add(Diagnostics.ScheduleDuplicate(path + "/id"));
+        }
+
+        if (!CronSchedule.TryParse(schedule.Cron, out _))
+        {
+            errors.Add(Diagnostics.CronInvalid(path + "/cron"));
+        }
+
+        if (schedule.Zone is not null && !LocalTimes.IsZoneIdShape(schedule.Zone))
+        {
+            errors.Add(Diagnostics.ZoneInvalid(path + "/zone"));
+        }
+
+        CheckTriggerInput(schedule.Input, path + "/input", ScheduleSources);
+    }
+
+    // The variables a trigger maps must be declared input variables; a schedule also maps each to a source of the right type.
+    private void CheckTriggerInput(IReadOnlyDictionary<string, string> input, string path, Dictionary<string, VariableType>? sources)
+    {
+        foreach (var (name, source) in input)
+        {
+            var member = JsonText.Pointer(path, name);
+            if (!definition.Variables.TryGetValue(name, out var variable))
+            {
+                errors.Add(Diagnostics.TriggerVariableUnknownAt(member));
+            }
+            else if (!variable.Input)
+            {
+                errors.Add(Diagnostics.TriggerVariableNotInputAt(member));
+            }
+            else if (sources is not null && !sources.ContainsKey(source))
+            {
+                errors.Add(Diagnostics.InputSourceUnknown(member));
+            }
+            else if (sources is not null && sources[source] != variable.Type)
+            {
+                errors.Add(Diagnostics.TypeMismatch(member));
+            }
         }
     }
 
@@ -395,6 +561,7 @@ internal sealed class ScenarioValidator(ProcessDefinition definition, List<Brain
             var scenario = definition.Scenarios[index]!.AsObject();
             var path = JsonText.Pointer("/body/scenarios", index);
             CheckStart(scenario["start"]!.AsObject(), path + "/start");
+            CheckZones(scenario["zones"] as JsonObject, path + "/zones");
             var events = scenario["events"]!.AsArray();
             for (var position = 0; position < events.Count; position++)
             {
@@ -402,6 +569,18 @@ internal sealed class ScenarioValidator(ProcessDefinition definition, List<Brain
             }
 
             CheckExpect(scenario["expect"]!.AsObject(), path + "/expect");
+        }
+    }
+
+    // A scenario zone is an IANA id of the right shape with a fixed offset of at most 14 hours, as +HH:mm or -HH:mm.
+    private void CheckZones(JsonObject? zones, string path)
+    {
+        foreach (var (id, node) in zones ?? [])
+        {
+            if (!LocalTimes.IsZoneIdShape(id) || !ScenarioExecution.TryOffset(JsonText.Text(node), out _))
+            {
+                errors.Add(Diagnostics.BadScenario(JsonText.Pointer(path, id)));
+            }
         }
     }
 
@@ -430,7 +609,7 @@ internal sealed class ScenarioValidator(ProcessDefinition definition, List<Brain
     {
         foreach (var key in new[] { "complete", "fail" })
         {
-            CheckStepOfKind(item, key, path, StepKind.Read, StepKind.Action, StepKind.Ai);
+            CheckStepOfKind(item, key, path, StepKind.Read, StepKind.Action, StepKind.Ai, StepKind.Poll);
         }
 
         CheckStepOfKind(item, "task", path, StepKind.HumanTask);

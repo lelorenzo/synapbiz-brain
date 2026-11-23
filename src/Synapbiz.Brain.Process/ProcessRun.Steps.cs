@@ -14,6 +14,7 @@ internal sealed partial class ProcessRun
 {
     private string? Execute(StepDef step) => step switch
     {
+        PollStep poll => StartPoll(poll),
         EffectStep effect => RequestEffect(effect),
         DecideStep decide => Decide(decide),
         HumanTaskStep task => RequestTask(task),
@@ -25,8 +26,11 @@ internal sealed partial class ProcessRun
         _ => throw new InvalidOperationException($"Unknown step kind {step.Kind}."),
     };
 
-    // 6.1 and 6.2: read, action and ai.
-    private string? RequestEffect(EffectStep step)
+    // 6.1 and 6.2: read, action and ai. An action that names a delivery window waits for it before every attempt.
+    private string? RequestEffect(EffectStep step) =>
+        step is ActionStep { Window: { } window } ? EnterWindow(definition.Windows[window]) : SendEffect(step);
+
+    private string? SendEffect(EffectStep step)
     {
         var input = BuildObject(step.Input);
         if (step is AiStep ai && !IsValid(ai.InputSchema!, input))
@@ -116,7 +120,7 @@ internal sealed partial class ProcessRun
 
         Apply(updates);
         Log(ProcessHistoryKind.EffectCompleted, null, Data(("effectId", EffectId())));
-        return step.Next;
+        return step is PollStep poll ? EvaluatePoll(poll) : step.Next;
     }
 
     private string? OnAiCompleted(AiStep step, JsonObject? output)
@@ -167,16 +171,10 @@ internal sealed partial class ProcessRun
     private string? Decide(DecideStep step)
     {
         var rule = definition.Rules[step.Rule];
-        var facts = new Dictionary<string, DecisionValue>(StringComparer.Ordinal);
-        foreach (var (fact, variable) in step.Facts.Entries.Where(entry => variables.ContainsKey(entry.Value)))
-        {
-            facts[fact] = VariableValues.ToDecisionValue(definition.Variables[variable].Type, JsonNode.Parse(variables[variable])!);
-        }
-
         DecisionResult decision;
         try
         {
-            decision = rule.Evaluate(facts, clock.Today);
+            decision = rule.Evaluate(BuildFacts(step.Facts), clock.Today);
         }
         catch (BrainException error)
         {
@@ -220,16 +218,30 @@ internal sealed partial class ProcessRun
             return step.Next;
         }
 
-        var key = outcome[step.Route] switch
-        {
-            null => null,
-            JsonValue value when value.GetValueKind() == JsonValueKind.True => "true",
-            JsonValue value when value.GetValueKind() == JsonValueKind.False => "false",
-            var other => JsonText.Text(other),
-        };
+        var key = RouteKey(outcome, step.Route);
         var target = step.On!.Where(entry => string.Equals(entry.Key, key, StringComparison.Ordinal)).Select(entry => entry.Value).FirstOrDefault();
         return RouteOrSuspend(target ?? step.OnError, "process.route.unmatched", null);
     }
+
+    private Dictionary<string, DecisionValue> BuildFacts(Mapping mapping)
+    {
+        var facts = new Dictionary<string, DecisionValue>(StringComparer.Ordinal);
+        foreach (var (fact, variable) in mapping.Entries.Where(entry => variables.ContainsKey(entry.Value)))
+        {
+            facts[fact] = VariableValues.ToDecisionValue(definition.Variables[variable].Type, JsonNode.Parse(variables[variable])!);
+        }
+
+        return facts;
+    }
+
+    // The value of an outcome field as a routing key: a Boolean as "true" or "false", null for an absent field.
+    private static string? RouteKey(JsonObject outcome, string field) => outcome[field] switch
+    {
+        null => null,
+        JsonValue value when value.GetValueKind() == JsonValueKind.True => "true",
+        JsonValue value when value.GetValueKind() == JsonValueKind.False => "false",
+        var other => JsonText.Text(other),
+    };
 
     private static string FailedDecision(BrainRule rule, string code) =>
         JsonText.Canonical(new JsonObject { ["rule"] = rule.Id, ["version"] = rule.Version, ["error"] = code });

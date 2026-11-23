@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace Synapbiz.Brain.Process;
 
@@ -35,9 +36,12 @@ internal static class ScenarioRunner
 }
 
 /// <summary>One run of one scenario: the virtual clock, the outstanding timers, the state and the trace.</summary>
-internal sealed class ScenarioExecution(BrainProcess process)
+internal sealed partial class ScenarioExecution(BrainProcess process)
 {
+    private const string ZoneUnknown = "process.window.zone_unknown";
+
     private readonly Dictionary<string, DateTimeOffset> timers = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TimeZoneInfo> zones = new(StringComparer.Ordinal);
     private readonly List<string> trace = [];
     private DateTimeOffset startedAt;
     private DateTimeOffset now;
@@ -51,13 +55,23 @@ internal sealed class ScenarioExecution(BrainProcess process)
         VariableValues.TryInstant(JsonText.Text(start["at"])!, out startedAt);
         VariableValues.TryDate(JsonText.Text(start["today"])!, out startDay);
         now = startedAt;
+        foreach (var (id, offset) in scenario["zones"] as JsonObject ?? [])
+        {
+            TryOffset(JsonText.Text(offset), out var span);
+            zones[id] = TimeZoneInfo.CreateCustomTimeZone(id, span, id, id);
+        }
+
         var started = process.Start("scenario", start["input"] as JsonObject, Clock());
         if (started.Disposition != AdvanceDisposition.Applied)
         {
             return $"start was {started.Disposition}: {started.Code}";
         }
 
-        Absorb(started);
+        if (Absorb(started) is { } problem)
+        {
+            return problem;
+        }
+
         foreach (var item in scenario["events"]!.AsArray())
         {
             var failure = Apply(item!.AsObject());
@@ -73,9 +87,30 @@ internal sealed class ScenarioExecution(BrainProcess process)
     private ProcessClock Clock() =>
         new(now, startDay.AddDays((int)((now - startedAt).Ticks / TimeSpan.TicksPerDay)));
 
-    private void Absorb(AdvanceResult result)
+    /// <summary>Reads a fixed UTC offset written <c>+HH:mm</c> or <c>-HH:mm</c>, at most 14 hours.</summary>
+    internal static bool TryOffset(string? text, out TimeSpan offset)
+    {
+        offset = TimeSpan.Zero;
+        var match = text is null ? Match.Empty : OffsetPattern().Match(text);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        var magnitude = new TimeSpan(
+            int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture),
+            int.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture),
+            0);
+        offset = match.Groups[1].Value == "-" ? -magnitude : magnitude;
+        return magnitude <= TimeSpan.FromHours(14);
+    }
+
+    // The timers and cancellations of a result are recorded, then every delivery window is answered the way a host would: a
+    // timer at the next opening (fired at once when the window is open now), or a failure for a zone the scenario does not list.
+    private string? Absorb(AdvanceResult result)
     {
         state = result.State;
+        trace.AddRange(result.History.Where(entry => entry.Kind == ProcessHistoryKind.StepEntered).Select(entry => entry.Step!));
         foreach (var request in result.Requests)
         {
             if (request is TimerRequest timer)
@@ -88,8 +123,36 @@ internal sealed class ScenarioExecution(BrainProcess process)
             }
         }
 
-        trace.AddRange(result.History.Where(entry => entry.Kind == ProcessHistoryKind.StepEntered).Select(entry => entry.Step!));
+        foreach (var window in result.Requests.OfType<WindowRequest>())
+        {
+            if (AnswerWindow(window) is { } failure)
+            {
+                return failure;
+            }
+        }
+
+        return null;
     }
+
+    private string? AnswerWindow(WindowRequest window)
+    {
+        if (!zones.TryGetValue(window.Zone, out var zone))
+        {
+            return Send(new WindowFailed(window.TimerId, ZoneUnknown));
+        }
+
+        var opens = DeliveryWindows.NextOpen(now, zone, window.Days, window.From, window.To);
+        if (opens > now)
+        {
+            timers[window.TimerId] = opens;
+            return null;
+        }
+
+        return Send(new TimerFired(window.TimerId));
+    }
+
+    [GeneratedRegex(@"\A([+-])([0-9]{2}):([0-5][0-9])\z", RegexOptions.CultureInvariant)]
+    private static partial Regex OffsetPattern();
 
     private string? Send(ProcessTrigger trigger)
     {
@@ -99,8 +162,7 @@ internal sealed class ScenarioExecution(BrainProcess process)
             return $"{trigger.GetType().Name} was {advanced.Disposition}: {advanced.Code}";
         }
 
-        Absorb(advanced);
-        return null;
+        return Absorb(advanced);
     }
 
     private string? Apply(JsonObject item)

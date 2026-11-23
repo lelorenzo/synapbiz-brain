@@ -51,6 +51,11 @@ public sealed record EffectFailed(string EffectId, ProcessErrorKind Kind, string
 /// <param name="TimerId">The id of the timer request.</param>
 public sealed record TimerFired(string TimerId) : ProcessTrigger;
 
+/// <summary>The host cannot open a delivery window: it cannot resolve the time zone of the window.</summary>
+/// <param name="TimerId">The id of the <see cref="WindowRequest"/>.</param>
+/// <param name="Code">A stable code of the failure, <c>process.window.zone_unknown</c> when the zone is not known.</param>
+public sealed record WindowFailed(string TimerId, string Code) : ProcessTrigger;
+
 /// <summary>An external event arrived for the instance.</summary>
 /// <param name="Name">The event name.</param>
 /// <param name="Correlation">The correlation value, if the event has one.</param>

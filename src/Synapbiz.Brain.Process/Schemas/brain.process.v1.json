@@ -194,6 +194,21 @@
           },
           "additionalProperties": false
         },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trigger"
+          }
+        },
+        "windows": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/window"
+          }
+        },
         "start": {
           "$ref": "#/$defs/id"
         },
@@ -237,7 +252,8 @@
             "timer",
             "loop",
             "subprocess",
-            "end"
+            "end",
+            "poll"
           ]
         }
       },
@@ -394,6 +410,21 @@
           "then": {
             "$ref": "#/$defs/end"
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "poll"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/poll"
+          }
         }
       ]
     },
@@ -478,6 +509,12 @@
           ]
         },
         "onUnknown": {
+          "$ref": "#/$defs/id"
+        },
+        "contact": {
+          "type": "boolean"
+        },
+        "window": {
           "$ref": "#/$defs/id"
         }
       },
@@ -951,6 +988,15 @@
           ],
           "additionalProperties": false
         },
+        "zones": {
+          "type": "object",
+          "propertyNames": {
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "events": {
           "type": "array",
           "items": {
@@ -1211,6 +1257,251 @@
           }
         }
       }
+    },
+    "poll": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "poll"
+        },
+        "stage": {
+          "$ref": "#/$defs/text"
+        },
+        "port": {
+          "$ref": "#/$defs/text"
+        },
+        "input": {
+          "$ref": "#/$defs/mapping"
+        },
+        "output": {
+          "$ref": "#/$defs/mapping"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "next": {
+          "$ref": "#/$defs/id"
+        },
+        "onError": {
+          "$ref": "#/$defs/id"
+        },
+        "onNotAvailable": {
+          "$ref": "#/$defs/id"
+        },
+        "onNotEntitled": {
+          "$ref": "#/$defs/id"
+        },
+        "rule": {
+          "$ref": "#/$defs/id"
+        },
+        "facts": {
+          "$ref": "#/$defs/mapping"
+        },
+        "field": {
+          "$ref": "#/$defs/text"
+        },
+        "until": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "every": {
+          "$ref": "#/$defs/duration"
+        },
+        "backoff": {
+          "enum": [
+            "fixed",
+            "exponential"
+          ]
+        },
+        "max": {
+          "$ref": "#/$defs/duration"
+        },
+        "maxDuration": {
+          "$ref": "#/$defs/duration"
+        },
+        "onExpired": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "kind",
+        "port",
+        "next",
+        "rule",
+        "facts",
+        "field",
+        "until",
+        "every",
+        "maxDuration",
+        "onExpired"
+      ],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "backoff": {
+            "const": "exponential"
+          }
+        },
+        "required": [
+          "backoff"
+        ]
+      },
+      "else": {
+        "properties": {
+          "max": false
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "event",
+            "schedule"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "event"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/eventTrigger"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "schedule"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/scheduleTrigger"
+          }
+        }
+      ]
+    },
+    "eventTrigger": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "event"
+        },
+        "event": {
+          "$ref": "#/$defs/text"
+        },
+        "businessKey": {
+          "$ref": "#/$defs/text"
+        },
+        "input": {
+          "$ref": "#/$defs/mapping"
+        }
+      },
+      "required": [
+        "kind",
+        "event",
+        "businessKey"
+      ],
+      "additionalProperties": false
+    },
+    "scheduleTrigger": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "schedule"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        },
+        "cron": {
+          "type": "string"
+        },
+        "zone": {
+          "type": "string"
+        },
+        "misfire": {
+          "enum": [
+            "skip",
+            "fireOnce"
+          ]
+        },
+        "input": {
+          "$ref": "#/$defs/mapping"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "cron",
+        "misfire"
+      ],
+      "additionalProperties": false
+    },
+    "window": {
+      "type": "object",
+      "properties": {
+        "zone": {
+          "if": {
+            "type": "object"
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "variable": {
+                "$ref": "#/$defs/text"
+              }
+            },
+            "required": [
+              "variable"
+            ],
+            "additionalProperties": false
+          },
+          "else": {
+            "type": "string"
+          }
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "zone",
+        "days",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
     }
   }
 }

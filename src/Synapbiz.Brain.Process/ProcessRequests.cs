@@ -100,3 +100,16 @@ public sealed record CancelTaskRequest(string Step, string TaskId) : ProcessRequ
 /// <param name="ProcessId">The id of the process to start.</param>
 /// <param name="InputJson">The input of the child as the text of a JSON object.</param>
 public sealed record ChildStartRequest(string Step, string ChildKey, string ProcessId, string InputJson) : ProcessRequest(Step);
+
+/// <summary>
+/// Wait for a delivery window to open before an effect is requested. The host answers with <see cref="TimerFired"/> for
+/// <paramref name="TimerId"/> at an instant inside the window (at once when the window is open now), or with
+/// <see cref="WindowFailed"/> when it cannot resolve the zone. <see cref="DeliveryWindows.NextOpen"/> computes the instant.
+/// </summary>
+/// <param name="Step">The step that produced the request.</param>
+/// <param name="TimerId">The id the answer must quote.</param>
+/// <param name="Zone">The IANA id of the time zone the window is read on.</param>
+/// <param name="Days">The local days of the week the window is open on.</param>
+/// <param name="From">The local time the window opens, inclusive.</param>
+/// <param name="To">The local time the window closes, exclusive; <c>00:00</c> means 24:00 when <paramref name="From"/> is later.</param>
+public sealed record WindowRequest(string Step, string TimerId, string Zone, IReadOnlyList<DayOfWeek> Days, TimeOnly From, TimeOnly To) : ProcessRequest(Step);

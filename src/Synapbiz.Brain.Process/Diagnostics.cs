@@ -28,6 +28,18 @@ internal static class Diagnostics
     internal const string CycleUnbounded = "process.cycle.unbounded";
     internal const string DurationInvalid = "process.duration.invalid";
     internal const string ScenarioInvalid = "process.scenario.invalid";
+    internal const string ActionWindowRequired = "process.action.window_required";
+    internal const string WindowInvalid = "process.window.invalid";
+    internal const string WindowUnknown = "process.window.unknown";
+    internal const string TriggerEventDuplicate = "process.trigger.event_duplicate";
+    internal const string TriggerScheduleDuplicate = "process.trigger.schedule_duplicate";
+    internal const string TriggerCronInvalid = "process.trigger.cron_invalid";
+    internal const string TriggerZoneInvalid = "process.trigger.zone_invalid";
+    internal const string TriggerInputSourceUnknown = "process.trigger.input_source_unknown";
+    internal const string TriggerVariableUnknown = "process.trigger.variable_unknown";
+    internal const string TriggerVariableNotInput = "process.trigger.variable_not_input";
+    internal const string VariableTypeMismatch = "process.variable.type_mismatch";
+    internal const string PollTooManyRounds = "process.poll.too_many_rounds";
 
     internal const string StructureEnvelope = "spec.structure.envelope";
     internal const string StructureUnknownFormat = "spec.structure.unknown_format";
@@ -133,4 +145,52 @@ internal static class Diagnostics
         "The scenario refers to something the process does not declare or is malformed.",
         "El escenario se refiere a algo que el proceso no declara o está mal formado.",
         "Use step ids, variables and events declared by the process.");
+
+    internal static BrainSpecError WindowRequired(string path) => new(ActionWindowRequired, path,
+        "A contact action must name a delivery window.", "Una acción de contacto debe nombrar una ventana de entrega.",
+        "Add window with the name of a window declared in body.windows, or remove contact.");
+
+    internal static BrainSpecError BadWindow(string path) => new(WindowInvalid, path,
+        "The delivery window is not valid.", "La ventana de entrega no es válida.",
+        "Use an IANA zone id or { \"variable\": ... }, one or more distinct days (mon to sun), and HH:mm times with from before to (to may be 24:00).");
+
+    internal static BrainSpecError UnknownWindow(string path) => new(WindowUnknown, path,
+        "The window is not declared in body.windows.", "La ventana no está declarada en body.windows.",
+        "Declare the window in body.windows or use a declared window.");
+
+    internal static BrainSpecError EventDuplicate(string path) => new(TriggerEventDuplicate, path,
+        "Another event trigger already names this event.", "Otro disparador de evento ya nombra este evento.",
+        "Use each event name in one event trigger only.");
+
+    internal static BrainSpecError ScheduleDuplicate(string path) => new(TriggerScheduleDuplicate, path,
+        "Another schedule trigger already has this id.", "Otro disparador de agenda ya tiene este id.",
+        "Give every schedule trigger its own id.");
+
+    internal static BrainSpecError CronInvalid(string path) => new(TriggerCronInvalid, path,
+        "The cron expression is not valid or can never fire.", "La expresión cron no es válida o nunca se dispara.",
+        "Use five fields (minute hour day-of-month month day-of-week) of *, numbers, ranges, steps and lists; no names, seconds or macros.");
+
+    internal static BrainSpecError ZoneInvalid(string path) => new(TriggerZoneInvalid, path,
+        "The time zone is not an IANA zone id.", "La zona horaria no es un id de zona IANA.",
+        "Use UTC or an id such as America/New_York.");
+
+    internal static BrainSpecError InputSourceUnknown(string path) => new(TriggerInputSourceUnknown, path,
+        "A schedule trigger can only map scheduledFor or scheduledDate.", "Un disparador de agenda solo puede asignar scheduledFor o scheduledDate.",
+        "Map the variable to scheduledFor (an Instant variable) or scheduledDate (a Date variable).");
+
+    internal static BrainSpecError TriggerVariableUnknownAt(string path) => new(TriggerVariableUnknown, path,
+        "The trigger maps a variable that is not declared in body.variables.", "El disparador asigna una variable que no está declarada en body.variables.",
+        "Declare the variable in body.variables or map a declared variable.");
+
+    internal static BrainSpecError TriggerVariableNotInputAt(string path) => new(TriggerVariableNotInput, path,
+        "The trigger maps a variable that is not an input variable.", "El disparador asigna una variable que no es de entrada.",
+        "Declare the variable with input: true.");
+
+    internal static BrainSpecError TypeMismatch(string path) => new(VariableTypeMismatch, path,
+        "The variable does not have the type the trigger source produces.", "La variable no tiene el tipo que produce el origen del disparador.",
+        "Use an Instant variable for scheduledFor and a Date variable for scheduledDate.");
+
+    internal static BrainSpecError TooManyRounds(string path) => new(PollTooManyRounds, path,
+        "More than 10000 rounds fit in maxDuration.", "En maxDuration caben más de 10000 rondas.",
+        "Lengthen every, use exponential backoff, or shorten maxDuration.");
 }

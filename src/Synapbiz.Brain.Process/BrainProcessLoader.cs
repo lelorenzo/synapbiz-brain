@@ -57,8 +57,8 @@ public static partial class BrainProcessLoader
         }
 
         var available = ProcessValidator.IndexRules(context.Rules);
-        definition.Rules = definition.Steps.OfType<DecideStep>()
-            .Select(step => step.Rule)
+        definition.Rules = definition.Steps.OfType<DecideStep>().Select(step => step.Rule)
+            .Concat(definition.Steps.OfType<PollStep>().Select(step => step.Rule))
             .Distinct(StringComparer.Ordinal)
             .ToDictionary(id => id, id => available[id], StringComparer.Ordinal);
         return new BrainProcessLoadResult(new BrainProcess(definition), []);
