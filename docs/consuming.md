@@ -1,6 +1,6 @@
 # Consuming the packages
 
-The seven packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) carry one version, 0.6.0 at the time of writing (0.1.0 held the first three only; the two workbench packages, the process library and the PostgreSQL host first appear in 0.2.0), and are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
+The eight packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process`, `Synapbiz.Brain.Host.Postgres` and, since 0.7.0, `Synapbiz.Brain.Authoring`) carry one version, 0.6.0 at the time of writing (0.1.0 held the first three only; the two workbench packages, the process library and the PostgreSQL host first appear in 0.2.0), and are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
 
 ## Feed
 
@@ -46,6 +46,8 @@ var result = loaded.Rule!.Evaluate(facts, asOf);
 ```
 
 The document and contract formats are in [reference/brain-rule-v1.md](reference/brain-rule-v1.md). Running processes durably on PostgreSQL: start with [the consumer guide](guides/process-engine.md) (packages, registration, the ports to implement, activation, tasks, operations); the host reference is [reference/process-host-postgres.md](reference/process-host-postgres.md).
+
+Giving an assistant tools to model processes and rules (since 0.7.0): `Synapbiz.Brain.Authoring` has no model and no network; construct `new AuthoringTools(new FileAuthoringStore(folder), new AuthoringOptions { Clock = timeProvider })` and call `tools.Invoke(name, input)` for any of the seventeen tools, or list `tools.All` (name, description, input schema) to expose them through your own transport. The tools propose and never activate; see [reference/brain-authoring.md](reference/brain-authoring.md). The MCP adapter and the stdio program are the next package.
 
 ## Releasing
 

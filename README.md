@@ -1,6 +1,6 @@
 # synapbiz-brain
 
-Brain is the shared decision library of Synapbiz. This repository holds its first parts, the Decision Engine, the rule format, the rule workbench with its panels, the process interpreter and its PostgreSQL host, as seven packages, all `net9.0`:
+Brain is the shared decision library of Synapbiz. This repository holds its first parts, the Decision Engine, the rule format, the rule workbench with its panels, the process interpreter and its PostgreSQL host, and the authoring tools for assistants, as eight packages, all `net9.0`:
 
 - `Synapbiz.Brain.Contracts`: the public surface (decision table model, typed values, kinds, outcome, trace and validation contracts); base class library only.
 - `Synapbiz.Brain.Engine`: the pure compiler, evaluator, validator, overlap and coverage analysis and golden runner, with no persistence, no DI, no clock, IO or randomness; depends on Contracts only.
@@ -9,6 +9,7 @@ Brain is the shared decision library of Synapbiz. This repository holds its firs
 - `Synapbiz.Brain.Workbench.Blazor`: the rule workbench panels as one Razor component, `RuleWorkbench` (rule list, reader, simulator, test cases, review and export); draws what `Synapbiz.Brain.Workbench` computes, styled only by `--wb-*` tokens the host defines; adds no evaluation logic.
 - `Synapbiz.Brain.Process`: `brain.process@1` documents and the pure process interpreter: variables, steps, retries, events, timers, tasks and subprocesses as state transitions that return requests and history, with an embedded scenario runner; depends on `Synapbiz.Brain.Spec` and `JsonSchema.Net`.
 - `Synapbiz.Brain.Host.Postgres`: the durable PostgreSQL host of `brain.process@1` instances: store, history, timers, waits, inbox, effects with leases, worker and migrator; depends on `Synapbiz.Brain.Process`, `Npgsql` and four `Microsoft.Extensions.*` abstractions packages.
+- `Synapbiz.Brain.Authoring`: the headless authoring tools of Brain MCP (0.7.0): seventeen tools as plain functions with a JSON Schema each, to read, draft, check, simulate and propose changes to processes and rules; a workspace of approved documents, drafts and proposals, a process differ in English and Spanish, readiness checks and proposal documents. No model, no network, no MCP SDK; depends on `Synapbiz.Brain.Contracts`, `Engine`, `Spec`, `Process`, `Workbench` and `JsonSchema.Net`.
 
 ## Build and test
 
@@ -18,7 +19,7 @@ bash tools/parity/check-source-drift.sh <source-checkout>
 dotnet build Synapbiz.Brain.sln -c Release
 dotnet test  Synapbiz.Brain.sln -c Release --no-build --collect:"XPlat Code Coverage"
 NUVORA_ROOT=<source-checkout> dotnet test Synapbiz.Brain.Parity.sln -c Release
-dotnet pack  Synapbiz.Brain.sln -c Release --no-build -o artifacts     # seven packages
+dotnet pack  Synapbiz.Brain.sln -c Release --no-build -o artifacts     # eight packages
 ```
 
 The drift guard and the live parity solution need a checkout of the source repository at the commit pinned in `tools/parity/SOURCE.lock`; the default solution and CI do not.
@@ -29,6 +30,7 @@ The drift guard and the live parity solution need a checkout of the source repos
 - [Rule workbench](docs/reference/rule-workbench.md): read, simulate, test, compare and review rules.
 - [Rule workbench panels](docs/reference/rule-workbench-panels.md): mount the `RuleWorkbench` component, tokens, string keys, what the host does.
 - [Running processes: the consumer guide](docs/guides/process-engine.md): what to implement, how to register the host, start cases, complete tasks and operate it; with [six reference process documents](samples/process-reference/README.md) to copy.
+- [Authoring tools for assistants](docs/reference/brain-authoring.md): the seventeen tools, the workspace, the catalog, readiness and proposals.
 - [Process documents](docs/reference/brain-process-v1.md) and [the PostgreSQL process host](docs/reference/process-host-postgres.md).
 - [Migrating an interim rule file](docs/migration/interim-rule-shape.md).
 
