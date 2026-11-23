@@ -83,6 +83,38 @@ public sealed class RuleDescriberTests
         view.DefaultRow!.Sentence.Should().Be("En cualquier otro caso, route es Standard, queue es general.");
     }
 
+    [Theory]
+    [InlineData(WorkbenchLocale.En, "received on is at most 30 Jun 2026")]
+    [InlineData(WorkbenchLocale.Es, "received on es como máximo 30 Jun 2026")]
+    public void AHostDateFormatterChangesTheSentenceWithADateRangeAndLeavesLabelledEnumValuesAlone(WorkbenchLocale locale, string expectedPart)
+    {
+        var rule = TestFiles.LoadIntake("intake.first.rule.json");
+        var labels = RuleLabels.FromMeta(rule.Meta, locale) with
+        {
+            ValueFormatter = value => value is DateValue date
+                ? date.Value.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
+                : null,
+        };
+
+        var view = RuleDescriber.Describe(rule, locale, labels);
+
+        var dated = view.Rows[^1];
+        dated.Sentence.Should().Contain(expectedPart);
+        dated.Conditions.Last(condition => condition.FactName == "receivedOn").Text.Should().EndWith("30 Jun 2026");
+        view.Rows[0].Sentence.Should().Contain(locale == WorkbenchLocale.En ? "the phone line" : "la línea telefónica");
+        view.Rows[0].Sentence.Should().Contain(locale == WorkbenchLocale.En ? "urgent is yes" : "urgent es sí");
+    }
+
+    [Fact]
+    public void AFormatterThatReturnsNullLeavesTheSentencesAsTheyWere()
+    {
+        var rule = TestFiles.LoadIntake("intake.first.rule.json");
+
+        var view = RuleDescriber.Describe(rule, WorkbenchLocale.En, new RuleLabels { ValueFormatter = _ => null });
+
+        view.Rows.Select(row => row.Sentence).Should().Equal(EnglishSentences);
+    }
+
     [Fact]
     public void TheDefaultRowFollowsTheLastRowAndIsMarkedAsDefault()
     {
