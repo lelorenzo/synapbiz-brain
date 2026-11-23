@@ -205,6 +205,12 @@ public static class ReadinessChecks
             {
                 var route = step.Routes.FirstOrDefault(item => item.Label == label);
                 string? key = null;
+                if (route is null && label != "onError")
+                {
+                    // The engine sends a failure without its own route to onError, which is checked on its own turn.
+                    continue;
+                }
+
                 if (route is null)
                 {
                     key = "ready.finding.ai.missing";

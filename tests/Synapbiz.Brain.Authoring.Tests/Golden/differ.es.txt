@@ -61,7 +61,7 @@ Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que r
 Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
 - Se agregó un dato nuevo `spare` (Code).
 
-### variable removed
+### show list shortened
 Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
 - En el paso “Reclamar la nota”, lo que ve la persona cambió de `case_ref` y `note_status` a `case_ref`.
 

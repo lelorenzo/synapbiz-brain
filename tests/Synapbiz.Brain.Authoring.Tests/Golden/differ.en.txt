@@ -61,7 +61,7 @@ What changed: settings changed: 1. The earlier version had no tests to replay.
 What changed: settings changed: 1. The earlier version had no tests to replay.
 - A new piece of information `spare` was added (Code).
 
-### variable removed
+### show list shortened
 What changed: settings changed: 1. The earlier version had no tests to replay.
 - In the step “Chase the note”, what the person sees changed from `case_ref` and `note_status` to `case_ref`.
 
