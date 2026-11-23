@@ -71,7 +71,7 @@ public static class RuleDrafter
             RemoveRow e => [e.RowKey],
             MoveRow e => [e.RowKey],
             SetDefaultOutcome e => [e.Field],
-            SetCaseExpectation e => [e.CaseName, e.Outcome],
+            SetCaseExpectation e => [e.CaseName, e.Outcome, .. e.Results ?? []],
             AddCase e => [e.Case, e.Case?.Name, e.Case?.Facts],
             RemoveCase e => [e.CaseName],
             SetRowLabel e => [e.RowKey],

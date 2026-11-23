@@ -98,7 +98,7 @@ public sealed partial class RuleWorkbench
         {
             if (!known.Contains(key) && view?.Rows.FirstOrDefault(row => string.Equals(row.Key, key, StringComparison.Ordinal)) is { } row)
             {
-                rows.Add(new RowChangeView(key, row.Title ?? string.Empty, RowChangeTag.Changed, row.Index + 1, row.Index + 1, null, null));
+                rows.Add(new RowChangeView(key, row.Title ?? string.Empty, RowChangeTag.Changed, row.Index + 1, row.Index + 1, null, null, null, null));
             }
         }
 

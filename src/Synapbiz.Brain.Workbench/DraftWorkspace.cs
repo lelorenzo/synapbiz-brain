@@ -273,6 +273,19 @@ internal sealed partial class DraftWorkspace
         }
 
         var expect = new JsonObject();
+        if (edit.ExpectNoDecision)
+        {
+            expect["noDecision"] = true;
+            golden["expect"] = expect;
+            return null;
+        }
+
+        var collect = Text(body["hitPolicy"]) == "collect";
+        if (edit.Results is not null && !collect)
+        {
+            return Error(CaseNotValid, $"The test case '{edit.CaseName}' expects a list of results but the rule's hit policy is not collect.");
+        }
+
         if (edit.RowKey is not null)
         {
             if (RowIdOf(edit.RowKey) is not { } id)
@@ -283,8 +296,16 @@ internal sealed partial class DraftWorkspace
             expect["row"] = id;
         }
 
-        var outcome = TypedValueJson.Outcome(edit.Outcome);
-        expect["outcome"] = Text(body["hitPolicy"]) == "collect" ? new JsonArray(outcome) : outcome;
+        if (collect)
+        {
+            var results = edit.Results ?? [edit.Outcome];
+            expect["outcome"] = new JsonArray([.. results.Select(result => (JsonNode?)TypedValueJson.Outcome(result))]);
+        }
+        else
+        {
+            expect["outcome"] = TypedValueJson.Outcome(edit.Outcome);
+        }
+
         golden["expect"] = expect;
         return null;
     }
