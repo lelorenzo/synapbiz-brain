@@ -8062,5 +8062,167 @@
         }
       ]
     }
+  },
+  {
+    "name": "timeout.until on a humanTask: a variable that is not an Instant",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer"
+          }
+        },
+        "start": "t",
+        "steps": {
+          "t": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "done"
+            ],
+            "on": {
+              "done": "e"
+            },
+            "timeout": {
+              "until": "count"
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/t/timeout/until"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid scenario that sends an interruptBy event the document does not list under accepts",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "case_ref": {
+            "type": "Code",
+            "input": true
+          },
+          "kind": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "contact": true,
+            "interruptBy": {
+              "event": "case.reply_received",
+              "correlation": "case_ref",
+              "output": {
+                "reply_kind": "kind"
+              },
+              "to": "reply"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "an event interrupts the closed window",
+            "start": {
+              "at": "2027-01-04T23:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "case_ref": "c-1"
+              }
+            },
+            "zones": {
+              "America/New_York": "-05:00"
+            },
+            "events": [
+              {
+                "event": "case.reply_received",
+                "correlation": "c-1",
+                "payload": {
+                  "reply_kind": "call"
+                }
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "result": "replied",
+              "trace": [
+                "s",
+                "reply"
+              ],
+              "variables": {
+                "kind": "call"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expect": "valid"
   }
 ]

@@ -46,7 +46,7 @@ internal sealed partial class ProcessRun
             var waitId = GateWaitId();
             requests.Add(new WaitRequest(currentStep!, waitId, gate.Event, correlation));
             Log(ProcessHistoryKind.WaitStarted, null, Data(("waitId", waitId), ("event", gate.Event)));
-            Block(new ProcessPending(ProcessPendingKind.Window, timerId, null, waitId));
+            Block(new ProcessPending(ProcessPendingKind.Window, timerId) { InterruptWaitId = waitId });
             return null;
         }
 

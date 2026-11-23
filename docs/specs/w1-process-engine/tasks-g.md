@@ -4,7 +4,7 @@ Spec: [spec-g-format-followups.md](spec-g-format-followups.md). Additions to `br
 
 ## Code
 
-- [x] G1: model, reader, schema and validation of `timeout` as `{ "until", "offset" }` on `wait` and `humanTask` (`process.variable.type_mismatch` for a variable that is not an `Instant`, the existing unknown-variable error for an undeclared name, the existing malformed-member error for another shape)
+- [x] G1: model, reader, schema and validation of `timeout` as `{ "until", "offset" }` on `wait` and `humanTask` (`process.variable.type` for a variable that is not an `Instant`, the code of a `timer` step, the existing unknown-variable error for an undeclared name, the existing malformed-member error for another shape)
 - [x] G1: run time in the order of the spec (buffered event first, due instant, past instant to `onTimeout` with `TimedOut`, otherwise the request plus a `TimerRequest` with the timer id of a timeout); `process.timeout.instant_missing` suspends and a resume enters the step again
 - [x] G2: model, reader, schema and validation of `interruptBy` (the rules and codes of a `wait`, `to` a step id, `process.action.interrupt_requires_window` without a window)
 - [x] G2: the gate (buffered event, `WindowRequest` plus `WaitRequest`, event interrupts and cancels the window timer, timer cancels the wait, `WindowFailed`, cancel and suspend cancel the wait, bad payload follows the rule of an awaited event); `ProcessPending.InterruptWaitId` written only in this case; history kind `WindowInterrupted`

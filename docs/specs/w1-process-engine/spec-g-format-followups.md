@@ -14,7 +14,7 @@ All three items are additions to `brain.process@1`. A document that uses none of
 "timeout": { "until": "visit_at", "offset": "-PT2H" }
 ```
 
-- `until` names a declared variable of type `Instant`; another type is `process.variable.type_mismatch`, an undeclared name is the existing unknown-variable error. `offset` is optional, a signed duration with the same rules as the `offset` of a `timer` step.
+- `until` names a declared variable of type `Instant`; another type is `process.variable.type` (the code of the `until` of a `timer` step), an undeclared name is the existing unknown-variable error. `offset` is optional, a signed duration with the same rules as the `offset` of a `timer` step.
 - `onTimeout` stays required with `timeout` and forbidden without, in both forms.
 - An object with another member, or with both a duration text and an object, is the existing error for a malformed member at that path.
 

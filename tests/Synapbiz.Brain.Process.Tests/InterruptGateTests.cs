@@ -66,7 +66,7 @@ public sealed class InterruptGateTests
         driver.Last.Requests.Should().HaveCount(2);
         driver.Last.Requests[0].Should().BeOfType<WindowRequest>().Which.TimerId.Should().Be(WindowId);
         driver.Last.Requests[1].Should().Be(new WaitRequest("s", WaitId, "case.reply_received", "c-1"));
-        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, WindowId, null, WaitId));
+        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, WindowId) { InterruptWaitId = WaitId });
         driver.State.Status.Should().Be(ProcessStatus.Waiting);
         driver.Kinds.Should().Equal(ProcessHistoryKind.Started, ProcessHistoryKind.StepEntered, ProcessHistoryKind.WindowWaiting, ProcessHistoryKind.WaitStarted);
         driver.Last.History[^1].DataJson.Should().Be("""{"event":"case.reply_received","waitId":"i-1/s/1/1/wait"}""");
@@ -130,7 +130,7 @@ public sealed class InterruptGateTests
         driver.Send(Reply("c-2"));
 
         driver.Kinds.Should().Equal(ProcessHistoryKind.EventBuffered);
-        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, WindowId, null, WaitId));
+        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, WindowId) { InterruptWaitId = WaitId });
         driver.State.Inbox.Should().ContainSingle();
     }
 
@@ -176,7 +176,7 @@ public sealed class InterruptGateTests
 
         driver.Send(new EventReceived("go", null, "{}"));
 
-        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, "i-1/s/2/1/window", null, "i-1/s/2/1/wait"));
+        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, "i-1/s/2/1/window") { InterruptWaitId = "i-1/s/2/1/wait" });
         driver.State.Inbox.Should().ContainSingle().Which.Correlation.Should().Be("c-2");
         driver.Last.Requests.Should().HaveCount(2);
     }
@@ -237,7 +237,7 @@ public sealed class InterruptGateTests
 
         driver.Last.Requests[0].Should().BeOfType<WindowRequest>().Which.TimerId.Should().Be("i-1/s/1/2/window");
         driver.Last.Requests[1].Should().Be(new WaitRequest("s", "i-1/s/1/2/wait", "case.reply_received", "c-1"));
-        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, "i-1/s/1/2/window", null, "i-1/s/1/2/wait"));
+        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, "i-1/s/1/2/window") { InterruptWaitId = "i-1/s/1/2/wait" });
 
         driver.Send(Reply());
 
@@ -416,5 +416,51 @@ public sealed class InterruptGateTests
         }
 
         Run().Should().Be(Run());
+    }
+
+    [Fact]
+    public void AnAcceptedEventOfAnotherNameWithTheSameCorrelationIsBufferedAndDoesNotInterrupt()
+    {
+        var driver = Started();
+
+        driver.Send(new EventReceived("go", "c-1", """{ "reply_kind": "call" }""")).Disposition.Should().Be(AdvanceDisposition.Applied);
+
+        driver.Last.Requests.Should().BeEmpty("the gate keeps its window timer and its wait");
+        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, WindowId) { InterruptWaitId = WaitId });
+        driver.State.Inbox.Should().ContainSingle().Which.Name.Should().Be("go");
+        driver.State.Variables.ContainsKey("kind").Should().BeFalse();
+        driver.Kinds.Should().NotContain(ProcessHistoryKind.WindowInterrupted);
+    }
+
+    [Fact]
+    public void AGateEnteredAgainInALoopAsksForANewWaitAndANewWindowTimer()
+    {
+        const string steps = """
+            {
+              "s": { "kind": "loop", "maxIterations": 2, "body": "g", "onExhausted": "done" },
+              "g": { "kind": "action", "port": "messaging.notice", "delivery": "atLeastOnce", "contact": true, "window": "hours",
+                     "input": { "case": "case_ref" },
+                     "interruptBy": { "event": "case.reply_received", "correlation": "case_ref", "to": "s" }, "next": "s" },
+              "done": { "kind": "end", "result": "done" }
+            }
+            """;
+        var driver = Started(steps);
+        var firstWait = driver.Last.Requests.OfType<WaitRequest>().Single();
+        var firstWindow = driver.Last.Requests.OfType<WindowRequest>().Single();
+
+        driver.Send(Reply());
+        var secondWait = driver.Last.Requests.OfType<WaitRequest>().Single();
+        var secondWindow = driver.Last.Requests.OfType<WindowRequest>().Single();
+
+        secondWait.WaitId.Should().NotBe(firstWait.WaitId);
+        secondWindow.TimerId.Should().NotBe(firstWindow.TimerId);
+        driver.Last.Requests.OfType<CancelTimerRequest>().Single().TimerId.Should().Be(firstWindow.TimerId);
+        driver.State.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, secondWindow.TimerId) { InterruptWaitId = secondWait.WaitId });
+        driver.State.Inbox.Should().BeEmpty();
+
+        driver.Send(Reply());
+
+        driver.State.Result.Should().Be("done");
+        driver.History.Count(entry => entry.Kind == ProcessHistoryKind.WindowInterrupted).Should().Be(2);
     }
 }

@@ -264,4 +264,46 @@ public sealed class TimeoutAtTests
         json.Should().NotContain("18:00", "the due time lives in the timer the host keeps, not in the state");
         json.Should().Contain("\"visit_at\":\"2027-01-04T20:00:00Z\"");
     }
+
+    [Fact]
+    public void ATaskWhoseInstantEqualsTheClockIsDueAndOneSecondLaterIsNot()
+    {
+        var exactly = Started(Task, """{ "case_ref": "c-1", "visit_at": "2027-01-04T16:00:00Z" }""");
+        var later = Started(Task, """{ "case_ref": "c-1", "visit_at": "2027-01-04T16:00:01Z" }""");
+
+        exactly.State.Result.Should().Be("late");
+        exactly.Requests.Should().BeEmpty();
+        later.State.Pending!.Kind.Should().Be(ProcessPendingKind.Task);
+        later.Single<TimerRequest>().DueAt.Should().Be(Docs.T0.AddSeconds(1));
+    }
+
+    [Fact]
+    public void AWaitEnteredAgainInALoopAsksForANewTimerAtTheSameInstant()
+    {
+        const string steps = """
+            {
+              "s": { "kind": "loop", "maxIterations": 2, "body": "w", "onExhausted": "late" },
+              "w": { "kind": "wait", "event": "case.ready", "correlation": "case_ref", "next": "s",
+                     "timeout": { "until": "visit_at", "offset": "-PT2H" }, "onTimeout": "s" },
+              "late": { "kind": "end", "result": "late" }
+            }
+            """;
+        var driver = new Driver(Docs.Load(Variables, steps, "\"accepts\": [\"case.ready\"]"));
+        driver.Start(VisitInput);
+        var first = driver.Last.Requests.OfType<TimerRequest>().Single();
+
+        driver.Send(new EventReceived("case.ready", "c-1", "{}"));
+        var second = driver.Last.Requests.OfType<TimerRequest>().Single();
+
+        second.TimerId.Should().NotBe(first.TimerId, "every entry of the step has its own ids");
+        second.DueAt.Should().Be(Due);
+        driver.Last.Requests.OfType<CancelTimerRequest>().Single().TimerId.Should().Be(first.TimerId);
+        driver.State.Pending!.TimeoutTimerId.Should().Be(second.TimerId);
+
+        driver.Now = Due;
+        driver.Send(new TimerFired(first.TimerId)).Disposition.Should().NotBe(AdvanceDisposition.Applied, "the timer of the first entry is no longer the pending one");
+        driver.Send(new TimerFired(second.TimerId));
+
+        driver.State.Result.Should().Be("late");
+    }
 }
