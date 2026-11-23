@@ -36,6 +36,18 @@ public sealed class NullGuardTests
         "ContentHash",
         "Serialize",
         "ReviewParse",
+        "RuleDrafter text",
+        "RuleDrafter edits",
+        "ChoiceCatalog rule",
+        "ChoiceCatalog labels",
+        "ChangeDescriber before",
+        "ChangeDescriber after",
+        "ChangeDescriber labelsBefore",
+        "ChangeDescriber labelsAfter",
+        "ProposalSerialize",
+        "ProposalParse",
+        "Locate draft",
+        "Locate path",
     ];
 
     [Theory]
@@ -64,6 +76,18 @@ public sealed class NullGuardTests
             "ContentHash" => () => RuleReviewJson.ContentHash(null!),
             "Serialize" => () => RuleReviewJson.Serialize(null!),
             "ReviewParse" => () => RuleReviewJson.Parse(null!),
+            "RuleDrafter text" => () => RuleDrafter.Apply(null!, []),
+            "RuleDrafter edits" => () => RuleDrafter.Apply("{}", null!),
+            "ChoiceCatalog rule" => () => RuleChoiceCatalog.For(null!, RuleLabels.Empty, WorkbenchLocale.En),
+            "ChoiceCatalog labels" => () => RuleChoiceCatalog.For(Rule, null!, WorkbenchLocale.En),
+            "ChangeDescriber before" => () => RuleChangeDescriber.Describe(null!, Rule, RuleLabels.Empty, RuleLabels.Empty, WorkbenchLocale.En),
+            "ChangeDescriber after" => () => RuleChangeDescriber.Describe(Rule, null!, RuleLabels.Empty, RuleLabels.Empty, WorkbenchLocale.En),
+            "ChangeDescriber labelsBefore" => () => RuleChangeDescriber.Describe(Rule, Rule, null!, RuleLabels.Empty, WorkbenchLocale.En),
+            "ChangeDescriber labelsAfter" => () => RuleChangeDescriber.Describe(Rule, Rule, RuleLabels.Empty, null!, WorkbenchLocale.En),
+            "ProposalSerialize" => () => RuleProposalJson.Serialize(null!),
+            "ProposalParse" => () => RuleProposalJson.Parse(null!),
+            "Locate draft" => () => DraftErrorLocator.Locate(null!, "/body"),
+            "Locate path" => () => DraftErrorLocator.Locate("{}", null!),
             _ => throw new ArgumentOutOfRangeException(nameof(call), call, "Unknown case."),
         };
 
@@ -73,7 +97,7 @@ public sealed class NullGuardTests
     [Fact]
     public void EveryGuardedCallIsListed()
     {
-        var publicStatics = new[] { typeof(WorkbenchText), typeof(RuleDescriber), typeof(FactInput), typeof(RuleSimulator), typeof(RuleTester), typeof(RuleDiffer), typeof(RuleReviewJson) }
+        var publicStatics = new[] { typeof(WorkbenchText), typeof(RuleDescriber), typeof(FactInput), typeof(RuleSimulator), typeof(RuleTester), typeof(RuleDiffer), typeof(RuleReviewJson), typeof(RuleDrafter), typeof(RuleChoiceCatalog), typeof(RuleChangeDescriber), typeof(RuleProposalJson), typeof(DraftErrorLocator) }
             .Concat([typeof(RuleLabels)])
             .SelectMany(type => type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly))
             .Where(method => !method.IsSpecialName)
@@ -83,6 +107,6 @@ public sealed class NullGuardTests
             .ToList();
 
         publicStatics.Should().Equal(
-            "CompareBehaviour", "ContentHash", "Describe", "Diff", "FormatValue", "FromMeta", "Humanize", "Parse", "ParseAll", "Run", "SamplesFromGoldens", "Serialize", "Simulate");
+            "Apply", "CompareBehaviour", "ContentHash", "Describe", "Diff", "For", "FormatValue", "FromMeta", "Humanize", "Locate", "Parse", "ParseAll", "Run", "SamplesFromGoldens", "Serialize", "Simulate");
     }
 }

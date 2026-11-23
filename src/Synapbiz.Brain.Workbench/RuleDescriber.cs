@@ -57,12 +57,7 @@ public static class RuleDescriber
         var parts = row.Conditions.Select((condition, position) => DescribeCondition(condition, position, locale, labels)).ToList();
         var outcome = DescribeOutcome(rule, row, locale, labels);
 
-        var outcomeText = outcome.Count == 0
-            ? SentenceTemplates.Text(locale, "outcome.none")
-            : SentenceTemplates.Join(
-                locale,
-                "sentence.and",
-                [.. outcome.Select(value => SentenceTemplates.Text(locale, "outcome.field", ("field", value.FieldLabel), ("value", value.Text)))]);
+        var outcomeText = OutcomeSentence(outcome, locale);
 
         var sentence = isDefault
             ? SentenceTemplates.Text(locale, "sentence.default", ("outcome", outcomeText))
@@ -78,6 +73,15 @@ public static class RuleDescriber
             outcome,
             sentence);
     }
+
+    /// <summary>The outcome of a row the way its sentence reads it: <c>route is Escalate and queue is urgent</c>.</summary>
+    internal static string OutcomeSentence(IReadOnlyList<OutcomeValueView> outcome, WorkbenchLocale locale) =>
+        outcome.Count == 0
+            ? SentenceTemplates.Text(locale, "outcome.none")
+            : SentenceTemplates.Join(
+                locale,
+                "sentence.and",
+                [.. outcome.Select(value => SentenceTemplates.Text(locale, "outcome.field", ("field", value.FieldLabel), ("value", value.Text)))]);
 
     private static string Sentence(List<string> conditions, string outcome, WorkbenchLocale locale) =>
         conditions.Count == 0

@@ -44,10 +44,19 @@ A host that is not Blazor (the source repository's React back office) can consum
 - Example fact sets, test cases and review notes are typed by a person. The library cannot tell whether a note holds personal data, so the panel that edits a review (W-B) shows a standing notice that notes and case names must not identify a real person, and the export is a file the reviewer hands over themselves.
 - Fixtures and tests are synthetic.
 
-## 6. Out of scope
+## 6. W-C: guided editing
 
-Guided editing and draft revisions (next package, W-C). A flow view for process documents (waits for the process engine). Persistence, activation, permissions and audit (the host's). The React views of the source repository.
+Owner decision 3: the expert changes a rule through forms and gets a draft revision with its diff; never JSON, never activation. Two parts.
 
-## 7. Acceptance for W-A
+- **W-C1, the headless part** (`Synapbiz.Brain.Workbench`, brief `docs/briefs/W-C1-rule-draft-library.md`): a closed set of typed edits; `RuleDrafter`, a pure text-to-text function that applies edits to the text of a `brain.rule@1` document and returns the draft (the host loads it with `BrainRuleLoader.Load`, so a draft is judged by the production code); `RuleChoiceCatalog`, what a form may offer; `RuleChangeDescriber`, the diff as sentences with the cases that change; `DraftErrorLocator`, a loader error path in the terms of a form; and `brain.rule-proposal@1`, the message that carries a draft to the maintainers, bound to the base text by content hash. Reference: [rule-workbench](../../reference/rule-workbench.md#drafts-and-proposals).
+- **W-C2, the panels** (`Synapbiz.Brain.Workbench.Blazor`): a "Changes" tab and row forms. Pending design; a later brief.
+
+Nothing in W-C1 changes a decision, activates a rule or keeps state.
+
+## 7. Out of scope
+
+A flow view for process documents (waits for the process engine). Persistence, activation, permissions and audit (the host's). The React views of the source repository.
+
+## 8. Acceptance for W-A
 
 Build Release with 0 errors and no warning in the new files; all existing tests green and unchanged; new unit tests for every public member including both locales, every operator, every hit policy and every failure code; line coverage of `Synapbiz.Brain.Workbench` at least 95%; architecture tests extended (reference freeze, purity scan); the package packs; reference page and changelog updated.
