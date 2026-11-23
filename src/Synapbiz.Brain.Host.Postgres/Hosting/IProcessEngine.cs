@@ -104,6 +104,46 @@ public interface IProcessEngine
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The open tasks, oldest first.</returns>
     Task<IReadOnlyList<ProcessTaskInfo>> ListOpenTasksAsync(string tenantId, string queue, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists instances for a monitoring screen, newest first, one page at a time. Read-only: it never reads or decrypts the state of an
+    /// instance. An instance in the internal <c>Created</c> status is reported, and filtered on, as <see cref="ProcessStatus.Running"/>.
+    /// </summary>
+    /// <param name="query">The tenant, the filters, the page size and the cursor.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The page; <see cref="ProcessInstancePage.Next"/> is null on the last page.</returns>
+    /// <exception cref="ArgumentException">The tenant or process id is invalid, or the cursor does not parse.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The limit is not between 1 and 500.</exception>
+    Task<ProcessInstancePage> ListInstancesAsync(ProcessInstanceQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts the instances of a tenant per process, reported status and stage. <c>Created</c> and <c>Running</c> rows are one group;
+    /// groups with no rows are absent.
+    /// </summary>
+    /// <param name="tenantId">The tenant.</param>
+    /// <param name="processId">The process to count; null counts every process.</param>
+    /// <param name="rootsOnly">True to count only instances that have no parent.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>One entry per group, ordered by process id, status and stage, a null stage first.</returns>
+    Task<IReadOnlyList<ProcessInstanceCount>> CountInstancesAsync(string tenantId, string? processId, bool rootsOnly, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads a case: an instance with its descendants (the instances reachable through the parent link, to a depth of 16), their open
+    /// tasks, the next timer due and the events they wait for. The parts are read in one repeatable-read, read-only transaction, so they
+    /// agree with each other.
+    /// </summary>
+    /// <param name="tenantId">The tenant.</param>
+    /// <param name="instanceId">The instance, normally a root.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The case, or null when the tenant has no such instance.</returns>
+    Task<ProcessCaseView?> GetCaseAsync(string tenantId, string instanceId, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists the direct children of an instance.</summary>
+    /// <param name="tenantId">The tenant.</param>
+    /// <param name="instanceId">The parent instance.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The children ordered by creation time and then id, oldest first; empty when the tenant has no such instance.</returns>
+    Task<IReadOnlyList<ProcessInstanceSummary>> ListChildrenAsync(string tenantId, string instanceId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>A request to start an instance.</summary>
@@ -218,3 +258,80 @@ public sealed record ProcessTaskInfo(
     IReadOnlyList<string> Outcomes,
     string ShowJson,
     DateTimeOffset CreatedAt);
+
+/// <summary>An instance as a list shows it: <see cref="ProcessInstanceInfo"/> without the state, plus two counts.</summary>
+/// <param name="TenantId">The tenant.</param>
+/// <param name="InstanceId">The instance id.</param>
+/// <param name="ProcessId">The id of the process definition.</param>
+/// <param name="ProcessVersion">The version the instance is pinned to.</param>
+/// <param name="BusinessKey">The business key.</param>
+/// <param name="Status">The status; a created instance that is not yet started reports <see cref="ProcessStatus.Running"/>.</param>
+/// <param name="Stage">The current stage, if any.</param>
+/// <param name="CurrentStep">The step the instance is on; null when it has finished.</param>
+/// <param name="Result">The result of the end step; null while the instance has not completed.</param>
+/// <param name="ProblemCode">The stored code of the problem that suspended the instance; null when there is none.</param>
+/// <param name="ParentInstanceId">The parent instance of a child process.</param>
+/// <param name="CreatedAt">When the instance was created.</param>
+/// <param name="UpdatedAt">When the instance was last written.</param>
+/// <param name="OpenTasks">The number of open human tasks of the instance itself.</param>
+/// <param name="SuspendedDescendants">The number of descendants whose status is suspended; the instance itself is not counted.</param>
+public sealed record ProcessInstanceSummary(
+    string TenantId,
+    string InstanceId,
+    string ProcessId,
+    long ProcessVersion,
+    string BusinessKey,
+    ProcessStatus Status,
+    string? Stage,
+    string? CurrentStep,
+    string? Result,
+    string? ProblemCode,
+    string? ParentInstanceId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    int OpenTasks,
+    int SuspendedDescendants);
+
+/// <summary>A query for a page of instances.</summary>
+/// <param name="TenantId">The tenant.</param>
+/// <param name="ProcessId">Only instances of this process; null means every process.</param>
+/// <param name="Statuses">Only instances in one of these statuses; null or empty means every status. <see cref="ProcessStatus.Running"/> also matches created instances.</param>
+/// <param name="Stage">Only instances whose own stage is exactly this (case-sensitive); null means any.</param>
+/// <param name="RootsOnly">True to keep only instances that have no parent.</param>
+/// <param name="NeedsAttention">True to keep only instances that are suspended, have a suspended descendant, or have an open task of their own or of a descendant.</param>
+/// <param name="Limit">The page size, from 1 to 500.</param>
+/// <param name="After">The <see cref="ProcessInstancePage.Next"/> of the previous page; null for the first page.</param>
+public sealed record ProcessInstanceQuery(
+    string TenantId,
+    string? ProcessId = null,
+    IReadOnlyCollection<ProcessStatus>? Statuses = null,
+    string? Stage = null,
+    bool RootsOnly = true,
+    bool NeedsAttention = false,
+    int Limit = 100,
+    string? After = null);
+
+/// <summary>A page of instances, newest first.</summary>
+/// <param name="Items">The instances of the page.</param>
+/// <param name="Next">The opaque cursor of the next page; null on the last page.</param>
+public sealed record ProcessInstancePage(IReadOnlyList<ProcessInstanceSummary> Items, string? Next);
+
+/// <summary>The number of instances of one process in one status and stage.</summary>
+/// <param name="ProcessId">The process id.</param>
+/// <param name="Status">The reported status; created and running instances are one group.</param>
+/// <param name="Stage">The stage; null for instances that have none.</param>
+/// <param name="Count">The number of instances in the group.</param>
+public sealed record ProcessInstanceCount(string ProcessId, ProcessStatus Status, string? Stage, int Count);
+
+/// <summary>A case: an instance with its descendants and what they wait for.</summary>
+/// <param name="Instance">The summary of the instance.</param>
+/// <param name="Descendants">The summaries of its descendants, ordered by creation time and then id; <see cref="ProcessInstanceSummary.ParentInstanceId"/> rebuilds the tree.</param>
+/// <param name="OpenTasks">The open tasks of the instance and of its descendants, oldest first and then by task id.</param>
+/// <param name="NextTimerDue">The earliest due time among the timers of the instance and of its descendants; null when there is none.</param>
+/// <param name="WaitingForEvents">The distinct names, ordered, of the events the instance and its descendants wait for; never a correlation value.</param>
+public sealed record ProcessCaseView(
+    ProcessInstanceSummary Instance,
+    IReadOnlyList<ProcessInstanceSummary> Descendants,
+    IReadOnlyList<ProcessTaskInfo> OpenTasks,
+    DateTimeOffset? NextTimerDue,
+    IReadOnlyList<string> WaitingForEvents);

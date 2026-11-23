@@ -231,21 +231,45 @@ internal sealed record TaskCard(string TaskId, string InstanceId, string Step, I
 // guide:begin cockpit
 internal sealed class Cockpit(IProcessEngine engine)
 {
-    /// <summary>One case for a cockpit row: the root, and the business keys of the children it started, read from its history.</summary>
+    private static readonly string[] StageTrack = ["previsit", "visit", "postvisit", "collection"];
+
+    /// <summary>One case for a cockpit row: the root, the business keys of its children in the order of the stage track and what the case waits for, read in one call.</summary>
     internal async Task<CaseView?> ViewAsync(string tenantId, string caseRef)
     {
         var root = await engine.FindInstanceAsync(tenantId, "case.lifecycle", caseRef);
-        if (root is null)
+        var view = root is null ? null : await engine.GetCaseAsync(tenantId, root.InstanceId);
+        if (view is null)
         {
             return null;
         }
 
-        var history = await engine.GetHistoryAsync(tenantId, root.InstanceId);
-        var childKeys = history
-            .Where(entry => entry.Kind == ProcessHistoryKind.ChildStarted)
-            .Select(entry => JsonNode.Parse(entry.DataJson!)!["childKey"]!.GetValue<string>())
-            .ToList();
-        return new CaseView(root.Stage, root.Status, root.CurrentStep, root.Result, root.Problem?.Code, history.Count, childKeys);
+        var instance = view.Instance;
+        return new CaseView(instance.Stage, instance.Status, instance.CurrentStep, instance.Result, instance.ProblemCode, view.OpenTasks.Count, view.NextTimerDue, [.. view.Descendants.OrderBy(child => Array.IndexOf(StageTrack, child.Stage)).Select(child => child.BusinessKey)]);
+    }
+
+    /// <summary>The cases that need a person: suspended, with a suspended child, or with an open task, newest first, page by page.</summary>
+    internal async Task<IReadOnlyList<ProcessInstanceSummary>> NeedsAttentionAsync(string tenantId)
+    {
+        var rows = new List<ProcessInstanceSummary>();
+        string? after = null;
+        do
+        {
+            var page = await engine.ListInstancesAsync(new ProcessInstanceQuery(tenantId, ProcessId: "case.lifecycle", NeedsAttention: true, Limit: 100, After: after));
+            rows.AddRange(page.Items);
+            after = page.Next;
+        }
+        while (after is not null);
+        return rows;
+    }
+
+    /// <summary>How many open cases are in each stage.</summary>
+    internal async Task<IReadOnlyDictionary<string, int>> OpenCasesPerStageAsync(string tenantId)
+    {
+        var counts = await engine.CountInstancesAsync(tenantId, "case.lifecycle", rootsOnly: true);
+        return counts
+            .Where(count => count.Status is not (ProcessStatus.Completed or ProcessStatus.Cancelled))
+            .GroupBy(count => count.Stage ?? "(none)")
+            .ToDictionary(group => group.Key, group => group.Sum(count => count.Count));
     }
 
     /// <summary>For an operator: says why an instance is suspended and, once the cause is fixed, runs the step that stopped it again.</summary>
@@ -263,7 +287,7 @@ internal sealed class Cockpit(IProcessEngine engine)
     }
 }
 
-internal sealed record CaseView(string? Stage, ProcessStatus Status, string? CurrentStep, string? Result, string? ProblemCode, int HistoryLength, IReadOnlyList<string> ChildKeys);
+internal sealed record CaseView(string? Stage, ProcessStatus Status, string? CurrentStep, string? Result, string? ProblemCode, int OpenTasks, DateTimeOffset? NextTimerDue, IReadOnlyList<string> ChildKeys);
 
 // guide:end
 

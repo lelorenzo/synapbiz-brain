@@ -141,6 +141,14 @@ internal sealed class HookedStore : IProcessStore
     public Task<IReadOnlyList<TaskRecord>> ListOpenTasksAsync(string tenantId, string queue, CancellationToken cancellationToken) => inner.ListOpenTasksAsync(tenantId, queue, cancellationToken);
 
     public Task<string?> FindTaskInstanceAsync(string tenantId, string taskId, CancellationToken cancellationToken) => inner.FindTaskInstanceAsync(tenantId, taskId, cancellationToken);
+
+    public Task<IReadOnlyList<InstanceSummaryRecord>> ListSummariesAsync(InstanceListFilter filter, CancellationToken cancellationToken) => inner.ListSummariesAsync(filter, cancellationToken);
+
+    public Task<IReadOnlyList<InstanceCountRecord>> CountInstancesAsync(string tenantId, string? processId, bool rootsOnly, CancellationToken cancellationToken) => inner.CountInstancesAsync(tenantId, processId, rootsOnly, cancellationToken);
+
+    public Task<CaseRecord?> GetCaseAsync(string tenantId, string instanceId, CancellationToken cancellationToken) => inner.GetCaseAsync(tenantId, instanceId, cancellationToken);
+
+    public Task<IReadOnlyList<InstanceSummaryRecord>> ListChildrenAsync(string tenantId, string instanceId, CancellationToken cancellationToken) => inner.ListChildrenAsync(tenantId, instanceId, cancellationToken);
 }
 
 /// <summary>A protector that stores text as it is, except that it refuses to read anything of one tenant once it is armed.</summary>

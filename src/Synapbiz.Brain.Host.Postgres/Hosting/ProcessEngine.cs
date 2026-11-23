@@ -9,6 +9,7 @@ internal sealed class ProcessEngine : IProcessEngine
     private const string NotFound = "process.instance.not_found";
     private const string Stale = "process.trigger.stale";
     private const string Unavailable = "process.definition.unavailable";
+    private const int MaxPageSize = 500;
 
     private readonly IProcessStore store;
     private readonly ProcessRuntime runtime;
@@ -357,6 +358,107 @@ internal sealed class ProcessEngine : IProcessEngine
             runtime.Unprotect(tenantId, row.ProtectedShow),
             row.CreatedAt))];
     }
+
+    /// <inheritdoc />
+    public async Task<ProcessInstancePage> ListInstancesAsync(ProcessInstanceQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        Guard.Id(query.TenantId, nameof(query.TenantId));
+        if (query.ProcessId is not null)
+        {
+            Guard.Id(query.ProcessId, nameof(query.ProcessId));
+        }
+
+        Guard.NoControlCharacters(query.TenantId, nameof(query.TenantId));
+        Guard.NoControlCharacters(query.ProcessId, nameof(query.ProcessId));
+        Guard.NoControlCharacters(query.Stage, nameof(query.Stage));
+        Guard.InRange(query.Limit, 1, MaxPageSize, nameof(query.Limit));
+
+        var after = query.After is null ? null : InstanceCursors.Parse(query.After);
+        var statuses = query.Statuses is { Count: > 0 } ? query.Statuses.Select(status => (int)status).Distinct().ToArray() : null;
+
+        // One row more than the page tells whether there is a next page.
+        var rows = await store.ListSummariesAsync(
+            new InstanceListFilter(query.TenantId, query.ProcessId, statuses, query.Stage, query.RootsOnly, query.NeedsAttention, query.Limit + 1, after),
+            cancellationToken).ConfigureAwait(false);
+        var page = rows.Take(query.Limit).ToList();
+        var next = rows.Count > query.Limit ? InstanceCursors.Format(page[^1]) : null;
+        return new ProcessInstancePage([.. page.Select(ToSummary)], next);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProcessInstanceCount>> CountInstancesAsync(string tenantId, string? processId, bool rootsOnly, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        if (processId is not null)
+        {
+            Guard.Id(processId, nameof(processId));
+        }
+
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(processId, nameof(processId));
+        var rows = await store.CountInstancesAsync(tenantId, processId, rootsOnly, cancellationToken).ConfigureAwait(false);
+        return [.. rows.Select(row => new ProcessInstanceCount(row.ProcessId, (ProcessStatus)row.Status, row.Stage, row.Count))];
+    }
+
+    /// <inheritdoc />
+    public async Task<ProcessCaseView?> GetCaseAsync(string tenantId, string instanceId, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.Id(instanceId, nameof(instanceId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(instanceId, nameof(instanceId));
+        var row = await store.GetCaseAsync(tenantId, instanceId, cancellationToken).ConfigureAwait(false);
+        if (row is null)
+        {
+            return null;
+        }
+
+        return new ProcessCaseView(
+            ToSummary(row.Instance),
+            [.. row.Descendants.Select(ToSummary)],
+            [.. row.Tasks.Select(task => ToTaskInfo(tenantId, task))],
+            row.NextTimerDue,
+            row.Events);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProcessInstanceSummary>> ListChildrenAsync(string tenantId, string instanceId, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.Id(instanceId, nameof(instanceId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(instanceId, nameof(instanceId));
+        var rows = await store.ListChildrenAsync(tenantId, instanceId, cancellationToken).ConfigureAwait(false);
+        return [.. rows.Select(ToSummary)];
+    }
+
+    private static ProcessInstanceSummary ToSummary(InstanceSummaryRecord row) => new(
+        row.TenantId,
+        row.InstanceId,
+        row.ProcessId,
+        row.ProcessVersion,
+        row.BusinessKey,
+        StoredStatus.ToPublic(row.Status),
+        row.Stage,
+        row.CurrentStep,
+        row.Result,
+        row.ProblemCode,
+        row.ParentInstanceId,
+        row.CreatedAt,
+        row.UpdatedAt,
+        row.OpenTasks,
+        row.SuspendedDescendants);
+
+    private ProcessTaskInfo ToTaskInfo(string tenantId, TaskRecord row) => new(
+        row.TenantId,
+        row.TaskId,
+        row.InstanceId,
+        row.Step,
+        row.Queue,
+        row.Outcomes,
+        runtime.Unprotect(tenantId, row.ProtectedShow),
+        row.CreatedAt);
 
     /// <summary>
     /// Asks the interpreter, without writing anything, whether the wait of an instance whose correlation matched only without regard
