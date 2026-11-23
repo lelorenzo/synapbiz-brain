@@ -1,6 +1,6 @@
 # Consuming the packages
 
-The packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, and from the next release `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor` and `Synapbiz.Brain.Process`) are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
+The packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, and from the next release `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
 
 ## Feed
 
@@ -45,7 +45,7 @@ var result = loaded.Rule!.Evaluate(facts, asOf);
 // result.Trace:   VersionNumber, MatchedRowKeys, FactsJson, FactsHash
 ```
 
-The document and contract formats are in [reference/brain-rule-v1.md](reference/brain-rule-v1.md).
+The document and contract formats are in [reference/brain-rule-v1.md](reference/brain-rule-v1.md). Running processes durably on PostgreSQL: [reference/process-host-postgres.md](reference/process-host-postgres.md).
 
 ## Releasing
 

@@ -1,0 +1,30 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.wait",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Wait for a reply of the case, with a timeout" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "answer": { "type": "Code" }
+    },
+    "start": "gate",
+    "steps": {
+      "gate": {
+        "kind": "wait",
+        "event": "reply",
+        "correlation": "case_ref",
+        "output": { "text": "answer" },
+        "timeout": "PT1H",
+        "next": "done",
+        "onTimeout": "expired"
+      },
+      "done": { "kind": "end", "result": "replied" },
+      "expired": { "kind": "end", "result": "expired" }
+    }
+  }
+}

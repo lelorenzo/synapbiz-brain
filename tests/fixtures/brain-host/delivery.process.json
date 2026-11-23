@@ -1,0 +1,30 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.delivery",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "One contact action; its delivery guarantee is chosen by the document" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true }
+    },
+    "start": "send",
+    "steps": {
+      "send": {
+        "kind": "action",
+        "port": "t.send",
+        "delivery": "atMostOnce",
+        "input": { "case": "case_ref" },
+        "next": "done",
+        "onUnknown": "unknown",
+        "onError": "failed"
+      },
+      "done": { "kind": "end", "result": "sent" },
+      "unknown": { "kind": "end", "result": "unknown" },
+      "failed": { "kind": "end", "result": "failed" }
+    }
+  }
+}

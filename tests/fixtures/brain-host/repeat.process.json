@@ -1,0 +1,28 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.repeat",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "One action that the host may deliver more than once" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true }
+    },
+    "start": "send",
+    "steps": {
+      "send": {
+        "kind": "action",
+        "port": "t.send",
+        "delivery": "atLeastOnce",
+        "input": { "case": "case_ref" },
+        "next": "done",
+        "onError": "failed"
+      },
+      "done": { "kind": "end", "result": "sent" },
+      "failed": { "kind": "end", "result": "failed" }
+    }
+  }
+}

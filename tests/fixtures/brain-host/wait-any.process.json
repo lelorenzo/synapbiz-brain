@@ -1,0 +1,20 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.waitany",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Wait for a broadcast without a correlation" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true }
+    },
+    "start": "gate",
+    "steps": {
+      "gate": { "kind": "wait", "event": "broadcast", "next": "done" },
+      "done": { "kind": "end", "result": "heard" }
+    }
+  }
+}

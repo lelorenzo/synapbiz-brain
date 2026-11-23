@@ -1,0 +1,161 @@
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
+using Synapbiz.Brain.Process;
+using Synapbiz.Brain.Process.Hosting;
+
+namespace Synapbiz.Brain.Host.Postgres.Tests;
+
+/// <summary>A catalog that tests can add to and remove from while a host runs.</summary>
+internal sealed class TestCatalog : IProcessCatalog
+{
+    private readonly ConcurrentDictionary<string, BrainProcess> latest = new(StringComparer.Ordinal);
+    private readonly ConcurrentBag<BrainProcess> all = [];
+
+    internal void Add(params BrainProcess[] processes)
+    {
+        foreach (var process in processes)
+        {
+            all.Add(process);
+            latest.AddOrUpdate(process.Id, process, (_, current) => current.Version >= process.Version ? current : process);
+        }
+    }
+
+    internal void Remove(string processId)
+    {
+        latest.TryRemove(processId, out _);
+        var kept = all.Where(process => process.Id != processId).ToList();
+        all.Clear();
+        foreach (var process in kept)
+        {
+            all.Add(process);
+        }
+    }
+
+    public BrainProcess? Latest(string processId) => latest.GetValueOrDefault(processId);
+
+    public BrainProcess? Find(string processId, long version, string contentHash) =>
+        all.FirstOrDefault(process => process.Id == processId && process.Version == version && process.ContentHash == contentHash);
+}
+
+/// <summary>A port that records every call and answers with a handler the test sets.</summary>
+internal sealed class FakePort : IProcessPort
+{
+    private readonly ConcurrentQueue<PortCall> calls = new();
+
+    internal FakePort(string name) => Name = name;
+
+    public string Name { get; }
+
+    /// <summary>What the port answers; by default it completes with an empty output.</summary>
+    internal Func<PortCall, CancellationToken, Task<PortResult>> Handler { get; set; } = (_, _) => Task.FromResult<PortResult>(new PortCompleted("{}"));
+
+    internal IReadOnlyList<PortCall> Calls => [.. calls];
+
+    internal int CountFor(string effectId) => calls.Count(call => call.Request.EffectId == effectId);
+
+    public Task<PortResult> InvokeAsync(PortCall portCall, CancellationToken cancellationToken)
+    {
+        calls.Enqueue(portCall);
+        return Handler(portCall, cancellationToken);
+    }
+}
+
+/// <summary>A protector that prefixes a marker and reverses the text, so that nothing readable is ever stored.</summary>
+internal sealed class ReversingProtector : IPayloadProtector
+{
+    internal const string Marker = "PROT:";
+
+    public string Protect(string tenantId, string plaintext) => Marker + tenantId + ":" + new string([.. plaintext.Reverse()]);
+
+    public string Unprotect(string tenantId, string protectedText)
+    {
+        var prefix = Marker + tenantId + ":";
+        return protectedText.StartsWith(prefix, StringComparison.Ordinal)
+            ? new string([.. protectedText[prefix.Length..].Reverse()])
+            : throw new InvalidOperationException("The text was not protected for this tenant.");
+    }
+}
+
+/// <summary>One captured log record.</summary>
+internal sealed record LogEntry(LogLevel Level, EventId EventId, string Message, IReadOnlyList<KeyValuePair<string, object?>> State, string? ExceptionText);
+
+/// <summary>Collects every log record of every category.</summary>
+internal sealed class CapturingLoggerProvider : ILoggerProvider
+{
+    private readonly ConcurrentQueue<LogEntry> entries = new();
+
+    internal IReadOnlyList<LogEntry> Entries => [.. entries];
+
+    public ILogger CreateLogger(string categoryName) => new Capture(entries);
+
+    public void Dispose()
+    {
+    }
+
+    private sealed class Capture : ILogger
+    {
+        private readonly ConcurrentQueue<LogEntry> target;
+
+        internal Capture(ConcurrentQueue<LogEntry> target) => this.target = target;
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            var pairs = state is IEnumerable<KeyValuePair<string, object?>> values ? [.. values] : new List<KeyValuePair<string, object?>>();
+            target.Enqueue(new LogEntry(logLevel, eventId, formatter(state, exception), pairs, exception?.ToString()));
+        }
+    }
+}
+
+/// <summary>
+/// A store that passes everything to the real one and lets a test act between a scan and the handling of what it found, or
+/// replace what the scan found: the seam that simulates another session working at the same time.
+/// </summary>
+internal sealed class HookedStore : IProcessStore
+{
+    private readonly IProcessStore inner;
+
+    internal HookedStore(IProcessStore inner) => this.inner = inner;
+
+    /// <summary>Runs after a scan and returns the items the pump gets to see.</summary>
+    internal Func<WorkKind, IReadOnlyList<WorkRef>, Task<IReadOnlyList<WorkRef>>>? AfterScan { get; set; }
+
+    public Task<IProcessSession> BeginAsync(CancellationToken cancellationToken) => inner.BeginAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<WorkRef>> ScanAsync(WorkKind kind, DateTimeOffset now, int limit, WorkRef? after, CancellationToken cancellationToken)
+    {
+        var found = await inner.ScanAsync(kind, now, limit, after, cancellationToken);
+        return AfterScan is null || after is not null ? found : await AfterScan(kind, found);
+    }
+
+    public Task<InstanceRecord?> GetInstanceAsync(string tenantId, string instanceId, CancellationToken cancellationToken) => inner.GetInstanceAsync(tenantId, instanceId, cancellationToken);
+
+    public Task<InstanceRecord?> FindInstanceAsync(string tenantId, string processId, string businessKey, CancellationToken cancellationToken) => inner.FindInstanceAsync(tenantId, processId, businessKey, cancellationToken);
+
+    public Task<IReadOnlyList<HistoryRecord>> GetHistoryAsync(string tenantId, string instanceId, CancellationToken cancellationToken) => inner.GetHistoryAsync(tenantId, instanceId, cancellationToken);
+
+    public Task<IReadOnlyList<TaskRecord>> ListOpenTasksAsync(string tenantId, string queue, CancellationToken cancellationToken) => inner.ListOpenTasksAsync(tenantId, queue, cancellationToken);
+
+    public Task<string?> FindTaskInstanceAsync(string tenantId, string taskId, CancellationToken cancellationToken) => inner.FindTaskInstanceAsync(tenantId, taskId, cancellationToken);
+}
+
+/// <summary>A protector that stores text as it is, except that it refuses to read anything of one tenant once it is armed.</summary>
+internal sealed class FailingProtector : IPayloadProtector
+{
+    internal const string Message = "a message that the host must not copy anywhere";
+
+    private readonly string failingTenant;
+
+    internal FailingProtector(string failingTenant) => this.failingTenant = failingTenant;
+
+    internal bool Armed { get; set; }
+
+    public string Protect(string tenantId, string plaintext) => plaintext;
+
+    public string Unprotect(string tenantId, string protectedText) =>
+        Armed && tenantId == failingTenant ? throw new InvalidOperationException(Message) : protectedText;
+}

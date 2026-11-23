@@ -1,0 +1,27 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.parentbad",
+  "version": 1,
+  "uses": [{ "$ref": "process/host.child" }],
+  "requires": [],
+  "meta": { "title": "Starts a child with an input the child does not declare" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true }
+    },
+    "start": "spawn",
+    "steps": {
+      "spawn": {
+        "kind": "subprocess",
+        "process": "host.child",
+        "input": { "value": "case_ref" },
+        "next": "done",
+        "onError": "failed"
+      },
+      "done": { "kind": "end", "result": "parent_done" },
+      "failed": { "kind": "end", "result": "child_failed" }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.waitaccepts",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Wait for a reply correlated by a Code variable; the event is also accepted into the inbox" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "answer": { "type": "Code" }
+    },
+    "accepts": ["reply"],
+    "start": "gate",
+    "steps": {
+      "gate": {
+        "kind": "wait",
+        "event": "reply",
+        "correlation": "case_ref",
+        "output": { "text": "answer" },
+        "timeout": "PT1H",
+        "next": "done",
+        "onTimeout": "expired"
+      },
+      "done": { "kind": "end", "result": "replied" },
+      "expired": { "kind": "end", "result": "expired" }
+    }
+  }
+}
