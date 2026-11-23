@@ -9,7 +9,7 @@ namespace Synapbiz.Brain.Workbench.Blazor.Tests;
 
 public sealed class StringsTests
 {
-    private static readonly string[] Markings = ["band.simulate", "band.tests", "pill.simulation", "notice.privacy"];
+    private static readonly string[] Markings = ["band.simulate", "band.tests", "pill.simulation", "notice.privacy", "draft.bar", "pill.draft", "export.proposal.explain"];
 
     private static Harness Render(WorkbenchTab tab, IReadOnlyDictionary<string, string>? overrides, WorkbenchLocale locale = WorkbenchLocale.En, string? place = "the demo folder")
     {
@@ -192,6 +192,37 @@ public sealed class StringsTests
         review.Find(".wb-notice").TextContent.Should().StartWith("Do not identify real people.");
     }
 
+    [Fact]
+    public void TheDraftMarkingsMayBeRewordedButNeverEmptied()
+    {
+        var reworded = new Dictionary<string, string>
+        {
+            ["draft.bar"] = "**Draft only.**",
+            ["pill.draft"] = "Mine",
+            ["export.proposal.explain"] = "Only a file.",
+        };
+        var emptied = new Dictionary<string, string>
+        {
+            ["draft.bar"] = " ",
+            ["pill.draft"] = string.Empty,
+            ["export.proposal.explain"] = null!,
+        };
+        foreach (var (overrides, bar, pill, explain) in new[]
+        {
+            (reworded, "Draft only.", "Mine", "Only a file."),
+            (emptied, "You are viewing your draft.", "Draft changes", "A file is saved on this computer."),
+        })
+        {
+            using var harness = new Harness();
+            harness.Render([Fx.Editable("intake.first")], overrides: overrides);
+            harness.Find(".wb-head button").Click();
+            harness.Find(".wb-draftbar .wb-pill-draft").TextContent.Should().Be(pill);
+            harness.Find(".wb-draftbar-t strong").TextContent.Should().Be(bar);
+            harness.Open(WorkbenchTab.Changes);
+            harness.Find("[role=tabpanel] .wb-card").TextContent.Should().Contain(explain);
+        }
+    }
+
     [Theory]
     [InlineData(WorkbenchTab.Simulate)]
     [InlineData(WorkbenchTab.Tests)]
@@ -233,6 +264,6 @@ public sealed class StringsTests
     {
         var names = typeof(RuleWorkbench).Assembly.GetExportedTypes().Select(type => type.Name).Order(StringComparer.Ordinal);
         names.Should().Equal(
-            "RuleApprovalState", "RuleWorkbench", "WorkbenchExport", "WorkbenchExportFile", "WorkbenchRule", "WorkbenchSession", "WorkbenchStrings", "WorkbenchTab");
+            "RuleApprovalState", "RuleWorkbench", "WorkbenchExport", "WorkbenchExportFile", "WorkbenchOutcomeText", "WorkbenchRule", "WorkbenchSession", "WorkbenchStrings", "WorkbenchTab");
     }
 }

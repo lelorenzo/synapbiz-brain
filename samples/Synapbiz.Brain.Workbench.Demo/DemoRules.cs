@@ -58,6 +58,8 @@ internal sealed class DemoRules
                 SourceLine = es ? "Fuente: archivo de ejemplo " + source.File + "." : "Source: example file " + source.File + ".",
                 RowTexts = RowTexts(source.Key, es),
                 HeadlineFields = source.Key == "intake" ? ["route", "queue"] : null,
+                LoadDraft = rule is null ? null : draft => BrainRuleLoader.Load(draft, [contract]),
+                OutcomeTexts = rule is null || source.Contract != "intake.contract.json" ? null : QueueTexts(Labels(source.Key, rule, locale)),
             });
         }
 
@@ -69,6 +71,12 @@ internal sealed class DemoRules
         });
         return rules;
     }
+
+    /// <summary>The queues of the intake rules, each with the name its people know it by, so that a row's queue is picked and not typed.</summary>
+    private static Dictionary<string, IReadOnlyList<WorkbenchOutcomeText>> QueueTexts(RuleLabels labels) => new()
+    {
+        ["queue"] = [.. labels.Values["queue"].Select(pair => new WorkbenchOutcomeText(DecisionValue.Code(pair.Key), pair.Value))],
+    };
 
     private static string? StateLine(RuleApprovalState state, bool es)
     {

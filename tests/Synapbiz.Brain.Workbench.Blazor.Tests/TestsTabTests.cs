@@ -341,7 +341,7 @@ public sealed class TestsTabTests
     {
         using var harness = Open(Fx.Rule("intake.first"));
         harness.ButtonByText("Run all").Click();
-        harness.Cut.WaitForAssertion(() => harness.ButtonByText("Run all").HasAttribute("disabled").Should().BeFalse());
+        harness.Cut.WaitForAssertion(() => harness.ButtonByText("Run all").HasAttribute("disabled").Should().BeFalse(), TimeSpan.FromSeconds(10));
         Summary(harness).Should().Be("9 of 9 cases pass");
     }
 

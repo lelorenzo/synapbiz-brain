@@ -22,7 +22,7 @@ public sealed partial class RuleWorkbench : IDisposable
     private const int NoteMax = 1000;
     private const int NoteCounterFrom = 900;
 
-    private static readonly string[] SelectorTabs = ["tabs.read", "tabs.simulate", "tabs.tests", "tabs.review"];
+    private static readonly string[] SelectorTabs = ["tabs.read", "tabs.simulate", "tabs.tests", "tabs.review", "tabs.changes"];
 
     private static int instances;
 
@@ -177,6 +177,7 @@ public sealed partial class RuleWorkbench : IDisposable
     private void SelectRule(string key)
     {
         caseForm = null;
+        discardOpen = false;
         Session.SelectedRuleKey = key;
     }
 
@@ -222,9 +223,9 @@ public sealed partial class RuleWorkbench : IDisposable
 
     private static void SetCaseName(CaseForm form, ChangeEventArgs args) => form.Name = args.Value?.ToString() ?? string.Empty;
 
-    private RenderFragment TestsHeading(TestRunView run) => run.Cases.Count == 0
+    private RenderFragment TestsHeading(TestRunView run, int changing = 0) => run.Cases.Count == 0
         ? Rich("tests.empty")
-        : builder => builder.AddContent(0, TestSummary(run));
+        : builder => builder.AddContent(0, TestSummary(run, changing));
 
     private static string RuleRef(int index) => "rule:" + index.ToString(CultureInfo.InvariantCulture);
 
@@ -237,10 +238,10 @@ public sealed partial class RuleWorkbench : IDisposable
         var current = (int)Session.SelectedTab;
         var next = args.Key switch
         {
-            "ArrowRight" => (current + 1) % SelectorTabs.Length,
-            "ArrowLeft" => (current + SelectorTabs.Length - 1) % SelectorTabs.Length,
+            "ArrowRight" => (current + 1) % TabCount,
+            "ArrowLeft" => (current + TabCount - 1) % TabCount,
             "Home" => 0,
-            "End" => SelectorTabs.Length - 1,
+            "End" => TabCount - 1,
             _ => current,
         };
         if (next != current)
@@ -375,9 +376,10 @@ public sealed partial class RuleWorkbench : IDisposable
         changed?.Invoke();
     }
 
-    private void RunSimulation(WorkbenchRule rule, RuleWork work, IReadOnlyList<ShownFact> shown)
+    private void RunSimulation(Ctx c, RuleWork work)
     {
-        var brain = rule.Rule!;
+        var brain = c.Brain;
+        var shown = c.Shown;
         var parsed = work.Simulator.Parse(brain, shown);
         work.Simulator.Errors.Clear();
         work.RefusalCode = null;
@@ -472,9 +474,8 @@ public sealed partial class RuleWorkbench : IDisposable
         Session.Touch();
     }
 
-    private void OpenFormFromSimulation(WorkbenchRule rule, RuleWork work, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels)
+    private void OpenFormFromSimulation(WorkbenchRule rule, BrainRule brain, RuleWork work, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels)
     {
-        var brain = rule.Rule!;
         var options = CaseForm.Options(brain, view, labels, Locale);
         OpenCaseForm(rule, shown, form =>
         {
@@ -524,9 +525,8 @@ public sealed partial class RuleWorkbench : IDisposable
         Session.SelectedTab = WorkbenchTab.Tests;
     }
 
-    private void OpenFormForRow(WorkbenchRule rule, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels, string rowKey)
+    private void OpenFormForRow(WorkbenchRule rule, BrainRule brain, IReadOnlyList<ShownFact> shown, RuleView view, RuleLabels labels, string rowKey)
     {
-        var brain = rule.Rule!;
         var options = CaseForm.Options(brain, view, labels, Locale);
         OpenCaseForm(rule, shown, form =>
         {

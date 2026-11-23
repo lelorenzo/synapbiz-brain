@@ -60,4 +60,23 @@
 
 ### W-C2 — panels
 
-- [ ] Brief (pending design)
+- [x] Brief and design
+- [x] Session draft state and the apply and undo engine, tested
+- [x] Draft bar, view switch, start and discard
+- [x] Row form and row menu, with refusals and warnings
+- [x] Test cases that change result, and decisions about them
+- [x] Changes tab and proposal export
+- [x] Demo (`LoadDraft`, `OutcomeTexts`), screenshots in light and dark
+- [x] Docs: reference page, spec, changelog
+- [x] Independent verification of every gate
+
+### W-C3 — guided editing refinements
+
+- [x] Brief
+- [x] `SetCaseExpectation` says no decision and the results of a `collect` rule; round-trip tests on every hit policy
+- [x] `RuleChangeDescriber` lists a row whose only change is its name; `NameBefore` and `NameAfter`
+- [x] Answers name only what differs; bold marks only the difference; short results in the Changes tab
+- [x] One menu per case; the list keeps its order; one count for every row count; row name in the Changes tab; caret on "Más"
+- [x] Screenshots re-run
+- [x] Docs: reference pages, design section 13, changelog
+- [x] Independent verification of every gate

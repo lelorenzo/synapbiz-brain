@@ -28,6 +28,8 @@ public enum RowChangeTag
 /// <param name="NumberAfter">The row's 1-based position in the draft; null when it was removed.</param>
 /// <param name="SentenceBefore">The row as a sentence in the base; null when it was added.</param>
 /// <param name="SentenceAfter">The row as a sentence in the draft; null when it was removed.</param>
+/// <param name="NameBefore">The row's name from the labels of the base; null when the row has none there (or did not exist). Set for every row, so a name that is set, changed or cleared reads off the two names.</param>
+/// <param name="NameAfter">The row's name from the labels of the draft; null when the row has none there (or was removed).</param>
 public sealed record RowChangeView(
     string Key,
     string Label,
@@ -35,7 +37,9 @@ public sealed record RowChangeView(
     int? NumberBefore,
     int? NumberAfter,
     string? SentenceBefore,
-    string? SentenceAfter);
+    string? SentenceAfter,
+    string? NameBefore,
+    string? NameAfter);
 
 /// <summary>A sample the two revisions decide differently.</summary>
 /// <param name="Name">The sample name.</param>
@@ -56,7 +60,7 @@ public sealed record CaseOutcomeChange(
 
 /// <summary>What a draft changes in a rule, in words.</summary>
 /// <param name="Summary">One or two sentences: how many rows change, are added, are removed or move.</param>
-/// <param name="Rows">The rows that differ, in the draft's order with removed rows where they were.</param>
+/// <param name="Rows">The rows that differ, in the draft's order with removed rows where they were. A row whose only change is its name is listed as <see cref="RowChangeTag.Changed"/>, with the same sentence on both sides.</param>
 /// <param name="HitPolicyChanged">Whether the hit policy differs.</param>
 /// <param name="DefaultRowChanged">Whether the default row was added, removed or changed.</param>
 /// <param name="CasesThatChange">The samples whose outcome differs between the two revisions.</param>
@@ -73,7 +77,9 @@ public static class RuleChangeDescriber
     /// <summary>
     /// Describes what <paramref name="after"/> changes in <paramref name="before"/>. It is built on <see cref="RuleDiffer"/> and
     /// <see cref="RuleDescriber"/>. Every sample is simulated with the as-of date <see cref="DateOnly.MinValue"/>, as the golden
-    /// cases of a rule are. The summary counts the default row like any other row.
+    /// cases of a rule are. The summary counts the default row like any other row. A row present on both sides whose name (its
+    /// label in <paramref name="labelsBefore"/> and <paramref name="labelsAfter"/>) differs, and that <see cref="RuleDiffer"/> does
+    /// not report, is added to the rows as changed, so the rows, the summary and every count made from them agree.
     /// </summary>
     /// <param name="before">The base revision.</param>
     /// <param name="after">The draft.</param>
@@ -127,7 +133,7 @@ public static class RuleChangeDescriber
 
         foreach (var change in diff.Rows.Where(change => change.Kind != ChangeKind.Removed))
         {
-            if (TagOf(change, moved) is { } tag)
+            if ((TagOf(change, moved) ?? RenamedOnly(change, viewsBefore, viewsAfter)) is { } tag)
             {
                 result.Add(View(change, tag, viewsBefore, viewsAfter));
             }
@@ -145,6 +151,18 @@ public static class RuleChangeDescriber
         _ => moved.Contains(change.Key) ? RowChangeTag.Moved : null,
     };
 
+    /// <summary>Changed, for a row both revisions have, in the same content and place, whose name differs; otherwise null.</summary>
+    private static RowChangeTag? RenamedOnly(RowChange change, Dictionary<string, RowView> before, Dictionary<string, RowView> after) =>
+        change.Kind == ChangeKind.Unchanged
+        && before.TryGetValue(change.Key, out var earlier)
+        && after.TryGetValue(change.Key, out var later)
+        && !string.Equals(NameOf(earlier), NameOf(later), StringComparison.Ordinal)
+            ? RowChangeTag.Changed
+            : null;
+
+    /// <summary>The name of a row from the labels; null when the row has none or the name is only white space.</summary>
+    private static string? NameOf(RowView? row) => string.IsNullOrWhiteSpace(row?.Title) ? null : row!.Title;
+
     private static RowChangeView View(RowChange change, RowChangeTag tag, Dictionary<string, RowView> before, Dictionary<string, RowView> after)
     {
         before.TryGetValue(change.Key, out var earlier);
@@ -157,7 +175,9 @@ public static class RuleChangeDescriber
             change.IndexBefore + 1,
             change.IndexAfter + 1,
             earlier?.Sentence,
-            later?.Sentence);
+            later?.Sentence,
+            NameOf(earlier),
+            NameOf(later));
     }
 
     /// <summary>The removed rows, by the key of the row they followed in the base (among the rows the draft keeps); the empty key is the start.</summary>

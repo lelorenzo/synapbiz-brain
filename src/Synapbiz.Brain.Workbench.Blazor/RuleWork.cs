@@ -47,6 +47,9 @@ internal sealed class RuleWork
 
     internal FactForm Simulator { get; } = new();
 
+    /// <summary>The reviewer's draft of this rule; null when there is none.</summary>
+    internal DraftState? Draft { get; set; }
+
     internal SimulationResult? Result { get; set; }
 
     internal IReadOnlyDictionary<string, DecisionValue>? ResultFacts { get; set; }

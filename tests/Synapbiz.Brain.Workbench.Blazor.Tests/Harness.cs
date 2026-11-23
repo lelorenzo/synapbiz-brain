@@ -9,7 +9,15 @@ namespace Synapbiz.Brain.Workbench.Blazor.Tests;
 /// <summary>Renders the workbench with the usual parameters and offers short ways to find and press things.</summary>
 internal sealed class Harness : IDisposable
 {
-    internal Harness() => Ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+    private const string FocusCall = "Blazor._internal.domWrapper.focus";
+
+    private string? focusedHtml;
+
+    internal Harness()
+    {
+        Ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        Ctx.JSInterop.SetupVoid(call => call.Identifier == FocusCall && NoteFocus(call));
+    }
 
     internal TestContext Ctx { get; } = new();
 
@@ -68,6 +76,22 @@ internal sealed class Harness : IDisposable
 
     /// <summary>The text of the whole detail side.</summary>
     internal string DetailText => Normalise(Find(".wb-detail").TextContent);
+
+    /// <summary>True when the last <c>FocusAsync</c> call of the component was for an element that reads like this one (the reference ids change at every render, so the element is read when the call is made).</summary>
+    internal bool IsFocused(IElement element) => focusedHtml is not null && string.Equals(focusedHtml, WithoutReference(element.OuterHtml), StringComparison.Ordinal);
+
+    /// <summary>How many times the component asked the browser to focus an element.</summary>
+    internal int FocusCount => Ctx.JSInterop.Invocations.Count(call => call.Identifier == FocusCall);
+
+    private static string WithoutReference(string html) => System.Text.RegularExpressions.Regex.Replace(html, " blazor:elementreference=\"[^\"]*\"", string.Empty);
+
+    private bool NoteFocus(Bunit.JSRuntimeInvocation call)
+    {
+        var id = ((ElementReference)call.Arguments[0]!).Id;
+        var found = Cut?.FindAll("[blazor\\:elementreference=\"" + id + "\"]");
+        focusedHtml = found is { Count: > 0 } ? WithoutReference(found[0].OuterHtml) : null;
+        return true;
+    }
 
     internal static string Normalise(string text) => System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
 
