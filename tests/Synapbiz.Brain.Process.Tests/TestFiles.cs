@@ -40,4 +40,19 @@ internal static class TestFiles
         var loaded = BrainProcessLoader.Load(Read(Fixtures + "outreach.process.json"), new ProcessLoadContext([OutreachRule()]));
         return loaded.Process ?? throw new InvalidOperationException("The outreach process does not load: " + string.Join("; ", loaded.Errors.Select(error => error.Code + "@" + error.Path)));
     }
+
+    /// <summary>The rule of the follow-up process, loaded against its synthetic contract.</summary>
+    internal static BrainRule FollowupRule()
+    {
+        var contract = BrainContract.Parse(Read(Fixtures + "followup.contract.json"));
+        var loaded = BrainRuleLoader.Load(Read(Fixtures + "followup.rule.json"), [contract]);
+        return loaded.Rule ?? throw new InvalidOperationException("The follow-up rule does not load: " + string.Join("; ", loaded.Errors.Select(error => error.Code + "@" + error.Path)));
+    }
+
+    /// <summary>The follow-up process: triggers, a delivery window, a contact action and a poll.</summary>
+    internal static BrainProcess FollowupProcess()
+    {
+        var loaded = BrainProcessLoader.Load(Read(Fixtures + "followup.process.json"), new ProcessLoadContext([FollowupRule()]));
+        return loaded.Process ?? throw new InvalidOperationException("The follow-up process does not load: " + string.Join("; ", loaded.Errors.Select(error => error.Code + "@" + error.Path)));
+    }
 }

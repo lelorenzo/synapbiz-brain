@@ -1,0 +1,37 @@
+{
+  "module": "followup",
+  "schemaVersion": 1,
+  "facts": [
+    {
+      "kind": "followup.reply_state",
+      "name": "replies",
+      "type": "Integer",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "followup.reply_state",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "followup.decisions.read",
+        "author": "followup.decisions.author",
+        "approve": "followup.decisions.approve",
+        "readTrace": "followup.decisions.read_trace"
+      },
+      "outcomes": [
+        {
+          "name": "state",
+          "type": "Enum",
+          "nullable": false,
+          "labelSource": null,
+          "allowedValues": ["waiting", "answered"]
+        }
+      ]
+    }
+  ]
+}

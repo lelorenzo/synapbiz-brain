@@ -252,6 +252,62 @@ public sealed class StateTests
         first.Equals(nothing).Should().BeFalse();
     }
 
+    private const string Polling = """{"instanceId":"i-1","definitionId":"t.proc","definitionVersion":1,"definitionHash":"abc","status":"Waiting","currentStep":"s","stage":null,"result":null,"variables":{},"loopCounters":{},"attempt":1,"entry":1,"stepCount":1,"sequence":4,"pending":{"kind":"Window","id":"i-1/s/1/1/window","timeoutTimerId":null},"inbox":[],"problem":null,"poll":{"round":3,"startedAt":"2027-01-04T14:00:00.0000000+00:00"}}""";
+
+    [Fact]
+    public void AStateWrittenBeforeTheAdditionsStillLoadsWithoutAPoll()
+    {
+        ProcessState.FromJson(Waiting).Poll.Should().BeNull();
+        ProcessState.FromJson(Waiting).ToJson().Should().NotContain("poll");
+    }
+
+    [Fact]
+    public void AStateWithAPollAndAWindowPendingRoundTrips()
+    {
+        var state = ProcessState.FromJson(Polling);
+
+        state.Poll.Should().Be(new ProcessPoll(3, new DateTimeOffset(2027, 1, 4, 14, 0, 0, TimeSpan.Zero)));
+        state.Pending.Should().Be(new ProcessPending(ProcessPendingKind.Window, "i-1/s/1/1/window"));
+        state.ToJson().Should().Be(Polling);
+        ProcessState.FromJson(state.ToJson()).Should().Be(state);
+    }
+
+    [Fact]
+    public void TheStatesOfDifferentPollProgressAreNotEqual()
+    {
+        var first = ProcessState.FromJson(Polling);
+        var later = ProcessState.FromJson(Polling.Replace("\"round\":3", "\"round\":4", StringComparison.Ordinal));
+
+        first.Equals(later).Should().BeFalse();
+        first.Equals(ProcessState.FromJson(Polling.Replace(",\"poll\":{\"round\":3,\"startedAt\":\"2027-01-04T14:00:00.0000000+00:00\"}", "", StringComparison.Ordinal))).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ANullPollReadsAsNoPoll()
+    {
+        var start = Polling.IndexOf(",\"poll\"", StringComparison.Ordinal);
+
+        var state = ProcessState.FromJson(Polling[..start] + ",\"poll\":null}");
+
+        state.Poll.Should().BeNull();
+        state.ToJson().Should().NotContain("poll");
+    }
+
+    [Theory]
+    [InlineData("\"poll\":3")]
+    [InlineData("\"poll\":{}")]
+    [InlineData("\"poll\":{\"round\":0,\"startedAt\":\"2027-01-04T14:00:00.0000000+00:00\"}")]
+    [InlineData("\"poll\":{\"round\":1.5,\"startedAt\":\"2027-01-04T14:00:00.0000000+00:00\"}")]
+    [InlineData("\"poll\":{\"round\":1,\"startedAt\":\"yesterday\"}")]
+    [InlineData("\"poll\":{\"round\":1,\"startedAt\":5}")]
+    [InlineData("\"poll\":{\"round\":1,\"startedAt\":\"2027-01-04T14:00:00.0000000+00:00\",\"extra\":1}")]
+    public void AMalformedPollIsMalformed(string poll)
+    {
+        var start = Polling.IndexOf(",\"poll\"", StringComparison.Ordinal);
+
+        AssertMalformed(Polling[..start] + "," + poll + "}");
+    }
+
     private static void AssertMalformed(string text)
     {
         var error = Record.Exception(() => ProcessState.FromJson(text));
