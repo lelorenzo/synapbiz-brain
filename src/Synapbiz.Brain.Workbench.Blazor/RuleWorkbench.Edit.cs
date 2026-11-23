@@ -92,7 +92,8 @@ public sealed partial class RuleWorkbench
         var used = draft.Steps.Select(step => step.Key).Concat(draft.BaseRule.Table.Rows.Select(row => row.Key)).ToHashSet(StringComparer.Ordinal);
         while (true)
         {
-            var key = "row-" + Guid.NewGuid().ToString("N")[..6];
+            var seed = System.Text.Encoding.UTF8.GetBytes(draft.BaseHash + ":" + draft.NextKeyNumber().ToString(CultureInfo.InvariantCulture));
+            var key = "row-" + Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(seed))[..6];
             if (used.Add(key))
             {
                 return key;

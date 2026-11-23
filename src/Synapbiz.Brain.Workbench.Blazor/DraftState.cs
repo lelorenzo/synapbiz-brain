@@ -131,6 +131,11 @@ internal sealed class DraftState
     /// <summary>The revision that was exported; null when the draft was never exported.</summary>
     internal int? ExportedRevision { get; set; }
 
+    private int keyNumber;
+
+    /// <summary>A number never given before in this draft, from which the key of a new row is made.</summary>
+    internal int NextKeyNumber() => ++keyNumber;
+
     /// <summary>The reason for the change, as the reviewer is writing it for the proposal.</summary>
     internal string Reason { get; set; } = string.Empty;
 

@@ -60,4 +60,12 @@
 
 ### W-C2 — panels
 
-- [ ] Brief (pending design)
+- [x] Brief and design
+- [x] Session draft state and the apply and undo engine, tested
+- [x] Draft bar, view switch, start and discard
+- [x] Row form and row menu, with refusals and warnings
+- [x] Test cases that change result, and decisions about them
+- [x] Changes tab and proposal export
+- [x] Demo (`LoadDraft`, `OutcomeTexts`), screenshots in light and dark
+- [x] Docs: reference page, spec, changelog
+- [ ] Independent verification of every gate
