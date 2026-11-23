@@ -79,4 +79,4 @@
 - [x] One menu per case; the list keeps its order; one count for every row count; row name in the Changes tab; caret on "Más"
 - [x] Screenshots re-run
 - [x] Docs: reference pages, design section 13, changelog
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate
