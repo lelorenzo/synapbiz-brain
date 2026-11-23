@@ -244,3 +244,14 @@ These settle points the sections above left open. They are normative.
 6. When the catalog cannot supply the pinned definition, a pending effect stays `Pending` and no port is invoked (same treatment as test 13).
 7. A rejected start leaves no row: the transaction is rolled back.
 8. The pump scans across tenants and every row it claims carries its `tenant_id`, which scopes every later statement of that unit of work. The engine's commands and queries always take the tenant from the caller.
+
+## 11. Amendments after independent verification (2026-11-23)
+
+Normative; where they differ from sections 5 to 7 they win.
+
+1. **Item isolation.** An exception while the pump handles one item (other than cancellation of the pass) is caught for that item: a warning is logged with the item kind, the tenant, the ids and the exception type, never its message; the item is left as it was; the pass continues with the next item and the next kind.
+2. **Paging.** Within one pass each scan is paged by keyset on its ordering key until the scan is exhausted or `BatchSize` items of that kind have been handled, so items that are left untouched cannot hide the ones behind them.
+3. **Correlation candidates.** Waits are selected for an event by event name and by correlation compared without regard to case; the interpreter decides whether each candidate accepts the event. An event no candidate accepts is `NoTarget`.
+4. **Effect lease.** A pump takes a concurrency slot first, then claims one pending effect, then invokes the port; the lease runs from that claim. An effect that was not claimed stays `Pending`. After the pass token is cancelled no further effect is claimed, and the result of a call already in flight is recorded regardless of the token.
+5. **Inbox order.** Rows are applied in id order per instance. Two triggers appended concurrently have no defined order between them.
+6. **Values stored in clear.** `process_wait.correlation` and failure codes supplied by a port are not protected. A consumer must use opaque references as correlation values and plain codes as failure codes, never personal data. An event id is consumed by any answer to its publication, including `NoTarget`.
