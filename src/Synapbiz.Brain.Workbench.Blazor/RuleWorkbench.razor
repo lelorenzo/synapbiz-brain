@@ -541,7 +541,7 @@
                                 var typed = check is null ? string.Empty : WorkbenchText.FormatValue(check.Actual, condition.FactName, Locale, labels);
                                 <div class="wb-cond">
                                     <span class="@PillClass(check is { Passed: true } ? "ok" : "neutral")">@Rich(check is { Passed: true } ? "cond.met" : "cond.notMet")</span>
-                                    <span>@SimulationPresenter.Capitalize(condition.Text). @(typed.Length > 0 ? Plain("sim.typed", ("value", typed)) : Plain("sim.notTyped"))</span>
+                                    <span class="wb-cond-text">@SimulationPresenter.Capitalize(condition.Text). @(typed.Length > 0 ? Plain("sim.typed", ("value", typed)) : Plain("sim.notTyped"))</span>
                                 </div>
                             }
                             @if (word.Key == "row.matchesNoDecide" && c.View.HitPolicy == HitPolicy.First)

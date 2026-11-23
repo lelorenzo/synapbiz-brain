@@ -1,0 +1,45 @@
+@page "/"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using Synapbiz.Brain.Workbench
+@using Synapbiz.Brain.Workbench.Blazor
+@inject WorkbenchSession Session
+@inject DemoRules Demo
+
+<div class="demo" data-theme="@ThemeName">
+    <header class="demo-top">
+        <span class="demo-brand">@(IsSpanish ? "Banco de pruebas de reglas" : "Rule workbench demo")</span>
+        <span class="demo-tag">@(IsSpanish ? "SINTÉTICO" : "SYNTHETIC")</span>
+        <span class="demo-sp"></span>
+        <nav class="demo-switch" aria-label="@(IsSpanish ? "Idioma y tema" : "Language and theme")">
+            <a href="?theme=@ThemeName&locale=es" aria-current="@(IsSpanish ? "true" : null)">ES</a>
+            <a href="?theme=@ThemeName&locale=en" aria-current="@(IsSpanish ? null : "true")">EN</a>
+            <a href="?theme=light&locale=@LocaleName" aria-current="@(ThemeName == "light" ? "true" : null)">@(IsSpanish ? "Claro" : "Light")</a>
+            <a href="?theme=dark&locale=@LocaleName" aria-current="@(ThemeName == "dark" ? "true" : null)">@(IsSpanish ? "Oscuro" : "Dark")</a>
+        </nav>
+    </header>
+    <main class="demo-main">
+        <RuleWorkbench Rules="Demo.For(Locale)" Locale="Locale" Session="Session" Now="Clock" OnExport="SaveNowhere" />
+    </main>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "theme")]
+    public string? Theme { get; set; }
+
+    [SupplyParameterFromQuery(Name = "locale")]
+    public string? LocaleText { get; set; }
+
+    private string ThemeName => string.Equals(Theme, "dark", StringComparison.Ordinal) ? "dark" : "light";
+
+    private WorkbenchLocale Locale => string.Equals(LocaleText, "en", StringComparison.Ordinal) ? WorkbenchLocale.En : WorkbenchLocale.Es;
+
+    private bool IsSpanish => Locale == WorkbenchLocale.Es;
+
+    private string LocaleName => IsSpanish ? "es" : "en";
+
+    private static DateTimeOffset Clock() => DateTimeOffset.UtcNow;
+
+    /// <summary>The demo saves nothing: it names a fixed place and writes no file.</summary>
+    private Task<string?> SaveNowhere(WorkbenchExport export) =>
+        Task.FromResult<string?>(IsSpanish ? "la carpeta de demostración" : "the demo folder");
+}

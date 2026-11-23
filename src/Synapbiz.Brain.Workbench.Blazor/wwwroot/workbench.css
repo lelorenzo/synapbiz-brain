@@ -354,6 +354,15 @@
   font-size: var(--wb-text-small);
 }
 
+.wb-cond .wb-pill {
+  white-space: nowrap;
+}
+
+.wb-cond-text {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .wb-kv {
   display: grid;
   grid-template-columns: 150px 1fr;
@@ -591,7 +600,7 @@
 
 .wb-money {
   display: grid;
-  grid-template-columns: 1fr 110px;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
