@@ -1,0 +1,134 @@
+flow case.lifecycle v1
+  title: Ciclo de vida del caso
+  subject: case
+  stages: Antes de la visita | Visita | Después de la visita | Cobro
+  trigger: Empieza cuando llega `case.opened`, un caso por cada `case_ref`.
+  steps: Decide 1, HumanTask 5, Subprocess 4, End 5
+  scenarios: 15 (all pass)
+  routes covered: 23/23
+  child: previsit.outreach = previsit outreach
+  child: visit.note_wait = Espera de la nota de la visita
+  child: postvisit.coding_review = Revisión de codificación posterior a la visita
+  child: collection.followup = Seguimiento de cobro
+  started by: 
+  rules: rule/lifecycle.zone_ready, process/previsit.outreach, process/visit.note_wait, process/postvisit.coding_review, process/collection.followup
+flow collection.followup v1
+  title: Seguimiento de cobro
+  subject: case
+  stages: Cobro
+  steps: Poll 1, Decide 1, HumanTask 5, Wait 1, Timer 1, Loop 1, End 3
+  scenarios: 18 (all pass)
+  routes covered: 24/25
+  started by: case.lifecycle
+  rules: rule/collection.claim_progress, rule/collection.claim_result
+flow flow.bare v1
+  title: Pasos desnudos
+  subject: bare
+  stages: 
+  steps: Decide 1, Timer 2, End 1
+  scenarios: 1 (all pass)
+  routes covered: 3/6
+  started by: 
+  rules: rule/conf.default_rule
+flow flow.batch v1
+  title: Ejecución por lotes
+  subject: batch
+  stages: Ejecución
+  trigger: Se ejecuta todos los días laborables a las 07:30 en la zona de la activación.
+  trigger: Se ejecuta cada domingo, lunes y sábado a las 08:00 en la zona de la activación.
+  trigger: Se ejecuta según el horario `*/5 9 1 * *` en la zona de la activación.
+  trigger: Se ejecuta cada martes, miércoles, jueves y viernes a las 09:00 en la zona de la activación.
+  steps: Ai 1, Poll 1, Decide 2, Timer 1, Loop 1, Subprocess 1, End 2
+  scenarios: 3 (all pass)
+  routes covered: 10/23
+  child: flow.child = Hijo del lote
+  started by: 
+  rules: rule/conf.flag_rule, rule/conf.default_rule, process/flow.child
+flow flow.child v1
+  title: Hijo del lote
+  subject: batch
+  stages: 
+  steps: End 1
+  scenarios: 1 (all pass)
+  routes covered: 0/0
+  started by: flow.batch
+  rules: 
+flow flow.clock v1
+  title: Vigilancia del reloj
+  subject: clock
+  stages: Vigilancia
+  trigger: Empieza cuando llega `clock.started`, un caso por cada `ref`.
+  trigger: Se ejecuta todos los días a las 06:00 America/New_York.
+  trigger: Se ejecuta todos los días laborables a las 18:45 America/Chicago.
+  trigger: Se ejecuta cada domingo a la 01:30 en la zona de la activación.
+  steps: Wait 1, Timer 1, End 2
+  scenarios: 0 (all pass)
+  routes covered: 0/3
+  started by: 
+  rules: 
+flow notice.followup v1
+  title: notice followup
+  subject: case
+  stages: notice
+  trigger: Empieza cuando llega `case.opened`, un caso por cada `case_ref`.
+  trigger: Se ejecuta todos los días laborables a las 08:00 America/New_York.
+  steps: Action 1, Poll 1, End 3
+  scenarios: 5 (all pass)
+  routes covered: 5/5
+  started by: 
+  rules: rule/notice.reply_state
+flow postvisit.coding_review v1
+  title: Revisión de codificación posterior a la visita
+  subject: case
+  stages: Después de la visita
+  steps: Read 1, Ai 1, Decide 3, HumanTask 1, End 2
+  scenarios: 18 (all pass)
+  routes covered: 20/20
+  started by: case.lifecycle
+  rules: rule/postvisit.opportunities, rule/postvisit.assist_gate, rule/postvisit.suggestion_check
+flow practice.daily_refresh v1
+  title: Actualización diaria de la práctica
+  subject: practice
+  stages: 
+  trigger: Se ejecuta todos los días a las 06:00 en la zona de la activación.
+  steps: Read 1, HumanTask 1, End 2
+  scenarios: 6 (all pass)
+  routes covered: 3/3
+  started by: 
+  rules: 
+flow previsit.outreach v1
+  title: previsit outreach
+  subject: case
+  stages: previsit
+  steps: Read 1, Action 1, Decide 1, HumanTask 2, Wait 1, Loop 1, End 2
+  scenarios: 5 (all pass)
+  routes covered: 11/19
+  started by: case.lifecycle
+  rules: rule/previsit.missing_items
+flow previsit.outreach v1
+  title: Contacto previo a la visita
+  subject: case
+  stages: Antes de la visita
+  steps: Read 1, Action 1, Decide 1, HumanTask 2, Wait 1, Loop 1, End 2
+  scenarios: 16 (all pass)
+  routes covered: 22/22
+  started by: case.lifecycle
+  rules: rule/previsit.missing_items
+flow visit.note_wait v1
+  title: Espera de la nota de la visita
+  subject: case
+  stages: Visita
+  steps: Poll 1, HumanTask 2, End 2
+  scenarios: 11 (all pass)
+  routes covered: 9/9
+  started by: case.lifecycle
+  rules: rule/visit.note_ready
+flow visit.reminder v1
+  title: Recordatorio de visita
+  subject: case
+  stages: Recordatorio
+  steps: Action 1, HumanTask 2, Wait 1, End 3
+  scenarios: 6 (all pass)
+  routes covered: 8/11
+  started by: 
+  rules: 

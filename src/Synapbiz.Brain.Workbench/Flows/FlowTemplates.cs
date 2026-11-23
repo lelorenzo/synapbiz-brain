@@ -31,6 +31,8 @@ internal static partial class FlowTemplates
         ["when.before"] = "{duration} before `{variable}`",
         ["when.after"] = "{duration} after `{variable}`",
         ["when.at"] = "by `{variable}`",
+        ["time.at.one"] = "at {time}",
+        ["time.at.many"] = "at {time}",
         ["kind.read"] = "Read",
         ["kind.action"] = "Action",
         ["kind.ai"] = "AI answer",
@@ -66,6 +68,7 @@ internal static partial class FlowTemplates
         ["step.wait.correlation"] = "Only the event that carries the same `{variable}` counts.",
         ["step.timer.after"] = "Waits {duration}.",
         ["step.timer.until"] = "Waits until {when}.",
+        ["step.timer.at"] = "Waits until `{variable}`.",
         ["step.loop"] = "Repeats up to {count} times.",
         ["step.loop.each"] = "Goes through `{list}` one item at a time, up to {count} items; the current item is in `{item}`.",
         ["step.subprocess"] = "Starts the process `{process}` and waits until it ends.",
@@ -101,10 +104,10 @@ internal static partial class FlowTemplates
         ["route.on.subprocess"] = "If the process ends with {value}: go to {target}",
         ["route.interrupt"] = "If `{event}` arrives while it waits for the window: go to {target}",
         ["trigger.event.key"] = "Starts when `{event}` arrives, one case for each `{key}`.",
-        ["trigger.schedule.daily"] = "Runs every day at {time} {zone}",
-        ["trigger.schedule.weekdays"] = "Runs every weekday at {time} {zone}",
-        ["trigger.schedule.days"] = "Runs every {days} at {time} {zone}",
-        ["trigger.schedule.cron"] = "Runs on the schedule `{cron}` {zone}",
+        ["trigger.schedule.daily"] = "Runs every day {at} {zone}.",
+        ["trigger.schedule.weekdays"] = "Runs every weekday {at} {zone}.",
+        ["trigger.schedule.days"] = "Runs every {days} {at} {zone}.",
+        ["trigger.schedule.cron"] = "Runs on the schedule `{cron}` {zone}.",
         ["trigger.zone.activation"] = "in the zone of the activation",
         ["day.0"] = "Sunday",
         ["day.1"] = "Monday",
@@ -117,6 +120,7 @@ internal static partial class FlowTemplates
         ["review.stale"] = "The review was written for another version of this flow (its content hash is not the hash of the document).",
         ["review.target_unknown"] = "The flow has nothing at `{target}`.",
         ["review.scenario_invalid"] = "The proposed scenario is not valid for this flow: {code} at {path}.",
+        ["review.scenario_not_object"] = "The proposed scenario is not a JSON object.",
     };
 
     private static readonly Dictionary<string, string> Spanish = new(StringComparer.Ordinal)
@@ -135,7 +139,9 @@ internal static partial class FlowTemplates
         ["when.within"] = "en {duration}",
         ["when.before"] = "{duration} antes de `{variable}`",
         ["when.after"] = "{duration} después de `{variable}`",
-        ["when.at"] = "hasta `{variable}`",
+        ["when.at"] = "antes de `{variable}`",
+        ["time.at.one"] = "a la {time}",
+        ["time.at.many"] = "a las {time}",
         ["kind.read"] = "Lectura",
         ["kind.action"] = "Acción",
         ["kind.ai"] = "Respuesta de IA",
@@ -171,6 +177,7 @@ internal static partial class FlowTemplates
         ["step.wait.correlation"] = "Solo cuenta el evento que trae el mismo `{variable}`.",
         ["step.timer.after"] = "Espera {duration}.",
         ["step.timer.until"] = "Espera hasta {when}.",
+        ["step.timer.at"] = "Espera hasta `{variable}`.",
         ["step.loop"] = "Se repite hasta {count} veces.",
         ["step.loop.each"] = "Recorre `{list}` elemento por elemento, hasta {count} elementos; el elemento actual está en `{item}`.",
         ["step.subprocess"] = "Inicia el proceso `{process}` y espera a que termine.",
@@ -206,10 +213,10 @@ internal static partial class FlowTemplates
         ["route.on.subprocess"] = "Si el proceso termina con {value}: ir a {target}",
         ["route.interrupt"] = "Si llega `{event}` mientras espera la ventana: ir a {target}",
         ["trigger.event.key"] = "Empieza cuando llega `{event}`, un caso por cada `{key}`.",
-        ["trigger.schedule.daily"] = "Se ejecuta todos los días a las {time} {zone}",
-        ["trigger.schedule.weekdays"] = "Se ejecuta todos los días laborables a las {time} {zone}",
-        ["trigger.schedule.days"] = "Se ejecuta cada {days} a las {time} {zone}",
-        ["trigger.schedule.cron"] = "Se ejecuta según el horario `{cron}` {zone}",
+        ["trigger.schedule.daily"] = "Se ejecuta todos los días {at} {zone}.",
+        ["trigger.schedule.weekdays"] = "Se ejecuta todos los días laborables {at} {zone}.",
+        ["trigger.schedule.days"] = "Se ejecuta cada {days} {at} {zone}.",
+        ["trigger.schedule.cron"] = "Se ejecuta según el horario `{cron}` {zone}.",
         ["trigger.zone.activation"] = "en la zona de la activación",
         ["day.0"] = "domingo",
         ["day.1"] = "lunes",
@@ -222,11 +229,8 @@ internal static partial class FlowTemplates
         ["review.stale"] = "La revisión se escribió para otra versión de este flujo (su hash de contenido no es el del documento).",
         ["review.target_unknown"] = "El flujo no tiene nada en `{target}`.",
         ["review.scenario_invalid"] = "El escenario propuesto no es válido para este flujo: {code} en {path}.",
+        ["review.scenario_not_object"] = "El escenario propuesto no es un objeto JSON.",
     };
-
-    /// <summary>The keys the tests may record: set by a test on its own thread to learn which templates a run of the code used.</summary>
-    [ThreadStatic]
-    internal static HashSet<string>? Recorder;
 
     /// <summary>Every key of the English table.</summary>
     internal static IReadOnlyCollection<string> EnglishKeys => English.Keys;
@@ -243,7 +247,6 @@ internal static partial class FlowTemplates
     /// <summary>The text of a key with its placeholders filled; a placeholder with no value is left as written.</summary>
     internal static string Text(WorkbenchLocale locale, string key, params (string Name, string Value)[] parameters)
     {
-        Recorder?.Add(key);
         var template = Table(locale)[key];
         if (parameters.Length == 0)
         {

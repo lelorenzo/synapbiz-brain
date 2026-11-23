@@ -44,8 +44,8 @@ step check [Repeated read] Check the pick
 step judge [Decision] Judge the count
   stage: Run
   does: Judges with the rule `conf.default_rule` using `count`. The result field `level` says where the flow goes.
-  on:high: If `level` is high: go to Finished
-  on:low: If `level` is low: go to Broken
+  on:high: If `level` is `high`: go to Finished
+  on:low: If `level` is `low`: go to Broken
   onNoDecision: If the rule gives no result: go to Finished
   onError: If the rule cannot be applied: go to Broken
 step ok [End] Finished
@@ -57,7 +57,7 @@ step broken [End] Broken
 step verify [Decision] Verify the pick
   stage: Run
   does: Judges with the rule `conf.flag_rule` using `count`. The result field `flag` says where the flow goes.
-  on:false: If `flag` is false: go to Broken
-  on:true: If `flag` is true: go to Check the pick
+  on:false: If `flag` is `false`: go to Broken
+  on:true: If `flag` is `true`: go to Check the pick
   onNoDecision: If the rule gives no result: go to Broken
   onError: If the rule cannot be applied: go to Broken

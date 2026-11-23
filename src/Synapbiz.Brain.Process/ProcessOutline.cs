@@ -1,8 +1,24 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Synapbiz.Brain.Spec;
 
 namespace Synapbiz.Brain.Process;
+
+/// <summary>Read-only lists for the outline: a wrapper that cannot be cast back to a <see cref="List{T}"/> or an array and be changed.</summary>
+internal static class OutlineLists
+{
+    /// <summary>A read-only copy of the items.</summary>
+    internal static IReadOnlyList<T> Of<T>(IEnumerable<T> items) => new ReadOnlyCollection<T>([.. items]);
+
+    /// <summary>The empty read-only list.</summary>
+    internal static IReadOnlyList<T> Empty<T>() => EmptyList<T>.Value;
+
+    private static class EmptyList<T>
+    {
+        internal static readonly IReadOnlyList<T> Value = new ReadOnlyCollection<T>([]);
+    }
+}
 
 /// <summary>The kinds of steps of a process document, as the outline reports them.</summary>
 public enum OutlineStepKind
@@ -127,7 +143,7 @@ public sealed record OutlineStep
     public string? Stage { get; init; }
 
     /// <summary>Every way out of the step, in the order the interpreter's edge enumerator gives them.</summary>
-    public IReadOnlyList<OutlineRoute> Routes { get; init; } = [];
+    public IReadOnlyList<OutlineRoute> Routes { get; init; } = OutlineLists.Empty<OutlineRoute>();
 
     /// <summary>The port of a <c>read</c>, <c>action</c>, <c>ai</c> or <c>poll</c> step.</summary>
     public string? Port { get; init; }
@@ -190,19 +206,19 @@ public sealed record OutlineStep
     public string? Result { get; init; }
 
     /// <summary>The input mapping of the step: what it sends to its port or child, by member name.</summary>
-    public IReadOnlyList<OutlineBinding> Inputs { get; init; } = [];
+    public IReadOnlyList<OutlineBinding> Inputs { get; init; } = OutlineLists.Empty<OutlineBinding>();
 
     /// <summary>The facts mapping of a <c>decide</c> or <c>poll</c> step: what it gives its rule, by fact name.</summary>
-    public IReadOnlyList<OutlineBinding> Facts { get; init; } = [];
+    public IReadOnlyList<OutlineBinding> Facts { get; init; } = OutlineLists.Empty<OutlineBinding>();
 
     /// <summary>The output mapping of the step: what it keeps, by member name.</summary>
-    public IReadOnlyList<OutlineBinding> Outputs { get; init; } = [];
+    public IReadOnlyList<OutlineBinding> Outputs { get; init; } = OutlineLists.Empty<OutlineBinding>();
 
     /// <summary>The names of the variables the step reads, in order of first use.</summary>
-    public IReadOnlyList<string> InputNames { get; init; } = [];
+    public IReadOnlyList<string> InputNames { get; init; } = OutlineLists.Empty<string>();
 
     /// <summary>The names of the variables the step writes, in order of first use.</summary>
-    public IReadOnlyList<string> OutputNames { get; init; } = [];
+    public IReadOnlyList<string> OutputNames { get; init; } = OutlineLists.Empty<string>();
 
     /// <summary>The model an <c>ai</c> step is pinned to.</summary>
     public string? Model { get; init; }
@@ -268,7 +284,7 @@ public sealed record ProcessOutline
     /// <summary>The id of the first step.</summary>
     public required string Start { get; init; }
 
-    /// <summary>The events the process accepts at any step, in document order.</summary>
+    /// <summary>The events the process accepts at any step, in ordinal order.</summary>
     public required IReadOnlyList<string> Accepts { get; init; }
 
     /// <summary>The rule references of the document (<c>module/rule</c>), in document order.</summary>
@@ -305,16 +321,16 @@ public sealed record ProcessOutline
             Version = definition.Version,
             ContentHash = definition.Hash,
             Subject = definition.Subject,
-            Stages = [.. definition.Stages],
+            Stages = OutlineLists.Of(definition.Stages),
             Start = definition.Start,
-            Accepts = [.. definition.Accepts.Order(StringComparer.Ordinal)],
-            Uses = [.. definition.Uses.OrderBy(use => use.Index).Select(use => use.Reference)],
-            Requires = [.. definition.Requires],
-            Variables = [.. definition.Variables.Values.Select(variable => new OutlineVariable(variable.Name, variable.Type.ToString(), variable.Input))],
-            Windows = [.. definition.Windows.Values.Select(window => new OutlineWindow(window.Name, window.Zone, window.ZoneVariable, [.. window.Days], window.From, window.To))],
-            Triggers = definition.Triggers,
-            Scenarios = [.. texts.Select(text => text.Key)],
-            Steps = [.. definition.Steps.Select(Describe)],
+            Accepts = OutlineLists.Of(definition.Accepts.Order(StringComparer.Ordinal)),
+            Uses = OutlineLists.Of(definition.Uses.OrderBy(use => use.Index).Select(use => use.Reference)),
+            Requires = OutlineLists.Of(definition.Requires),
+            Variables = OutlineLists.Of(definition.Variables.Values.Select(variable => new OutlineVariable(variable.Name, variable.Type.ToString(), variable.Input))),
+            Windows = OutlineLists.Of(definition.Windows.Values.Select(window => new OutlineWindow(window.Name, window.Zone, window.ZoneVariable, OutlineLists.Of(window.Days), window.From, window.To))),
+            Triggers = OutlineLists.Of(definition.Triggers),
+            Scenarios = OutlineLists.Of(texts.Select(text => text.Key)),
+            Steps = OutlineLists.Of(definition.Steps.Select(Describe)),
         };
     }
 
@@ -383,7 +399,7 @@ public sealed record ProcessOutline
 
     private static OutlineStep Describe(StepDef step)
     {
-        var routes = step.References().Select(reference => new OutlineRoute(Label(reference.Member), reference.Target)).ToList();
+        var routes = OutlineLists.Of(step.References().Select(reference => new OutlineRoute(Label(reference.Member), reference.Target)));
         var outline = new OutlineStep
         {
             Id = step.Id,
@@ -458,7 +474,7 @@ public sealed record ProcessOutline
             Rule = step.Rule,
             Facts = Bindings(step.Facts),
             InputNames = Distinct(effect.InputNames.Concat(step.Facts.Entries.Select(entry => entry.Value))),
-            Poll = new OutlinePoll(step.Field, [.. step.Until], step.Every, step.Exponential ? "exponential" : "fixed", step.Max, step.MaxDuration),
+            Poll = new OutlinePoll(step.Field, OutlineLists.Of(step.Until), step.Every, step.Exponential ? "exponential" : "fixed", step.Max, step.MaxDuration),
         };
     }
 
@@ -476,8 +492,8 @@ public sealed record ProcessOutline
     private static OutlineStep DescribeTask(OutlineStep outline, HumanTaskStep step) => outline with
     {
         Queue = step.Queue,
-        Outcomes = [.. step.Outcomes],
-        Show = [.. step.Show],
+        Outcomes = OutlineLists.Of(step.Outcomes),
+        Show = OutlineLists.Of(step.Show),
         Timeout = TimeoutOf(step.Timeout, step.TimeoutAt),
         Outputs = Bindings(step.Output),
         InputNames = Distinct(step.Show.Concat(Present(step.TimeoutAt?.Variable))),
@@ -534,10 +550,10 @@ public sealed record ProcessOutline
 
     private static IEnumerable<string> Present(string? name) => name is null ? [] : [name];
 
-    private static List<OutlineBinding> Bindings(Mapping mapping) =>
-        [.. mapping.Entries.Select(entry => new OutlineBinding(entry.Key, entry.Value))];
+    private static IReadOnlyList<OutlineBinding> Bindings(Mapping mapping) =>
+        OutlineLists.Of(mapping.Entries.Select(entry => new OutlineBinding(entry.Key, entry.Value)));
 
-    private static List<string> Distinct(IEnumerable<string> names) => [.. names.Distinct(StringComparer.Ordinal)];
+    private static IReadOnlyList<string> Distinct(IEnumerable<string> names) => OutlineLists.Of(names.Distinct(StringComparer.Ordinal));
 
     private static string? SchemaText(Json.Schema.JsonSchema? schema) =>
         schema is null ? null : JsonText.Canonical(JsonNode.Parse(JsonSerializer.Serialize(schema)));

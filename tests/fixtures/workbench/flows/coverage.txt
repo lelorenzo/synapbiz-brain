@@ -38,3 +38,11 @@ flow.batch: routes 10/23, steps 9/9
   never: verify onNoDecision -> broken
   never: verify onError -> broken
 flow.child: routes 0/0, steps 1/1
+flow.clock: routes 0/3, steps 0/4
+  never: settle next -> hold
+  never: hold next -> released
+  never: hold onTimeout -> expired
+  never entered: settle
+  never entered: hold
+  never entered: released
+  never entered: expired

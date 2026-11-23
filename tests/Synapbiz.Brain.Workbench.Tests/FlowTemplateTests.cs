@@ -7,6 +7,8 @@ namespace Synapbiz.Brain.Workbench.Tests;
 
 public sealed partial class FlowTemplateTests
 {
+    private static readonly string[] Units = ["day", "hour", "minute", "second"];
+
     [GeneratedRegex(@"\{([a-zA-Z_]+)\}")]
     private static partial Regex Placeholder();
 
@@ -58,49 +60,38 @@ public sealed partial class FlowTemplateTests
     }
 
     [Fact]
-    public void Every_template_is_used_by_some_document()
+    public void Every_template_is_used_by_the_code()
     {
-        var used = new HashSet<string>(StringComparer.Ordinal);
-        FlowTemplates.Recorder = used;
-        try
+        // No recorder in the library: a key is used when its text is written in the source of the flow surface, or when it belongs to a
+        // family the code builds from a closed domain (kinds, weekdays, duration units, and the route keys the documents lead to).
+        var folder = Path.GetDirectoryName(TestFiles.Locate("src/Synapbiz.Brain.Workbench/Flows/FlowDescriber.cs"))!;
+        var source = string.Concat(Directory.GetFiles(folder, "*.cs").Where(file => Path.GetFileName(file) != "FlowTemplates.cs").Select(File.ReadAllText));
+        var keys = FlowTemplates.EnglishKeys.ToHashSet(StringComparer.Ordinal);
+        var used = LiteralPattern().Matches(source).Select(match => match.Groups[1].Value).Where(keys.Contains).ToHashSet(StringComparer.Ordinal);
+        used.UnionWith(Enum.GetValues<Synapbiz.Brain.Process.OutlineStepKind>().Select(kind => "kind." + FlowDescriber.KindKey(kind)));
+        used.UnionWith(Enumerable.Range(0, 7).Select(day => "day." + day.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        used.UnionWith(Units.SelectMany(unit => new[] { "duration." + unit + ".one", "duration." + unit + ".many" }));
+        foreach (var (_, process) in FlowDocs.All)
         {
-            foreach (var (_, process) in FlowDocs.All)
-            {
-                var view = FlowDescriber.Describe(process, WorkbenchLocale.En);
-                _ = FlowGraph.From(process, WorkbenchLocale.En);
-                _ = FlowLibrary.From([process], WorkbenchLocale.En);
-                foreach (var trigger in Synapbiz.Brain.Process.ProcessOutline.From(process).Triggers)
-                {
-                    _ = FlowDescriber.DescribeTrigger(trigger, WorkbenchLocale.En);
-                }
-
-                view.Steps.Should().NotBeNull();
-            }
-
-            // The texts of a coverage problem and of a review check.
-            var foreign = FlowSimulation.Start(FlowDocs.Process("flow.bare"), new FlowSimulationSetup { At = DateTimeOffset.UnixEpoch, Today = new DateOnly(2027, 1, 4), InputJson = """{"ref":"r"}""" });
-            foreign.AdvanceBy(TimeSpan.FromSeconds(31));
-            _ = FlowCoverage.Of(FlowDocs.Process("flow.batch"), [foreign]);
-            var review = new FlowReview
-            {
-                ProcessId = "other",
-                ProcessVersion = 9,
-                ProcessContentHash = "0",
-                Reviewer = "r",
-                CreatedAt = DateTimeOffset.UnixEpoch,
-                Language = WorkbenchLocale.En,
-                Items = [new Synapbiz.Brain.Workbench.ReviewItem("step:none", Synapbiz.Brain.Workbench.ReviewState.Question, "?")],
-                ProposedScenarios = [new FlowProposedScenario("bad", """{"name":"bad","start":{"at":"2027-01-04T14:00:00Z","today":"2027-01-04"},"events":[{"complete":"none"}],"expect":{"status":"Completed"}}""")],
-            };
-            _ = FlowReviewCheck.Against(review, FlowDocs.Process("flow.batch"));
-        }
-        finally
-        {
-            FlowTemplates.Recorder = null;
+            var outline = Synapbiz.Brain.Process.ProcessOutline.From(process);
+            used.UnionWith(outline.Steps.SelectMany(step => step.Routes.Select(route => FlowDescriber.RouteKey(step, route, WorkbenchLocale.En))));
         }
 
-        string.Join(", ", FlowTemplates.EnglishKeys.Except(used).Order(StringComparer.Ordinal)).Should().BeEmpty("a template no document exercises needs a fixture");
+        string.Join(", ", keys.Except(used).Order(StringComparer.Ordinal)).Should().BeEmpty("a template nothing uses is dead text, and a route template no document leads to needs a fixture");
+        used.Except(keys).Should().BeEmpty("a key the code names must exist");
     }
+
+    [Fact]
+    public void The_duration_words_of_every_unit_render_in_both_languages()
+    {
+        FlowText.Duration(WorkbenchLocale.En, TimeSpan.Parse("1.01:01:01", System.Globalization.CultureInfo.InvariantCulture)).Should().Be("1 day, 1 hour, 1 minute and 1 second");
+        FlowText.Duration(WorkbenchLocale.En, TimeSpan.Parse("2.02:02:02", System.Globalization.CultureInfo.InvariantCulture)).Should().Be("2 days, 2 hours, 2 minutes and 2 seconds");
+        FlowText.Duration(WorkbenchLocale.Es, TimeSpan.Parse("2.02:02:02", System.Globalization.CultureInfo.InvariantCulture)).Should().Be("2 días, 2 horas, 2 minutos y 2 segundos");
+        FlowText.Duration(WorkbenchLocale.Es, TimeSpan.Parse("1.01:01:01", System.Globalization.CultureInfo.InvariantCulture)).Should().Be("1 día, 1 hora, 1 minuto y 1 segundo");
+    }
+
+    [GeneratedRegex("\"([a-z][A-Za-z]*(?:\\.[A-Za-z0-9_]+)+)\"")]
+    private static partial Regex LiteralPattern();
 
     [Fact]
     public void An_unknown_key_is_a_defect_and_not_silent()

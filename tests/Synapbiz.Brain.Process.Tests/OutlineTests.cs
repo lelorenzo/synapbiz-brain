@@ -242,26 +242,166 @@ public sealed class OutlineTests
         ["Field"] = ["Poll"], ["Every"] = ["Poll"], ["Exponential"] = ["Poll"], ["Max"] = ["Poll"], ["MaxDuration"] = ["Poll"],
     };
 
-    [Fact]
-    public void EveryMemberOfTheStepModelIsMappedToAnOutlineMember()
+    /// <summary>
+    /// Every member of every record of the internal model, by record: a record that gains a member fails the next test until the member
+    /// is listed here, so that a screen never silently loses a fact. The outline member that carries it is found in <see cref="Mapped"/>
+    /// (step records) or <see cref="Carried"/> (the nested records and the document); a member the outline leaves out on purpose says so there.
+    /// </summary>
+    private static readonly Dictionary<string, string> Declared = new(StringComparer.Ordinal)
     {
-        var root = typeof(BrainProcess).Assembly.GetType("Synapbiz.Brain.Process.StepDef")!;
-        var models = typeof(BrainProcess).Assembly.GetTypes().Where(type => root.IsAssignableFrom(type) && !type.IsAbstract).ToList();
-        models.Select(type => type.Name).Should().BeEquivalentTo("ReadStep", "ActionStep", "AiStep", "PollStep", "DecideStep", "HumanTaskStep", "WaitStep", "TimerStep", "LoopStep", "SubprocessStep", "EndStep");
+        ["ReadStep"] = "Id Stage Port Input Output Retry Next OnError OnNotAvailable OnNotEntitled OnUnknown",
+        ["ActionStep"] = "Id Stage Port Input Output Retry Next OnError OnNotAvailable OnNotEntitled OnUnknown AtMostOnce Contact Window Interrupt",
+        ["AiStep"] = "Id Stage Port Input Output Retry Next OnError OnNotAvailable OnNotEntitled OnUnknown Model PromptId PromptVersion InputSchema OutputSchema MaxAttempts OnInvalid",
+        ["PollStep"] = "Id Stage Port Input Output Retry Next OnError OnNotAvailable OnNotEntitled OnUnknown Rule Facts Field Until Every Exponential Max MaxDuration OnExpired",
+        ["DecideStep"] = "Id Stage Rule Facts Output Route On Next CollectInto OnNoDecision OnError",
+        ["HumanTaskStep"] = "Id Stage Queue Outcomes Show Output On Timeout OnTimeout TimeoutAt",
+        ["WaitStep"] = "Id Stage Event Correlation Output Next Timeout OnTimeout TimeoutAt",
+        ["TimerStep"] = "Id Stage After Until Offset Next",
+        ["LoopStep"] = "Id Stage MaxIterations Body OnExhausted ForEach Item Next",
+        ["SubprocessStep"] = "Id Stage Process Input Output Next On OnError",
+        ["EndStep"] = "Id Stage Result",
+        ["TimeoutAt"] = "Variable Offset",
+        ["InterruptDef"] = "Event Correlation Output To",
+        ["WindowDef"] = "Name Zone ZoneVariable Days From To",
+        ["RetryPolicy"] = "MaxAttempts Exponential Initial Max",
+        ["Mapping"] = "Entries IsEmpty",
+        ["VariableDef"] = "Name Type AllowedValues Input Initial",
+        ["ProcessDefinition"] = "Id Version Hash Subject Stages Variables Accepts MaxSteps Start Steps StepsById Uses Meta Requires Triggers Windows Scenarios Rules",
+    };
 
-        var members = models.SelectMany(type => type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+    /// <summary>Where the members of the nested records and of the document go in the outline, as <c>OutlineType.Member</c>; a dash is a member the outline does not carry, on purpose.</summary>
+    private static readonly Dictionary<string, string[]> Carried = new(StringComparer.Ordinal)
+    {
+        ["TimeoutAt.Variable"] = ["OutlineTimeout.Variable"], ["TimeoutAt.Offset"] = ["OutlineTimeout.Offset"],
+        ["InterruptDef.Event"] = ["OutlineInterrupt.Event"], ["InterruptDef.Correlation"] = ["OutlineInterrupt.Correlation"],
+        ["InterruptDef.Output"] = ["OutlineInterrupt.Output"], ["InterruptDef.To"] = ["OutlineInterrupt.Target", "OutlineStep.Routes"],
+        ["WindowDef.Name"] = ["OutlineWindow.Name"], ["WindowDef.Zone"] = ["OutlineWindow.Zone"], ["WindowDef.ZoneVariable"] = ["OutlineWindow.ZoneVariable"],
+        ["WindowDef.Days"] = ["OutlineWindow.Days"], ["WindowDef.From"] = ["OutlineWindow.From"], ["WindowDef.To"] = ["OutlineWindow.To"],
+        ["RetryPolicy.MaxAttempts"] = ["OutlineRetry.MaxAttempts"], ["RetryPolicy.Exponential"] = ["OutlineRetry.Backoff"],
+        ["RetryPolicy.Initial"] = ["OutlineRetry.Initial"], ["RetryPolicy.Max"] = ["OutlineRetry.Max"],
+        ["Mapping.Entries"] = ["OutlineBinding.Name", "OutlineBinding.Variable"], ["Mapping.IsEmpty"] = ["-"],
+        ["VariableDef.Name"] = ["OutlineVariable.Name"], ["VariableDef.Type"] = ["OutlineVariable.Type"], ["VariableDef.Input"] = ["OutlineVariable.IsInput"],
+        ["VariableDef.AllowedValues"] = ["-"], ["VariableDef.Initial"] = ["-"],
+        ["ProcessDefinition.Id"] = ["ProcessOutline.Id"], ["ProcessDefinition.Version"] = ["ProcessOutline.Version"], ["ProcessDefinition.Hash"] = ["ProcessOutline.ContentHash"],
+        ["ProcessDefinition.Subject"] = ["ProcessOutline.Subject"], ["ProcessDefinition.Stages"] = ["ProcessOutline.Stages"], ["ProcessDefinition.Variables"] = ["ProcessOutline.Variables"],
+        ["ProcessDefinition.Accepts"] = ["ProcessOutline.Accepts"], ["ProcessDefinition.MaxSteps"] = ["-"], ["ProcessDefinition.Start"] = ["ProcessOutline.Start"],
+        ["ProcessDefinition.Steps"] = ["ProcessOutline.Steps"], ["ProcessDefinition.StepsById"] = ["ProcessOutline.Step"], ["ProcessDefinition.Uses"] = ["ProcessOutline.Uses"],
+        ["ProcessDefinition.Meta"] = ["-"], ["ProcessDefinition.Requires"] = ["ProcessOutline.Requires"], ["ProcessDefinition.Triggers"] = ["ProcessOutline.Triggers"],
+        ["ProcessDefinition.Windows"] = ["ProcessOutline.Windows"], ["ProcessDefinition.Scenarios"] = ["ProcessOutline.Scenarios"], ["ProcessDefinition.Rules"] = ["-"],
+    };
+
+    private static readonly string[] StepRecords = ["ReadStep", "ActionStep", "AiStep", "PollStep", "DecideStep", "HumanTaskStep", "WaitStep", "TimerStep", "LoopStep", "SubprocessStep", "EndStep"];
+
+    private static IEnumerable<string> ModelMembers(Type type) =>
+        type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
             .Where(property => property.Name is not ("EqualityContract" or "Kind") && property.GetIndexParameters().Length == 0)
-            .Select(property => property.Name).Distinct().ToList();
+            .Select(property => property.Name);
 
-        members.Where(member => !Mapped.ContainsKey(member)).Should().BeEmpty(because: "a new member of the step model needs a place in ProcessOutline");
-        var outlineMembers = typeof(OutlineStep).GetProperties().Select(property => property.Name).ToHashSet(StringComparer.Ordinal);
-        Mapped.Values.SelectMany(names => names).Where(name => !outlineMembers.Contains(name)).Should().BeEmpty();
-        Mapped.Keys.Where(key => !members.Contains(key)).Should().BeEmpty(because: "a member that is no longer in the model leaves the list");
+    [Fact]
+    public void EveryMemberOfEveryRecordOfTheModelIsMappedToAnOutlineMember()
+    {
+        var assembly = typeof(BrainProcess).Assembly;
+        var root = assembly.GetType("Synapbiz.Brain.Process.StepDef")!;
+        var models = assembly.GetTypes().Where(type => root.IsAssignableFrom(type) && !type.IsAbstract).ToList();
+        models.Select(type => type.Name).Should().BeEquivalentTo(StepRecords);
+
+        var types = models.Concat(Declared.Keys.Except(StepRecords).Select(name => assembly.GetType("Synapbiz.Brain.Process." + name)!)).ToList();
+        types.Should().NotContainNulls();
+        types.Select(type => type.Name).Should().BeEquivalentTo(Declared.Keys);
+        foreach (var type in types)
+        {
+            ModelMembers(type).Order(StringComparer.Ordinal).Should().Equal(Declared[type.Name].Split(' ').Order(StringComparer.Ordinal), because: "a new member of " + type.Name + " needs a place in ProcessOutline, or a line in the list of members left out");
+        }
+
+        var outlineMembers = new[] { typeof(ProcessOutline), typeof(OutlineStep), typeof(OutlineTimeout), typeof(OutlineInterrupt), typeof(OutlineWindow), typeof(OutlineRetry), typeof(OutlineVariable), typeof(OutlineBinding) }
+            .SelectMany(type => type.GetMembers(BindingFlags.Public | BindingFlags.Instance).Where(member => member is PropertyInfo or MethodInfo { IsSpecialName: false }).Select(member => type.Name + "." + member.Name))
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var member in Declared.Where(item => StepRecords.Contains(item.Key)).SelectMany(item => item.Value.Split(' ').Select(name => item.Key + "." + name)))
+        {
+            Mapped.Should().ContainKey(member[(member.IndexOf('.', StringComparison.Ordinal) + 1)..], because: member);
+        }
+
+        Mapped.Values.SelectMany(names => names).Select(name => "OutlineStep." + name).Where(name => !outlineMembers.Contains(name)).Should().BeEmpty();
+        foreach (var (key, targets) in Carried)
+        {
+            var record = key[..key.IndexOf('.', StringComparison.Ordinal)];
+            Declared[record].Split(' ').Should().Contain(key[(record.Length + 1)..], because: key);
+            targets.Where(target => target != "-" && !outlineMembers.Contains(target)).Should().BeEmpty(because: key);
+        }
+
+        var nested = Declared.Where(item => !StepRecords.Contains(item.Key)).SelectMany(item => item.Value.Split(' ').Select(name => item.Key + "." + name)).ToList();
+        nested.Should().BeEquivalentTo(Carried.Keys, because: "every member of a nested record is mapped or left out on purpose");
     }
 
     private static JsonNode Text(string name) => name.StartsWith("fixture.", StringComparison.Ordinal)
         ? TestFiles.ReadJson(TestFiles.Fixtures + name["fixture.".Length..] + ".process.json")
         : ReferenceDocs.ProcessJson(name);
+
+
+    private const string TaskDocument =
+        """
+        {"$spec":"brain.process@1","id":"outline.escape","version":1,"uses":[],"requires":[],"meta":{},
+         "body":{"subject":"case","stages":[],"variables":{},"start":"t",
+          "steps":{"t":{"kind":"humanTask","queue":"q","outcomes":["a/b","x~y","a~1b"],"show":[],"on":{"a/b":"e","x~y":"e","a~1b":"e"}},
+                   "e":{"kind":"end","result":"done"}},"scenarios":[]}}
+        """;
+
+    [Fact]
+    public void AnOnLabelUnescapesTheSlashAndTheTildeOfItsKeyInTheRightOrder()
+    {
+        var loaded = BrainProcessLoader.Load(TaskDocument, new ProcessLoadContext([]));
+        var outline = ProcessOutline.From(loaded.Process ?? throw new InvalidOperationException(string.Join("; ", loaded.Errors.Select(error => error.Code + "@" + error.Path))));
+
+        outline.Step("t")!.Routes.Select(route => route.Label).Should().Equal("on:a/b", "on:a~1b", "on:x~y");
+    }
+
+    [Fact]
+    public void AnAiStepSaysItDeclaresBothSchemasAndCarriesTheirText()
+    {
+        // The format requires both schemas on an ai step, so the one-sided case cannot be loaded; both flags and both texts are read.
+        var step = ProcessOutline.From(ReferenceDocs.Process("postvisit.coding_review")).Step("suggest")!;
+        step.HasInputSchema.Should().BeTrue();
+        step.HasOutputSchema.Should().BeTrue();
+        step.InputSchemaJson.Should().NotBeNullOrEmpty();
+        step.OutputSchemaJson.Should().NotBeNullOrEmpty();
+        step.InputSchemaJson.Should().NotBe(step.OutputSchemaJson);
+    }
+
+    [Fact]
+    public void NoListOfTheOutlineCanBeChangedThroughItsProperty()
+    {
+        var outlines = OutlineDocs.All().Select(item => ProcessOutline.From(item.Process)).ToList();
+        var objects = outlines.Cast<object>()
+            .Concat(outlines.SelectMany(outline => outline.Steps))
+            .Concat(outlines.SelectMany(outline => outline.Windows))
+            .Concat(outlines.SelectMany(outline => outline.Steps.Select(step => step.Interrupt)).OfType<OutlineInterrupt>())
+            .Concat(outlines.SelectMany(outline => outline.Steps.Select(step => step.Poll)).OfType<OutlinePoll>())
+            .ToList();
+        var seen = 0;
+        foreach (var item in objects)
+        {
+            foreach (var property in item.GetType().GetProperties().Where(property => property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(IReadOnlyList<>)))
+            {
+                var value = property.GetValue(item);
+                if (value is null)
+                {
+                    continue;
+                }
+
+                seen++;
+                var because = item.GetType().Name + "." + property.Name;
+                value.GetType().IsArray.Should().BeFalse(because);
+                value.GetType().IsGenericType.Should().BeTrue(because);
+                value.GetType().GetGenericTypeDefinition().Should().NotBe(typeof(List<>), because);
+                ((ICollection)value).Should().NotBeNull(because);
+                var collection = value.GetType().GetInterfaces().Single(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ICollection<>));
+                ((bool)collection.GetProperty("IsReadOnly")!.GetValue(value)!).Should().BeTrue(because);
+            }
+        }
+
+        seen.Should().BeGreaterThan(500);
+        outlines.Select(outline => outline.Steps.GetType()).Distinct().Should().ContainSingle().Which.Should().NotBe<List<OutlineStep>>();
+    }
 
     [Fact]
     public void The_reference_page_names_every_public_member_of_the_outline()
@@ -270,7 +410,7 @@ public sealed class OutlineTests
         var members = new[] { typeof(ProcessOutline), typeof(OutlineStep) }
             .SelectMany(type => type.GetProperties().Select(property => property.Name))
             .Concat(Enum.GetNames<OutlineStepKind>())
-            .Concat([nameof(OutlineRoute), nameof(OutlineVariable), nameof(OutlineWindow)])
+            .Concat([nameof(OutlineRoute), nameof(OutlineVariable), nameof(OutlineWindow), nameof(OutlineBinding), nameof(OutlineRetry), nameof(OutlineTimeout), nameof(OutlineInterrupt), nameof(OutlineTimer), nameof(OutlineLoop), nameof(OutlinePoll)])
             .Distinct();
         string.Join(", ", members.Where(member => !page.Contains("`" + member, StringComparison.Ordinal))).Should().BeEmpty();
         foreach (var method in new[] { nameof(ProcessOutline.From), nameof(ProcessOutline.Step), nameof(ProcessOutline.ScenarioJson), nameof(ProcessOutline.CheckScenario) })

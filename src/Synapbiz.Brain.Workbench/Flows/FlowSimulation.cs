@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Synapbiz.Brain.Process;
@@ -22,8 +23,11 @@ public sealed partial class FlowSimulation
     /// <summary>The code of a command that carries a JSON text that cannot be used (not a JSON object).</summary>
     public const string ErrorJsonInvalid = "workbench.flow.json_invalid";
 
-    /// <summary>The code of a duration that is not a positive whole number of seconds, or of an instant that is not after the clock.</summary>
+    /// <summary>The code of a duration that is not a positive whole number of seconds, is longer than 3660 days or would move the clock past the largest instant, and of an instant that is not after the clock.</summary>
     public const string ErrorDurationInvalid = "workbench.flow.duration_invalid";
+
+    /// <summary>The code of a command given to a session whose first entry the interpreter rejected (see <see cref="Started"/>).</summary>
+    public const string ErrorNotStarted = "workbench.flow.not_started";
 
     /// <summary>The code of an answer source that threw.</summary>
     public const string ErrorAnswerSourceFailed = "workbench.flow.answer_source_failed";
@@ -45,6 +49,8 @@ public sealed partial class FlowSimulation
     private readonly Dictionary<string, ChildStartRequest> children = new(StringComparer.Ordinal);
     private readonly List<ProcessHistoryEntry> history = [];
     private readonly List<FlowSimulationEntry> log = [];
+    private readonly ReadOnlyCollection<ProcessHistoryEntry> historyView;
+    private readonly ReadOnlyCollection<FlowSimulationEntry> logView;
     private readonly List<JsonObject> scenarioEvents = [];
     private readonly string inputJson;
     private ProcessState state = null!;
@@ -56,6 +62,8 @@ public sealed partial class FlowSimulation
         this.process = process;
         this.setup = setup;
         this.inputJson = inputJson;
+        historyView = history.AsReadOnly();
+        logView = log.AsReadOnly();
         outline = ProcessOutline.From(process);
         now = setup.At;
         foreach (var (id, offset) in setup.Zones)
@@ -66,6 +74,15 @@ public sealed partial class FlowSimulation
 
     /// <summary>A name for the run: the name of the scenario for a replay, else <c>simulation</c>.</summary>
     public string Name { get; private set; } = "simulation";
+
+    /// <summary>
+    /// False when the interpreter rejected the first entry (for example an input variable the document does not have or of the wrong
+    /// type): the session then has no case, every command is refused with <see cref="ErrorNotStarted"/> and <see cref="StartCode"/> says why.
+    /// </summary>
+    public bool Started { get; private set; } = true;
+
+    /// <summary>The interpreter's code for a rejected start (for example <c>process.input.unknown</c>); null when the case started.</summary>
+    public string? StartCode { get; private set; }
 
     /// <summary>The process the session runs.</summary>
     public BrainProcess Process => process;
@@ -85,24 +102,30 @@ public sealed partial class FlowSimulation
     /// <summary>The variables of the case: name to canonical JSON text.</summary>
     public IReadOnlyDictionary<string, string> Variables => state.Variables;
 
-    /// <summary>Every history entry of the interpreter so far, in order.</summary>
-    public IReadOnlyList<ProcessHistoryEntry> History => history;
+    /// <summary>Every history entry of the interpreter so far, in order: a read-only view that follows the session.</summary>
+    public IReadOnlyList<ProcessHistoryEntry> History => historyView;
 
-    /// <summary>One entry per thing the session did, in order.</summary>
-    public IReadOnlyList<FlowSimulationEntry> Log => log;
+    /// <summary>One entry per thing the session did, in order: a read-only view that follows the session.</summary>
+    public IReadOnlyList<FlowSimulationEntry> Log => logView;
 
     /// <summary>The answer source of the setup, or null.</summary>
     public IFlowAnswerSource? AnswerSource => setup.AnswerSource;
 
-    /// <summary>What the case waits for now: effects, tasks, events, timers, delivery windows and children. A case that is not waiting has nothing outstanding.</summary>
-    public IReadOnlyList<FlowOutstanding> Outstanding => ComputeOutstanding();
+    /// <summary>What the case waits for now: effects, tasks, events, timers, delivery windows and children, as a read-only snapshot. A case that is not waiting has nothing outstanding.</summary>
+    public IReadOnlyList<FlowOutstanding> Outstanding => ComputeOutstanding().AsReadOnly();
 
-    /// <summary>Starts a case.</summary>
+    /// <summary>
+    /// Starts a case. The instant is cut to whole seconds (the scenario format and the commands work in whole seconds). When the
+    /// interpreter rejects the first entry, the session is returned all the same, with <see cref="Started"/> false and the code in <see cref="StartCode"/>.
+    /// </summary>
     /// <param name="process">The loaded process.</param>
     /// <param name="setup">The instant, the date, the input, the zones and optionally an answer source and child documents.</param>
-    /// <exception cref="ArgumentException">The input is not a JSON object, or a zone offset is more than 14 hours or not in whole minutes.</exception>
-    public static FlowSimulation Start(BrainProcess process, FlowSimulationSetup setup) =>
-        Begin(process, setup, "simulation", ManualSource);
+    /// <exception cref="ArgumentException">The input is not a JSON object (or repeats a member name), a zone id is not one an embedded scenario accepts, or a zone offset is more than 14 hours or not in whole minutes.</exception>
+    public static FlowSimulation Start(BrainProcess process, FlowSimulationSetup setup)
+    {
+        ArgumentNullException.ThrowIfNull(setup);
+        return Begin(process, setup with { At = WholeSeconds(setup.At) }, "simulation", ManualSource);
+    }
 
     /// <summary>Completes an effect the case waits for with an output.</summary>
     /// <param name="effectId">The id from <see cref="Outstanding"/>.</param>
@@ -121,7 +144,7 @@ public sealed partial class FlowSimulation
     /// <param name="effectId">The id from <see cref="Outstanding"/>.</param>
     /// <param name="kind">The kind of failure.</param>
     /// <param name="code">The code of the failure.</param>
-    /// <param name="retryAfter">A retry hint for a rate limit, in whole seconds.</param>
+    /// <param name="retryAfter">A retry hint for a rate limit: a positive whole number of seconds, at most 3660 days; any other value refuses the command with <see cref="ErrorDurationInvalid"/>.</param>
     public IReadOnlyList<FlowSimulationEntry> FailEffect(string effectId, ProcessErrorKind kind, string code, TimeSpan? retryAfter = null) =>
         FailEffect(effectId, kind, code, retryAfter, ManualSource);
 
@@ -143,9 +166,17 @@ public sealed partial class FlowSimulation
     /// <param name="duration">A positive whole number of seconds, at most 3660 days.</param>
     public IReadOnlyList<FlowSimulationEntry> AdvanceBy(TimeSpan duration) => AdvanceBy(duration, ManualSource);
 
-    /// <summary>Moves the clock to an instant after the present one.</summary>
+    /// <summary>
+    /// Moves the clock to an instant after the present one, as <see cref="AdvanceBy(TimeSpan)"/> does. An instant with a fraction of a
+    /// second is rounded up to the next whole second; an instant that is not after the clock is refused with <see cref="ErrorDurationInvalid"/>.
+    /// </summary>
     /// <param name="instant">The instant.</param>
-    public IReadOnlyList<FlowSimulationEntry> AdvanceTo(DateTimeOffset instant) => AdvanceBy(instant - now, ManualSource);
+    public IReadOnlyList<FlowSimulationEntry> AdvanceTo(DateTimeOffset instant)
+    {
+        var span = instant - now;
+        var whole = span > TimeSpan.Zero ? WholeSecondsUp(span) : span;
+        return AdvanceBy(whole, ManualSource);
+    }
 
     /// <summary>Completes a child process the case waits for.</summary>
     /// <param name="childKey">The key from <see cref="Outstanding"/>.</param>
@@ -198,8 +229,9 @@ public sealed partial class FlowSimulation
     /// <summary>
     /// Asks the answer source of the setup for every outstanding effect, applies each answer through the same commands, and repeats
     /// until nothing outstanding gets an answer or the limit is reached. An exception from the source becomes a log entry with the
-    /// code <c>workbench.flow.answer_source_failed</c> and the effect stays outstanding; the session stays usable. A null answer
-    /// leaves the effect for a manual answer. Time does not move: a retry that waits for a timer needs <see cref="AdvanceBy(TimeSpan)"/>.
+    /// code <c>workbench.flow.answer_source_failed</c>, and an output that is not usable JSON (not valid, or a repeated member name)
+    /// one with the code <c>workbench.flow.json_invalid</c>; in both the effect stays outstanding and the session stays usable. A null
+    /// answer leaves the effect for a manual answer. Time does not move: a retry that waits for a timer needs <see cref="AdvanceBy(TimeSpan)"/>.
     /// </summary>
     /// <param name="maxAnswers">The most answers to apply, at least 1.</param>
     /// <param name="cancellationToken">Cancels the run; the exception is thrown to the caller, and the answers applied so far stay.</param>
@@ -226,6 +258,17 @@ public sealed partial class FlowSimulation
                 continue;
             }
 
+            if (!answer.IsFailure)
+            {
+                FlowJson.TryParse(answer.OutputJson, out var usable);
+                if (!usable)
+                {
+                    declined.Add(next.Id);
+                    log.Add(new FlowSimulationEntry(log.Count, now, FlowSimulationEntryKind.AnswerSourceFailed, source.Name, next.Step, next.Id, AdvanceDisposition.Rejected, ErrorJsonInvalid, []));
+                    continue;
+                }
+            }
+
             _ = answer.IsFailure
                 ? FailEffect(next.Id, answer.Kind, answer.Code!, answer.RetryAfter, source.Name)
                 : CompleteEffect(next.Id, answer.OutputJson!, source.Name);
@@ -240,11 +283,22 @@ public sealed partial class FlowSimulation
     /// (a command it refused is left out) and an <c>expect</c> taken from the present status, result, trace and variables. Added to the
     /// document, the scenario passes <see cref="BrainProcess.RunScenarios"/>.
     /// </summary>
-    /// <param name="name">The name of the scenario.</param>
-    /// <exception cref="InvalidOperationException">A command carried a JSON text that is not an object, which the scenario format cannot hold.</exception>
+    /// <param name="name">The name of the scenario: a name the scenario format accepts (not empty).</param>
+    /// <exception cref="ArgumentException">The name is not one an embedded scenario accepts.</exception>
+    /// <exception cref="InvalidOperationException">The session never started, or a command carried a JSON text that is not an object, which the scenario format cannot hold.</exception>
     public string ToScenarioJson(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
+        if (!NameIsValid(process, name))
+        {
+            throw new ArgumentException("The name of a scenario must be a text the scenario format accepts (not empty).", nameof(name));
+        }
+
+        if (!Started)
+        {
+            throw new InvalidOperationException("The session never started: the interpreter rejected the first entry, so there is no scenario to write.");
+        }
+
         if (!representable)
         {
             throw new InvalidOperationException("A command of this session carried a text that is not a JSON object, which an embedded scenario cannot hold.");

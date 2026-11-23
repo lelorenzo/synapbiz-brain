@@ -16,8 +16,8 @@ step check [Read] Check what is missing
 step assess [Decision] Decide on a reminder
   stage: Before the visit
   does: Judges with the rule `previsit.missing_items` using `missing`. The result field `action` says where the flow goes.
-  on:none: If `action` is none: go to Ready for the visit
-  on:some: If `action` is some: go to Send reminder
+  on:none: If `action` is `none`: go to Ready for the visit
+  on:some: If `action` is `some`: go to Send reminder
   onNoDecision: If the rule gives no result: go to Front desk follow-up
   onError: If the rule cannot be applied: go to Front desk follow-up
 step send [Action] Send reminder

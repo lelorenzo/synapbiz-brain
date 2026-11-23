@@ -16,8 +16,8 @@ step check [Lectura] Revisar lo que falta
 step assess [Decisión] Decidir si se recuerda
   stage: Antes de la visita
   does: Decide con la regla `previsit.missing_items` usando `missing`. El campo de resultado `action` indica adónde va el flujo.
-  on:none: Si `action` es none: ir a Listo para la visita
-  on:some: Si `action` es some: ir a Enviar recordatorio
+  on:none: Si `action` es `none`: ir a Listo para la visita
+  on:some: Si `action` es `some`: ir a Enviar recordatorio
   onNoDecision: Si la regla no da resultado: ir a Seguimiento de recepción
   onError: Si no se puede aplicar la regla: ir a Seguimiento de recepción
 step send [Acción] Enviar recordatorio

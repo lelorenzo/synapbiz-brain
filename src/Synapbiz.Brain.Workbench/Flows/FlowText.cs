@@ -84,12 +84,17 @@ internal sealed class FlowLabels
 {
     private readonly ProcessDisplay display;
     private readonly string language;
+    private readonly List<BrainProcess> known;
 
-    internal FlowLabels(BrainProcess process, WorkbenchLocale locale)
+    /// <param name="process">The document the words are about.</param>
+    /// <param name="locale">The language.</param>
+    /// <param name="knownProcesses">Other documents the caller knows (the children of a flow among them); null for none.</param>
+    internal FlowLabels(BrainProcess process, WorkbenchLocale locale, IEnumerable<BrainProcess>? knownProcesses = null)
     {
         display = ProcessDisplay.From(process);
         language = locale == WorkbenchLocale.Es ? "es" : "en";
         Process = process;
+        known = [.. knownProcesses ?? []];
     }
 
     internal BrainProcess Process { get; }
@@ -107,4 +112,15 @@ internal sealed class FlowLabels
     internal string Outcome(string id) => display.Outcome(language, id) ?? WorkbenchText.Humanize(id);
 
     internal string Window(string id) => display.Window(language, id) ?? WorkbenchText.Humanize(id);
+
+    /// <summary>
+    /// The label of a result of a child process, from the child's own <c>meta.display</c> (the highest version of the child among the known
+    /// documents); null when the child is not known or has no label for the result.
+    /// </summary>
+    internal string? ChildResult(string? processId, string result)
+    {
+        var child = known.Where(candidate => string.Equals(candidate.Id, processId, StringComparison.Ordinal))
+            .OrderByDescending(candidate => ProcessOutline.From(candidate).Version).FirstOrDefault();
+        return child is null ? null : ProcessDisplay.From(child).Result(language, result);
+    }
 }

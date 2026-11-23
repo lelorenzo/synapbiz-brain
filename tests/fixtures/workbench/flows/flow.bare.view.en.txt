@@ -12,8 +12,8 @@ step pause [Timer] Pause
 step judge [Decision] Judge
   stage: -
   does: Judges with the rule `conf.default_rule`. The result field `level` says where the flow goes.
-  on:high: If `level` is high: go to Fine
-  on:low: If `level` is low: go to Fine
+  on:high: If `level` is `high`: go to Fine
+  on:low: If `level` is `low`: go to Fine
   onNoDecision: If the rule gives no result: go to Fine
   onError: If the rule cannot be applied: go to Fine
 step fine [End] Fine

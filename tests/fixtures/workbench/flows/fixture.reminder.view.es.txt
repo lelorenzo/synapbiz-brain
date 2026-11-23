@@ -24,7 +24,7 @@ step call_patient [Tarea para una persona] Llamar al paciente
   does: Entrega una tarea a la cola Recepción. Una persona elige Localizado o Sin contacto. La persona ve `case_ref`.
   on:reached: Si la persona elige Localizado: ir a Confirmada
   on:unreachable: Si la persona elige Sin contacto: ir a Sin contacto
-  onTimeout: Si no llega respuesta hasta `visit_at`: ir a Vencida
+  onTimeout: Si no llega respuesta antes de `visit_at`: ir a Vencida
 step confirmed [Fin] Confirmada
   stage: Recordatorio
   does: Cierra el caso con el resultado Confirmada.

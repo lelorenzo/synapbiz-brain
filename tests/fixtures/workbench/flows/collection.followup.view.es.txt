@@ -28,9 +28,9 @@ step poll_claim [Lectura repetida] Consultar el estado del reclamo
 step route_claim [Decisión] Encaminar según el estado
   stage: Cobro
   does: Decide con la regla `collection.claim_result` usando `claim_status`. El campo de resultado `result` indica adónde va el flujo.
-  on:denied: Si `result` es denied: ir a Atender la denegación
-  on:paid: Si `result` es paid: ir a Cobrado
-  on:pending: Si `result` es pending: ir a Esperar el saldo
+  on:denied: Si `result` es `denied`: ir a Atender la denegación
+  on:paid: Si `result` es `paid`: ir a Cobrado
+  on:pending: Si `result` es `pending`: ir a Esperar el saldo
   onNoDecision: Si la regla no da resultado: ir a Reclamo detenido
   onError: Si no se puede aplicar la regla: ir a Reclamo detenido
 step denial [Tarea para una persona] Atender la denegación

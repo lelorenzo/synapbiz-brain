@@ -1,0 +1,19 @@
+flow flow.clock v1
+title: Vigilancia del reloj
+start: settle
+stage watch: Vigilancia
+step settle [Temporizador] Esperar hasta la hora debida
+  stage: Vigilancia
+  does: Espera hasta `due`.
+  next: Cuando llega la hora: ir a Esperar un aviso
+step hold [Espera de un evento] Esperar un aviso
+  stage: Vigilancia
+  does: Espera el evento `clock.ping`.
+  next: Cuando llega el evento: ir a Liberado
+  onTimeout: Si no llega respuesta antes de `due`: ir a Vencido
+step released [Fin] Liberado
+  stage: Vigilancia
+  does: Cierra el caso con el resultado Liberado.
+step expired [Fin] Vencido
+  stage: Vigilancia
+  does: Cierra el caso con el resultado Vencido.

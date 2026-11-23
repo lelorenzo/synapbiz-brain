@@ -115,11 +115,12 @@ public static class FlowDescriber
     /// <summary>Describes a flow.</summary>
     /// <param name="process">The loaded process.</param>
     /// <param name="locale">The language of the sentences.</param>
-    public static FlowView Describe(BrainProcess process, WorkbenchLocale locale)
+    /// <param name="knownProcesses">Other documents the caller knows, to word the result of a child process by the child's own labels (the highest version of the child); null for none, and the result is then written as it is in the document, in code style.</param>
+    public static FlowView Describe(BrainProcess process, WorkbenchLocale locale, IEnumerable<BrainProcess>? knownProcesses = null)
     {
         ArgumentNullException.ThrowIfNull(process);
         var outline = ProcessOutline.From(process);
-        var labels = new FlowLabels(process, locale);
+        var labels = new FlowLabels(process, locale, knownProcesses);
         return new FlowView(
             outline.Id,
             outline.Version,
@@ -160,17 +161,19 @@ public static class FlowDescriber
     {
         var target = labels.Step(route.Target);
         var parameters = new List<(string, string)> { ("target", target) };
-        string baseName;
         if (route.Label.StartsWith("on:", StringComparison.Ordinal))
         {
-            baseName = "on";
             var value = route.Label[3..];
             parameters.Add(("field", step.RouteField ?? string.Empty));
-            parameters.Add(("value", step.Kind == OutlineStepKind.HumanTask ? labels.Outcome(value) : WorkbenchText.Humanize(value)));
+            parameters.Add(("value", step.Kind switch
+            {
+                OutlineStepKind.HumanTask => labels.Outcome(value),
+                OutlineStepKind.Subprocess => labels.ChildResult(step.Process, value) ?? FlowText.Code(value),
+                _ => FlowText.Code(value),
+            }));
         }
         else
         {
-            baseName = route.Label;
             if (route.Label == "onTimeout" && step.Timeout is { } timeout)
             {
                 parameters.Add(("when", FlowText.When(locale, timeout)));
@@ -182,9 +185,15 @@ public static class FlowDescriber
             }
         }
 
+        return new FlowRouteView(route.Label, FlowTemplates.Text(locale, RouteKey(step, route, locale), [.. parameters]), route.Target, target);
+    }
+
+    /// <summary>The key of the template that words a route: the one for the label and the kind of step when there is one, else the one for the label.</summary>
+    internal static string RouteKey(OutlineStep step, OutlineRoute route, WorkbenchLocale locale)
+    {
+        var baseName = route.Label.StartsWith("on:", StringComparison.Ordinal) ? "on" : route.Label;
         var specific = "route." + baseName + "." + KindKey(step.Kind);
-        var key = FlowTemplates.Has(locale, specific) ? specific : "route." + baseName;
-        return new FlowRouteView(route.Label, FlowTemplates.Text(locale, key, [.. parameters]), route.Target, target);
+        return FlowTemplates.Has(locale, specific) ? specific : "route." + baseName;
     }
 
     private static FlowStepView DescribeStep(ProcessOutline outline, OutlineStep step, FlowLabels labels, WorkbenchLocale locale)
@@ -385,6 +394,11 @@ public static class FlowDescriber
     {
         if (timer.Variable is { } variable)
         {
+            if ((timer.Offset ?? TimeSpan.Zero) == TimeSpan.Zero)
+            {
+                return FlowTemplates.Text(locale, "step.timer.at", ("variable", variable));
+            }
+
             var when = FlowText.When(locale, new OutlineTimeout(null, variable, timer.Offset));
             return FlowTemplates.Text(locale, "step.timer.until", ("when", when));
         }
@@ -462,20 +476,21 @@ public static class FlowDescriber
             && fields[2] == "*" && fields[3] == "*")
         {
             var time = hour.ToString("00", CultureInfo.InvariantCulture) + ":" + minute.ToString("00", CultureInfo.InvariantCulture);
+            var at = FlowTemplates.Text(locale, hour == 1 ? "time.at.one" : "time.at.many", ("time", time));
             if (fields[4] == "*")
             {
-                return FlowTemplates.Text(locale, "trigger.schedule.daily", ("time", time), ("zone", zone));
+                return FlowTemplates.Text(locale, "trigger.schedule.daily", ("at", at), ("zone", zone));
             }
 
             if (fields[4] == "1-5")
             {
-                return FlowTemplates.Text(locale, "trigger.schedule.weekdays", ("time", time), ("zone", zone));
+                return FlowTemplates.Text(locale, "trigger.schedule.weekdays", ("at", at), ("zone", zone));
             }
 
             if (Days(fields[4]) is { Count: > 0 } days)
             {
                 var names = days.Select(day => FlowTemplates.Text(locale, "day." + FlowText.Number(day))).ToList();
-                return FlowTemplates.Text(locale, "trigger.schedule.days", ("days", FlowText.Join(locale, names)), ("time", time), ("zone", zone));
+                return FlowTemplates.Text(locale, "trigger.schedule.days", ("days", FlowText.Join(locale, names)), ("at", at), ("zone", zone));
             }
         }
 

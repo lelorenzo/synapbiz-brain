@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -78,7 +79,8 @@ public static class FlowReviewJson
 
     /// <summary>
     /// Writes the review as indented JSON with the members in a fixed order; the members of each proposed scenario are in ordinal order.
-    /// <c>createdAt</c> is written to whole seconds. A proposed scenario whose text is not a JSON object throws <see cref="JsonException"/>.
+    /// <c>createdAt</c> is written to whole seconds. A proposed scenario whose text is not a JSON object (or repeats a member name)
+    /// throws <see cref="JsonException"/>.
     /// </summary>
     /// <param name="review">The review.</param>
     public static string Serialize(FlowReview review)
@@ -114,7 +116,7 @@ public static class FlowReviewJson
             {
                 if (FlowJson.TryObject(proposed.Json) is not { } scenario)
                 {
-                    throw new JsonException("A proposed scenario must be a JSON object.");
+                    throw new JsonException("A proposed scenario must be a JSON object that repeats no member name.");
                 }
 
                 FlowJson.Sorted(scenario)!.WriteTo(writer);
@@ -132,14 +134,14 @@ public static class FlowReviewJson
     /// ignored. Each proposed scenario is kept as canonical JSON, so a review that is written and read again has the same members, with
     /// <see cref="FlowReview.CreatedAt"/> to whole seconds.
     /// </summary>
-    /// <param name="json">The document text.</param>
+    /// <param name="json">The document text. A text that repeats a member name is not valid JSON for this purpose.</param>
     public static FlowReviewParseResult Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
         var root = FlowJson.TryParse(json, out var valid);
         if (!valid)
         {
-            return Failed(ErrorJsonInvalid, string.Empty, "The text is not valid JSON.");
+            return Failed(ErrorJsonInvalid, string.Empty, "The text is not valid JSON, or repeats a member name.");
         }
 
         if (root is not JsonObject document)
@@ -147,15 +149,7 @@ public static class FlowReviewJson
             return Failed(ErrorMalformed, string.Empty, "The document must be a JSON object.");
         }
 
-        try
-        {
-            return Read(document);
-        }
-        catch (ArgumentException)
-        {
-            // System.Text.Json refuses to look a member up in an object that repeats a member name.
-            return Failed(ErrorJsonInvalid, string.Empty, "The document repeats a member name.");
-        }
+        return Read(document);
     }
 
     private static FlowReviewParseResult Read(JsonObject document)
@@ -200,8 +194,8 @@ public static class FlowReviewJson
                 Reviewer = reviewer!,
                 CreatedAt = createdAt!.Value,
                 Language = language!.Value,
-                Items = items,
-                ProposedScenarios = scenarios,
+                Items = new ReadOnlyCollection<ReviewItem>(items),
+                ProposedScenarios = new ReadOnlyCollection<FlowProposedScenario>(scenarios),
             },
             []);
     }
@@ -380,6 +374,12 @@ public static class FlowReviewCheck
     public const string ErrorScenarioInvalid = "workbench.flow_review.scenario_invalid";
 
     /// <summary>
+    /// The text of a proposed scenario is not a JSON object (it is not JSON, or it repeats a member name): the code of the validator-style
+    /// error that stands for it in <see cref="FlowProposedScenarioResult.Errors"/>.
+    /// </summary>
+    public const string ErrorScenarioNotObject = "workbench.flow_review.scenario_not_object";
+
+    /// <summary>
     /// Reports a content hash that is not the document's, a target the document does not have, a proposed scenario that is not valid
     /// for the document (with the validator's own code and path) and, for each valid proposed scenario, whether it runs to its own
     /// <c>expect</c>. The texts are in the language of the review.
@@ -418,8 +418,8 @@ public static class FlowReviewCheck
         }
 
         return new FlowReviewReport(
-            [.. findings.OrderBy(finding => finding.Path, StringComparer.Ordinal).ThenBy(finding => finding.Code, StringComparer.Ordinal)],
-            results);
+            new ReadOnlyCollection<WorkbenchError>([.. findings.OrderBy(finding => finding.Path, StringComparer.Ordinal).ThenBy(finding => finding.Code, StringComparer.Ordinal)]),
+            new ReadOnlyCollection<FlowProposedScenarioResult>(results));
     }
 
     private static FlowProposedScenarioResult CheckScenario(BrainProcess process, FlowProposedScenario proposed, int index, WorkbenchLocale locale, List<WorkbenchError> findings)
@@ -427,7 +427,12 @@ public static class FlowReviewCheck
         var path = "/proposedScenarios/" + FlowText.Number(index);
         if (FlowJson.TryObject(proposed.Json) is not { } scenario)
         {
-            var unreadable = new BrainSpecError("workbench.flow_review.scenario_not_object", string.Empty, "The scenario is not a JSON object.", "El escenario no es un objeto JSON.", string.Empty);
+            var unreadable = new BrainSpecError(
+                ErrorScenarioNotObject,
+                string.Empty,
+                FlowTemplates.Text(WorkbenchLocale.En, "review.scenario_not_object"),
+                FlowTemplates.Text(WorkbenchLocale.Es, "review.scenario_not_object"),
+                string.Empty);
             findings.Add(new WorkbenchError(ErrorScenarioInvalid, path, FlowTemplates.Text(locale, "review.scenario_invalid", ("code", unreadable.Code), ("path", "/"))));
             return new FlowProposedScenarioResult(index, proposed.Name, false, [unreadable], null, null);
         }

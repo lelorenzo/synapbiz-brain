@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Synapbiz.Brain.Process;
 
 namespace Synapbiz.Brain.Workbench.Flows;
@@ -35,10 +36,10 @@ public sealed record FlowEntry
     /// <summary>How many steps there are of each kind; kinds with none are left out.</summary>
     public required IReadOnlyDictionary<OutlineStepKind, int> StepCounts { get; init; }
 
-    /// <summary>The number of embedded scenarios.</summary>
+    /// <summary>The number of embedded scenarios. A screen tells "none" (0) from "all pass" with this and <see cref="ScenariosPass"/>.</summary>
     public required int ScenarioCount { get; init; }
 
-    /// <summary>True when every embedded scenario passes (also true when there are none).</summary>
+    /// <summary>True when every embedded scenario passes; also true when there are none (see <see cref="ScenarioCount"/>).</summary>
     public required bool ScenariosPass { get; init; }
 
     /// <summary>The number of routes at least one embedded scenario takes.</summary>
@@ -68,13 +69,14 @@ public static class FlowLibrary
         ArgumentNullException.ThrowIfNull(processes);
         var set = processes.OrderBy(process => process.Id, StringComparer.Ordinal).ThenBy(process => process.Version).ThenBy(process => ProcessOutline.From(process).ContentHash, StringComparer.Ordinal).ToList();
         var outlines = set.Select(ProcessOutline.From).ToList();
-        return [.. set.Select((process, index) => Entry(process, outlines[index], set, outlines, locale))];
+        return new ReadOnlyCollection<FlowEntry>([.. set.Select((process, index) => Entry(process, outlines[index], set, outlines, locale))]);
     }
 
     private static FlowEntry Entry(BrainProcess process, ProcessOutline outline, List<BrainProcess> set, List<ProcessOutline> outlines, WorkbenchLocale locale)
     {
-        var labels = new FlowLabels(process, locale);
-        var coverage = FlowCoverage.Of(process);
+        var labels = new FlowLabels(process, locale, set);
+        var runs = FlowCoverage.PlayScenarios(process, outline);
+        var coverage = FlowCoverage.Compute(outline, [.. runs.Select(run => run.Session)], locale);
         var children = outline.Steps.Select(step => step.Process).OfType<string>().Distinct(StringComparer.Ordinal)
             .Select(id => Child(id, set, locale)).ToList();
         return new FlowEntry
@@ -86,9 +88,9 @@ public static class FlowLibrary
             Subject = outline.Subject,
             StageLabels = [.. outline.Stages.Select(labels.Stage)],
             Triggers = [.. outline.Triggers.Select(trigger => FlowDescriber.DescribeTrigger(trigger, locale))],
-            StepCounts = outline.Steps.GroupBy(step => step.Kind).OrderBy(group => group.Key).ToDictionary(group => group.Key, group => group.Count()),
+            StepCounts = new ReadOnlyDictionary<OutlineStepKind, int>(outline.Steps.GroupBy(step => step.Kind).OrderBy(group => group.Key).ToDictionary(group => group.Key, group => group.Count())),
             ScenarioCount = outline.Scenarios.Count,
-            ScenariosPass = process.RunScenarios().IsOk,
+            ScenariosPass = runs.All(run => run.Failure is null),
             CoveredRoutes = coverage.CoveredRoutes,
             TotalRoutes = coverage.TotalRoutes,
             Children = children,
@@ -100,6 +102,6 @@ public static class FlowLibrary
     private static FlowChildLink Child(string id, List<BrainProcess> set, WorkbenchLocale locale)
     {
         var document = set.Where(process => string.Equals(process.Id, id, StringComparison.Ordinal)).OrderByDescending(process => process.Version).FirstOrDefault();
-        return document is null ? new FlowChildLink(id, null, true) : new FlowChildLink(id, new FlowLabels(document, locale).Title(), false);
+        return document is null ? new FlowChildLink(id, null, true) : new FlowChildLink(id, new FlowLabels(document, locale, set).Title(), false);
     }
 }

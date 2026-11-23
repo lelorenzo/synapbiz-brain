@@ -33,3 +33,15 @@ Spec: [spec-h1-headless.md](spec-h1-headless.md). The core read model is in `Syn
 - [x] `docs/architecture/overview.md`, `docs/consuming.md`
 - [x] `CHANGELOG.md` 0.5.0
 - [x] Version 0.5.0 in `Directory.Build.props`
+
+## Repair pass after verification
+
+- [x] Duplicate JSON member names refused everywhere a document or a payload is parsed
+- [x] `Start` truncates `At` to whole seconds; `AdvanceTo` rounds up; the clock cannot overflow
+- [x] `Started`, `StartCode` and `workbench.flow.not_started`
+- [x] Scenario zone ids and names validated; `workbench.flow_review.scenario_not_object`
+- [x] `DecideLabel` is null-safe; the route fallback rule; coverage takes a locale and refuses runs of another process
+- [x] `IsBackEdge` means "closes a cycle"; static mutable state removed; the library plays scenarios once
+- [x] Texts: values as code, `when.at`, timer until, schedule periods, Spanish "a la/a las", trigger sentences pinned in the library goldens
+- [x] Tests that kill the surviving mutants of the outline, simulator, coverage, review, graph, describer and library (`FlowRepair*Tests.cs`)
+- [x] Spec amendments section, the outline records in `brain-process-v1.md`, the reference page and the CHANGELOG updated

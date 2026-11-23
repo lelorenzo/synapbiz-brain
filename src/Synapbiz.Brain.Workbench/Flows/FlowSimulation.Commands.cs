@@ -12,14 +12,14 @@ public sealed partial class FlowSimulation
         JsonObject? input = null;
         if (!string.IsNullOrWhiteSpace(setup.InputJson))
         {
-            input = FlowJson.TryObject(setup.InputJson) ?? throw new ArgumentException("The input must be a JSON object.", nameof(setup));
+            input = FlowJson.TryObject(setup.InputJson) ?? throw new ArgumentException("The input must be a JSON object that repeats no member name.", nameof(setup));
         }
 
         foreach (var (id, offset) in setup.Zones)
         {
-            if (string.IsNullOrEmpty(id) || Math.Abs(offset.TotalHours) > 14 || offset.Ticks % TimeSpan.TicksPerMinute != 0)
+            if (string.IsNullOrEmpty(id) || Math.Abs(offset.TotalHours) > 14 || offset.Ticks % TimeSpan.TicksPerMinute != 0 || !ZoneIdIsValid(process, id))
             {
-                throw new ArgumentException($"The zone '{id}' needs an id and a fixed offset of at most 14 hours in whole minutes.", nameof(setup));
+                throw new ArgumentException($"The zone '{id}' needs an id an embedded scenario accepts and a fixed offset of at most 14 hours in whole minutes.", nameof(setup));
             }
         }
 
@@ -31,8 +31,57 @@ public sealed partial class FlowSimulation
         {
             simulation.Absorb(result, source);
         }
+        else
+        {
+            simulation.Started = false;
+            simulation.StartCode = result.Code;
+        }
 
         return simulation;
+    }
+
+    // The instant cut to whole seconds.
+    private static DateTimeOffset WholeSeconds(DateTimeOffset instant) => instant.AddTicks(-(instant.Ticks % TimeSpan.TicksPerSecond));
+
+    // A positive span rounded up to whole seconds (a span the clock cannot hold is left for AdvanceBy to refuse).
+    private static TimeSpan WholeSecondsUp(TimeSpan span)
+    {
+        var rest = span.Ticks % TimeSpan.TicksPerSecond;
+        return rest == 0 || span.Ticks > TimeSpan.MaxValue.Ticks - TimeSpan.TicksPerSecond ? span : span + TimeSpan.FromTicks(TimeSpan.TicksPerSecond - rest);
+    }
+
+    // The rules of the scenario validator, asked of the validator itself: a minimal scenario with the zone (or the name) and the errors at its path.
+    private static bool ZoneIdIsValid(BrainProcess process, string id) => !ScenarioErrors(process, "zone check", new JsonObject { [id] = "+00:00" }).Any(error => error.Path.StartsWith("/zones", StringComparison.Ordinal));
+
+    private static bool NameIsValid(BrainProcess process, string name) => !ScenarioErrors(process, name, null).Any(error => error.Path.StartsWith("/name", StringComparison.Ordinal));
+
+    private static IReadOnlyList<Synapbiz.Brain.Spec.BrainSpecError> ScenarioErrors(BrainProcess process, string name, JsonObject? zones)
+    {
+        var scenario = new JsonObject
+        {
+            ["name"] = name,
+            ["start"] = new JsonObject { ["at"] = "2027-01-04T14:00:00Z", ["today"] = "2027-01-04" },
+            ["events"] = new JsonArray(),
+            ["expect"] = new JsonObject { ["status"] = "Completed" },
+        };
+        if (zones is not null)
+        {
+            scenario["zones"] = zones;
+        }
+
+        return ProcessOutline.CheckScenario(process, scenario);
+    }
+
+    // A command given to a session that never started: refused, nothing changes. True when the command must stop.
+    private bool Refused(FlowSimulationEntryKind kind, string source, string? subject)
+    {
+        if (Started)
+        {
+            return false;
+        }
+
+        Reject(kind, source, null, subject, ErrorNotStarted);
+        return true;
     }
 
     internal IReadOnlyList<FlowSimulationEntry> CompleteEffect(string effectId, string outputJson, string source)
@@ -40,8 +89,20 @@ public sealed partial class FlowSimulation
         ArgumentNullException.ThrowIfNull(effectId);
         ArgumentNullException.ThrowIfNull(outputJson);
         var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.EffectAnswered, source, effectId))
+        {
+            return Since(before);
+        }
+
         var step = effects.TryGetValue(effectId, out var request) ? request.Step : null;
         var output = FlowJson.TryObject(outputJson);
+        FlowJson.TryParse(outputJson, out var usable);
+        if (!usable)
+        {
+            Reject(FlowSimulationEntryKind.EffectAnswered, source, step, effectId, ErrorJsonInvalid);
+            return Since(before);
+        }
+
         var scenario = output is null ? null : new JsonObject { ["complete"] = step, ["output"] = FlowJson.Sorted(output) };
         Dispatch(new EffectCompleted(effectId, output is null ? outputJson : FlowJson.Canonical(output)), FlowSimulationEntryKind.EffectAnswered, source, step, effectId, step is null ? null : scenario, output is null && step is not null);
         return Since(before);
@@ -52,15 +113,26 @@ public sealed partial class FlowSimulation
         ArgumentNullException.ThrowIfNull(effectId);
         ArgumentNullException.ThrowIfNull(code);
         var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.EffectFailed, source, effectId))
+        {
+            return Since(before);
+        }
+
         var step = effects.TryGetValue(effectId, out var request) ? request.Step : null;
         var hint = retryAfter is { } span && span > TimeSpan.Zero && span.Ticks % TimeSpan.TicksPerSecond == 0 && span <= LongestAdvance ? span : (TimeSpan?)null;
+        if (retryAfter is not null && hint is null)
+        {
+            Reject(FlowSimulationEntryKind.EffectFailed, source, step, effectId, ErrorDurationInvalid);
+            return Since(before);
+        }
+
         var scenario = new JsonObject { ["code"] = code, ["error"] = kind.ToString(), ["fail"] = step };
         if (hint is { } valid)
         {
             scenario["retryAfter"] = FlowJson.Duration(valid);
         }
 
-        Dispatch(new EffectFailed(effectId, kind, code, hint), FlowSimulationEntryKind.EffectFailed, source, step, effectId, step is null ? null : scenario, retryAfter is not null && hint is null);
+        Dispatch(new EffectFailed(effectId, kind, code, hint), FlowSimulationEntryKind.EffectFailed, source, step, effectId, step is null ? null : scenario, false);
         return Since(before);
     }
 
@@ -69,6 +141,11 @@ public sealed partial class FlowSimulation
         ArgumentNullException.ThrowIfNull(taskId);
         ArgumentNullException.ThrowIfNull(outcome);
         var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.TaskCompleted, source, taskId))
+        {
+            return Since(before);
+        }
+
         var step = tasks.TryGetValue(taskId, out var request) ? request.Step : null;
         if (!TryPayload(dataJson, out var data))
         {
@@ -85,6 +162,11 @@ public sealed partial class FlowSimulation
     {
         ArgumentNullException.ThrowIfNull(name);
         var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.EventSent, source, name))
+        {
+            return Since(before);
+        }
+
         if (!TryPayload(payloadJson, out var payload))
         {
             Reject(FlowSimulationEntryKind.EventSent, source, state.CurrentStep, name, ErrorJsonInvalid);
@@ -104,7 +186,12 @@ public sealed partial class FlowSimulation
     internal IReadOnlyList<FlowSimulationEntry> AdvanceBy(TimeSpan duration, string source)
     {
         var before = log.Count;
-        if (duration <= TimeSpan.Zero || duration > LongestAdvance || duration.Ticks % TimeSpan.TicksPerSecond != 0)
+        if (Refused(FlowSimulationEntryKind.ClockAdvanced, source, null))
+        {
+            return Since(before);
+        }
+
+        if (duration <= TimeSpan.Zero || duration > LongestAdvance || duration.Ticks % TimeSpan.TicksPerSecond != 0 || now.UtcTicks > DateTimeOffset.MaxValue.UtcTicks - duration.Ticks)
         {
             Reject(FlowSimulationEntryKind.ClockAdvanced, source, null, null, ErrorDurationInvalid);
             return Since(before);
@@ -142,6 +229,11 @@ public sealed partial class FlowSimulation
         ArgumentNullException.ThrowIfNull(childKey);
         ArgumentNullException.ThrowIfNull(result);
         var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.ChildFinished, source, childKey))
+        {
+            return Since(before);
+        }
+
         var step = children.TryGetValue(childKey, out var request) ? request.Step : null;
         if (!TryPayload(outputJson, out var output))
         {
@@ -159,6 +251,11 @@ public sealed partial class FlowSimulation
         ArgumentNullException.ThrowIfNull(childKey);
         ArgumentNullException.ThrowIfNull(code);
         var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.ChildFailed, source, childKey))
+        {
+            return Since(before);
+        }
+
         var step = children.TryGetValue(childKey, out var request) ? request.Step : null;
         var scenario = new JsonObject { ["childFailed"] = step, ["code"] = code };
         Dispatch(new ChildFailed(childKey, code), FlowSimulationEntryKind.ChildFailed, source, step, childKey, step is null ? null : scenario, false);
@@ -168,6 +265,11 @@ public sealed partial class FlowSimulation
     internal IReadOnlyList<FlowSimulationEntry> Cancel(string reason, string source)
     {
         var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.Cancelled, source, reason))
+        {
+            return Since(before);
+        }
+
         Dispatch(new CancelRequested(reason), FlowSimulationEntryKind.Cancelled, source, state.CurrentStep, reason, new JsonObject { ["cancel"] = reason }, false);
         return Since(before);
     }
@@ -175,6 +277,11 @@ public sealed partial class FlowSimulation
     internal IReadOnlyList<FlowSimulationEntry> Resume(string source)
     {
         var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.Resumed, source, null))
+        {
+            return Since(before);
+        }
+
         Dispatch(new ResumeRequested(), FlowSimulationEntryKind.Resumed, source, state.CurrentStep, null, new JsonObject { ["resume"] = true }, false);
         return Since(before);
     }
@@ -196,7 +303,7 @@ public sealed partial class FlowSimulation
         return true;
     }
 
-    private ProcessClock Clock() => new(now, setup.Today.AddDays((int)((now - setup.At).Ticks / TimeSpan.TicksPerDay)));
+    internal ProcessClock Clock() => new(now, setup.Today.AddDays((int)((now - setup.At).Ticks / TimeSpan.TicksPerDay)));
 
     private IReadOnlyList<FlowSimulationEntry> Since(int count) => [.. log.Skip(count)];
 

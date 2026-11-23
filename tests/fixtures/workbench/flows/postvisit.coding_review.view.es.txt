@@ -17,8 +17,8 @@ step find_opportunities [Decisión] Buscar oportunidades de codificación
 step assist_gate [Decisión] Decidir si se consulta al asistente
   stage: Después de la visita
   does: Decide con la regla `postvisit.assist_gate` usando `assist_enabled` y `items`. El campo de resultado `use` indica adónde va el flujo.
-  on:no: Si `use` es no: ir a Revisión del médico
-  on:yes: Si `use` es yes: ir a Consultar al asistente
+  on:no: Si `use` es `no`: ir a Revisión del médico
+  on:yes: Si `use` es `yes`: ir a Consultar al asistente
   onNoDecision: Si la regla no da resultado: ir a Revisión del médico
   onError: Si no se puede aplicar la regla: ir a Revisión del médico
 step suggest [Respuesta de IA] Consultar al asistente

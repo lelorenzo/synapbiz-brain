@@ -35,9 +35,9 @@ public sealed class FlowGraphTests
                 depths[edge.To].Should().BeLessThanOrEqualTo(depths[edge.From] + 1, name + " " + edge.From + "->" + edge.To);
             }
 
-            foreach (var edge in graph.Edges.Where(edge => edge.IsBackEdge))
+            foreach (var edge in graph.Edges.Where(edge => !edge.IsBackEdge && edge.From == edge.To))
             {
-                depths[edge.To].Should().BeLessThanOrEqualTo(depths[edge.From], name + " " + edge.From + "->" + edge.To);
+                edge.Should().BeNull(name + ": a route to the step itself closes a cycle");
             }
         }
     }
@@ -47,11 +47,70 @@ public sealed class FlowGraphTests
     {
         var graph = FlowGraph.From(FlowDocs.Process("previsit.outreach"), WorkbenchLocale.En);
         graph.Edges.Where(edge => edge.IsBackEdge).Select(edge => (edge.From, edge.To)).Should().Contain([("reply", "cycle"), ("escalate", "cycle")]);
-        graph.Edges.Single(edge => edge.From == "cycle" && edge.Label == "body").IsBackEdge.Should().BeFalse();
+        graph.Edges.Single(edge => edge.From == "cycle" && edge.Label == "body").IsBackEdge.Should().BeTrue("the body leads back to the loop");
+        var checkError = graph.Edges.Single(edge => edge.From == "check" && edge.Label == "onError");
+        checkError.IsBackEdge.Should().Be(graph.Edges.Any(edge => edge.From == checkError.To) && graph.Edges.Where(edge => edge.IsBackEdge).Any(edge => edge.To == checkError.To), "an exit is a back edge only when its target can reach it again");
         graph.Edges.Single(edge => edge.From == "cycle" && edge.Label == "body").IsHappyPath.Should().BeTrue();
         graph.Edges.Single(edge => edge.From == "check" && edge.Label == "onError").IsHappyPath.Should().BeFalse();
         graph.Edges.Single(edge => edge.From == "assess" && edge.Label == "on:some").IsHappyPath.Should().BeTrue();
         graph.Nodes.Where(node => node.IsEnd).Select(node => node.Id).Should().BeEquivalentTo("done", "closed");
+    }
+
+    [Fact]
+    public void A_back_edge_closes_a_cycle_and_an_exit_to_an_end_step_does_not()
+    {
+        var graph = FlowGraph.From(FlowDocs.Process("flow.batch"), WorkbenchLocale.En);
+        graph.Edges.Where(edge => edge.IsBackEdge).Select(edge => (edge.From, edge.Label, edge.To)).Should().BeEquivalentTo([("each", "body", "child"), ("child", "next", "each")]);
+        var exit = graph.Edges.Single(edge => edge.From == "child" && edge.Label == "onError");
+        exit.To.Should().Be("broken");
+        exit.IsBackEdge.Should().BeFalse();
+    }
+
+    [Fact]
+    public void An_edge_between_nodes_of_equal_depth_is_not_a_back_edge_unless_it_closes_a_cycle()
+    {
+        var process = FlowDocs.FromJson(
+            """
+            {"$spec":"brain.process@1","id":"flow.diamond","version":1,"uses":[],"requires":[],"meta":{},
+             "body":{"subject":"case","stages":[],"variables":{},"start":"a",
+              "steps":{"a":{"kind":"wait","event":"e.one","timeout":"PT1H","next":"b","onTimeout":"c"},
+                       "b":{"kind":"timer","after":"PT1M","next":"c"},
+                       "c":{"kind":"end","result":"done"}},
+              "scenarios":[]}}
+            """);
+        var graph = FlowGraph.From(process, WorkbenchLocale.En);
+        var depths = graph.Nodes.ToDictionary(node => node.Id, node => node.Depth);
+        depths["b"].Should().Be(depths["c"]);
+        graph.Edges.Single(edge => edge.From == "b" && edge.To == "c").IsBackEdge.Should().BeFalse();
+        graph.Edges.Should().OnlyContain(edge => !edge.IsBackEdge);
+    }
+
+    [Fact]
+    public void A_route_to_the_step_itself_closes_a_cycle()
+    {
+        var process = FlowDocs.FromJson(
+            """
+            {"$spec":"brain.process@1","id":"flow.self","version":1,"uses":[],"requires":[],"meta":{},
+             "body":{"subject":"case","stages":[],"variables":{},"start":"a",
+              "steps":{"a":{"kind":"loop","maxIterations":2,"body":"a","onExhausted":"b"},
+                       "b":{"kind":"end","result":"done"}},
+              "scenarios":[]}}
+            """);
+        FlowGraph.From(process, WorkbenchLocale.En).Edges.Where(edge => edge.IsBackEdge).Select(edge => (edge.From, edge.To)).Should().Equal(("a", "a"));
+    }
+
+    [Fact]
+    public void The_stage_index_is_the_position_in_the_list_of_stages()
+    {
+        var graph = FlowGraph.From(FlowDocs.Process("case.lifecycle"), WorkbenchLocale.En);
+        var stages = ProcessOutline.From(FlowDocs.Process("case.lifecycle")).Stages;
+        stages.Count.Should().BeGreaterThan(1);
+        foreach (var node in graph.Nodes)
+        {
+            node.StageIndex.Should().Be(node.Stage is null ? -1 : stages.ToList().IndexOf(node.Stage));
+        }
+
+        graph.Nodes.Select(node => node.StageIndex).Distinct().Should().Contain(stages.Select((_, index) => index));
     }
 
     [Fact]

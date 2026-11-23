@@ -8,33 +8,33 @@ stage collection: Collection
 step zone_check [Decision] Check the zone of the case
   stage: Before the visit
   does: Judges with the rule `lifecycle.zone_ready` using `practice_zone`. The result field `ready` says where the flow goes.
-  on:yes: If `ready` is yes: go to Pre-visit stage
+  on:yes: If `ready` is `yes`: go to Pre-visit stage
   onNoDecision: If the rule gives no result: go to Operations: zone missing
   onError: If the rule cannot be applied: go to Operations: zone missing
 step previsit [Child process] Pre-visit stage
   stage: Before the visit
   does: Starts the process `previsit.outreach` and waits until it ends. It sends `case_ref` and `practice_zone`. It keeps `missing_at_close`.
-  on:previsit_closed: If the process ends with previsit closed: go to Visit stage
-  on:previsit_unreachable: If the process ends with previsit unreachable: go to Visit stage
+  on:previsit_closed: If the process ends with `previsit_closed`: go to Visit stage
+  on:previsit_unreachable: If the process ends with `previsit_unreachable`: go to Visit stage
   onError: If the process fails: go to Operations: pre-visit problem
 step visit [Child process] Visit stage
   stage: Visit
   does: Starts the process `visit.note_wait` and waits until it ends. It sends `case_ref`.
-  on:note_signed: If the process ends with note signed: go to Post-visit stage
-  on:visit_cancelled: If the process ends with visit cancelled: go to Closed, no visit
+  on:note_signed: If the process ends with `note_signed`: go to Post-visit stage
+  on:visit_cancelled: If the process ends with `visit_cancelled`: go to Closed, no visit
   onError: If the process fails: go to Operations: visit problem
 step postvisit [Child process] Post-visit stage
   stage: After the visit
   does: Starts the process `postvisit.coding_review` and waits until it ends. It sends `assist_enabled` and `case_ref`.
-  on:coding_approved: If the process ends with coding approved: go to Collection stage
-  on:coding_rejected: If the process ends with coding rejected: go to Closed, not billed
+  on:coding_approved: If the process ends with `coding_approved`: go to Collection stage
+  on:coding_rejected: If the process ends with `coding_rejected`: go to Closed, not billed
   onError: If the process fails: go to Operations: post-visit problem
 step collection [Child process] Collection stage
   stage: Collection
   does: Starts the process `collection.followup` and waits until it ends. It sends `case_ref`.
-  on:collected: If the process ends with collected: go to Collected
-  on:manual_close: If the process ends with manual close: go to Closed by a person
-  on:written_off: If the process ends with written off: go to Written off
+  on:collected: If the process ends with `collected`: go to Collected
+  on:manual_close: If the process ends with `manual_close`: go to Closed by a person
+  on:written_off: If the process ends with `written_off`: go to Written off
   onError: If the process fails: go to Operations: collection problem
 step ops_zone [Task for a person] Operations: zone missing
   stage: Before the visit

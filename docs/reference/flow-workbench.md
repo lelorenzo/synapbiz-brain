@@ -2,7 +2,7 @@
 
 The flow workbench is the part of `Synapbiz.Brain.Workbench` that lets a person who owns a business flow read it in plain language, see it as a diagram, try it with a virtual clock, see which routes the tests cover, and send back a review. It is the headless half of the flows surface: it has no screen, reads no file, opens no connection and keeps no state. Everything it reports comes from `Synapbiz.Brain.Process` (the loader, the interpreter and the scenario format); a screen over it is a separate package.
 
-Namespace `Synapbiz.Brain.Workbench.Flows`. The workbench now references `Synapbiz.Brain.Contracts`, `.Engine`, `.Process` and `.Spec`, and nothing else. Every sentence, label and message a person reads exists in English and Spanish (English is the default); `WorkbenchLocale` chooses. Every call is deterministic: the same document, the same locale and the same inputs give the same text, byte for byte.
+Namespace `Synapbiz.Brain.Workbench.Flows`. The workbench now references `Synapbiz.Brain.Contracts`, `.Engine`, `.Process` and `.Spec`, and nothing else. Every sentence, label and message a person reads exists in English and Spanish (English is the default); `WorkbenchLocale` chooses. Every message the workbench produces, problems and findings included, exists in both languages and follows the locale asked for. Every call is deterministic: the same document, the same locale and the same inputs give the same text, byte for byte.
 
 Where the text of a view names a document member, it writes the id in backticks, so a screen can set it in a different type face without parsing the sentence.
 
@@ -36,17 +36,18 @@ An `ai` step also carries a `FlowAiView` in `Ai`: the pinned `Model`, `PromptId`
 
 ## Diagram data: `FlowGraph`
 
-`FlowGraph.From(process, locale)` returns `FlowNode`s (step id, label, kind, stage, `StageIndex`, `Depth`, `IsStart`, `IsEnd`) and `FlowEdge`s (from, to, label, phrase, `IsHappyPath`, `IsBackEdge`). `Depth` is the shortest distance from the start step, so a screen can lay out the diagram without a layout engine. `IsHappyPath` is true for `next`, `body` and `on:` routes and false for the error, timeout and `interrupt` routes. `IsBackEdge` is true for an edge to a node of lower or equal depth.
+`FlowGraph.From(process, locale)` returns `FlowNode`s (step id, label, kind, stage, `StageIndex`, `Depth`, `IsStart`, `IsEnd`) and `FlowEdge`s (from, to, label, phrase, `IsHappyPath`, `IsBackEdge`). `Depth` is the shortest distance from the start step, so a screen can lay out the diagram without a layout engine. `IsHappyPath` is true for `next`, `body` and `on:` routes and false for the error, timeout and `interrupt` routes. `IsBackEdge` is true when the edge closes a cycle: its target can reach its source by following routes, a route from a step to itself included. An edge that only leads to a node of the same or a lower depth, such as an error exit to an end node, is not one. `FlowGraph.From` and `FlowDescriber.Describe` take an optional `knownProcesses` (other documents the caller knows) to word the result of a child process by the child's own labels; with null the result is written as it is in the document.
 
 ## Simulation: `FlowSimulation`
 
-`FlowSimulation.Start(process, setup)` starts a case on a virtual clock and drives the interpreter, the same one `BrainProcess.Advance` is. `FlowSimulationSetup` has `At` (the instant), `Today` (the date), `InputJson`, `Zones` (zone id to a fixed UTC offset, as in an embedded scenario), an optional `AnswerSource` and `ChildProcesses` for subprocess steps. `Start` throws `ArgumentException` for input that is not a JSON object or a zone with no id or with an offset of more than 14 hours or not in whole minutes.
+`FlowSimulation.Start(process, setup)` starts a case on a virtual clock and drives the interpreter, the same one `BrainProcess.Advance` is. `FlowSimulationSetup` has `At` (the instant), `Today` (the date), `InputJson`, `Zones` (zone id to a fixed UTC offset, as in an embedded scenario), an optional `AnswerSource` and `ChildProcesses` for subprocess steps. `Start` throws `ArgumentException` for input that is not a JSON object or a zone with no id or with an offset of more than 14 hours or not in whole minutes. `At` is truncated to whole seconds, because the scenario format holds nothing finer; a session opened by replay or by `OpenChild` keeps its instant, and `AdvanceTo` rounds the span up to the next whole second so that it still moves. When the interpreter rejects the first entry (an input of the wrong type, for example), `Start` still returns the session: `Started` is false, `StartCode` holds the interpreter's code, and every command is refused with `workbench.flow.not_started` (`FlowSimulation.ErrorNotStarted`).
 
 What a session shows:
 
 | Member | Meaning |
 | --- | --- |
 | `Process`, `Name` | The document, and the name of the session (the scenario name for a replay). |
+| `Started`, `StartCode` | Whether the interpreter accepted the first entry, and the code it gave when it did not. |
 | `State`, `Status`, `CurrentStep`, `Variables`, `Now` | The interpreter's state, its status, the step it is at, the variables as canonical JSON text, and the virtual time. |
 | `History` | Every interpreter history entry so far. |
 | `Log` | One `FlowSimulationEntry` per thing the session did (see below). |
@@ -158,7 +159,7 @@ internal static class FlowTryOut
 
 ## Route coverage: `FlowCoverage`
 
-`FlowCoverage.Of(process, extraRuns)` plays every embedded scenario, reads from the history which route each run took out of each step, and adds the runs given (for example a session a reader made; `Name` names it). It returns a `FlowCoverageResult`: every route as a `FlowRouteCoverage` (step, label, target, times taken, scenario names), `NeverTaken`, `StepsNeverEntered`, the totals (`TotalRoutes`, `CoveredRoutes`, `TotalSteps`, `EnteredSteps`) and `Problems`. A history the routes cannot explain is reported as `workbench.flow.route_unexplained` (`FlowCoverage.ErrorRouteUnexplained`) for that run and never thrown; the routes that could be read before it still count.
+`FlowCoverage.Of(process, extraRuns, locale)` plays every embedded scenario, reads from the history which route each run took out of each step, and adds the runs given (for example a session a reader made; `Name` names it). It returns a `FlowCoverageResult`: every route as a `FlowRouteCoverage` (step, label, target, times taken, scenario names), `NeverTaken`, `StepsNeverEntered`, the totals (`TotalRoutes`, `CoveredRoutes`, `TotalSteps`, `EnteredSteps`) and `Problems`. The text of a problem follows `locale` (English by default). A run of another process, or of another version or content of this one, is refused with `ArgumentException` (parameter `extraRuns`), and a null run with `ArgumentNullException`. A history the routes cannot explain is reported as `workbench.flow.route_unexplained` (`FlowCoverage.ErrorRouteUnexplained`) for that run and never thrown; the routes that could be read before it still count.
 
 ## Review document `brain.process-review@1`
 
@@ -227,12 +228,14 @@ internal static class FlowReviews
 | `workbench.flow.json_invalid` | `FlowSimulation` commands | A payload (task data, event payload) is not a JSON object, or the text is not JSON. |
 | `workbench.flow.duration_invalid` | `AdvanceBy`, `AdvanceTo` | The duration is not positive, not a whole number of seconds, or longer than 3660 days. |
 | `workbench.flow.answer_source_failed` | `RunAnswersAsync` | The answer source threw; the effect stays outstanding. |
-| `workbench.flow.route_unexplained` | `FlowCoverage.Of` | The routes of the document cannot explain the history of a run (path: the name of the run). |
+| `workbench.flow.route_unexplained` | `FlowCoverage.Of` | The routes of the document cannot explain the history of a run (path: the name of the run). When the history of a decide does not show which route it took, the one route that leads to the step the case went to is taken; two routes to the same step are unexplained. |
+| `workbench.flow.not_started` | `FlowSimulation` commands | The session has no case because the interpreter rejected the first entry; `StartCode` says why. |
 | `workbench.flow_review.json_invalid` | `FlowReviewJson.Parse` | The text is not JSON, or repeats a member name (path is empty). |
 | `workbench.flow_review.unknown_format` | `FlowReviewJson.Parse` | `$spec` names another format (path `/$spec`). |
 | `workbench.flow_review.malformed` | `FlowReviewJson.Parse` | A member is missing, of the wrong kind or unreadable; the path is the JSON Pointer of the value. |
 | `workbench.flow_review.stale` | `FlowReviewCheck.Against` | The review is for another version of the document (path `/process/contentHash`). |
 | `workbench.flow_review.target_unknown` | `FlowReviewCheck.Against` | The document has nothing at a target (path `/items/<n>/target`). |
+| `workbench.flow_review.scenario_not_object` | `FlowReviewCheck.Against` (`FlowReviewCheck.ErrorScenarioNotObject`) | The code of the validator error, in the result of a proposed scenario and in the message of its `scenario_invalid` finding, when the scenario is not a JSON object. |
 | `workbench.flow_review.scenario_invalid` | `FlowReviewCheck.Against` | A proposed scenario is not valid for the document; the message carries the validator's code and path. |
 
 Codes of the interpreter (`process.*`) reach the log unchanged in `FlowSimulationEntry.Code`.

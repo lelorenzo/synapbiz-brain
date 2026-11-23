@@ -28,9 +28,9 @@ step poll_claim [Repeated read] Check the claim status
 step route_claim [Decision] Route by claim status
   stage: Collection
   does: Judges with the rule `collection.claim_result` using `claim_status`. The result field `result` says where the flow goes.
-  on:denied: If `result` is denied: go to Handle the denial
-  on:paid: If `result` is paid: go to Collected
-  on:pending: If `result` is pending: go to Wait for the balance
+  on:denied: If `result` is `denied`: go to Handle the denial
+  on:paid: If `result` is `paid`: go to Collected
+  on:pending: If `result` is `pending`: go to Wait for the balance
   onNoDecision: If the rule gives no result: go to Claim stalled
   onError: If the rule cannot be applied: go to Claim stalled
 step denial [Task for a person] Handle the denial

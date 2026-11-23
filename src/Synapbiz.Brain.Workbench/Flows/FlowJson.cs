@@ -7,12 +7,18 @@ using System.Text.Json.Nodes;
 
 namespace Synapbiz.Brain.Workbench.Flows;
 
-/// <summary>JSON helpers of the flow surface: compact canonical text (members in ordinal order at every depth), parsing that never throws, and JSON equality.</summary>
+/// <summary>
+/// JSON helpers of the flow surface: compact canonical text (members in ordinal order at every depth), parsing that never throws
+/// (a text that repeats a member name is not usable and counts as invalid), and JSON equality.
+/// </summary>
 internal static class FlowJson
 {
     private static readonly JsonWriterOptions Compact = new() { Indented = false, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-    /// <summary>Parses a JSON text; null when it is not valid JSON.</summary>
+    /// <summary>
+    /// Parses a JSON text; null when it is not valid JSON. The tree is read completely before it is returned: <see cref="JsonNode.Parse(string, JsonNodeOptions?, JsonDocumentOptions)"/>
+    /// is lazy, and a text that repeats a member name would otherwise fail later, in the first call that walks the object.
+    /// </summary>
     internal static JsonNode? TryParse(string? text, out bool valid)
     {
         valid = false;
@@ -24,6 +30,7 @@ internal static class FlowJson
         try
         {
             var node = JsonNode.Parse(text);
+            _ = Canonical(node);
             valid = true;
             return node;
         }

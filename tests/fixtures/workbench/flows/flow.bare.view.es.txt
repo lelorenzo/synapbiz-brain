@@ -12,8 +12,8 @@ step pause [Temporizador] Pausa
 step judge [Decisión] Juzgar
   stage: -
   does: Decide con la regla `conf.default_rule`. El campo de resultado `level` indica adónde va el flujo.
-  on:high: Si `level` es high: ir a Bien
-  on:low: Si `level` es low: ir a Bien
+  on:high: Si `level` es `high`: ir a Bien
+  on:low: Si `level` es `low`: ir a Bien
   onNoDecision: Si la regla no da resultado: ir a Bien
   onError: Si no se puede aplicar la regla: ir a Bien
 step fine [Fin] Bien

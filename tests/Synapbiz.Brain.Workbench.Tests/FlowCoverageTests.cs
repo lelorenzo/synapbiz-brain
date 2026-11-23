@@ -116,7 +116,10 @@ public sealed class FlowCoverageTests
     {
         var foreign = FlowSimulation.Start(FlowDocs.Process("flow.bare"), new FlowSimulationSetup { At = At, Today = new DateOnly(2027, 1, 4), InputJson = """{"ref":"r"}""" });
         foreign.AdvanceBy(TimeSpan.FromSeconds(31));
-        var coverage = FlowCoverage.Of(FlowDocs.Process("flow.batch"), [foreign]);
+        var batch = FlowDocs.Process("flow.batch");
+        FluentActions.Invoking(() => FlowCoverage.Of(batch, [foreign])).Should().Throw<ArgumentException>();
+        var outline = ProcessOutline.From(batch);
+        var coverage = FlowCoverage.Compute(outline, [.. FlowCoverage.PlayScenarios(batch, outline).Select(run => run.Session), foreign], WorkbenchLocale.En);
         var problem = coverage.Problems.Should().ContainSingle().Subject;
         problem.Code.Should().Be(FlowCoverage.ErrorRouteUnexplained);
         problem.Path.Should().Be("simulation");

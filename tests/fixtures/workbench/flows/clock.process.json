@@ -1,0 +1,123 @@
+{
+  "$spec": "brain.process@1",
+  "id": "flow.clock",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": {
+    "title": "Triggers and a timer tied to an instant",
+    "display": {
+      "en": {
+        "title": "Clock watch",
+        "stages": {
+          "watch": "Watch"
+        },
+        "steps": {
+          "settle": "Settle until the due time",
+          "hold": "Hold for a ping",
+          "released": "Released",
+          "expired": "Expired"
+        },
+        "results": {
+          "released": "Released",
+          "expired": "Expired"
+        }
+      },
+      "es": {
+        "title": "Vigilancia del reloj",
+        "stages": {
+          "watch": "Vigilancia"
+        },
+        "steps": {
+          "settle": "Esperar hasta la hora debida",
+          "hold": "Esperar un aviso",
+          "released": "Liberado",
+          "expired": "Vencido"
+        },
+        "results": {
+          "released": "Liberado",
+          "expired": "Vencido"
+        }
+      }
+    }
+  },
+  "body": {
+    "subject": "clock",
+    "stages": [
+      "watch"
+    ],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "due": {
+        "type": "Instant",
+        "input": true
+      }
+    },
+    "triggers": [
+      {
+        "kind": "event",
+        "event": "clock.started",
+        "businessKey": "ref",
+        "input": {
+          "ref": "ref"
+        }
+      },
+      {
+        "kind": "schedule",
+        "id": "morning",
+        "cron": "0 6 * * *",
+        "zone": "America/New_York",
+        "misfire": "skip",
+        "input": {}
+      },
+      {
+        "kind": "schedule",
+        "id": "workdays",
+        "cron": "45 18 * * 1-5",
+        "zone": "America/Chicago",
+        "misfire": "skip",
+        "input": {}
+      },
+      {
+        "kind": "schedule",
+        "id": "sunday",
+        "cron": "30 1 * * 7",
+        "misfire": "fireOnce",
+        "input": {}
+      }
+    ],
+    "start": "settle",
+    "steps": {
+      "settle": {
+        "kind": "timer",
+        "stage": "watch",
+        "until": "due",
+        "next": "hold"
+      },
+      "hold": {
+        "kind": "wait",
+        "stage": "watch",
+        "event": "clock.ping",
+        "timeout": {
+          "until": "due"
+        },
+        "next": "released",
+        "onTimeout": "expired"
+      },
+      "released": {
+        "kind": "end",
+        "stage": "watch",
+        "result": "released"
+      },
+      "expired": {
+        "kind": "end",
+        "stage": "watch",
+        "result": "expired"
+      }
+    },
+    "scenarios": []
+  }
+}

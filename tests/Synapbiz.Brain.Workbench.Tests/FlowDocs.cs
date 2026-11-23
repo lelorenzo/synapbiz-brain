@@ -63,6 +63,26 @@ internal static class FlowDocs
         return Loaded(document.ToJsonString(), context);
     }
 
+    /// <summary>The document with a change made to its JSON, loaded with the context of the original.</summary>
+    internal static BrainProcess Edited(string name, Action<JsonObject> edit)
+    {
+        var (text, context) = SourceOf(name);
+        var document = JsonNode.Parse(text)!.AsObject();
+        edit(document);
+        return Loaded(document.ToJsonString(), context);
+    }
+
+    /// <summary>The valid document of a case of the conformance file of the process tests, loaded with the conformance rules.</summary>
+    internal static BrainProcess Conformance(string caseName)
+    {
+        var cases = JsonNode.Parse(TestFiles.Read(ProcessFixtures + "conformance.json"))!.AsArray();
+        var fixture = cases.Single(item => item!["name"]!.GetValue<string>() == caseName)!;
+        return Loaded(fixture["document"]!.ToJsonString(), FlowContext());
+    }
+
+    /// <summary>A small document written in the test, with no rules and no known children.</summary>
+    internal static BrainProcess FromJson(string text) => Loaded(text, new ProcessLoadContext([]));
+
     internal static (string Text, ProcessLoadContext Context) SourceOf(string name)
     {
         if (ReferenceIds.Contains(name))
@@ -142,6 +162,36 @@ internal static class FlowDocs
         }
 
         return File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal);
+    }
+
+    /// <summary>The entries of a library as text, one line per fact, so that a golden file shows every sentence a list screen would show.</summary>
+    internal static string RenderLibrary(IReadOnlyList<FlowEntry> entries)
+    {
+        var text = new StringBuilder();
+        foreach (var entry in entries)
+        {
+            text.Append("flow ").Append(entry.Id).Append(" v").Append(entry.Version).Append('\n');
+            text.Append("  title: ").Append(entry.Title).Append('\n');
+            text.Append("  subject: ").Append(entry.Subject).Append('\n');
+            text.Append("  stages: ").Append(string.Join(" | ", entry.StageLabels)).Append('\n');
+            foreach (var trigger in entry.Triggers)
+            {
+                text.Append("  trigger: ").Append(trigger).Append('\n');
+            }
+
+            text.Append("  steps: ").Append(string.Join(", ", entry.StepCounts.Select(pair => pair.Key + " " + pair.Value))).Append('\n');
+            text.Append("  scenarios: ").Append(entry.ScenarioCount).Append(entry.ScenariosPass ? " (all pass)" : " (some fail)").Append('\n');
+            text.Append("  routes covered: ").Append(entry.CoveredRoutes).Append('/').Append(entry.TotalRoutes).Append('\n');
+            foreach (var child in entry.Children)
+            {
+                text.Append("  child: ").Append(child.ProcessId).Append(" = ").Append(child.IsMissing ? "(missing)" : child.Title).Append('\n');
+            }
+
+            text.Append("  started by: ").Append(string.Join(", ", entry.StartedBy)).Append('\n');
+            text.Append("  rules: ").Append(string.Join(", ", entry.Rules)).Append('\n');
+        }
+
+        return text.ToString();
     }
 
     /// <summary>A view as text, one line per fact, so that a golden file shows every sentence a reader would see.</summary>
