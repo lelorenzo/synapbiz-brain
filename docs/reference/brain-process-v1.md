@@ -111,7 +111,7 @@ An `EventReceived` trigger is handled in this order: a finished instance ignores
 
 ### `loop`
 
-A bounded gate that every cycle of the graph must contain. Each arrival counts: with `forEach` the item is the n-th element of the list and the step goes to `next` when the list is done; otherwise, after `maxIterations` arrivals it goes to `onExhausted`. The list check comes first. Counters never reset within an instance. A graph cycle without a loop step is a load error (`process.cycle.unbounded`), so an instance always ends in a bounded number of steps.
+A bounded gate. Its `body` edge is the only edge that may close a cycle in the step graph, and it is taken at most `maxIterations` times; the `onExhausted` and `next` paths of a loop must not lead back to the loop or into any cycle. Each arrival counts: with `forEach` the item is the n-th element of the list and the step goes to `next` when the list is done; otherwise, after `maxIterations` arrivals it goes to `onExhausted`. The list check comes first. Counters never reset within an instance. The graph without the `body` edges of loop steps must be acyclic (a cycle is the load error `process.cycle.unbounded`, reported once per cycle at its first step), so an instance always enters a bounded number of steps; `limits.maxSteps` is a second guard.
 
 ### `subprocess`
 
@@ -165,7 +165,7 @@ BrainProcess process = loaded.Process!;
 | `process.subprocess.unavailable` | the child process is not among the known process ids |
 | `process.ai.next_not_decide` | the `next` of an `ai` step is not a `decide` step |
 | `process.ai.schema_invalid` | `inputSchema` or `outputSchema` cannot be built as a JSON Schema |
-| `process.cycle.unbounded` | a cycle of the step graph contains no `loop` step |
+| `process.cycle.unbounded` | the step graph without the `body` edges of `loop` steps has a cycle (a step that routes back to a step before it, or a loop whose `onExhausted` or `next` path leads back into a cycle) |
 | `process.duration.invalid` | a duration that matches the pattern but is zero, longer than 3660 days or has no component |
 | `process.scenario.invalid` | a scenario names an unknown step, variable or event, or is otherwise malformed |
 
@@ -396,7 +396,7 @@ The process, with five scenarios that `RunScenarios()` plays:
         "stage": "previsit",
         "maxIterations": 2,
         "body": "check",
-        "onExhausted": "escalate"
+        "onExhausted": "escalate_final"
       },
       "check": {
         "kind": "read",
@@ -442,6 +442,15 @@ The process, with five scenarios that `RunScenarios()` plays:
         "on": { "resolved": "cycle", "unreachable": "closed" },
         "onTimeout": "closed"
       },
+      "escalate_final": {
+        "kind": "humanTask",
+        "queue": "front_desk",
+        "outcomes": ["resolved", "unreachable"],
+        "show": ["case_ref", "missing"],
+        "timeout": "P3D",
+        "on": { "resolved": "done", "unreachable": "closed" },
+        "onTimeout": "closed"
+      },
       "done": { "kind": "end", "result": "ready" },
       "closed": { "kind": "end", "result": "unreachable" }
     },
@@ -485,12 +494,12 @@ The process, with five scenarios that `RunScenarios()` plays:
           { "complete": "check", "output": { "missing_count": 2 } },
           { "complete": "send" },
           { "advance": "PT24H" },
-          { "task": "escalate", "outcome": "unreachable" }
+          { "task": "escalate_final", "outcome": "unreachable" }
         ],
         "expect": {
           "status": "Completed",
           "result": "unreachable",
-          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "send", "reply", "cycle", "escalate", "closed"],
+          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "send", "reply", "cycle", "escalate_final", "closed"],
           "variables": { "missing": 2 }
         }
       },
@@ -531,4 +540,4 @@ The process, with five scenarios that `RunScenarios()` plays:
 }
 ```
 
-Reading it: the `cycle` loop bounds the number of reminders to two. `check` reads the count of missing items into `missing`; `assess` asks the rule and routes on its `action` outcome (`none` ends the process as `ready`, `remind` sends a notice). `send` is `atMostOnce`: if the host cannot tell whether the notice went out (`Unknown`), the case goes to the `escalate` task instead of being retried. `reply` waits for the `form_submitted` event of this case for 24 hours and then returns to `cycle`. The documentation tests load these files and run the scenarios, so the page and the fixtures cannot drift apart.
+Reading it: the `cycle` loop bounds the number of reminders to two. `check` reads the count of missing items into `missing`; `assess` asks the rule and routes on its `action` outcome (`none` ends the process as `ready`, `remind` sends a notice). `send` is `atMostOnce`: if the host cannot tell whether the notice went out (`Unknown`), the case goes to the `escalate` task instead of being retried, and a person who resolves it sends the case back to `cycle`. When the reminders are used up (`onExhausted`) the case goes to a separate task, `escalate_final`: a path out of a loop must not lead back into the loop. `reply` waits for the `form_submitted` event of this case for 24 hours and then returns to `cycle`. The documentation tests load these files and run the scenarios, so the page and the fixtures cannot drift apart.

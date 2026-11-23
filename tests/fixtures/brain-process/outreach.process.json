@@ -19,7 +19,7 @@
         "stage": "previsit",
         "maxIterations": 2,
         "body": "check",
-        "onExhausted": "escalate"
+        "onExhausted": "escalate_final"
       },
       "check": {
         "kind": "read",
@@ -65,6 +65,15 @@
         "on": { "resolved": "cycle", "unreachable": "closed" },
         "onTimeout": "closed"
       },
+      "escalate_final": {
+        "kind": "humanTask",
+        "queue": "front_desk",
+        "outcomes": ["resolved", "unreachable"],
+        "show": ["case_ref", "missing"],
+        "timeout": "P3D",
+        "on": { "resolved": "done", "unreachable": "closed" },
+        "onTimeout": "closed"
+      },
       "done": { "kind": "end", "result": "ready" },
       "closed": { "kind": "end", "result": "unreachable" }
     },
@@ -108,12 +117,12 @@
           { "complete": "check", "output": { "missing_count": 2 } },
           { "complete": "send" },
           { "advance": "PT24H" },
-          { "task": "escalate", "outcome": "unreachable" }
+          { "task": "escalate_final", "outcome": "unreachable" }
         ],
         "expect": {
           "status": "Completed",
           "result": "unreachable",
-          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "send", "reply", "cycle", "escalate", "closed"],
+          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "send", "reply", "cycle", "escalate_final", "closed"],
           "variables": { "missing": 2 }
         }
       },

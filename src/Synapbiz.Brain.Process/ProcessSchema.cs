@@ -34,8 +34,11 @@ internal static class ProcessSchema
     /// True for a result produced while evaluating the <c>if</c> of a conditional: its failures only select a branch and are
     /// not violations of the document.
     /// </summary>
-    private static bool IsCondition(EvaluationResults detail) =>
-        detail.EvaluationPath.ToString().Contains("/if/", StringComparison.Ordinal);
+    private static bool IsCondition(EvaluationResults detail)
+    {
+        var path = detail.EvaluationPath.ToString();
+        return path.Contains("/if/", StringComparison.Ordinal) || path.EndsWith("/if", StringComparison.Ordinal);
+    }
 
     private static JsonSchema Build()
     {

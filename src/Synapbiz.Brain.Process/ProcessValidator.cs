@@ -295,14 +295,16 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
         }
     }
 
+    // The graph without the body edges of loop steps must be acyclic: the body edge is the one bounded edge.
     private void CheckCycles()
     {
-        var nodes = definition.Steps.Where(step => step.Kind != StepKind.Loop).Select(step => step.Id).ToList();
-        var edges = nodes.ToDictionary(
-            id => id,
-            id => definition.StepsById[id].References()
+        var nodes = definition.Steps.Select(step => step.Id).ToList();
+        var edges = definition.Steps.ToDictionary(
+            step => step.Id,
+            step => step.References()
+                .Where(reference => !(step.Kind == StepKind.Loop && reference.Member == "/body"))
                 .Select(reference => reference.Target)
-                .Where(target => definition.StepsById.TryGetValue(target, out var next) && next.Kind != StepKind.Loop)
+                .Where(target => definition.StepsById.ContainsKey(target))
                 .Distinct(StringComparer.Ordinal)
                 .ToList(),
             StringComparer.Ordinal);

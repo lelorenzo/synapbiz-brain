@@ -5235,6 +5235,227 @@
     }
   },
   {
+    "name": "cycle.unbounded: the exit of a loop leads back to the loop",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "l",
+        "steps": {
+          "l": {
+            "kind": "loop",
+            "maxIterations": 1,
+            "body": "t1",
+            "onExhausted": "t2"
+          },
+          "t1": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "l"
+          },
+          "t2": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "l"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/l"
+        }
+      ]
+    }
+  },
+  {
+    "name": "cycle.unbounded: the next of a loop over a list leads back to the loop",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "items": {
+            "type": "Json"
+          },
+          "item": {
+            "type": "Json"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 2,
+            "forEach": "items",
+            "item": "item",
+            "body": "b",
+            "next": "c",
+            "onExhausted": "e"
+          },
+          "b": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          },
+          "c": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "cycle.unbounded: two components are reported once each",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "l",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "a"
+          },
+          "a": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "b"
+          },
+          "b": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "a"
+          },
+          "l": {
+            "kind": "loop",
+            "maxIterations": 1,
+            "body": "s",
+            "onExhausted": "m"
+          },
+          "m": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "l"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/a"
+        },
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/l"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid loop whose body leads back to the loop through other steps",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 3,
+            "body": "a",
+            "onExhausted": "e"
+          },
+          "a": {
+            "kind": "read",
+            "port": "p",
+            "next": "b"
+          },
+          "b": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
     "name": "step.unreachable",
     "context": {
       "rules": []
