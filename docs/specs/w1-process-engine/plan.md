@@ -5,7 +5,7 @@ Design and owner decisions: [design.md](design.md). Normative spec of the first 
 | PR | Content | Status |
 | --- | --- | --- |
 | W1-A | `Synapbiz.Brain.Process`: `brain.process@1` schema, loader and static validation, pure interpreter (read, action, ai, decide, humanTask, wait, timer, loop, subprocess, end), state JSON, scenario runner, tests, architecture guards, docs | in progress |
-| W1-B | `Synapbiz.Brain.Host.Postgres`: instance store, history, timers, waits, inbox with event de-duplication, outbox, worker with leases, retries, `Unknown` outcome for at-most-once effects whose lease expired, integration tests on PostgreSQL | not started |
+| W1-B | `Synapbiz.Brain.Host.Postgres`: instance store, history, timers, waits, inbox with event de-duplication, outbox, worker with leases, retries, `Unknown` outcome for at-most-once effects whose lease expired, integration tests on PostgreSQL | in progress |
 | W1-C | `triggers` (event, schedule with cron and IANA time zone, misfire policy), delivery windows on contact actions (required by the validator), `poll` | not started |
 | W1-D | Four synthetic reference flows (pre-visit outreach, visit note wait, post-visit coding review, collection), consumer guide, version 0.2.0 | not started |
 
