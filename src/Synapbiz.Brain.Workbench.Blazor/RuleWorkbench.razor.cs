@@ -36,6 +36,7 @@ public sealed partial class RuleWorkbench : IDisposable
     private bool testsRunning;
     private bool nameError;
     private bool exportDone;
+    private bool notesHeld;
     private string? exportPlace;
     private CaseForm? caseForm;
 
@@ -132,6 +133,22 @@ public sealed partial class RuleWorkbench : IDisposable
         return form.Chosen.Count > 0 ? form.Chosen.Min.ToString(CultureInfo.InvariantCulture) : string.Empty;
     }
 
+    private string LangCode => Locale == WorkbenchLocale.Es ? "es" : "en";
+
+    /// <summary>
+    /// The "You entered ..." sentence of a condition line in Row by row. A condition that is met and whose operator is equals,
+    /// one-of or empty drops it, because the condition text already says the value; any other line keeps it, or says nothing was entered.
+    /// </summary>
+    private string EnteredText(bool met, Operator op, string typed)
+    {
+        if (met && !SimulationPresenter.AddsTypedValue(op))
+        {
+            return string.Empty;
+        }
+
+        return typed.Length > 0 ? Plain("sim.typed", ("value", typed)) : Plain("sim.notTyped");
+    }
+
     private static string RowClass(bool deciding) => deciding ? "wb-row wb-win" : "wb-row";
 
     private static string PillClass(string tone) => tone switch
@@ -187,6 +204,8 @@ public sealed partial class RuleWorkbench : IDisposable
             SelectRule(Rules[next].Key);
         }
     }
+
+    private static readonly string[] RuleTarget = ["rule"];
 
     private const string CaseNameRef = "case:name";
     private const string ReviewerRef = "reviewer";
@@ -246,11 +265,43 @@ public sealed partial class RuleWorkbench : IDisposable
         Session.Touch();
     }
 
+    private void ToggleLine(RuleWork work, string target)
+    {
+        if (!work.OpenLines.Add(target))
+        {
+            work.OpenLines.Remove(target);
+        }
+
+        Session.Touch();
+    }
+
+    /// <summary>
+    /// Opens the note field of an item that needs its note and focuses it. The field of a row lives in Read, the field of a case
+    /// in the review line of its row in Test cases, and the field of the whole rule in Review itself.
+    /// </summary>
+    private void WriteNote(RuleWork work, string target)
+    {
+        work.OpenNotes.Add(target);
+        if (target.StartsWith("row:", StringComparison.Ordinal))
+        {
+            Session.SelectedTab = WorkbenchTab.Read;
+        }
+        else if (target.StartsWith("golden:", StringComparison.Ordinal))
+        {
+            work.OpenLines.Add(target);
+            Session.SelectedTab = WorkbenchTab.Tests;
+        }
+
+        pendingFocus = NoteRef(target);
+        Session.Touch();
+    }
+
     private void SetNote(RuleWork work, string target, string? note)
     {
         var value = (note ?? string.Empty).Trim();
         work.ReviewForEdit(target).Note = value.Length > NoteMax ? value[..NoteMax] : value;
         exportDone = false;
+        notesHeld = notesHeld && MissingNoteCount() > 0;
         Session.Touch();
     }
 
@@ -282,7 +333,11 @@ public sealed partial class RuleWorkbench : IDisposable
         _ => "neutral",
     };
 
-    private string NoteId(string target)
+    private string NoteId(string target) => idp + "-note-" + TargetNumber(target).ToString(CultureInfo.InvariantCulture);
+
+    private string LineId(string target) => idp + "-line-" + TargetNumber(target).ToString(CultureInfo.InvariantCulture);
+
+    private int TargetNumber(string target)
     {
         if (!noteIds.TryGetValue(target, out var number))
         {
@@ -290,7 +345,7 @@ public sealed partial class RuleWorkbench : IDisposable
             noteIds[target] = number;
         }
 
-        return idp + "-note-" + number.ToString(CultureInfo.InvariantCulture);
+        return number;
     }
 
     private static string NoteRef(string target) => "note:" + target;
@@ -592,6 +647,22 @@ public sealed partial class RuleWorkbench : IDisposable
 
     // ----- export -----------------------------------------------------------------------------------------------------
 
+    /// <summary>How many items, in every readable rule of the session, are a fix or a question with no note.</summary>
+    private int MissingNoteCount()
+    {
+        var count = 0;
+        foreach (var rule in (Rules ?? []).Where(IsReadable))
+        {
+            var work = Session.Work(rule.Key);
+            var targets = RuleTarget
+                .Concat(work.View(rule, Locale).Rows.Select(RowTarget))
+                .Concat(rule.Rule!.Goldens.Select(golden => CaseTarget(golden.Name)));
+            count += targets.Count(target => work.Review(target).NeedsNote);
+        }
+
+        return count;
+    }
+
     private int ExportableRuleCount() =>
         Rules?.Count(rule => IsReadable(rule) && Session.Work(rule.Key).HasExportable) ?? 0;
 
@@ -664,6 +735,7 @@ public sealed partial class RuleWorkbench : IDisposable
             return;
         }
 
+        notesHeld = MissingNoteCount() > 0;
         if (string.IsNullOrWhiteSpace(Session.Reviewer))
         {
             nameError = true;
@@ -672,6 +744,11 @@ public sealed partial class RuleWorkbench : IDisposable
         }
 
         nameError = false;
+        if (notesHeld)
+        {
+            return;
+        }
+
         var export = BuildExport();
         if (export.Files.Count == 0)
         {

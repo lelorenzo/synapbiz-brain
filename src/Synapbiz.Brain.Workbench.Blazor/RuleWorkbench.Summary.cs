@@ -178,13 +178,13 @@ public partial class RuleWorkbench
         }
 
         return testCase.Actual is Nuvora.Decisions.Contracts.Evaluation.Decided decided
-            ? OutcomeFormat.Summary(OutcomeFormat.Groups(view, labels, Locale, decided.OutcomeJson))
+            ? OutcomeFormat.LabelledSummary(OutcomeFormat.Groups(view, labels, Locale, decided.OutcomeJson))
             : Plain("result.none");
     }
 
     private string ExpectedText(RuleView view, RuleLabels labels, Nuvora.Decisions.Contracts.Goldens.GoldenExpectation expected) =>
         expected is Nuvora.Decisions.Contracts.Goldens.ExpectedDecided decided
-            ? OutcomeFormat.Summary(OutcomeFormat.Groups(view, labels, Locale, decided.OutcomeJson))
+            ? OutcomeFormat.LabelledSummary(OutcomeFormat.Groups(view, labels, Locale, decided.OutcomeJson))
             : Plain("result.none");
 
     private string DecidedByText(RuleView view, TestCaseView testCase) =>

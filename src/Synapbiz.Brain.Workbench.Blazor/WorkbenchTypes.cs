@@ -54,6 +54,12 @@ public sealed record WorkbenchRule
     /// <summary>The display names of the rule for the current locale.</summary>
     public RuleLabels Labels { get; init; } = RuleLabels.Empty;
 
+    /// <summary>
+    /// The names of the outcome fields the result heading shows, in order. Null or empty shows the first field of the kind's
+    /// outcome fields that the decided outcome sets. The definition list under the heading always lists every field.
+    /// </summary>
+    public IReadOnlyList<string>? HeadlineFields { get; init; }
+
     /// <summary>The approval state the host reports.</summary>
     public RuleApprovalState State { get; init; }
 

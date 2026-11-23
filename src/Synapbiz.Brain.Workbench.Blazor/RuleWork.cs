@@ -15,6 +15,9 @@ internal sealed class ReviewEntry
 
     /// <summary>True when the entry says something and goes into an export.</summary>
     internal bool IsExported => State != ReviewState.Unreviewed || Note.Length > 0;
+
+    /// <summary>True for a fix or a question with no note: the reviewer must say what to fix or ask.</summary>
+    internal bool NeedsNote => State is ReviewState.NeedsFix or ReviewState.Question && string.IsNullOrWhiteSpace(Note);
 }
 
 /// <summary>A test case the reviewer proposed: its facts, what it expects and, when it pins one, the engine key of the row.</summary>
@@ -38,6 +41,9 @@ internal sealed class RuleWork
 
     /// <summary>Targets whose note field the reviewer opened by hand.</summary>
     internal HashSet<string> OpenNotes { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Targets whose review line is open under its row in the test table.</summary>
+    internal HashSet<string> OpenLines { get; } = new(StringComparer.Ordinal);
 
     internal FactForm Simulator { get; } = new();
 
