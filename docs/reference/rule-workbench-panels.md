@@ -115,8 +115,8 @@ Guided editing is offered for a rule only when `WorkbenchRule.Rule`, `RuleText` 
 
 - **Start.** "Propose changes" in the rule header starts a draft (the base text with no edit). A bar under the header says which of the two views is shown and switches between "Current rule" and "Your draft"; a draft with changes asks before it is discarded.
 - **Read, in the draft view.** Each row has "Edit" and "More" (move up, move down, add a row below, remove). The row form shows the conditions as a sentence-sized line per fact (an operator and a value) and the outcome fields; "It reads" previews the row, and warnings (a row that always matches, one that can never decide, a gap in coverage) appear before applying. A change the loader or the validator refuses stays in the form with the reason in words and marks the field; the draft does not change. A changed row shows a tag, "Before: ..." and "Undo"; a removed row stays struck through with "Restore".
-- **Test cases, in the draft view.** The fourth column is "Your draft gives". A case that passed on the rule and gives another result on the draft is "Changes" (not "Fails") and asks which result is correct: accept the new result (a decision on the case) or review the change (goes to the row that explains it). Read and the tab say how many cases changed. Cases can have what they expect changed, be removed (and restored) and be added; in the draft view the review controls are not shown and nothing is written to the review.
-- **Changes.** A fifth tab, shown only while the rule has a draft: the library's summary, each changed row with "Before:" above "Now:", the warnings that remain true, the cases that change result with the decision taken on each, and the card "Send the proposal" (reason, up to 1000 characters, and name, both required). Export is held while any case still changes result. The file is saved through `OnExport`; the draft stays and is marked as exported, and changing it afterwards says so in the bar. A draft whose rule changed underneath (its base text no longer matches) becomes read-only and can still be exported, bound to its base.
+- **Test cases, in the draft view.** The fourth column is "Your draft gives". A case that passed on the rule and gives another result on the draft is "Changes" (not "Fails") and asks which result is correct: accept the new result (a decision on the case) or review the change (goes to the row that explains it). The line over the cases counts them apart ("7 of 9 cases pass · 2 change"); a case that already failed on the rule keeps "fail" ("6 of 9 cases pass · 2 change · 1 fails"). Read and the tab say how many cases changed. A case that is accepted or changed to a decision stays where it is in the list and in the exported document; one changed to expect no decision is written again and moves to the end. Cases can have what they expect changed, be removed (and restored) and be added; in the draft view the review controls are not shown and nothing is written to the review.
+- **Changes.** A fifth tab, shown only while the rule has a draft: the library's summary, each changed row with "Before:" above "Now:" (a row whose only change is its name is listed too, tagged "Changed", with one line that says what it was named and what it is named now), the warnings that remain true, the cases that change result with the decision taken on each, and the card "Send the proposal" (reason, up to 1000 characters, and name, both required). Export is held while any case still changes result. The file is saved through `OnExport`; the draft stays and is marked as exported, and changing it afterwards says so in the bar. A draft whose rule changed underneath (its base text no longer matches) becomes read-only and can still be exported, bound to its base.
 
 ### Keys and markings
 
@@ -175,11 +175,13 @@ The seven markings (`band.simulate`, `band.tests`, `pill.simulation`, `notice.pr
 | `changes.held.one` | Decida qué hacer con {n} caso que cambió de resultado antes de exportar. | Decide what to do with {n} case that changed result before exporting. |
 | `changes.held.other` | Decida qué hacer con {n} casos que cambiaron de resultado antes de exportar. | Decide what to do with {n} cases that changed result before exporting. |
 | `changes.nameRequired` | Escriba su nombre para firmar la propuesta. | Enter your name to sign the proposal. |
+| `changes.named` | Antes no tenía nombre. Ahora se llama «{b}». | It had no name. It is now named "{b}". |
 | `changes.noCases` | Ningún caso de prueba cambia de resultado. | No test case changes result. |
 | `changes.nothing` | Su borrador no tiene cambios. | Your draft has no changes. |
 | `changes.now` | Ahora: | Now: |
 | `changes.reason` | Motivo del cambio | Reason for the change |
 | `changes.reasonRequired` | Escriba el motivo del cambio. | Write the reason for the change. |
+| `changes.renamed` | Antes se llamaba «{a}». Ahora se llama «{b}». | It was named "{a}". It is now named "{b}". |
 | `changes.rows` | Filas que cambian | Rows that change |
 | `changes.saved` | Propuesta guardada en {place}. Su borrador sigue aquí; si lo cambia, exporte de nuevo. | Proposal saved to {place}. Your draft is still here; if you change it, export again. |
 | `changes.savedNoPlace` | Propuesta guardada. Su borrador sigue aquí; si lo cambia, exporte de nuevo. | Proposal saved. Your draft is still here; if you change it, export again. |
@@ -187,6 +189,7 @@ The seven markings (`band.simulate`, `band.tests`, `pill.simulation`, `notice.pr
 | `changes.th.decision` | Su decisión | Your decision |
 | `changes.th.now` | Ahora | Now |
 | `changes.undecided` | Sin decidir | Not decided |
+| `changes.unnamed` | Antes se llamaba «{a}». Ahora no tiene nombre. | It was named "{a}". It now has no name. |
 | `changes.warnings` | Avisos | Warnings |
 | `cond.met` | Se cumple | Met |
 | `cond.notMet` | No se cumple | Not met |

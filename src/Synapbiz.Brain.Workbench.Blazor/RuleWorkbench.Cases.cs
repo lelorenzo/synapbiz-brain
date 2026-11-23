@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Nuvora.Decisions.Contracts.Evaluation;
 using Nuvora.Decisions.Contracts.Goldens;
 using Nuvora.Decisions.Contracts.Tables;
@@ -152,9 +154,86 @@ public sealed partial class RuleWorkbench
         return result;
     }
 
-    /// <summary>The edits that make a case expect something else: the library writes a case again under the same name and facts, at the end of the cases.</summary>
-    private static IReadOnlyList<RuleEdit> Replace(Ctx c, TestCaseView testCase, GoldenExpectation expectation) =>
-        [new RemoveCase(testCase.Name), new AddCase(ProposedOf(c.Brain, testCase.Name, testCase.Facts, expectation))];
+    /// <summary>
+    /// The edits that make a case expect something else. A decision is a <see cref="SetCaseExpectation"/>, which keeps the case
+    /// where it is. Expecting no decision, or a list of several results, is something that edit cannot say: the case is then
+    /// removed and added again, which writes it at the end of the cases.
+    /// </summary>
+    private static IReadOnlyList<RuleEdit> Replace(Ctx c, TestCaseView testCase, GoldenExpectation expectation)
+    {
+        if (expectation is ExpectedDecided decided && OutcomeFields(decided.OutcomeJson, c.View.HitPolicy == HitPolicy.Collect) is { } fields)
+        {
+            return [new SetCaseExpectation(testCase.Name, decided.RowKey, fields)];
+        }
+
+        return [new RemoveCase(testCase.Name), new AddCase(ProposedOf(c.Brain, testCase.Name, testCase.Facts, expectation))];
+    }
+
+    /// <summary>The fields of an expected outcome as values, or null when the text is not a single flat outcome.</summary>
+    internal static Dictionary<string, DecisionValue>? OutcomeFields(string outcomeJson, bool collect)
+    {
+        JsonNode? node;
+        try
+        {
+            node = JsonNode.Parse(outcomeJson);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        if (collect)
+        {
+            node = node is JsonArray { Count: 1 } list ? list[0] : null;
+        }
+
+        if (node is not JsonObject outcome)
+        {
+            return null;
+        }
+
+        var fields = new Dictionary<string, DecisionValue>(StringComparer.Ordinal);
+        foreach (var (name, value) in outcome)
+        {
+            if (FieldValue(value) is not { } read)
+            {
+                return null;
+            }
+
+            fields[name] = read;
+        }
+
+        return fields;
+    }
+
+    private static DecisionValue? FieldValue(JsonNode? node)
+    {
+        if (node is not JsonValue value)
+        {
+            return node is JsonObject money
+                && money["currency"] is JsonValue { } currency && currency.TryGetValue<string>(out var code)
+                && money["amount"] is JsonValue { } amount && amount.TryGetValue<decimal>(out var sum)
+                    ? new MoneyValue(sum, code)
+                    : null;
+        }
+
+        if (value.TryGetValue<string>(out var text))
+        {
+            return new CodeValue(text);
+        }
+
+        if (value.TryGetValue<bool>(out var flag))
+        {
+            return new BooleanValue(flag);
+        }
+
+        if (value.TryGetValue<long>(out var whole))
+        {
+            return new IntegerValue(whole);
+        }
+
+        return value.TryGetValue<decimal>(out var number) ? new DecimalValue(number) : null;
+    }
 
     /// <summary>Shows the refusal of a case step at the top of the tests.</summary>
     private void RefuseCase(Ctx c, RebuildResult result, string focus)

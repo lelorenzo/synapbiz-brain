@@ -169,12 +169,22 @@ public partial class RuleWorkbench
             : word;
     }
 
-    private string TestSummary(TestRunView run)
+    /// <summary>
+    /// The line over the test cases. In the draft view <paramref name="changing"/> cases passed on the rule and give another result
+    /// on the draft: they are counted apart and never called failures; only the cases that fail on their own keep "fallan".
+    /// </summary>
+    private string TestSummary(TestRunView run, int changing = 0)
     {
         var parts = new List<string> { PluralText("tests.pass", run.Cases.Count, ("p", OutcomeFormat.Number(run.PassedCount)), ("t", OutcomeFormat.Number(run.Cases.Count))) };
-        if (run.FailedCount > 0)
+        if (changing > 0)
         {
-            parts.Add(PluralText("fail.count", run.FailedCount));
+            parts.Add(PluralText("tabs.casesChange", changing));
+        }
+
+        var failed = run.FailedCount - changing;
+        if (failed > 0)
+        {
+            parts.Add(PluralText("fail.count", failed));
         }
 
         return string.Join(Separator, parts);

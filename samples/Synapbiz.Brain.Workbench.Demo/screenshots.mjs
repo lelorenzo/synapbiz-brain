@@ -26,7 +26,7 @@ const text = {
     propose: 'Proponer cambios', editRow: (n) => `Editar la fila ${n}`, apply: 'Aplicar a mi borrador', cancel: 'Cancelar',
     route: 'Ruta', routeValue: 'revisión manual', queue: 'Cola', queueValue: 'Cola telefónica', addEnd: 'Agregar una fila al final',
     age: 'Antigüedad en días', atLeast: 'es como mínimo', changesTab: 'Cambios', reason: 'Motivo del cambio',
-    reasonText: 'Las solicitudes de facturas deben revisarse a mano.', exportProposal: 'Exportar la propuesta', discard: 'Descartar mi borrador',
+    reasonText: 'Las solicitudes de facturas deben revisarse a mano.', rowName: 'Nombre de la fila', rowNameText: 'Facturas por la web', exportProposal: 'Exportar la propuesta', discard: 'Descartar mi borrador',
   },
   en: {
     simulate: 'Simulate', clear: 'Clear', fix: 'Fix', confirm: 'Confirm', question: 'Question',
@@ -40,7 +40,7 @@ const text = {
     propose: 'Propose changes', editRow: (n) => `Edit row ${n}`, apply: 'Apply to my draft', cancel: 'Cancel',
     route: 'Route', routeValue: 'manual review', queue: 'Queue', queueValue: 'Phone queue', addEnd: 'Add a row at the end',
     age: 'Age in days', atLeast: 'is at least', changesTab: 'Changes', reason: 'Reason for the change',
-    reasonText: 'Billing requests must be reviewed by hand.', exportProposal: 'Export the proposal', discard: 'Discard my draft',
+    reasonText: 'Billing requests must be reviewed by hand.', rowName: 'Row name', rowNameText: 'Invoices on the web', exportProposal: 'Export the proposal', discard: 'Discard my draft',
   },
 };
 
@@ -241,6 +241,14 @@ async function edits(theme, locale, states) {
       await settle(page);
     }
 
+    // A row whose only change is its name is listed too.
+    await openTab(page, t, 'read');
+    await page.getByRole('button', { name: t.editRow(3), exact: true }).click();
+    await settle(page);
+    await line(page, t.rowName).locator('input').fill(t.rowNameText);
+    await line(page, t.rowName).locator('input').blur();
+    await settle(page);
+    await press(page, t.apply);
     await openTab(page, t, 'changes');
     await setText(page.getByLabel(t.reason, { exact: true }), t.reasonText, page);
     await setText(page.getByLabel(t.reviewer, { exact: true }), t.person, page);

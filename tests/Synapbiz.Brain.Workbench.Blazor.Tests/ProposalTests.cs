@@ -452,4 +452,109 @@ public sealed class ProposalTests
 
         System.Text.RegularExpressions.Regex.IsMatch(markup, "row-[0-9a-f]{6}").Should().BeFalse();
     }
+
+    private static void Rename(Harness harness, int number, string name, WorkbenchLocale locale = WorkbenchLocale.En)
+    {
+        Ed.Edit(harness, number, locale);
+        Ed.OutcomeInput(harness, Ed.IsEs(locale) ? "Nombre de la fila · Opcional" : "Row name · Optional").Change(name);
+        Ed.Apply(harness, locale);
+    }
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En)]
+    [InlineData(WorkbenchLocale.Es)]
+    public void ARowWhoseOnlyChangeIsItsNameIsListedWithTheWordsOfWhatItWasAndIs(WorkbenchLocale locale)
+    {
+        var es = Ed.IsEs(locale);
+        using var harness = Ed.Open(locale);
+        Rename(harness, 2, "Billing on any channel", locale);
+        Rename(harness, 1, "Phone emergencies", locale);
+        Ed.Edit(harness, 3, locale);
+        Ed.OutcomeInput(harness, es ? "Nombre de la fila · Opcional" : "Row name · Optional").Change("  ");
+        Ed.Cancel(harness, locale);
+
+        harness.Open(WorkbenchTab.Changes);
+
+        var cards = harness.FindAll("[role=tabpanel] .wb-changed");
+        cards.Should().HaveCount(2);
+        cards.Select(card => card.QuerySelector(".wb-pill")!.TextContent).Should().OnlyContain(tag => tag == (es ? "Cambiada" : "Changed"));
+        var first = Harness.Normalise(cards[0].TextContent);
+        var second = Harness.Normalise(cards[1].TextContent);
+        first.Should().Contain(es ? "Fila 1" : "Row 1").And.Contain(es
+            ? "Antes se llamaba «Llamadas urgentes». Ahora se llama «Phone emergencies»."
+            : "It was named \"Urgent calls\". It is now named \"Phone emergencies\".");
+        second.Should().Contain(es ? "Fila 2" : "Row 2").And.Contain(es
+            ? "Antes no tenía nombre. Ahora se llama «Billing on any channel»."
+            : "It had no name. It is now named \"Billing on any channel\".");
+        first.Should().NotContain("→").And.NotContain(es ? "Antes:" : "Before:");
+        cards.Select(card => card.QuerySelector(".wb-btn")!.TextContent).Should().OnlyContain(text => text == (es ? "Deshacer" : "Undo"));
+        harness.Tab(WorkbenchTab.Changes).QuerySelector(".wb-pill")!.TextContent.Should().Be("2");
+        Harness.Normalise(Card(harness).QuerySelector(".wb-sub")!.TextContent).Should().StartWith(es ? "2 cambios de filas" : "2 row changes");
+        harness.Find(".wb-switch button").Click();
+        Harness.Normalise(harness.Find(".wb-draftbar-t").TextContent).Should().Contain(es ? "2 cambios" : "2 changes");
+    }
+
+    [Fact]
+    public void AClearedNameIsSaidInWordsAndUndoTakesTheRowOutOfTheList()
+    {
+        using var harness = Ed.Open();
+        Rename(harness, 1, "  ");
+
+        harness.Open(WorkbenchTab.Changes);
+
+        var card = harness.Find("[role=tabpanel] .wb-changed");
+        Harness.Normalise(card.TextContent).Should().Contain("It was named \"Urgent calls\". It now has no name.");
+        card.QuerySelector(".wb-btn")!.Click();
+
+        harness.FindAll("[role=tabpanel] .wb-changed").Should().BeEmpty();
+        Ed.Draft(harness).Steps.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ARowNamedAgainWithItsOwnNameIsNotAChangeAndLeerAgreesWithTheChanges()
+    {
+        using var harness = Ed.Open();
+        Rename(harness, 1, "Phone emergencies");
+        Ed.Tags(Ed.Row(harness, 1)).Should().Be("Changed");
+        Rename(harness, 1, "Urgent calls");
+
+        Ed.Tags(Ed.Row(harness, 1)).Should().BeEmpty();
+        harness.Open(WorkbenchTab.Changes);
+        harness.FindAll("[role=tabpanel] .wb-changed").Should().BeEmpty();
+        harness.Tab(WorkbenchTab.Changes).QuerySelector(".wb-pill").Should().BeNull();
+    }
+
+    [Fact]
+    public void LeerTagsExactlyTheRowsTheChangesTabLists()
+    {
+        using var harness = Ed.Open();
+        Rename(harness, 2, "Billing on any channel");
+        Ed.Edit(harness, 3);
+        Ed.Pick(harness, "Route", "manual review");
+        Ed.Apply(harness);
+
+        var tagged = Ed.Rows(harness).Select((row, index) => (row, number: index + 1)).Where(pair => Ed.Tags(pair.row).Contains("Changed", StringComparison.Ordinal)).Select(pair => pair.number).ToList();
+        harness.Open(WorkbenchTab.Changes);
+
+        tagged.Should().Equal(2, 3);
+        harness.FindAll("[role=tabpanel] .wb-changed").Select(card => Harness.Normalise(card.QuerySelector("strong")!.TextContent)).Should().Equal("Row 3", "Row 2");
+    }
+
+    [Fact]
+    public void ADraftWhoseOnlyChangeIsARowNameCanBeExported()
+    {
+        using var harness = Ed.Open();
+        Rename(harness, 2, "Billing on any channel");
+        harness.Open(WorkbenchTab.Changes);
+        Sign(harness);
+        var button = Card(harness).QuerySelector(".wb-btn-primary")!;
+        button.HasAttribute("disabled").Should().BeFalse();
+        Card(harness).TextContent.Should().NotContain("Your draft has no changes.");
+
+        button.Click();
+
+        harness.Exports.Should().ContainSingle();
+        harness.Find(".wb-saved").TextContent.Should().Contain("Proposal saved");
+        Ed.Draft(harness).IsExported.Should().BeTrue();
+    }
 }

@@ -527,4 +527,168 @@ public sealed class CaseDraftTests
         select.Change(option.GetAttribute("value")!);
         Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
     }
+
+    private static string Heading(Harness harness) => Harness.Normalise(harness.Find("[role=tabpanel] .wb-bar h2").TextContent);
+
+    private static void ChangeRoute(Harness harness, int row, WorkbenchLocale locale)
+    {
+        var es = Ed.IsEs(locale);
+        Ed.Edit(harness, row, locale);
+        Ed.Pick(harness, es ? "Ruta" : "Route", es ? "revisión manual" : "manual review");
+        Ed.Apply(harness, locale);
+    }
+
+    private static WorkbenchRule WithWrongCases(int count, WorkbenchLocale locale = WorkbenchLocale.En) => Ed.Variant(
+        node =>
+    {
+        var goldens = node["body"]!["goldens"]!.AsArray();
+        for (var index = 0; index < count; index++)
+        {
+            goldens[2 + index]!["expect"]!["outcome"]!["priority"] = 9;
+        }
+    },
+        locale);
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, "8 of 9 cases pass · 1 changes")]
+    [InlineData(WorkbenchLocale.Es, "8 de 9 casos pasan · 1 cambia")]
+    public void ACaseThatChangesIsCountedApartAndNeverCalledAFailure(WorkbenchLocale locale, string expected)
+    {
+        using var harness = ChangedRow(locale);
+
+        harness.Open(WorkbenchTab.Tests);
+
+        Heading(harness).Should().Be(expected);
+        Heading(harness).Should().NotContain(Ed.IsEs(locale) ? "fall" : "fail");
+    }
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, "7 of 9 cases pass · 2 change")]
+    [InlineData(WorkbenchLocale.Es, "7 de 9 casos pasan · 2 cambian")]
+    public void SeveralCasesThatChangeUseThePluralForm(WorkbenchLocale locale, string expected)
+    {
+        using var harness = ChangedRow(locale);
+        ChangeRoute(harness, 2, locale);
+
+        harness.Open(WorkbenchTab.Tests);
+
+        Heading(harness).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, 2, "5 of 9 cases pass · 2 change · 2 fail")]
+    [InlineData(WorkbenchLocale.Es, 2, "5 de 9 casos pasan · 2 cambian · 2 fallan")]
+    [InlineData(WorkbenchLocale.En, 1, "6 of 9 cases pass · 2 change · 1 fails")]
+    [InlineData(WorkbenchLocale.Es, 1, "6 de 9 casos pasan · 2 cambian · 1 falla")]
+    public void CasesThatAlreadyFailedOnTheRuleKeepTheirOwnCountAfterTheOnesThatChange(WorkbenchLocale locale, int wrong, string expected)
+    {
+        using var harness = Ed.Open(locale, WithWrongCases(wrong, locale));
+        ChangeRoute(harness, 1, locale);
+        ChangeRoute(harness, 2, locale);
+
+        harness.Open(WorkbenchTab.Tests);
+
+        Heading(harness).Should().Be(expected);
+    }
+
+    [Fact]
+    public void WithNoCaseChangingAFailureStaysAFailureAndTheRuleViewKeepsItsOwnHeading()
+    {
+        using var harness = Ed.Open(rule: WithWrongCases(1));
+        harness.Open(WorkbenchTab.Tests);
+        Heading(harness).Should().Be("8 of 9 cases pass · 1 fails");
+
+        harness.Open(WorkbenchTab.Read);
+        ChangeRoute(harness, 1, WorkbenchLocale.En);
+        harness.Open(WorkbenchTab.Tests);
+        Heading(harness).Should().Be("7 of 9 cases pass · 1 changes · 1 fails");
+
+        harness.Find(".wb-switch button").Click();
+        harness.Open(WorkbenchTab.Tests);
+        Heading(harness).Should().Be("8 of 9 cases pass · 1 fails");
+    }
+
+    [Fact]
+    public void AcceptingTheNewResultTakesTheCaseOutOfTheChangingCount()
+    {
+        using var harness = ChangedRow();
+        harness.Open(WorkbenchTab.Tests);
+        Heading(harness).Should().Be("8 of 9 cases pass · 1 changes");
+
+        harness.Find(".wb-review-line .wb-btn-primary").Click();
+
+        Heading(harness).Should().Be("9 of 9 cases pass");
+    }
+
+    private static List<string> CaseOrder(Harness harness) => [.. Ed.Draft(harness).Rule!.Goldens.Select(item => item.Name)];
+
+    [Fact]
+    public void AcceptingTheNewResultKeepsTheCaseWhereItWasInTheDraftAndInTheDocument()
+    {
+        using var harness = ChangedRow();
+        harness.Open(WorkbenchTab.Tests);
+        var order = CaseOrder(harness);
+        order[0].Should().Be(UrgentCase);
+
+        harness.Find(".wb-review-line .wb-btn-primary").Click();
+
+        CaseOrder(harness).Should().Equal(order);
+        Ed.Join(Lines(harness).Select(line => line.QuerySelector("td")!.TextContent.Split("Changes", 2)[0].Trim())).Should().StartWith(UrgentCase);
+        var text = System.Text.Json.Nodes.JsonNode.Parse(Ed.Draft(harness).Text!)!["body"]!["goldens"]!.AsArray().Select(golden => (string)golden!["name"]!).ToList();
+        text.Should().Equal(order);
+        var step = Ed.Draft(harness).Steps[^1];
+        step.Edits.Should().ContainSingle().Which.Should().BeOfType<SetCaseExpectation>();
+        ((SetCaseExpectation)step.Edits[0]).CaseName.Should().Be(UrgentCase);
+    }
+
+    [Fact]
+    public void ChangingWhatACaseExpectsToAnotherResultKeepsTheCaseWhereItWas()
+    {
+        using var harness = Ed.Open();
+        harness.Open(WorkbenchTab.Tests);
+        var name = "An urgent phone request is escalated";
+        var order = CaseOrder(harness);
+        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        var select = harness.Find(".wb-case-form select");
+        var current = select.GetAttribute("value") ?? select.QuerySelector("option[selected]")?.GetAttribute("value");
+        var other = select.QuerySelectorAll("option").Select(item => item.GetAttribute("value")).First(value => !string.IsNullOrEmpty(value) && value != "none" && value != current);
+        select.Change(other);
+
+        Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
+
+        CaseOrder(harness).Should().Equal(order);
+        var step = Ed.Draft(harness).Steps[^1];
+        step.Kind.Should().Be(StepKind.CaseEdit);
+        step.Edits.Should().ContainSingle().Which.Should().BeOfType<SetCaseExpectation>();
+        Ed.Draft(harness).Rule!.Goldens.Single(item => item.Name == name).Expected.Should().BeOfType<ExpectedDecided>();
+    }
+
+    [Fact]
+    public void AReadingOfAnExpectedOutcomeAsValues()
+    {
+        RuleWorkbench.OutcomeFields("{\"queue\":\"billing\",\"notify\":true,\"priority\":2,\"score\":1.5,\"fee\":{\"amount\":2.5,\"currency\":\"USD\"}}", false)
+            .Should().BeEquivalentTo(new Dictionary<string, DecisionValue>
+            {
+                ["queue"] = new CodeValue("billing"),
+                ["notify"] = new BooleanValue(true),
+                ["priority"] = new IntegerValue(2),
+                ["score"] = new DecimalValue(1.5m),
+                ["fee"] = new MoneyValue(2.5m, "USD"),
+            });
+        RuleWorkbench.OutcomeFields("[{\"note\":\"mid\"}]", true).Should().BeEquivalentTo(new Dictionary<string, DecisionValue> { ["note"] = new CodeValue("mid") });
+    }
+
+    [Theory]
+    [InlineData("[{\"note\":\"a\"},{\"note\":\"b\"}]", true)]
+    [InlineData("[]", true)]
+    [InlineData("{\"note\":\"a\"}", true)]
+    [InlineData("[{\"note\":\"a\"}]", false)]
+    [InlineData("not json", false)]
+    [InlineData("{\"note\":null}", false)]
+    [InlineData("{\"note\":[1]}", false)]
+    [InlineData("{\"fee\":{\"currency\":\"USD\"}}", false)]
+    public void AnOutcomeThatTheEditCannotSayIsLeftToTheCaseBeingWrittenAgain(string json, bool collect)
+    {
+        RuleWorkbench.OutcomeFields(json, collect).Should().BeNull();
+    }
 }

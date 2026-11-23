@@ -223,9 +223,9 @@ public sealed partial class RuleWorkbench : IDisposable
 
     private static void SetCaseName(CaseForm form, ChangeEventArgs args) => form.Name = args.Value?.ToString() ?? string.Empty;
 
-    private RenderFragment TestsHeading(TestRunView run) => run.Cases.Count == 0
+    private RenderFragment TestsHeading(TestRunView run, int changing = 0) => run.Cases.Count == 0
         ? Rich("tests.empty")
-        : builder => builder.AddContent(0, TestSummary(run));
+        : builder => builder.AddContent(0, TestSummary(run, changing));
 
     private static string RuleRef(int index) => "rule:" + index.ToString(CultureInfo.InvariantCulture);
 

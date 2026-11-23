@@ -540,7 +540,7 @@
 
         var row = item.Row;
         var removed = row is null;
-        var tag = item.Change?.Tag ?? (IsRenamed(draft, key) ? RowChangeTag.Changed : null);
+        var tag = item.Change?.Tag;
         var moved = tag == RowChangeTag.Moved || IsMoved(draft, item);
         var number = removed ? string.Empty : SimulationPresenter.Number(row!);
         var rows = c.View.Rows;
@@ -1235,6 +1235,7 @@
         var lines = CaseLines(c);
         var changedRows = ChangedRowKeys(c);
         var failing = lines.Exists(line => !line.Removed && !line.Case.Passed && !line.Changes);
+        var changing = lines.Count(line => line.Changes);
 
         return @<text>
             @Band("band.tests", true)
@@ -1247,7 +1248,7 @@
                 @CaseFormPanel(c, form)
             }
             <div class="wb-bar">
-                <h2 class="wb-h2 wb-h2-flush">@TestsHeading(run)</h2>
+                <h2 class="wb-h2 wb-h2-flush">@TestsHeading(run, changing)</h2>
                 <span class="wb-sp"></span>
                 @if (!readOnly)
                 {
@@ -1478,11 +1479,13 @@
         var draft = c.Draft!;
         var readOnly = IsStale(c.Rule, draft);
         var change = ChangesOf(c.Rule, draft);
+        var rowItems = ChangedRows(c.Rule, draft);
+        var renamed = RenamedRows(c.Rule, draft);
         var baseView = Context(c.Rule, baseOnly: true).View;
         var lines = CaseLines(c);
         var changing = readOnly ? 0 : lines.Count(line => line.Changes);
         var warnings = DraftWarnings(c);
-        var changed = change.Rows.Count + (change.DefaultRowChanged ? 1 : 0);
+        var changed = rowItems.Count + (change.DefaultRowChanged ? 1 : 0);
         var counts = PluralText("discard.rows", changed) + Separator + PluralText("discard.cases", draft.CaseStepCount);
         var reasonId = idp + "-reason";
         var nameId = idp + "-proposer";
@@ -1494,7 +1497,7 @@
                 <div>
                     <h2 class="wb-h2">@Rich("changes.rows")</h2>
                     <div class="wb-sub wb-sub-flush">@change.Summary</div>
-                    @foreach (var item in change.Rows)
+                    @foreach (var item in rowItems)
                     {
                         var key = item.Key;
                         var number = (item.NumberAfter ?? item.NumberBefore ?? 0).ToString(CultureInfo.InvariantCulture);
@@ -1518,6 +1521,10 @@
                             @if (item.SentenceBefore is { } before)
                             {
                                 <div class="wb-sub wb-sub-flush"><span class="wb-before">@Rich("row.before")</span> <span class="@(item.Tag == RowChangeTag.Removed ? "wb-struck" : null)">@before</span></div>
+                            }
+                            @if (item.Tag != RowChangeTag.Removed && renamed.TryGetValue(key, out var rename))
+                            {
+                                <div class="wb-sent">@RenameText(rename)</div>
                             }
                             @if (item.SentenceAfter is { } after)
                             {

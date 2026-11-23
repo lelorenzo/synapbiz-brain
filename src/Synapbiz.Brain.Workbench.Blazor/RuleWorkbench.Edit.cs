@@ -42,7 +42,7 @@ public sealed partial class RuleWorkbench
     private List<DraftItem> DraftItems(Ctx c)
     {
         var draft = c.Draft!;
-        var changes = ChangesOf(c.Rule, draft).Rows.ToDictionary(item => item.Key, StringComparer.Ordinal);
+        var changes = ChangedRows(c.Rule, draft).ToDictionary(item => item.Key, StringComparer.Ordinal);
         var present = c.View.Rows.Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
         var baseKeys = draft.BaseRule.Table.Rows.Select(row => row.Key).ToList();
         var removed = changes.Values.Where(item => item.Tag == RowChangeTag.Removed).OrderBy(item => item.NumberBefore).ToList();
@@ -76,10 +76,6 @@ public sealed partial class RuleWorkbench
         RowChangeTag.Changed => "warn",
         _ => "neutral",
     };
-
-    /// <summary>True when the draft names or clears the row's name and the row changes in nothing else, so the library's comparison of rows does not show it.</summary>
-    private static bool IsRenamed(DraftState draft, string key) =>
-        draft.Steps.Any(step => step.Key == key && step.Kind == StepKind.Row && step.Edits.OfType<SetRowLabel>().Any());
 
     /// <summary>True when the draft has a step for the row that "Deshacer" would take away.</summary>
     private static bool HasRowSteps(DraftState draft, string key) =>
