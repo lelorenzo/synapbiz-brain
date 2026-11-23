@@ -157,6 +157,33 @@ public static class RuleProposalJson
 - `Parse` returns typed errors, never throws on bad input: `workbench.proposal.notJson`, `workbench.proposal.specNotSupported`, `workbench.proposal.fieldMissing` (args: path), `workbench.proposal.fieldNotValid` (args: path). `DraftJson` of a parsed proposal is the draft object re-serialised with the drafter's formatting.
 - Follow `RuleReviewJson` for style, error handling and tests.
 
+### 2.6 Addendum (design review)
+
+Two additions, in the same namespace, built after the rest of this brief.
+
+**Deciding rows in the change view.** `CaseOutcomeChange` carries the rows that decided on each side:
+
+```csharp
+public sealed record CaseOutcomeChange(string Name, string Before, string After,
+    string? RowKeyBefore, int? RowNumberBefore, string? RowKeyAfter, int? RowNumberAfter);
+```
+
+Row key and 1-based position of the row that decided on each side, taken from the `SimulationResult` of `RuleDiffer.CompareBehaviour`; null when no row decided (default row, no match, or a refused sample). Under hit policy `collect`, the first deciding row.
+
+**A locator from a loader error path to the terms of a form**, so a panel can mark the field:
+
+```csharp
+public sealed record DraftLocation(string? RowKey, int? RowNumber, bool IsDefaultRow, string? Fact, string? OutcomeField, string? CaseName);
+
+public static class DraftErrorLocator
+{
+    // path is BrainSpecError.Path (a JSON pointer into the document, e.g. /body/rows/2/conditions/1/value).
+    public static DraftLocation Locate(string draftJson, string path);
+}
+```
+
+Pure; never throws on a bad document or a path that does not resolve (every member null or false). `/body/rows/{i}/...` gives the row's `legacyKey` and number `i + 1`; under it `conditions/{j}/...` gives that condition's `fact` and `outcome/{field}` gives the field. `/body/defaultRow/...` sets `IsDefaultRow` and the field. `/body/goldens/{k}/...` gives the case's `name`. Anything else: nothing set. Tested with real errors: drafts that the loader refuses (an enum value not allowed, an operator not allowed for the fact, an outcome type mismatch, a missing required outcome field, a case expecting a removed row), loaded with `BrainRuleLoader.Load`, and `Locate` on each returned error path.
+
 ## 3. Rules
 
 - All code, comments and docs in English. Sentence templates in English and Spanish.
