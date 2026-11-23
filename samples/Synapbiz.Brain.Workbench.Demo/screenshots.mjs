@@ -1,8 +1,8 @@
 // Captures the panels of the demo host in light and dark (Spanish) and once in English, plus two light pictures of the
 // review line in the test table and of an item that still needs its note, and the guided editing states (the row form, a refusal,
 // the draft in Read, the test cases that change, the Changes tab and the discard dialog).
-// The flow panels (the /flows page) are captured too: the list, Read, Diagram, Try it in the middle of a run and Review, in
-// Spanish and English, wide and narrow, as wf-<state>-<theme>[-en][-narrow].png.
+// The flow panels (the /flows page) are captured too: the list, Read, Diagram, Simulate in the middle of a run, a replay and Review, in
+// Spanish and English, wide and narrow, as wf-<state>-<theme>[-en][-narrow].png, and the Diagram tab of each flow in Spanish light as wf-diagram-<flow id>-light.png.
 // Run the demo first:  dotnet run -c Release --urls http://127.0.0.1:5219
 // Then:                node screenshots.mjs [baseUrl] [outputFolder] [all|rules|flows]
 import { createRequire } from 'node:module';
@@ -51,13 +51,13 @@ const text = {
 
 const flowText = {
   es: {
-    tabs: { read: 'Leer', diagram: 'Diagrama', try: 'Probar', tests: 'Pruebas', review: 'Revisión' },
-    like: 'Empezar como la prueba', start: 'Empezar', answer: 'Responder como la prueba', fix: 'Corregir', confirm: 'Confirmar',
+    tabs: { read: 'Leer', diagram: 'Diagrama', try: 'Simular', tests: 'Pruebas', review: 'Revisión' },
+    like: 'Empezar como la prueba', start: 'Empezar', useAnswer: 'Usar esta respuesta', replay: 'Reproducir', next: 'Siguiente paso', fix: 'Corregir', confirm: 'Confirmar',
     note: 'Nota', reviewer: 'Su nombre', person: 'Revisor de ejemplo', noteText: '¿Es suficiente con tres recordatorios?',
   },
   en: {
-    tabs: { read: 'Read', diagram: 'Diagram', try: 'Try it', tests: 'Tests', review: 'Review' },
-    like: 'Start like the test', start: 'Start', answer: 'Answer like the test', fix: 'Needs a fix', confirm: 'Confirm',
+    tabs: { read: 'Read', diagram: 'Diagram', try: 'Simulate', tests: 'Tests', review: 'Review' },
+    like: 'Start like the test', start: 'Start', useAnswer: 'Use this answer', replay: 'Replay', next: 'Next step', fix: 'Needs a fix', confirm: 'Confirm',
     note: 'Note', reviewer: 'Your name', person: 'Example reviewer', noteText: 'Are three reminders enough?',
   },
 };
@@ -325,9 +325,20 @@ async function flows(theme, locale, narrow) {
   await settle(page);
   await page.getByRole('button', { name: t.start, exact: true }).click();
   await settle(page);
-  await page.getByRole('button', { name: `${t.answer} a reply after the first reminder closes the stage`, exact: true }).first().click();
+  const card = page.locator('section.wb-wait').filter({ has: page.getByRole('button', { name: t.useAnswer, exact: true }) }).first();
+  await card.locator('select').selectOption('a reply after the first reminder closes the stage');
+  await settle(page);
+  await card.getByRole('button', { name: t.useAnswer, exact: true }).click();
   await settle(page);
   await snap('try');
+
+  // A test of the Tests tab replayed in the Simulate tab, stopped after its first command.
+  await tab('tests');
+  await page.locator('li.wb-scenario').first().getByRole('button', { name: new RegExp('^' + t.replay) }).click();
+  await settle(page);
+  await page.getByRole('button', { name: t.next, exact: true }).click();
+  await settle(page);
+  await snap('replay');
 
   await tab('review');
   await setText(page.getByLabel(t.reviewer, { exact: true }), t.person, page);
@@ -350,6 +361,27 @@ if (doRules) {
 
 }
 
+/** The Diagram tab of every reference flow, in Spanish and the light theme, wide. */
+async function diagrams() {
+  const ids = ['previsit.outreach', 'visit.note_wait', 'postvisit.coding_review', 'collection.followup', 'case.lifecycle', 'practice.daily_refresh'];
+  const t = flowText.es;
+  const context = await browser.newContext({ viewport: { width: 1408, height: 1025 }, deviceScaleFactor: 2, locale: 'es-ES' });
+  const page = await context.newPage();
+  await page.goto(`${base}/flows?theme=light&locale=es`);
+  await page.waitForSelector('.wb-root .wb-tabs');
+  await settle(page);
+  await page.getByRole('tab', { name: t.tabs.diagram }).click();
+  await settle(page);
+  for (let index = 0; index < ids.length; index++) {
+    await page.locator('ul.wb-rules .wb-rule').nth(index).click();
+    await settle(page);
+    await page.screenshot({ path: `${out}/wf-diagram-${ids[index]}-light.png`, fullPage: true });
+    console.log(`wrote wf-diagram-${ids[index]}-light.png`);
+  }
+
+  await context.close();
+}
+
 if (doFlows) {
   for (const theme of ['light', 'dark']) {
     await flows(theme, 'es', false);
@@ -357,7 +389,7 @@ if (doFlows) {
   }
   await flows('light', 'en', false);
   await flows('light', 'en', true);
-
+  await diagrams();
 }
 
 await browser.close();
