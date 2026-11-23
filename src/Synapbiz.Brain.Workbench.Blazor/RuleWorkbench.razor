@@ -1502,7 +1502,7 @@
                         var number = (item.NumberAfter ?? item.NumberBefore ?? 0).ToString(CultureInfo.InvariantCulture);
                         <div class="wb-card wb-card-gap wb-changed" data-tag="@item.Tag.ToString().ToLowerInvariant()">
                             <div class="wb-card-head">
-                                <strong>@Plain("row.label", ("n", number))</strong>
+                                <strong>@ChangeTitle(item, number)</strong>
                                 <span class="@PillClass(TagTone(item.Tag))">@Rich(TagKey(item.Tag))</span>
                                 <span class="wb-sp"></span>
                                 @if (!readOnly)

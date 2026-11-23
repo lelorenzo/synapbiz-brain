@@ -537,7 +537,7 @@ public sealed class ProposalTests
         harness.Open(WorkbenchTab.Changes);
 
         tagged.Should().Equal(2, 3);
-        harness.FindAll("[role=tabpanel] .wb-changed").Select(card => Harness.Normalise(card.QuerySelector("strong")!.TextContent)).Should().Equal("Row 2", "Row 3");
+        harness.FindAll("[role=tabpanel] .wb-changed").Select(card => Harness.Normalise(card.QuerySelector("strong")!.TextContent)).Should().Equal("Row 2 · Billing on any channel", "Row 3");
     }
 
     [Theory]
@@ -562,6 +562,62 @@ public sealed class ProposalTests
         Harness.Normalise(harness.Find(".wb-draftbar-t").TextContent).Should().Contain(bar);
         harness.Find(".wb-head button").Click();
         harness.Find("[role=dialog] p").TextContent.Should().Contain(rows);
+    }
+
+    private static IReadOnlyList<string> CardTitles(Harness harness) =>
+        [.. harness.FindAll("[role=tabpanel] .wb-changed").Select(card => Harness.Normalise(card.QuerySelector("strong")!.TextContent))];
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, "Row 1 · Urgent calls", "Row 1 · Phone emergencies", "Row 2")]
+    [InlineData(WorkbenchLocale.Es, "Fila 1 · Llamadas urgentes", "Fila 1 · Phone emergencies", "Fila 2")]
+    public void ACardIsTitledWithTheRowNameWhenTheRowHasOneAndWithTheNumberAloneWhenItHasNone(WorkbenchLocale locale, string named, string renamed, string unnamed)
+    {
+        var es = Ed.IsEs(locale);
+        using var harness = Ed.Open(locale);
+        Ed.Edit(harness, 1, locale);
+        Ed.Pick(harness, es ? "Ruta" : "Route", es ? "revisión manual" : "manual review");
+        Ed.Apply(harness, locale);
+        Ed.Edit(harness, 2, locale);
+        Ed.Pick(harness, es ? "Ruta" : "Route", es ? "revisión manual" : "manual review");
+        Ed.Apply(harness, locale);
+
+        harness.Open(WorkbenchTab.Changes);
+        CardTitles(harness).Should().Equal(named, unnamed);
+
+        harness.Open(WorkbenchTab.Read);
+        Rename(harness, 1, "Phone emergencies", locale);
+        harness.Open(WorkbenchTab.Changes);
+        CardTitles(harness).Should().Equal(renamed, unnamed);
+    }
+
+    [Fact]
+    public void ARemovedRowIsTitledWithTheNameItHadInTheRuleAndAnAddedRowWithItsNewName()
+    {
+        using var harness = Ed.Open(rule: Ed.WithoutCaseFor("urgent-phone"));
+        Ed.OpenMenu(harness, 1);
+        Ed.MenuItem(harness, "Remove the row").Click();
+        harness.Find("[role=tabpanel] .wb-row-add button").Click();
+        Ed.OutcomeInput(harness, "queue").Change("late");
+        Ed.OutcomeInput(harness, "Row name · Optional").Change("Late arrivals");
+        Ed.Apply(harness);
+
+        harness.Open(WorkbenchTab.Changes);
+
+        CardTitles(harness).Should().Equal("Row 1 · Urgent calls", "Row 8 · Late arrivals");
+        harness.Find(".wb-changed[data-tag=removed]").TextContent.Should().Contain("Removed");
+    }
+
+    [Fact]
+    public void AMovedRowCarriesItsNameInTheTitleAndTheTitleNeverHoldsAKey()
+    {
+        using var harness = Ed.Open();
+        Ed.OpenMenu(harness, 1);
+        Ed.MenuItem(harness, "Move down").Click();
+
+        harness.Open(WorkbenchTab.Changes);
+
+        CardTitles(harness).Should().Contain("Row 2 · Urgent calls");
+        harness.Find("[role=tabpanel]").TextContent.Should().NotContain("urgent-phone");
     }
 
     [Fact]

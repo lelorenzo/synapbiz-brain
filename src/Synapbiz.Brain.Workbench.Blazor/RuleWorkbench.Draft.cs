@@ -82,6 +82,14 @@ public sealed partial class RuleWorkbench
     private static bool IsNameOnly(RowChangeView row) =>
         row.Tag == RowChangeTag.Changed && string.Equals(row.SentenceBefore, row.SentenceAfter, StringComparison.Ordinal);
 
+    /// <summary>"Fila 3 · Cobros" for a row with a name on the side it is numbered by (the draft's, the base's for a removed row), else "Fila 3".</summary>
+    private string ChangeTitle(RowChangeView row, string number)
+    {
+        var title = Plain("row.label", ("n", number));
+        var name = row.Tag == RowChangeTag.Removed ? row.NameBefore : row.NameAfter;
+        return name is null ? title : title + Separator + name;
+    }
+
     /// <summary>"Antes se llamaba «a». Ahora se llama «b».", with the words for a side that has no name.</summary>
     private string RenameText(RowChangeView row)
     {
