@@ -14,7 +14,7 @@ public sealed partial class StylesheetTests
         "--wb-accent", "--wb-accent-ink", "--wb-accent-hover", "--wb-control-edge", "--wb-focus",
         "--wb-ok-bg", "--wb-ok-ink", "--wb-ok-edge", "--wb-warn-bg", "--wb-warn-ink", "--wb-warn-edge",
         "--wb-bad-bg", "--wb-bad-ink", "--wb-bad-edge", "--wb-neutral-bg", "--wb-neutral-ink", "--wb-neutral-edge",
-        "--wb-notice-bg", "--wb-notice-ink", "--wb-notice-edge", "--wb-radius", "--wb-radius-sm",
+        "--wb-notice-bg", "--wb-notice-ink", "--wb-notice-edge", "--wb-radius", "--wb-radius-sm", "--wb-scrim",
     ];
 
     private static readonly string[] ColourNames =

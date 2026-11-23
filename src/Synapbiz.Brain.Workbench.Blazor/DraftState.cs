@@ -75,6 +75,10 @@ internal sealed class DraftState
     private RuleLabels? viewLabels;
     private WorkbenchLocale viewLocale;
 
+    private RuleLabels? labels;
+    private RuleLabels? labelsHost;
+    private WorkbenchLocale labelsLocale;
+
     private RuleChangeView? change;
     private RuleLabels? changeLabels;
     private RuleLabels? changeBaseLabels;
@@ -160,6 +164,7 @@ internal sealed class DraftState
         Revision++;
         view = null;
         change = null;
+        labels = null;
     }
 
     /// <summary>Keeps the reasons the first draft could not be read; the draft then has no rule.</summary>
@@ -173,6 +178,30 @@ internal sealed class DraftState
         Revision++;
         view = null;
         change = null;
+    }
+
+    /// <summary>
+    /// The labels of the draft: the host's labels, with the row titles of the draft's own <c>meta</c> (a row the draft named, or
+    /// whose name it cleared). The same instance is returned until the draft, the host's labels or the locale change.
+    /// </summary>
+    internal RuleLabels Labels(WorkbenchLocale locale, RuleLabels host)
+    {
+        if (labels is null || !ReferenceEquals(labelsHost, host) || labelsLocale != locale)
+        {
+            var before = RuleLabels.FromMeta(BaseRule.Meta, locale).Rows;
+            var after = RuleLabels.FromMeta(Rule!.Meta, locale).Rows;
+            var rows = host.Rows.Where(pair => !before.ContainsKey(pair.Key) || after.ContainsKey(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            foreach (var (id, title) in after)
+            {
+                rows[id] = title;
+            }
+
+            labels = host with { Rows = rows };
+            labelsHost = host;
+            labelsLocale = locale;
+        }
+
+        return labels;
     }
 
     /// <summary>The draft read as sentences; computed again when the rule, the labels or the locale changed.</summary>

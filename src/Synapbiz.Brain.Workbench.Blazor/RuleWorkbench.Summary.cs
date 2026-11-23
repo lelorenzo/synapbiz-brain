@@ -103,7 +103,17 @@ public partial class RuleWorkbench
             builder.AddContent(4, PluralText("list.casesPass", total, ("p", OutcomeFormat.Number(run.PassedCount)), ("t", OutcomeFormat.Number(total))));
         }
 
-        builder.AddContent(5, Separator + ReviewLine(CountReview(rule, work, view)));
+        if (rule.CanDraft && work.Draft is not null)
+        {
+            builder.AddContent(5, Separator);
+            builder.OpenElement(6, "strong");
+            builder.AddContent(7, Plain("draft.inList"));
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.AddContent(8, Separator + ReviewLine(CountReview(rule, work, view)));
+        }
     };
 
     /// <summary>The count line under the list title: rules, approved and drafts.</summary>

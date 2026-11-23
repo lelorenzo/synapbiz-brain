@@ -177,6 +177,7 @@ public sealed partial class RuleWorkbench : IDisposable
     private void SelectRule(string key)
     {
         caseForm = null;
+        discardOpen = false;
         Session.SelectedRuleKey = key;
     }
 
@@ -375,9 +376,10 @@ public sealed partial class RuleWorkbench : IDisposable
         changed?.Invoke();
     }
 
-    private void RunSimulation(WorkbenchRule rule, RuleWork work, IReadOnlyList<ShownFact> shown)
+    private void RunSimulation(Ctx c, RuleWork work)
     {
-        var brain = rule.Rule!;
+        var brain = c.Brain;
+        var shown = c.Shown;
         var parsed = work.Simulator.Parse(brain, shown);
         work.Simulator.Errors.Clear();
         work.RefusalCode = null;

@@ -10,7 +10,7 @@
 @implements IDisposable
 
 <div class="wb-root" lang="@LangCode">
-    <div class="wb-main">
+    <div class="wb-main" inert="@DialogOpen">
         <div class="wb-panel wb-list-panel">
             <div class="wb-ph">
                 <h2 class="wb-title">@Rich("list.title")</h2>
@@ -94,11 +94,13 @@
             }
         </div>
     </div>
+    @if (DialogOpen && SelectedRule is { } asked)
+    {
+        @DiscardDialog(asked)
+    }
 </div>
 
 @code {
-    private sealed record Ctx(WorkbenchRule Rule, BrainRule Brain, RuleView View, RuleWork Work, List<ShownFact> Shown);
-
     private static readonly (ReviewState State, string Key, string PressedKey)[] ReviewParts =
     [
         (ReviewState.Confirmed, "review.confirm", "review.confirmed"),
@@ -114,9 +116,11 @@
         (WorkbenchTab.Review, "tabs.review"),
     ];
 
+    private RenderFragment BrokenNote() => @<div class="wb-sub" role="status">@Rich("draft.unreadable.fix")</div>;
+
     private RenderFragment PrivacyNotice() => @<div class="wb-notice" role="note">@Rich("notice.privacy")</div>;
 
-    private RenderFragment Band(string key) => @<div class="wb-band"><span class="@PillClass("sim")">@Rich("pill.simulation")</span><span>@Rich(key)</span></div>;
+    private RenderFragment Band(string key, bool onDraft = false) => @<div class="wb-band"><span class="@PillClass("sim")">@Rich("pill.simulation")</span><span>@if (onDraft){<strong>@Rich(key + "Draft")</strong>@(" ")}@Rich(key)</span></div>;
 
     private RenderFragment DetailPanel(WorkbenchRule rule)
     {
@@ -130,11 +134,9 @@
             </text>;
         }
 
-        var brain = rule.Rule!;
-        var work = Session.Work(rule.Key);
-        var view = work.View(rule, Locale);
-        var ctx = new Ctx(rule, brain, view, work, FactForm.Shown(brain, view));
-        var run = work.Tests(brain);
+        var ctx = Context(rule);
+        var work = ctx.Work;
+        var run = ctx.Run;
         var exportedItems = work.Reviews.Values.Count(entry => entry.IsExported);
         var current = Session.SelectedTab;
 
@@ -144,11 +146,19 @@
                     <h1 class="wb-title">@TitleOf(rule)</h1>
                     <span class="@PillClass(rule.State == RuleApprovalState.Approved ? "ok" : "warn")">@Rich(rule.State == RuleApprovalState.Approved ? "state.approved" : "state.draft")</span>
                     <span class="wb-sp"></span>
-                    <span class="wb-meta">@Rich("panel.version", ("n", brain.Version.ToString(CultureInfo.InvariantCulture)))</span>
+                    <span class="wb-meta">@Rich("panel.version", ("n", rule.Rule!.Version.ToString(CultureInfo.InvariantCulture)))</span>
+                    @if (rule.CanDraft)
+                    {
+                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => ToggleDraft(rule)" @ref="refs[DraftToggleRef]">@Rich(ctx.Draft is null ? "draft.start" : "draft.discard")</button>
+                    }
                 </div>
                 <div class="wb-meta">@StateLineOf(rule)@if (!string.IsNullOrWhiteSpace(rule.SourceLine)){@(" " + rule.SourceLine)}</div>
                 <div class="wb-meta wb-small">@Rich("state.elsewhere")</div>
             </div>
+            @if (ctx.Draft is { } draft)
+            {
+                @DraftBar(rule, draft)
+            }
             <div class="wb-tabs" role="tablist" aria-label="@Plain("tabs.label")">
                 @foreach (var entry in TabKeys)
                 {
@@ -181,11 +191,59 @@
                         @TestsPanel(ctx)
                         break;
                     default:
-                        @ReviewPanel(ctx)
+                        @ReviewPanel(Context(rule, baseOnly: true))
                         break;
                 }
             </div>
         </text>;
+    }
+
+    // ----- draft bar and dialog ---------------------------------------------------------------------------------------
+
+    private RenderFragment DraftBar(WorkbenchRule rule, DraftState draft) => @<div class="wb-draftbar" role="note">
+        <span class="wb-pill wb-pill-draft">@Rich("pill.draft")</span>
+        <span class="wb-draftbar-t">@DraftSentence(rule, draft)</span>
+        <div class="wb-switch" role="group" aria-label="@Plain("draft.switch")">
+            <button type="button" class="wb-switch-part" aria-pressed="@(draft.ViewDraft ? "false" : "true")" @onclick="() => SetView(rule, false)">@Rich("draft.view.rule")</button>
+            <button type="button" class="wb-switch-part" aria-pressed="@(draft.ViewDraft ? "true" : "false")" @onclick="() => SetView(rule, true)">@Rich("draft.view.draft")</button>
+        </div>
+    </div>;
+
+    private RenderFragment DiscardDialog(WorkbenchRule rule)
+    {
+        var draft = Session.Work(rule.Key).Draft!;
+        var rows = PluralText("discard.rows", ChangeCount(rule, draft));
+        var cases = PluralText("discard.cases", draft.CaseStepCount);
+        return @<div class="wb-scrim">
+            <div class="wb-dialog" role="dialog" aria-modal="true" aria-labelledby="@(idp + "-dlg-t")" aria-describedby="@(idp + "-dlg-b")" @onkeydown="OnDialogKeyDown">
+                <h2 class="wb-h2" id="@(idp + "-dlg-t")">@Rich("discard.title")</h2>
+                <p class="wb-dialog-body" id="@(idp + "-dlg-b")">@Rich("discard.body", ("rows", rows), ("cases", cases))</p>
+                <div class="wb-actions">
+                    <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => Discard(rule)">@Rich("discard.confirm")</button>
+                    <button type="button" class="wb-btn wb-btn-primary" @onclick="CloseDialog" @ref="refs[KeepRef]">@Rich("discard.keep")</button>
+                </div>
+            </div>
+        </div>;
+    }
+
+    /// <summary>The box that stands in for the rows of a draft the loader cannot read, with the reasons and the two ways out.</summary>
+    private RenderFragment UnreadableBox(Ctx c)
+    {
+        var draft = c.Draft!;
+        var lines = DraftWording.Lines(text, draft.Problems, c.View, null, EmptyWords);
+        return @<div class="wb-refusal" role="alert">
+            <h2 class="wb-h2 wb-h2-flush">@Rich("draft.unreadable.title")</h2>
+            <ul class="wb-refusal-list">
+                @foreach (var line in lines)
+                {
+                    <li>@line</li>
+                }
+            </ul>
+            <div class="wb-actions wb-actions-tight">
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@(!draft.HasChanges)" @onclick="() => UndoLast(c.Rule, draft)">@Rich("draft.unreadable.undo")</button>
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => ToggleDraft(c.Rule)">@Rich("draft.discard")</button>
+            </div>
+        </div>;
     }
 
     // ----- shared pieces ----------------------------------------------------------------------------------------------
@@ -347,7 +405,63 @@
 
     // ----- Read -------------------------------------------------------------------------------------------------------
 
-    private RenderFragment ReadPanel(Ctx c) => @<text>
+    private RenderFragment ReadPanel(Ctx c)
+    {
+        if (c.Broken)
+        {
+            return UnreadableBox(c);
+        }
+
+        return c.Editing ? DraftReadPanel(c) : RuleReadPanel(c);
+    }
+
+    private RenderFragment FactsBlock(Ctx c) => @<text>
+        <h2 class="wb-h2 wb-h2-gap">@Rich("read.facts")</h2>
+        <dl class="wb-kv">
+            @foreach (var fact in c.View.Facts)
+            {
+                <dt>@fact.Label</dt>
+                <dd>@TypeWord(fact) · @Rich(fact.Nullable ? "read.optional" : "read.required")</dd>
+            }
+        </dl>
+    </text>;
+
+    private RenderFragment DraftReadPanel(Ctx c) => @<text>
+        <h2 class="wb-h2">@Rich(PolicyKey(c.View.HitPolicy))</h2>
+        @foreach (var row in c.View.Rows)
+        {
+            <div class="wb-row">
+                <span class="wb-num">@SimulationPresenter.Number(row)</span>
+                <div>
+                    @if (row.Title is not null)
+                    {
+                        <div class="wb-row-title">@row.Title</div>
+                    }
+                    <div class="wb-sent">@row.Sentence</div>
+                </div>
+                <span></span>
+            </div>
+        }
+        @if (c.View.DefaultRow is { } fallback)
+        {
+            <div class="wb-row wb-row-default">
+                <span class="wb-num">@SimulationPresenter.Number(fallback)</span>
+                <div><div class="wb-sent">@fallback.Sentence</div></div>
+                <span></span>
+            </div>
+        }
+        else
+        {
+            <div class="wb-row wb-row-default">
+                <span class="wb-num">–</span>
+                <div><div class="wb-sent">@Rich("read.noDefaultRow")</div></div>
+                <span></span>
+            </div>
+        }
+        @FactsBlock(c)
+    </text>;
+
+    private RenderFragment RuleReadPanel(Ctx c) => @<text>
         <h2 class="wb-h2">@Rich(PolicyKey(c.View.HitPolicy))</h2>
         @foreach (var row in c.View.Rows)
         {
@@ -391,34 +505,32 @@
                 <span></span>
             </div>
         }
-        <h2 class="wb-h2 wb-h2-gap">@Rich("read.facts")</h2>
-        <dl class="wb-kv">
-            @foreach (var fact in c.View.Facts)
-            {
-                <dt>@fact.Label</dt>
-                <dd>@TypeWord(fact) · @Rich(fact.Nullable ? "read.optional" : "read.required")</dd>
-            }
-        </dl>
+        @FactsBlock(c)
     </text>;
 
     // ----- Simulate ---------------------------------------------------------------------------------------------------
 
     private RenderFragment SimulatePanel(Ctx c)
     {
+        if (c.Broken)
+        {
+            return BrokenNote();
+        }
+
         var work = c.Work;
         var form = work.Simulator;
         form.EnsureDefaults(c.Shown);
-        var run = work.Tests(c.Brain);
+        var run = c.Run;
         var selectId = idp + "-load";
 
         return @<text>
-            @Band("band.simulate")
+            @Band("band.simulate", c.Editing)
             <div class="wb-grid2">
                 <div class="wb-card">
                     <h2 class="wb-h2">@Rich("sim.title")</h2>
                     @FactFields(c.Brain, form, c.Shown, "sim", () => FieldChanged(work))
                     <div class="wb-actions">
-                        <button type="button" class="wb-btn wb-btn-primary" @onclick="() => RunSimulation(c.Rule, work, c.Shown)">@Rich("sim.run")</button>
+                        <button type="button" class="wb-btn wb-btn-primary" @onclick="() => RunSimulation(c, work)">@Rich("sim.run")</button>
                         <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => ClearSimulation(work, c.Shown)">@Rich("sim.clear")</button>
                     </div>
                     @if (run.Cases.Count > 0)
@@ -480,7 +592,7 @@
             </div>;
         }
 
-        var labels = c.Rule.Labels;
+        var labels = c.Labels;
         var decided = result.Outcome as Decided;
         var groups = decided is null ? [] : OutcomeFormat.Groups(c.View, labels, Locale, decided.OutcomeJson);
         var why = SimulationPresenter.Why(text, c.Brain, c.View, labels, result);
@@ -579,14 +691,19 @@
 
     private RenderFragment TestsPanel(Ctx c)
     {
+        if (c.Broken)
+        {
+            return BrokenNote();
+        }
+
         var work = c.Work;
-        var run = work.Tests(c.Brain);
-        var labels = c.Rule.Labels;
+        var run = c.Run;
+        var labels = c.Labels;
         var form = caseForm is not null && string.Equals(caseForm.RuleKey, c.Rule.Key, StringComparison.Ordinal) ? caseForm : null;
         var failing = run.FailedCount > 0;
 
         return @<text>
-            @Band("band.tests")
+            @Band("band.tests", c.Editing)
             @if (form is not null)
             {
                 @CaseFormPanel(c, form)
@@ -711,7 +828,7 @@
 
     private RenderFragment CaseFormPanel(Ctx c, CaseForm form)
     {
-        var options = CaseForm.Options(c.Brain, c.View, c.Rule.Labels, Locale);
+        var options = CaseForm.Options(c.Brain, c.View, c.Labels, Locale);
         var collect = c.View.HitPolicy == HitPolicy.Collect;
         var nameId = idp + "-case-name";
         var expectedId = idp + "-case-expected";
@@ -760,7 +877,7 @@
                 }
             </div>
             <div class="wb-actions">
-                <button type="button" class="wb-btn wb-btn-primary" @onclick="() => SaveCase(c.Rule, c.Work, c.Shown, c.View, c.Rule.Labels)">@Rich("case.save")</button>
+                <button type="button" class="wb-btn wb-btn-primary" @onclick="() => SaveCase(c.Rule, c.Work, c.Shown, c.View, c.Labels)">@Rich("case.save")</button>
                 <button type="button" class="wb-btn wb-btn-secondary" @onclick="CancelCaseForm">@Rich("case.cancel")</button>
             </div>
         </div>;
@@ -772,8 +889,8 @@
     {
         var work = c.Work;
         var counts = CountReview(c.Rule, work, c.View);
-        var run = work.Tests(c.Brain);
-        var labels = c.Rule.Labels;
+        var run = c.Run;
+        var labels = c.Labels;
         var rowItems = c.View.Rows.Where(row => work.Review(RowTarget(row)).IsExported).ToList();
         var unreviewed = c.View.Rows.Where(row => !work.Review(RowTarget(row)).IsExported).ToList();
         var goldenItems = c.Brain.Goldens.Where(golden => work.Review(CaseTarget(golden.Name)).IsExported).ToList();

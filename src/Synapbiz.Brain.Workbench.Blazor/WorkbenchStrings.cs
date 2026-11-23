@@ -4,14 +4,15 @@ namespace Synapbiz.Brain.Workbench.Blazor;
 
 /// <summary>
 /// The fixed strings of the panels, in Spanish and English. Every key can be replaced by the host through
-/// <c>RuleWorkbench.TextOverrides</c>, except that the four markings (<c>band.simulate</c>, <c>band.tests</c>,
-/// <c>pill.simulation</c> and <c>notice.privacy</c>) may be reworded but never emptied: an override that is null, empty or
-/// white space is ignored and the default is used. In a string, a <c>**bold**</c> pair renders as <c>strong</c>; nothing else
+/// <c>RuleWorkbench.TextOverrides</c>, except that the seven markings (<c>band.simulate</c>, <c>band.tests</c>,
+/// <c>pill.simulation</c>, <c>notice.privacy</c>, <c>draft.bar</c>, <c>pill.draft</c> and <c>export.proposal.explain</c>) may be
+/// reworded but never emptied: an override that is null, empty or white space is ignored and the default is used. In a string, a <c>**bold**</c> pair renders as <c>strong</c>; nothing else
 /// is interpreted and every text is HTML-encoded. A <c>{name}</c> placeholder is filled by the panel.
 /// </summary>
 public static class WorkbenchStrings
 {
-    private static readonly string[] MandatoryKeys = ["band.simulate", "band.tests", "pill.simulation", "notice.privacy"];
+    private static readonly string[] MandatoryKeys =
+        ["band.simulate", "band.tests", "pill.simulation", "notice.privacy", "draft.bar", "pill.draft", "export.proposal.explain"];
 
     private static readonly (string Key, string Es, string En)[] Table =
     [
@@ -224,6 +225,61 @@ public static class WorkbenchStrings
         ("case.nameRequired", "Escriba un nombre para el caso.", "Enter a name for the case."),
         ("case.nameTaken", "Ya hay un caso con ese nombre.", "A case with that name already exists."),
         ("case.expectedRequired", "Elija el resultado que se espera.", "Choose the expected result."),
+
+        ("draft.start", "Proponer cambios", "Propose changes"),
+        ("draft.discard", "Descartar mi borrador", "Discard my draft"),
+        ("pill.draft", "Borrador de cambios", "Draft changes"),
+        ("draft.bar", "**Está viendo su borrador.** Nada de esto está en uso: la regla actual sigue igual hasta que se apruebe e instale una versión nueva.", "**You are viewing your draft.** None of this is in use: the current rule stays as it is until a new version is approved and installed."),
+        ("draft.barRule.one", "**Está viendo la regla actual.** Su borrador tiene {n} cambio.", "**You are viewing the current rule.** Your draft has {n} change."),
+        ("draft.barRule.other", "**Está viendo la regla actual.** Su borrador tiene {n} cambios.", "**You are viewing the current rule.** Your draft has {n} changes."),
+        ("draft.stale", "**La regla cambió desde que empezó este borrador.** Exporte lo que tiene o descártelo.", "**The rule changed since you started this draft.** Export what you have or discard it."),
+        ("draft.changedAfterExport", "Cambió su borrador después de exportarlo.", "You changed your draft after exporting it."),
+        ("draft.switch", "Qué mostrar", "What to show"),
+        ("draft.view.rule", "Regla actual", "Current rule"),
+        ("draft.view.draft", "Su borrador", "Your draft"),
+        ("draft.inList", "con cambios propuestos", "with proposed changes"),
+        ("band.simulateDraft", "Simulando su borrador, no la regla actual.", "Simulating your draft, not the current rule."),
+        ("band.testsDraft", "Probando su borrador, no la regla actual.", "Testing your draft, not the current rule."),
+        ("draft.unreadable.title", "Este borrador no se puede leer", "This draft cannot be read"),
+        ("draft.unreadable.undo", "Deshacer el último cambio", "Undo the last change"),
+        ("draft.unreadable.fix", "Corrija el borrador para continuar.", "Fix the draft to continue."),
+        ("discard.title", "¿Descartar su borrador de esta regla?", "Discard your draft of this rule?"),
+        ("discard.rows.one", "{n} cambio de fila", "{n} row change"),
+        ("discard.rows.other", "{n} cambios de filas", "{n} row changes"),
+        ("discard.cases.one", "{n} decisión sobre casos de prueba", "{n} test case decision"),
+        ("discard.cases.other", "{n} decisiones sobre casos de prueba", "{n} test case decisions"),
+        ("discard.body", "Se pierden {rows} y {cases}. La regla actual no cambia.", "{rows} and {cases} are lost. The current rule does not change."),
+        ("discard.confirm", "Descartar el borrador", "Discard the draft"),
+        ("discard.keep", "Seguir editando", "Keep editing"),
+
+        ("refuse.edit.title", "Este cambio no se puede aplicar", "This change cannot be applied"),
+        ("refuse.edit.stays", "Su borrador sigue como estaba. Corrija el dato marcado o cancele.", "Your draft stays as it was. Correct the marked value or cancel."),
+        ("refuse.edit.operator", "«{operator}» no se puede usar con {fact}. Elija otra condición.", "\"{operator}\" cannot be used with {fact}. Choose another condition."),
+        ("refuse.edit.rangeType", "Los dos valores de {fact} deben ser del mismo tipo.", "The two values of {fact} must be of the same kind."),
+        ("refuse.edit.cellType", "El valor de {fact} no tiene la forma que la regla espera.", "The value of {fact} is not in the form the rule expects."),
+        ("refuse.edit.currency", "Los montos de {fact} deben estar en la misma moneda.", "The amounts of {fact} must be in the same currency."),
+        ("refuse.edit.enum", "{value} no es una opción de {fact}.", "{value} is not an option of {fact}."),
+        ("refuse.edit.required", "Falta el resultado «{field}» en la fila {n}.", "The outcome \"{field}\" is missing in row {n}."),
+        ("refuse.edit.outcomeType", "El resultado «{field}» no tiene la forma que la regla espera.", "The outcome \"{field}\" is not in the form the rule expects."),
+        ("refuse.edit.caseRow", "El caso «{case}» esperaba una fila que ya no existe. Cambie lo que se espera o quite el caso.", "The case \"{case}\" expected a row that no longer exists. Change what it expects or remove the case."),
+        ("refuse.edit.caseData", "Los datos del caso «{case}» no sirven para esta regla: revise {fact}.", "The data of the case \"{case}\" does not fit this rule: check {fact}."),
+        ("refuse.edit.caseOutcome", "Al caso «{case}» le falta el resultado esperado.", "The case \"{case}\" has no expected result."),
+        ("refuse.edit.overlap", "Las filas {n} y {m} pueden cumplirse a la vez y esta regla solo permite una.", "Rows {n} and {m} can match at once and this rule allows only one."),
+        ("refuse.edit.internal", "No se pudo aplicar el cambio por un problema interno, no por lo que usted escribió. Cancele y avise a quien le da soporte.", "The change could not be applied because of an internal problem, not because of what you entered. Cancel and tell your support contact."),
+
+        ("op.any", "cualquier valor", "any value"),
+        ("op.eq", "es", "is"),
+        ("op.neq", "no es", "is not"),
+        ("op.in", "es uno de", "is one of"),
+        ("op.nin", "no es ninguno de", "is none of"),
+        ("op.between", "está entre", "is between"),
+        ("op.min", "es como mínimo", "is at least"),
+        ("op.gt", "es mayor que", "is more than"),
+        ("op.max", "es como máximo", "is at most"),
+        ("op.lt", "es menor que", "is less than"),
+        ("op.starts", "empieza por", "starts with"),
+        ("op.notnull", "tiene valor", "has a value"),
+        ("op.isnull", "no tiene valor", "has no value"),
     ];
 
     private static readonly Dictionary<string, (string Es, string En)> ByKey = Table.ToDictionary(

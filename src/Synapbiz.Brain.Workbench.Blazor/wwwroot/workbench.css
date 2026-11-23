@@ -759,6 +759,116 @@
   margin-top: 6px;
 }
 
+/* ----- draft bar, view switch, dialog and refusal -------------------------------------------------------------------------- */
+
+.wb-pill-draft {
+  background: transparent;
+  border: 1px dashed var(--wb-notice-edge);
+  color: var(--wb-notice-ink);
+}
+
+.wb-draftbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--wb-notice-edge);
+  background: var(--wb-notice-bg);
+  color: var(--wb-notice-ink);
+  font-size: var(--wb-text-small);
+}
+
+.wb-draftbar-t {
+  flex: 1 1 320px;
+}
+
+.wb-switch {
+  display: inline-flex;
+  border: 1px solid var(--wb-control-edge);
+  border-radius: var(--wb-radius-sm);
+  overflow: hidden;
+}
+
+.wb-switch-part {
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 12px;
+  border: 0;
+  border-left: 1px solid var(--wb-line);
+  border-radius: 0;
+  background: var(--wb-surface);
+  color: var(--wb-ink-2);
+  font-size: var(--wb-text-small);
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+
+.wb-switch-part:first-child {
+  border-left: 0;
+}
+
+.wb-switch-part:hover {
+  background: var(--wb-hover);
+  color: var(--wb-ink);
+}
+
+.wb-switch-part[aria-pressed="true"],
+.wb-switch-part[aria-pressed="true"]:active {
+  background: var(--wb-accent);
+  color: var(--wb-accent-ink);
+  font-weight: 600;
+}
+
+.wb-switch-part[aria-pressed="true"]:hover {
+  background: var(--wb-accent-hover);
+  color: var(--wb-accent-ink);
+}
+
+.wb-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--wb-scrim);
+}
+
+.wb-dialog {
+  width: 100%;
+  max-width: 460px;
+  padding: 20px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface);
+  color: var(--wb-ink);
+}
+
+.wb-dialog-body {
+  margin: 0;
+}
+
+.wb-refusal {
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--wb-bad-edge);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-bad-bg);
+  color: var(--wb-bad-ink);
+  font-size: var(--wb-text-small);
+}
+
+.wb-refusal-list {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.wb-refusal-stays {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
 /* ----- narrow screens and motion ------------------------------------------------------------------------------------------ */
 
 @media (max-width: 1100px) {
@@ -786,7 +896,8 @@
   .wb-rule,
   .wb-tab,
   .wb-btn,
-  .wb-seg-part {
+  .wb-seg-part,
+  .wb-switch-part {
     transition: none;
   }
 }
