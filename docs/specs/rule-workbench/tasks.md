@@ -12,7 +12,7 @@
 - [x] Review document `brain.rule-review@1`
 - [x] Architecture tests: reference freeze, purity scan
 - [x] Docs: reference page, overview, changelog, README
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate
 
 ## W-B — Blazor panels
 
