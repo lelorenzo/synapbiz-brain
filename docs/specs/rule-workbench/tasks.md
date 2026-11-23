@@ -40,7 +40,7 @@
 - [x] bUnit tests for each item
 - [x] Screenshots of the demo, with the review line and the missing note
 - [x] Docs: reference pages, changelog
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate
 
 ## W-C — guided editing
 
