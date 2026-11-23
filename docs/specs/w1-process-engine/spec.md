@@ -45,11 +45,11 @@ Declaration: `{ "type": <type>, "allowedValues": [..]?, "input": <bool>?, "initi
 | `Code` | string |
 | `Enum` | string; `allowedValues` is required and non-empty, the value must be a member |
 | `Boolean` | `true` / `false` |
-| `Integer` | JSON integer within the safe-integer range |
-| `Decimal` | string matching `^-?(0|[1-9][0-9]*)(\.[0-9]{1,28})?$` |
+| `Integer` | JSON integer from −9007199254740991 to 9007199254740991, both inclusive |
+| `Decimal` | string matching `^-?(0|[1-9][0-9]*)(\.[0-9]{1,28})?$` whose value fits a .NET `decimal` |
 | `Money` | `{ "amount": <Decimal string>, "currency": <three upper-case letters> }` |
 | `Date` | string `YYYY-MM-DD` (a real calendar date) |
-| `Reference` | string GUID in the `D` format, lower or upper case |
+| `Reference` | string GUID in the `D` format, lower or upper case; stored lower-case |
 | `Instant` | string, ISO 8601 date-time with `Z` or an offset; stored normalized to UTC as `yyyy-MM-ddTHH:mm:ssZ` (seconds precision; fractions are truncated) |
 | `Json` | any JSON value; opaque |
 
@@ -94,14 +94,14 @@ All are errors; the loader reports every error of the first group that has any (
 | `process.rule.fact_unknown` | a `facts` key is not a fact of the rule's kind |
 | `process.rule.outcome_unknown` | an `output` key or `route` is not an outcome field of the rule's kind, or `route` names a field whose type is not `Enum`, `Boolean` or `Code` |
 | `process.rule.hit_policy` | members of form (a) used with a `collect` rule, or form (b) with a `unique`/`first` rule |
-| `process.route.incomplete` | at `/on`: for a `decide` route of type `Enum` or `Code`, `on` lacks a value that some row or the default row of the rule produces for the `route` field; for a `Boolean` route, `on` lacks `true` or `false` (keys are the strings `"true"` and `"false"`); for a `humanTask`, `on` lacks a member of `outcomes` |
+| `process.route.incomplete` | (a `Boolean` route with a key other than `true` or `false` is `process.route.unknown_value`) at `/on`: for a `decide` route of type `Enum` or `Code`, `on` lacks a value that some row or the default row of the rule produces for the `route` field; for a `Boolean` route, `on` lacks `true` or `false` (keys are the strings `"true"` and `"false"`); for a `humanTask`, `on` lacks a member of `outcomes` |
 | `process.route.unknown_value` | at `/on/<key>`: for a `decide` route of type `Enum` or `Code`, a key that no row and no default row of the rule produces for the `route` field; for a `humanTask`, a key that is not a member of `outcomes` |
 | `process.uses.missing` | a rule or process named by a step is not in `uses` |
 | `process.uses.unused` | `uses` lists a reference no step names |
 | `process.subprocess.unavailable` | `process` is not in the load context's known process ids (only checked when the context supplies them) |
 | `process.ai.next_not_decide` | an `ai` step's `next` is not a `decide` step |
-| `process.ai.schema_invalid` | `inputSchema` or `outputSchema` cannot be built as a JSON Schema |
-| `process.cycle.unbounded` | the step graph has a cycle that contains no `loop` step. Edges: every step reference of a step; for a `loop`, `body`, `onExhausted` and `next` |
+| `process.ai.schema_invalid` | `inputSchema` or `outputSchema` cannot be built as a JSON Schema 2020-12 schema, uses a keyword the schema library does not know, or contains a `$ref` that does not resolve inside the same schema object (schemas are self-contained; no external reference). The loader proves it by building the schema and evaluating it once against `{}` |
+| `process.cycle.unbounded` | the step graph **without the `body` edges of `loop` steps** has a cycle. Edges: every step reference of a step; for a `loop`, only `onExhausted` and `next` count (its `body` edge is the one bounded edge). Reported once per strongly connected component of that graph, at its first step in document order |
 | `process.duration.invalid` | a duration that matches the schema pattern but violates the range rules |
 | `process.scenario.invalid` | a scenario refers to an unknown step, variable or event, or is otherwise malformed beyond the schema |
 
@@ -202,7 +202,7 @@ Requests (`abstract record ProcessRequest` and its sealed cases), all carrying `
 
 `ProcessHistoryEntry`: `Sequence` (long), `At` (`DateTimeOffset`), `Step` (string?), `Entry` (long), `Attempt` (int), `Kind` (`ProcessHistoryKind`), `Code` (string?), `DataJson` (string?). Kinds: `Started`, `StepEntered`, `EffectRequested`, `EffectCompleted`, `EffectFailed`, `RetryScheduled`, `Decided`, `TaskRequested`, `TaskCompleted`, `WaitStarted`, `EventConsumed`, `EventBuffered`, `TimerStarted`, `TimerFired`, `TimedOut`, `LoopIteration`, `LoopExhausted`, `ChildStarted`, `ChildCompleted`, `ChildFailed`, `Suspended`, `Resumed`, `Cancelled`, `Completed`.
 
-For `Decided`, `DataJson` is the provenance object `{"rule":<id>,"version":<n>,"decided":<bool>,"matchedRowKeys":[..],"outcome":<outcome JSON or null>,"factsHash":<hex>,"facts":<facts JSON>}`. For `EffectCompleted` of an `ai` step it is `{"model":..,"promptId":..,"promptVersion":..,"inputHash":<ContentHash of InputJson UTF-8>,"output":<output JSON>}`. Other kinds: the smallest object that explains the entry, or null. History never contains a value the state or the trigger did not contain.
+For `Decided`, `DataJson` is the provenance object `{"rule":<id>,"version":<n>,"decided":<bool>,"matchedRowKeys":[..],"outcome":<outcome JSON or null>,"factsHash":<hex>,"facts":<facts JSON>}`. For `EffectCompleted` of an `ai` step it is `{"model":..,"promptId":..,"promptVersion":..,"inputHash":<ContentHash of InputJson UTF-8>,"output":<output JSON>}`. Other kinds: the smallest object that explains the entry, or null. History never contains a value the state or the trigger did not contain. Every `DateTimeOffset` in a request or a history entry is in UTC (offset zero), whatever the offset of `clock.Now`.
 
 ### 3.1 Identifiers (deterministic)
 
@@ -257,7 +257,7 @@ Build `InputJson` as in 6.1 and validate it against `inputSchema`; invalid → h
 
 Build the facts: for each `facts` entry whose variable has a value, convert it to the `DecisionValue` of the fact's type (`Instant` and `Json` variables can never be mapped; the static rule `process.variable.type` already forbids it). Call `BrainRule.Evaluate(facts, clock.Today)`. Write `Decided` with the provenance.
 
-- A `DecisionEngineException` (or any `BrainException`) → write `Decided` with `Code` = the exception's `ErrorCode` and `DataJson` = `{"rule":<id>,"version":<n>,"error":<code>}`, then `onError` when present, else suspend with that code.
+- A `DecisionEngineException` (or any `BrainException`) → write `Decided` with `Code` = the exception's `ErrorCode` and `DataJson` = `{"error":<code>,"rule":<id>,"version":<n>}`, then `onError` when present, else suspend with that code.
 - `NoDecision` → `onNoDecision`.
 - Form (a): assign `output` from the outcome object (missing or null member clears the variable); then `next`, or look up the `route` field's value in `on` (Boolean as `"true"`/`"false"`); a value with no entry → `onError` when present, else suspend with `process.route.unmatched`.
 - Form (b): store the outcome JSON array in `collectInto`, go to `next`.
@@ -298,7 +298,7 @@ A `loop` step is a bounded gate. Each time control arrives: `n = LoopCounters[st
 - If `n > maxIterations` → write `LoopExhausted`, go to `onExhausted`.
 - Otherwise, with `forEach` set `item` to element `n−1`; write `LoopIteration` (`{"iteration": n}`), go to `body`.
 
-Order of the two checks: the `forEach` completion check first, then `maxIterations`. Counters never reset within an instance. Because every cycle contains a `loop` step, an instance always terminates in a bounded number of steps.
+Order of the two checks: the `forEach` completion check first, then `maxIterations`. Counters never reset within an instance. A `null` element of the `forEach` array clears `item` (no value). Termination: the `body` edge of a loop is taken at most `maxIterations` times and the graph without `body` edges is acyclic (section 2.4), so an instance enters at most a bounded number of steps whatever its triggers; `limits.maxSteps` is a second, independent guard.
 
 ### 6.8 `subprocess`
 
@@ -313,7 +313,9 @@ Emit `ChildStartRequest` (`InputJson` built as in 6.1), write `ChildStarted`, `P
 
 A payload that is not parseable JSON or not an object is treated as a type mismatch of its step: read and action output → `EffectFailed(Permanent, "process.effect.output_malformed")`; ai output → `process.ai.output_invalid`; task data → `Rejected`, `process.variable.type_mismatch`; wait payload → suspend with `process.variable.type_mismatch` (a buffered event with a bad payload is `Rejected` with the same code when it arrives); child output → `ChildFailed` then `onError` or suspend. Cancelling during a retry delay emits `CancelTimerRequest` for the retry timer.
 
-Suspension: `Status = Suspended`, `Problem = (code, step, detail)`, `Pending = null`, write `Suspended`. Outstanding timeout timers are cancelled with a `CancelTimerRequest`. The instance stays on its step; `ResumeRequested` runs it again.
+JSON with duplicate member names is not valid input anywhere: a document is `spec.json.invalid`, `ProcessState.FromJson` throws `process.state.malformed`, and a trigger payload is a malformed payload as above. No input may make `Load`, `Start`, `Advance` or `FromJson` throw anything other than the documented exceptions (`ArgumentNullException`, `ArgumentException` for a bad instance id, `process.state.malformed`): a JSON Schema evaluation failure at run time is treated as an invalid input (`process.ai.input_invalid`) or output (`process.ai.output_invalid`).
+
+Suspension: `Status = Suspended`, `Problem = (code, step, detail)`, `Pending = null`, write `Suspended`. An outstanding wait is cancelled with a `CancelWaitRequest`, an outstanding task with a `CancelTaskRequest`, and outstanding timers (timeout, retry delay) with a `CancelTimerRequest`. The instance stays on its step; `ResumeRequested` runs it again.
 
 ## 7. Value conversions
 
@@ -344,6 +346,8 @@ Outcome JSON to a variable: the outcome object member is a plain JSON value in t
 The runner keeps a virtual clock (starting at `start.at`, with `Today = start.today + floor((Now − start.at) / 24h)` days) and the set of outstanding timers from `TimerRequest` / `CancelTimerRequest`. `advance` moves the clock forward by the duration, firing each due timer in `DueAt` order (ties by `TimerId` ordinal) at its own `DueAt`, including timers created by those firings that fall inside the window. `complete` and `fail` address the pending effect of the named step; `task` the pending task; `child`/`childFailed` the pending child. An event that does not match the pending work, or a `Rejected` result, fails the scenario. `expect.trace` is the exact ordered list of steps of all `StepEntered` entries; `expect.variables` is a subset compared by JSON equality; `expect.status` is required, `result`, `trace` and `variables` are optional.
 
 `ScenarioRunResult`: `IsOk`, `Results` (`Name`, `Passed`, `Failure?` text). A process with no scenarios returns `IsOk = true` and no results.
+
+Schema error locations: a schema violation is reported only at the offending value. Acceptance: for every valid conformance document and the reference process, adding one unknown member `"zzz": 1` to any single object that the schema closes yields exactly one error, `spec.structure.schema` at that member's path.
 
 ## 9. Tests (all required)
 

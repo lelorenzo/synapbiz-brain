@@ -9,7 +9,7 @@ Normative spec of the first PR: [spec.md](spec.md). Plan: [plan.md](plan.md).
 - nuvora's Workflow Engine (`src/Shared/Nuvora.Workflows*`, about 3,900 lines) is an **approval/stage overlay on aggregate state machines** (`OverlayPlanner`, `AdvancePlan`, `IOverlayParticipant`). It has no timers, schedules, loops, durable waits, retries or AI steps.
 - The name `brain.flow@1` is **already taken** in nuvora: `src/Platform/Spec/Synapbiz.Spec.Brain/Schemas/brain.flow.v1.json` defines it as that overlay (module, aggregateType, slot, states of kind Stage/Approval), with conformance fixtures. The strategy brief S2 proposed the same name for the new long-running format; that would collide at the nuvora swap.
 
-Conclusion: what SzH needs is a new, additive capability. Keeping nuvora's signatures compatible is achieved by not touching the copied assemblies at all.
+Conclusion: what the first consumer needs is a new, additive capability. Keeping nuvora's signatures compatible is achieved by not touching the copied assemblies at all.
 
 ## 2. Scope
 
@@ -140,9 +140,9 @@ One root instance per case with `business_key` = case key, and one subprocess pe
 1. Pre-visit: read, decide what is missing, contact, wait for reply, remind, escalate to front desk.
 2. Visit: `poll` until the note exists and is signed (EHR port), expiry raises a task.
 3. Post-visit coding: decide opportunities, optional AI step under contract, **physician review as a human task** (straight to review, never straight to bill).
-4. Collection: `wait` / `poll` for claim submitted, claim status, denial, payment. These are observed through connector ports; SzH does not submit or replace eCW billing. A practice with no such connector gets `not_available`, routed to a human confirmation task. The case ends on paid, written off or manual close.
+4. Collection: `wait` / `poll` for claim submitted, claim status, denial, payment. These are observed through connector ports; the consumer does not submit claims or replace the EHR's billing. A practice with no such connector gets `not_available`, routed to a human confirmation task. The case ends on paid, written off or manual close.
 
-Brain stays generic: it knows instances, stages, variables and ports, nothing about patients or eCW.
+Brain stays generic: it knows instances, stages, variables and ports, nothing about patients or any EHR.
 
 ## 12. Owner decisions (all approved as written, 2026-11-22)
 
