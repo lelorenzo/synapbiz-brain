@@ -1,0 +1,730 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "intake-routing",
+  "version": 2,
+  "uses": [],
+  "requires": [
+    "sample@1"
+  ],
+  "meta": {
+    "title": "Intake routing",
+    "display": {
+      "en": {
+        "title": "Intake routing",
+        "facts": {
+          "channel": "Contact channel",
+          "ageDays": "Age in days"
+        },
+        "outcomes": {
+          "route": "Route"
+        },
+        "values": {
+          "channel": {
+            "Web": "the website",
+            "Phone": "the phone line",
+            "Email": "email"
+          },
+          "route": {
+            "Standard": "standard handling",
+            "Fast": "fast handling",
+            "Escalate": "escalation",
+            "Manual": "manual review"
+          }
+        },
+        "rows": {
+          "urgent-phone": "Urgent calls"
+        }
+      },
+      "es": {
+        "title": "Enrutamiento de solicitudes",
+        "facts": {
+          "channel": "Canal de contacto",
+          "ageDays": "Antigüedad en días"
+        },
+        "outcomes": {
+          "route": "Ruta"
+        },
+        "values": {
+          "channel": {
+            "Web": "el sitio web",
+            "Phone": "la línea telefónica",
+            "Email": "el correo"
+          },
+          "route": {
+            "Standard": "trámite estándar",
+            "Fast": "trámite rápido",
+            "Escalate": "escalado",
+            "Manual": "revisión manual"
+          }
+        },
+        "rows": {
+          "urgent-phone": "Llamadas urgentes"
+        }
+      }
+    }
+  },
+  "body": {
+    "kind": "sample.intake",
+    "hitPolicy": "first",
+    "rows": [
+      {
+        "id": "urgent-phone",
+        "version": 1,
+        "legacyKey": "urgent-phone",
+        "conditions": [
+          {
+            "fact": "urgent",
+            "op": "equals",
+            "value": {
+              "type": "Boolean",
+              "value": true
+            }
+          },
+          {
+            "fact": "channel",
+            "op": "equals",
+            "value": {
+              "type": "Enum",
+              "value": "Phone"
+            }
+          },
+          {
+            "fact": "topic",
+            "op": "any"
+          }
+        ],
+        "outcome": {
+          "route": "Escalate",
+          "queue": "urgent",
+          "notify": true,
+          "priority": 1
+        }
+      },
+      {
+        "id": "billing-topic",
+        "version": 1,
+        "legacyKey": "billing-topic",
+        "conditions": [
+          {
+            "fact": "topic",
+            "op": "startsWith",
+            "value": {
+              "type": "Code",
+              "value": "bill"
+            }
+          },
+          {
+            "fact": "channel",
+            "op": "notEquals",
+            "value": {
+              "type": "Enum",
+              "value": "Email"
+            }
+          }
+        ],
+        "outcome": {
+          "route": "Fast",
+          "queue": "billing-desk",
+          "notify": false,
+          "priority": 2
+        }
+      },
+      {
+        "id": "fresh-request",
+        "version": 1,
+        "legacyKey": "fresh-request",
+        "conditions": [
+          {
+            "fact": "ageDays",
+            "op": "range",
+            "value": {
+              "type": "Integer",
+              "value": "0"
+            },
+            "upper": {
+              "type": "Integer",
+              "value": "14"
+            },
+            "lowerInclusive": true,
+            "upperInclusive": false
+          },
+          {
+            "fact": "rating",
+            "op": "isNull"
+          }
+        ],
+        "outcome": {
+          "route": "Fast",
+          "queue": "new"
+        }
+      },
+      {
+        "id": "high-rating",
+        "version": 1,
+        "legacyKey": "high-rating",
+        "conditions": [
+          {
+            "fact": "rating",
+            "op": "range",
+            "value": {
+              "type": "Decimal",
+              "value": "3"
+            },
+            "upper": {
+              "type": "Decimal",
+              "value": "5"
+            },
+            "lowerInclusive": false,
+            "upperInclusive": true
+          },
+          {
+            "fact": "receivedOn",
+            "op": "isNotNull"
+          }
+        ],
+        "outcome": {
+          "route": "Standard",
+          "queue": "followup",
+          "notify": true
+        }
+      },
+      {
+        "id": "old-request",
+        "version": 1,
+        "legacyKey": "old-request",
+        "conditions": [
+          {
+            "fact": "ageDays",
+            "op": "range",
+            "value": {
+              "type": "Integer",
+              "value": "61"
+            },
+            "upper": null,
+            "lowerInclusive": true,
+            "upperInclusive": true
+          }
+        ],
+        "outcome": {
+          "route": "Manual",
+          "queue": "backlog",
+          "priority": 5
+        }
+      },
+      {
+        "id": "mid-amount",
+        "version": 1,
+        "legacyKey": "mid-amount",
+        "conditions": [
+          {
+            "fact": "amount",
+            "op": "range",
+            "value": {
+              "type": "Money",
+              "value": {
+                "amount": "100",
+                "currency": "USD"
+              }
+            },
+            "upper": {
+              "type": "Money",
+              "value": {
+                "amount": "500",
+                "currency": "USD"
+              }
+            },
+            "lowerInclusive": false,
+            "upperInclusive": false
+          },
+          {
+            "fact": "ageDays",
+            "op": "range",
+            "value": {
+              "type": "Integer",
+              "value": "7"
+            },
+            "upper": {
+              "type": "Integer",
+              "value": "60"
+            },
+            "lowerInclusive": true,
+            "upperInclusive": true
+          }
+        ],
+        "outcome": {
+          "route": "Manual",
+          "queue": "review",
+          "priority": 4
+        }
+      },
+      {
+        "id": "no-account",
+        "version": 1,
+        "legacyKey": "no-account",
+        "conditions": [
+          {
+            "fact": "account",
+            "op": "isNull"
+          },
+          {
+            "fact": "channel",
+            "op": "notIn",
+            "values": [
+              {
+                "type": "Enum",
+                "value": "Phone"
+              },
+              {
+                "type": "Enum",
+                "value": "Email"
+              }
+            ]
+          },
+          {
+            "fact": "ageDays",
+            "op": "range",
+            "value": null,
+            "upper": {
+              "type": "Integer",
+              "value": "365"
+            },
+            "lowerInclusive": true,
+            "upperInclusive": false
+          },
+          {
+            "fact": "receivedOn",
+            "op": "range",
+            "value": null,
+            "upper": {
+              "type": "Date",
+              "value": "2026-06-30"
+            },
+            "lowerInclusive": true,
+            "upperInclusive": true
+          }
+        ],
+        "outcome": {
+          "route": "Manual",
+          "queue": "unassigned",
+          "notify": false
+        }
+      },
+      {
+        "id": "export-topic",
+        "version": 1,
+        "legacyKey": "export-topic",
+        "conditions": [
+          {
+            "fact": "topic",
+            "op": "in",
+            "values": [
+              {
+                "type": "Code",
+                "value": "export"
+              }
+            ]
+          }
+        ],
+        "outcome": {
+          "route": "Standard",
+          "queue": "exports"
+        }
+      }
+    ],
+    "defaultRow": {
+      "id": "fallback",
+      "version": 1,
+      "legacyKey": "fallback",
+      "conditions": [],
+      "outcome": {
+        "route": "Manual",
+        "queue": "general"
+      }
+    },
+    "goldens": [
+      {
+        "name": "An urgent phone request is escalated",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Phone"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "billing-late"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": true
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "100"
+          },
+          "account": {
+            "type": "Reference",
+            "value": {
+              "guid": "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b",
+              "labelSource": {
+                "ownerModule": "sample",
+                "entityType": "sample.account"
+              }
+            }
+          }
+        },
+        "expect": {
+          "row": "urgent-phone",
+          "outcome": {
+            "route": "Escalate",
+            "queue": "urgent",
+            "notify": true,
+            "priority": 1
+          }
+        }
+      },
+      {
+        "name": "A billing topic on the web goes to billing",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "billing-late"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "3"
+          },
+          "rating": {
+            "type": "Decimal",
+            "value": "1.5"
+          },
+          "account": {
+            "type": "Reference",
+            "value": {
+              "guid": "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b",
+              "labelSource": {
+                "ownerModule": "sample",
+                "entityType": "sample.account"
+              }
+            }
+          }
+        },
+        "expect": {
+          "row": "billing-topic",
+          "outcome": {
+            "route": "Fast",
+            "queue": "billing-desk",
+            "notify": false,
+            "priority": 2
+          }
+        }
+      },
+      {
+        "name": "A new request without a rating is fast",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "3"
+          },
+          "account": {
+            "type": "Reference",
+            "value": {
+              "guid": "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b",
+              "labelSource": {
+                "ownerModule": "sample",
+                "entityType": "sample.account"
+              }
+            }
+          }
+        },
+        "expect": {
+          "row": "fresh-request",
+          "outcome": {
+            "route": "Fast",
+            "queue": "new"
+          }
+        }
+      },
+      {
+        "name": "A good rating with a date is followed up",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "20"
+          },
+          "rating": {
+            "type": "Decimal",
+            "value": "4.5"
+          },
+          "receivedOn": {
+            "type": "Date",
+            "value": "2026-04-10"
+          },
+          "account": {
+            "type": "Reference",
+            "value": {
+              "guid": "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b",
+              "labelSource": {
+                "ownerModule": "sample",
+                "entityType": "sample.account"
+              }
+            }
+          }
+        },
+        "expect": {
+          "row": "high-rating",
+          "outcome": {
+            "route": "Standard",
+            "queue": "followup",
+            "notify": true
+          }
+        }
+      },
+      {
+        "name": "A mid amount is reviewed by hand",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "30"
+          },
+          "rating": {
+            "type": "Decimal",
+            "value": "2"
+          },
+          "amount": {
+            "type": "Money",
+            "value": {
+              "amount": "250.00",
+              "currency": "USD"
+            }
+          },
+          "account": {
+            "type": "Reference",
+            "value": {
+              "guid": "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b",
+              "labelSource": {
+                "ownerModule": "sample",
+                "entityType": "sample.account"
+              }
+            }
+          }
+        },
+        "expect": {
+          "row": "mid-amount",
+          "outcome": {
+            "route": "Manual",
+            "queue": "review",
+            "priority": 4
+          }
+        }
+      },
+      {
+        "name": "An old request goes to the backlog",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "90"
+          },
+          "rating": {
+            "type": "Decimal",
+            "value": "2"
+          },
+          "account": {
+            "type": "Reference",
+            "value": {
+              "guid": "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b",
+              "labelSource": {
+                "ownerModule": "sample",
+                "entityType": "sample.account"
+              }
+            }
+          }
+        },
+        "expect": {
+          "row": "old-request",
+          "outcome": {
+            "route": "Manual",
+            "queue": "backlog",
+            "priority": 5
+          }
+        }
+      },
+      {
+        "name": "A request with no account is left unassigned",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "20"
+          },
+          "rating": {
+            "type": "Decimal",
+            "value": "2"
+          },
+          "receivedOn": {
+            "type": "Date",
+            "value": "2026-01-15"
+          }
+        },
+        "expect": {
+          "row": "no-account",
+          "outcome": {
+            "route": "Manual",
+            "queue": "unassigned",
+            "notify": false
+          }
+        }
+      },
+      {
+        "name": "Anything else uses the fallback",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "general"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "10"
+          },
+          "rating": {
+            "type": "Decimal",
+            "value": "4"
+          },
+          "account": {
+            "type": "Reference",
+            "value": {
+              "guid": "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b",
+              "labelSource": {
+                "ownerModule": "sample",
+                "entityType": "sample.account"
+              }
+            }
+          }
+        },
+        "expect": {
+          "row": "fallback",
+          "outcome": {
+            "route": "Manual",
+            "queue": "general"
+          }
+        }
+      },
+      {
+        "name": "An export topic goes to exports",
+        "facts": {
+          "channel": {
+            "type": "Enum",
+            "value": "Web"
+          },
+          "topic": {
+            "type": "Code",
+            "value": "export"
+          },
+          "urgent": {
+            "type": "Boolean",
+            "value": false
+          },
+          "ageDays": {
+            "type": "Integer",
+            "value": "20"
+          },
+          "rating": {
+            "type": "Decimal",
+            "value": "2"
+          },
+          "account": {
+            "type": "Reference",
+            "value": {
+              "guid": "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b",
+              "labelSource": {
+                "ownerModule": "sample",
+                "entityType": "sample.account"
+              }
+            }
+          }
+        },
+        "expect": {
+          "row": "export-topic",
+          "outcome": {
+            "route": "Standard",
+            "queue": "exports"
+          }
+        }
+      }
+    ]
+  }
+}

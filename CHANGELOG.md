@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- W-A: `Synapbiz.Brain.Workbench`, a headless rule workbench for `brain.rule@1`. Plain-language rule views with one sentence per row in English and Spanish (templates of the source repository's sentence generator, labels from `meta.display`), fact input parsing with typed error codes, simulation on the real engine with a per-row explanation, test runs with extra cases, revision diff and behaviour comparison, and the `brain.rule-review@1` review document. 299 tests on synthetic fixtures (`tests/fixtures/workbench`), purity scan and reference freeze extended to the new library. Docs: `docs/reference/rule-workbench.md`. The solution now packs four packages.
+
 ## 0.1.0 (2026-11-22)
 
 - Release workflow publishing to the private GitHub Packages feed on a version tag, a manual live-parity workflow, and the consumer guide (`docs/consuming.md`).
