@@ -32,6 +32,9 @@ public sealed partial class FlowSimulation
     /// <summary>The code of an answer source that threw.</summary>
     public const string ErrorAnswerSourceFailed = "workbench.flow.answer_source_failed";
 
+    /// <summary>The code of a question to an answer source about an effect the case does not wait for.</summary>
+    public const string ErrorEffectUnknown = "workbench.flow.effect_unknown";
+
     private const string ZoneUnknown = "process.window.zone_unknown";
     private const string DefaultCancelReason = "workbench.flow.cancelled";
     private static readonly TimeSpan LongestAdvance = TimeSpan.FromDays(3660);
@@ -107,6 +110,36 @@ public sealed partial class FlowSimulation
 
     /// <summary>One entry per thing the session did, in order: a read-only view that follows the session.</summary>
     public IReadOnlyList<FlowSimulationEntry> Log => logView;
+
+    /// <summary>
+    /// The earliest moment a timer comes due or a delivery window opens among what the case waits for now, or null when there is none:
+    /// where "to the next timer" takes the clock.
+    /// </summary>
+    public DateTimeOffset? NextDue => Outstanding
+        .Select(item => item switch
+        {
+            OutstandingTimer timer => (DateTimeOffset?)timer.Due,
+            OutstandingWindow window => window.OpensAt,
+            _ => null,
+        })
+        .Where(due => due is not null)
+        .Min();
+
+    /// <summary>
+    /// How many answers (an output or a failure) the session has applied to a step so far. It tells which answer of an embedded scenario
+    /// a screen offers next for the step (see <see cref="FlowScenarioAnswers.For(FlowSimulation, string)"/>).
+    /// </summary>
+    /// <param name="step">The step id.</param>
+    public int AnsweredCount(string step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        return log.Count(entry => entry.Step == step
+            && entry.Kind is FlowSimulationEntryKind.EffectAnswered or FlowSimulationEntryKind.EffectFailed
+            && entry.Disposition == AdvanceDisposition.Applied);
+    }
+
+    /// <summary>The ids of the steps the case has entered so far, in order (a step is listed each time it is entered).</summary>
+    public IReadOnlyList<string> EnteredSteps => [.. history.Where(entry => entry.Kind == ProcessHistoryKind.StepEntered && entry.Step is not null).Select(entry => entry.Step!)];
 
     /// <summary>The answer source of the setup, or null.</summary>
     public IFlowAnswerSource? AnswerSource => setup.AnswerSource;
@@ -252,30 +285,69 @@ public sealed partial class FlowSimulation
                 break;
             }
 
-            var answer = await AskAsync(source, next, declined, cancellationToken).ConfigureAwait(false);
-            if (answer is null)
+            if (await AnswerOneAsync(source, next, declined, cancellationToken).ConfigureAwait(false))
             {
-                continue;
+                answered++;
             }
-
-            if (!answer.IsFailure)
-            {
-                FlowJson.TryParse(answer.OutputJson, out var usable);
-                if (!usable)
-                {
-                    declined.Add(next.Id);
-                    log.Add(new FlowSimulationEntry(log.Count, now, FlowSimulationEntryKind.AnswerSourceFailed, source.Name, next.Step, next.Id, AdvanceDisposition.Rejected, ErrorJsonInvalid, []));
-                    continue;
-                }
-            }
-
-            _ = answer.IsFailure
-                ? FailEffect(next.Id, answer.Kind, answer.Code!, answer.RetryAfter, source.Name)
-                : CompleteEffect(next.Id, answer.OutputJson!, source.Name);
-            answered++;
         }
 
         return Since(before);
+    }
+
+    /// <summary>
+    /// Asks the answer source of the setup for one outstanding effect and applies its answer through the same commands as
+    /// <see cref="RunAnswersAsync"/>. An exception from the source becomes a log entry with the code <c>workbench.flow.answer_source_failed</c>, an
+    /// output that is not usable JSON one with <c>workbench.flow.json_invalid</c>, and an effect that is not outstanding one with
+    /// <see cref="ErrorEffectUnknown"/>; in each the case does not change. A null answer leaves the effect for a manual answer and adds nothing.
+    /// </summary>
+    /// <param name="effectId">The id from <see cref="Outstanding"/>.</param>
+    /// <param name="cancellationToken">Cancels the question; the exception is thrown to the caller.</param>
+    /// <exception cref="InvalidOperationException">The setup has no answer source.</exception>
+    public async Task<IReadOnlyList<FlowSimulationEntry>> AskAsync(string effectId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(effectId);
+        var source = setup.AnswerSource ?? throw new InvalidOperationException("The setup has no answer source.");
+        var before = log.Count;
+        if (Refused(FlowSimulationEntryKind.EffectAnswered, source.Name, effectId))
+        {
+            return Since(before);
+        }
+
+        var effect = ComputeOutstanding().OfType<OutstandingEffect>().FirstOrDefault(item => string.Equals(item.Id, effectId, StringComparison.Ordinal));
+        if (effect is null)
+        {
+            Reject(FlowSimulationEntryKind.EffectAnswered, source.Name, null, effectId, ErrorEffectUnknown);
+            return Since(before);
+        }
+
+        _ = await AnswerOneAsync(source, effect, [], cancellationToken).ConfigureAwait(false);
+        return Since(before);
+    }
+
+    // Asks the source for one effect and applies what it says. True when an answer was applied.
+    private async Task<bool> AnswerOneAsync(IFlowAnswerSource source, OutstandingEffect effect, HashSet<string> declined, CancellationToken cancellationToken)
+    {
+        var answer = await RequestAnswerAsync(source, effect, declined, cancellationToken).ConfigureAwait(false);
+        if (answer is null)
+        {
+            return false;
+        }
+
+        if (!answer.IsFailure)
+        {
+            FlowJson.TryParse(answer.OutputJson, out var usable);
+            if (!usable)
+            {
+                declined.Add(effect.Id);
+                log.Add(new FlowSimulationEntry(log.Count, now, FlowSimulationEntryKind.AnswerSourceFailed, source.Name, effect.Step, effect.Id, AdvanceDisposition.Rejected, ErrorJsonInvalid, []));
+                return false;
+            }
+        }
+
+        _ = answer.IsFailure
+            ? FailEffect(effect.Id, answer.Kind, answer.Code!, answer.RetryAfter, source.Name)
+            : CompleteEffect(effect.Id, answer.OutputJson!, source.Name);
+        return true;
     }
 
     /// <summary>

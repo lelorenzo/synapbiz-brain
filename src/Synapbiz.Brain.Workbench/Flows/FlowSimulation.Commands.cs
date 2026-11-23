@@ -460,7 +460,7 @@ public sealed partial class FlowSimulation
     };
 
     // Asks the source for one effect. A null answer or an exception leaves the effect outstanding (and out of this run).
-    private async Task<FlowAnswer?> AskAsync(IFlowAnswerSource source, OutstandingEffect effect, HashSet<string> declined, CancellationToken cancellationToken)
+    private async Task<FlowAnswer?> RequestAnswerAsync(IFlowAnswerSource source, OutstandingEffect effect, HashSet<string> declined, CancellationToken cancellationToken)
     {
         var step = outline.Step(effect.Step);
         var isAi = step is { Kind: OutlineStepKind.Ai };

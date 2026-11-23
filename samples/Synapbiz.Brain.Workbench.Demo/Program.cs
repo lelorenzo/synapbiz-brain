@@ -8,7 +8,9 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 // One session per browser circuit: the panels keep the reviewer's work in it and nowhere else.
 builder.Services.AddScoped<WorkbenchSession>();
+builder.Services.AddScoped<FlowWorkbenchSession>();
 builder.Services.AddSingleton(new DemoRules());
+builder.Services.AddSingleton(new DemoFlows());
 
 var app = builder.Build();
 app.UseAntiforgery();

@@ -47,6 +47,10 @@
   overflow: hidden;
 }
 
+.wb-detail {
+  min-width: 0;
+}
+
 .wb-ph {
   padding: 14px 18px;
   background: var(--wb-surface-head);
@@ -491,6 +495,8 @@
 
 .wb-rv {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   border: 1px solid var(--wb-control-edge);
   border-radius: var(--wb-radius-sm);
   overflow: hidden;
@@ -559,7 +565,8 @@
 .wb-card-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
   margin-bottom: 8px;
 }
 
@@ -1145,4 +1152,399 @@
 .wb-warnings {
   margin: 0;
   padding-left: 20px;
+}
+
+/* ----- flow panels ---------------------------------------------------------------------------------------------------------- */
+
+.wb-code {
+  padding: 0 4px;
+  border: 1px solid var(--wb-line-soft);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-surface-head);
+  font-family: var(--wb-font);
+  font-size: var(--wb-text-small);
+  overflow-wrap: anywhere;
+}
+
+.wb-flow-l {
+  display: block;
+  color: var(--wb-ink-2);
+  font-size: var(--wb-text-small);
+}
+
+.wb-flow-list {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+.wb-plain-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.wb-flow-sentence {
+  margin: 6px 0;
+}
+
+.wb-flow-stage {
+  margin-bottom: 18px;
+}
+
+.wb-step {
+  margin: 10px 0 10px 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--wb-line);
+}
+
+.wb-step:focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
+}
+
+.wb-step-t {
+  margin: 0;
+  font-size: var(--wb-text);
+  font-weight: 600;
+}
+
+.wb-h3 {
+  margin: 10px 0 4px;
+  font-size: var(--wb-text-small);
+  font-weight: 600;
+  color: var(--wb-ink-2);
+}
+
+.wb-routes {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  padding: 4px 0;
+}
+
+.wb-route-t {
+  flex: 1 1 260px;
+}
+
+.wb-route-go {
+  margin: 0;
+}
+
+.wb-ai {
+  margin-top: 8px;
+  background: var(--wb-surface-head);
+}
+
+.wb-fold {
+  margin-top: 8px;
+}
+
+.wb-fold summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.wb-wait {
+  background: var(--wb-surface);
+}
+
+.wb-busy {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--wb-ink-2);
+}
+
+.wb-confirm {
+  margin-top: 12px;
+  border-color: var(--wb-warn-edge);
+  background: var(--wb-warn-bg);
+  color: var(--wb-warn-ink);
+}
+
+.wb-timeline {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.wb-timeline li {
+  padding: 4px 0;
+}
+
+.wb-trace {
+  margin: 4px 0 8px;
+  padding-left: 22px;
+}
+
+.wb-scenario {
+  list-style: none;
+}
+
+.wb-group-section {
+  margin: 0;
+}
+
+.wb-skeletons {
+  padding: 12px 18px;
+}
+
+.wb-list-select {
+  width: 100%;
+}
+
+.wb-missing-note {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+/* ----- the diagram ----------------------------------------------------------------------------------------------------------- */
+
+.wb-diagram-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.wb-diagram-wrap {
+  container-type: inline-size;
+}
+
+.wb-diagram-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.wb-diagram-scroll {
+  width: fit-content;
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-surface);
+}
+
+.wb-diagram-svg {
+  display: block;
+  font-family: var(--wb-font);
+  font-size: var(--wb-text-small);
+}
+
+.wb-band-bg {
+  fill: var(--wb-surface-head);
+  stroke: var(--wb-line-soft);
+  stroke-width: 1;
+}
+
+.wb-band-t {
+  fill: var(--wb-muted);
+  font-size: var(--wb-text-label);
+  font-weight: 600;
+}
+
+.wb-edge {
+  fill: none;
+  stroke: var(--wb-ink-2);
+  stroke-width: 2;
+}
+
+.wb-edge-side {
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.wb-edge-return {
+  stroke-dasharray: 2 4;
+}
+
+.wb-count {
+  fill: var(--wb-surface);
+  stroke: var(--wb-ink-2);
+  stroke-width: 1.5;
+}
+
+.wb-count-t {
+  fill: var(--wb-ink);
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.wb-arrow {
+  fill: var(--wb-ink-2);
+}
+
+.wb-edge-t {
+  fill: var(--wb-ink-2);
+  font-size: var(--wb-text-label);
+}
+
+.wb-node {
+  cursor: pointer;
+}
+
+.wb-node:focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
+}
+
+.wb-node-shape {
+  fill: var(--wb-surface);
+  stroke: var(--wb-ink);
+  stroke-width: 1.5;
+}
+
+.wb-node:hover .wb-node-shape {
+  fill: var(--wb-hover);
+}
+
+.wb-node[aria-pressed="true"] .wb-node-shape {
+  fill: var(--wb-selected);
+  stroke: var(--wb-selected-edge);
+  stroke-width: 3;
+}
+
+.wb-node-now .wb-node-shape {
+  stroke: var(--wb-accent);
+  stroke-width: 3;
+}
+
+.wb-node-end {
+  stroke-width: 3;
+}
+
+.wb-node-fold {
+  fill: none;
+  stroke: var(--wb-ink);
+  stroke-width: 1.5;
+}
+
+.wb-node-t {
+  fill: var(--wb-ink);
+  pointer-events: none;
+}
+
+.wb-node-start {
+  fill: var(--wb-accent);
+  stroke: var(--wb-surface);
+  stroke-width: 2;
+}
+
+.wb-node-now-sample {
+  stroke: var(--wb-accent);
+  stroke-width: 3;
+}
+
+.wb-node-here {
+  fill: var(--wb-accent);
+}
+
+.wb-node-here-t {
+  fill: var(--wb-accent-ink);
+  font-size: var(--wb-text-label);
+  pointer-events: none;
+}
+
+.wb-untried {
+  fill: var(--wb-warn-bg);
+  stroke: var(--wb-warn-edge);
+  stroke-width: 1.5;
+}
+
+.wb-untried-t {
+  fill: var(--wb-warn-ink);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.wb-diagram-card {
+  padding: 12px;
+  border: 1px solid var(--wb-selected-edge);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-surface);
+}
+
+.wb-legend {
+  margin-bottom: 14px;
+}
+
+.wb-legend-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-legend-svg {
+  flex: none;
+}
+
+.wb-legend-note {
+  grid-column: 1 / -1;
+}
+
+/* The card of a step goes beside the diagram only when the diagram keeps 640 px and the card 320 px (and 12 px between them). */
+@container (min-width: 972px) {
+  .wb-diagram-layout:has(.wb-diagram-card) {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+/* ----- simulate: typed controls, the picker and the replay --------------------------------------------------------------- */
+
+.wb-field-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-field-check .wb-label {
+  margin: 0;
+}
+
+.wb-check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--wb-accent);
+}
+
+.wb-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-pick .wb-in {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.wb-replay {
+  border-color: var(--wb-selected-edge);
+  background: var(--wb-selected);
 }

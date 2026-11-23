@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Workbench.Blazor/Synapbiz.Brain.Workbench.Blazor.csproj" />
@@ -22,6 +23,7 @@
   <ItemGroup>
     <Content Include="../../tests/fixtures/workbench/*.json" Link="fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../tests/fixtures/brain-spec/readiness.*.json" Link="fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../process-reference/**/*.json" Link="process-reference/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
