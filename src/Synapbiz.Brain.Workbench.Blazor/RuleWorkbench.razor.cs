@@ -120,7 +120,7 @@ public sealed partial class RuleWorkbench : IDisposable
     private RenderFragment Rich(string key, params (string Name, string Value)[] values) => text.Rich(key, values);
 
     private string PluralText(string key, long count, params (string Name, string Value)[] values) =>
-        text.Plain(UiText.Plural(key, count), [("n", OutcomeFormat.Number(count)), .. values]);
+        text.Plain(UiText.Plural(key, count), [.. values, ("n", OutcomeFormat.Number(count))]);
 
     private static string CurrentOption(CaseForm form)
     {
@@ -679,9 +679,9 @@ public sealed partial class RuleWorkbench : IDisposable
         }
 
         var place = await OnExport(export).ConfigureAwait(true);
-        Session.MarkExported();
         exportDone = true;
         exportPlace = string.IsNullOrWhiteSpace(place) ? null : place.Trim();
+        Session.MarkExported();
     }
 
     private void SetReviewer(ChangeEventArgs args)
