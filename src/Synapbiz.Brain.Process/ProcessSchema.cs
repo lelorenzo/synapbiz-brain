@@ -65,7 +65,12 @@ internal static class ProcessSchema
                 return new JsonArray([.. items.Select(WithRepresentableNumbers)]);
             case JsonValue value when value.GetValueKind() == JsonValueKind.Number && !JsonSerializer.SerializeToElement(value).TryGetDecimal(out _):
                 var magnitude = double.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture);
-                return Math.Abs(magnitude) < 1 ? JsonValue.Create(0m) : JsonValue.Create(magnitude < 0 ? decimal.MinValue : decimal.MaxValue);
+                if (Math.Abs(magnitude) < 1)
+                {
+                    return JsonValue.Create(0m);
+                }
+
+                return JsonValue.Create(magnitude < 0 ? decimal.MinValue : decimal.MaxValue);
             default:
                 return node?.DeepClone();
         }

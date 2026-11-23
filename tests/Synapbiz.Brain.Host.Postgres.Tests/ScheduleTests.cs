@@ -60,8 +60,8 @@ public sealed class ScheduleTests
         (await rig.Pump.RunOnceAsync()).Should().BeGreaterThan(0);
         await rig.DrainAsync();
 
-        (await KeysAsync(rig)).Should().Equal("hourly_once/20270104T1430Z", "hourly_skip/20270104T1430Z");
-        var info = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "hourly_skip/20270104T1430Z");
+        (await KeysAsync(rig)).Should().Equal("@schedule/hourly_once/20270104T1430Z", "@schedule/hourly_skip/20270104T1430Z");
+        var info = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "@schedule/hourly_skip/20270104T1430Z");
         info!.Status.Should().Be(ProcessStatus.Completed);
         info.Result.Should().Be("ran");
         info.ParentInstanceId.Should().BeNull();
@@ -76,11 +76,11 @@ public sealed class ScheduleTests
 
         await RunThroughAsync(rig, new DateTimeOffset(2027, 1, 5, 11, 0, 0, TimeSpan.Zero));
 
-        var daily = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "daily/20270105T1100Z");
+        var daily = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "@schedule/daily/20270105T1100Z");
         daily!.State!.Variables["site"].Should().Be("\"s-1\"");
         daily.State.Variables["run_for"].Should().Be("\"2027-01-05\"");
         daily.State.Variables["fired_at"].Should().Be("\"2027-01-05T11:00:00Z\"");
-        var hourly = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "hourly_skip/20270105T1030Z");
+        var hourly = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "@schedule/hourly_skip/20270105T1030Z");
         hourly!.State!.Variables["fired_at"].Should().Be("\"2027-01-05T10:30:00Z\"");
         hourly.State.Variables.Should().NotContainKey("run_for");
     }
@@ -94,7 +94,7 @@ public sealed class ScheduleTests
 
         await RunThroughAsync(rig, new DateTimeOffset(2027, 1, 5, 2, 30, 0, TimeSpan.Zero));
 
-        var evening = await rig.Engine.FindInstanceAsync(rig.Tenant, Dst, "evening/20270105T0230Z");
+        var evening = await rig.Engine.FindInstanceAsync(rig.Tenant, Dst, "@schedule/evening/20270105T0230Z");
         evening!.State!.Variables["run_for"].Should().Be("\"2027-01-04\"", "21:30 on 4 January in New York is 02:30 UTC on the 5th");
         evening.State.Variables["fired_at"].Should().Be("\"2027-01-05T02:30:00Z\"");
     }
@@ -107,7 +107,7 @@ public sealed class ScheduleTests
         rig.Time.SetUtcNow(new DateTimeOffset(2027, 1, 4, 16, 45, 0, TimeSpan.Zero));
         await rig.DrainAsync();
 
-        (await KeysAsync(rig, like: "hourly%")).Should().Equal("hourly_once/20270104T1630Z");
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().Equal("@schedule/hourly_once/20270104T1630Z");
         (await rig.ColumnAsync<DateTimeOffset>("select next_fire_at from {schema}.process_schedule where schedule_id like 'hourly%'"))
             .Should().OnlyContain(next => next == new DateTimeOffset(2027, 1, 4, 17, 30, 0, TimeSpan.Zero), "the first occurrence after now, whatever the policy");
         rig.Logs.Entries.Should().Contain(entry => entry.EventId.Id == 15 && entry.Level == LogLevel.Warning && entry.Message.Contains("hourly_skip", StringComparison.Ordinal) && entry.Message.Contains("fired False", StringComparison.Ordinal));
@@ -121,7 +121,7 @@ public sealed class ScheduleTests
         rig.Time.SetUtcNow(new DateTimeOffset(2027, 1, 4, 16, 32, 0, TimeSpan.Zero));
         await rig.DrainAsync();
 
-        (await KeysAsync(rig, like: "hourly%")).Should().Equal("hourly_once/20270104T1630Z", "hourly_skip/20270104T1630Z");
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().Equal("@schedule/hourly_once/20270104T1630Z", "@schedule/hourly_skip/20270104T1630Z");
     }
 
     [Fact]
@@ -135,8 +135,8 @@ public sealed class ScheduleTests
         late.Time.SetUtcNow(Quarter + TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(1));
         await late.DrainAsync();
 
-        (await KeysAsync(onTime, like: "hourly%")).Should().Equal("hourly_once/20270104T1430Z", "hourly_skip/20270104T1430Z");
-        (await KeysAsync(late, like: "hourly%")).Should().Equal(["hourly_once/20270104T1430Z"], "skip drops a single occurrence that is late, fireOnce fires it anyway");
+        (await KeysAsync(onTime, like: "@schedule/hourly%")).Should().Equal("@schedule/hourly_once/20270104T1430Z", "@schedule/hourly_skip/20270104T1430Z");
+        (await KeysAsync(late, like: "@schedule/hourly%")).Should().Equal(["@schedule/hourly_once/20270104T1430Z"], "skip drops a single occurrence that is late, fireOnce fires it anyway");
         (await late.ColumnAsync<DateTimeOffset>("select next_fire_at from {schema}.process_schedule where schedule_id = 'hourly_skip'")).Should().Equal(Quarter + TimeSpan.FromHours(1));
     }
 
@@ -148,7 +148,7 @@ public sealed class ScheduleTests
         rig.Time.SetUtcNow(Quarter + TimeSpan.FromSeconds(1));
         await rig.DrainAsync();
 
-        (await KeysAsync(rig, like: "hourly%")).Should().Equal("hourly_once/20270104T1430Z");
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().Equal("@schedule/hourly_once/20270104T1430Z");
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public sealed class ScheduleTests
         await using var rig = await ActivatedAsync();
         rig.Time.SetUtcNow(Quarter);
         await rig.DrainAsync();
-        (await KeysAsync(rig, like: "hourly%")).Should().HaveCount(2);
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().HaveCount(2);
 
         (await rig.Engine.DeactivateAsync(rig.Tenant, Process)).Should().BeTrue();
         rig.Time.Advance(TimeSpan.FromDays(3));
@@ -184,7 +184,7 @@ public sealed class ScheduleTests
 
         rig.Catalog.Add(definition);
         await rig.DrainAsync();
-        (await KeysAsync(rig, like: "hourly%")).Should().Equal("hourly_once/20270104T1430Z", "hourly_skip/20270104T1430Z");
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().Equal("@schedule/hourly_once/20270104T1430Z", "@schedule/hourly_skip/20270104T1430Z");
     }
 
     [Fact]
@@ -199,9 +199,9 @@ public sealed class ScheduleTests
 
         await RunThroughAsync(rig, new DateTimeOffset(2027, 3, 16, 0, 0, 0, TimeSpan.Zero));
 
-        (await KeysAsync(rig, Dst, "gap/%")).Should().Equal("gap/20270314T0700Z", "gap/20270315T0630Z");
-        (await KeysAsync(rig, Dst, "fold/%")).Should().Equal("fold/20270314T0630Z", "fold/20270315T0530Z");
-        var gap = await rig.Engine.FindInstanceAsync(rig.Tenant, Dst, "gap/20270314T0700Z");
+        (await KeysAsync(rig, Dst, "@schedule/gap/%")).Should().Equal("@schedule/gap/20270314T0700Z", "@schedule/gap/20270315T0630Z");
+        (await KeysAsync(rig, Dst, "@schedule/fold/%")).Should().Equal("@schedule/fold/20270314T0630Z", "@schedule/fold/20270315T0530Z");
+        var gap = await rig.Engine.FindInstanceAsync(rig.Tenant, Dst, "@schedule/gap/20270314T0700Z");
         gap!.State!.Variables["run_for"].Should().Be("\"2027-03-14\"");
     }
 
@@ -215,8 +215,8 @@ public sealed class ScheduleTests
 
         await RunThroughAsync(rig, new DateTimeOffset(2027, 11, 8, 12, 0, 0, TimeSpan.Zero));
 
-        (await KeysAsync(rig, Dst, "fold/%")).Should().Equal("fold/20271107T0530Z", "fold/20271108T0630Z");
-        (await KeysAsync(rig, Dst, "gap/%")).Should().Equal("gap/20271107T0730Z", "gap/20271108T0730Z");
+        (await KeysAsync(rig, Dst, "@schedule/fold/%")).Should().Equal("@schedule/fold/20271107T0530Z", "@schedule/fold/20271108T0630Z");
+        (await KeysAsync(rig, Dst, "@schedule/gap/%")).Should().Equal("@schedule/gap/20271107T0730Z", "@schedule/gap/20271108T0730Z");
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public sealed class ScheduleTests
 
         var handled = await hooked.RunOnceAsync();
 
-        (await KeysAsync(rig, like: "hourly%")).Should().HaveCount(2);
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().HaveCount(2);
         rig.Logs.Entries.Count(entry => entry.EventId.Id == 14).Should().Be(2, "each occurrence is fired by one pump only");
         handled.Should().BeGreaterThan(0);
     }
@@ -257,12 +257,12 @@ public sealed class ScheduleTests
 
         await rig.Pump.RunOnceAsync();
 
-        (await KeysAsync(rig, like: "hourly%")).Should().Equal("hourly_skip/20270104T1430Z");
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().Equal("@schedule/hourly_skip/20270104T1430Z");
         (await rig.ScalarAsync<DateTimeOffset>("select next_fire_at from {schema}.process_schedule where schedule_id = 'hourly_once'")).Should().Be(Quarter);
 
         await held.DisposeAsync();
         await rig.DrainAsync();
-        (await KeysAsync(rig, like: "hourly%")).Should().Equal("hourly_once/20270104T1430Z", "hourly_skip/20270104T1430Z");
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().Equal("@schedule/hourly_once/20270104T1430Z", "@schedule/hourly_skip/20270104T1430Z");
     }
 
     [Fact]
@@ -274,16 +274,16 @@ public sealed class ScheduleTests
 
         await rig.DrainAsync();
 
-        (await KeysAsync(rig, like: "daily/%")).Should().BeEmpty();
+        (await KeysAsync(rig, like: "@schedule/daily/%")).Should().BeEmpty();
         (await rig.ScalarAsync<DateTimeOffset>("select next_fire_at from {schema}.process_schedule where schedule_id = 'daily'")).Should().Be(new DateTimeOffset(2027, 1, 5, 11, 0, 0, TimeSpan.Zero));
-        (await KeysAsync(rig, like: "hourly%")).Should().NotBeEmpty();
+        (await KeysAsync(rig, like: "@schedule/hourly%")).Should().NotBeEmpty();
         var failures = rig.Logs.Entries.Where(entry => entry.EventId.Id == 12 && entry.Message.Contains("DueSchedule", StringComparison.Ordinal)).ToList();
         failures.Should().NotBeEmpty("the item is tried again on every pass");
         failures.Should().OnlyContain(failure => failure.Message.Contains("daily", StringComparison.Ordinal) && failure.Message.Contains("System.InvalidOperationException", StringComparison.Ordinal) && failure.ExceptionText == null);
 
         rig.Zones.Add("America/New_York", TestZoneResolver.Eastern);
         await rig.DrainAsync();
-        (await KeysAsync(rig, like: "daily/%")).Should().Equal("daily/20270105T1100Z");
+        (await KeysAsync(rig, like: "@schedule/daily/%")).Should().Equal("@schedule/daily/20270105T1100Z");
     }
 
     [Fact]
@@ -301,12 +301,12 @@ public sealed class ScheduleTests
 
         foreach (var (tenant, site) in new[] { ("t-1", "s-1"), ("t-2", "s-2") })
         {
-            var info = await rig.Engine.FindInstanceAsync(tenant, Process, "hourly_skip/20270104T1430Z");
+            var info = await rig.Engine.FindInstanceAsync(tenant, Process, "@schedule/hourly_skip/20270104T1430Z");
             info!.State!.Variables["site"].Should().Be("\"" + site + "\"");
         }
 
         (await rig.CountAsync("process_instance")).Should().Be(4);
-        (await rig.Engine.FindInstanceAsync("t-3", Process, "hourly_skip/20270104T1430Z")).Should().BeNull();
+        (await rig.Engine.FindInstanceAsync("t-3", Process, "@schedule/hourly_skip/20270104T1430Z")).Should().BeNull();
     }
 
     [Fact]
@@ -322,7 +322,7 @@ public sealed class ScheduleTests
         rig.Time.SetUtcNow(Quarter);
         await rig.DrainAsync();
 
-        var info = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "hourly_skip/20270104T1430Z");
+        var info = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "@schedule/hourly_skip/20270104T1430Z");
         info!.ProcessVersion.Should().Be(1);
         info.Status.Should().Be(ProcessStatus.Completed);
     }

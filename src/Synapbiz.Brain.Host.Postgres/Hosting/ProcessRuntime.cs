@@ -56,8 +56,12 @@ internal sealed class ProcessRuntime
     /// <summary>The definition with the given id, version and content hash, without a warning when the catalog does not have it.</summary>
     internal BrainProcess? Find(string processId, long version, string contentHash) => catalog.Find(processId, version, contentHash);
 
-    /// <summary>The time zone with the given IANA id, or null when the host does not know it.</summary>
-    internal TimeZoneInfo? FindZone(string id) => zones.Find(id);
+    /// <summary>
+    /// The time zone with the given IANA id, or null when the host does not know it. An id that does not have the shape of one
+    /// (<c>UTC</c> or <c>Area/Location</c>: <c>localtime</c>, <c>EST5EDT</c>, <c>Factory</c>, a path, an empty text) is unknown without the
+    /// zone database being asked, so that nothing a caller or a payload supplies is ever looked up as a name in it.
+    /// </summary>
+    internal TimeZoneInfo? FindZone(string id) => DeliveryWindows.IsZoneIdShape(id) ? zones.Find(id) : null;
 
     /// <summary>The definition the instance is pinned to; null (and a warning) when the catalog does not have it.</summary>
     internal BrainProcess? Resolve(InstanceRecord instance)
@@ -269,7 +273,7 @@ internal sealed class ProcessRuntime
     /// </summary>
     private async Task ApplyWindowAsync(IProcessSession session, InstanceRecord instance, WindowRequest request, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var zone = zones.Find(request.Zone);
+        var zone = FindZone(request.Zone);
         if (zone is null)
         {
             HostLog.WindowZoneUnknown(logger, instance.TenantId, instance.InstanceId, request.Step, request.TimerId);

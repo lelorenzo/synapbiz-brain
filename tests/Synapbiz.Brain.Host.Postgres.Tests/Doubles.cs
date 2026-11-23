@@ -167,6 +167,7 @@ internal sealed class FailingProtector : IPayloadProtector
 internal sealed class TestZoneResolver : IZoneResolver
 {
     private readonly ConcurrentDictionary<string, TimeZoneInfo> zones = new(StringComparer.Ordinal);
+    private readonly ConcurrentQueue<string> asked = new();
 
     /// <summary>
     /// A zone of the United States pattern: UTC-5, one hour of daylight saving from 02:00 on the second Sunday of March (the clock
@@ -191,7 +192,14 @@ internal sealed class TestZoneResolver : IZoneResolver
 
     internal void Clear() => zones.Clear();
 
-    public TimeZoneInfo? Find(string id) => zones.GetValueOrDefault(id);
+    /// <summary>Every id the host asked this resolver for, in order: what a test checks to show that an id of the wrong shape never got this far.</summary>
+    internal IReadOnlyCollection<string> Asked => [.. asked];
+
+    public TimeZoneInfo? Find(string id)
+    {
+        asked.Enqueue(id);
+        return zones.GetValueOrDefault(id);
+    }
 
     private static TimeZoneInfo CreateEastern()
     {

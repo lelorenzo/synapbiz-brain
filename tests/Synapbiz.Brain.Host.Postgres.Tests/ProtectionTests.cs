@@ -139,7 +139,7 @@ public sealed class ProtectionTests
         }
 
         (await rig.CountAsync("process_inbox", "status <> 2")).Should().Be(0, "every row was applied, so every protected payload was read back");
-        (await rig.Engine.FindInstanceAsync(rig.Tenant, "host.trigger_schedule", "hourly_skip/20270104T1430Z"))!.State!.Variables["site"].Should().Be("\"" + Secret + "\"");
+        (await rig.Engine.FindInstanceAsync(rig.Tenant, "host.trigger_schedule", "@schedule/hourly_skip/20270104T1430Z"))!.State!.Variables["site"].Should().Be("\"" + Secret + "\"");
         (await rig.Engine.FindInstanceAsync(rig.Tenant, "host.window_zone", "k-1"))!.Result.Should().Be("failed");
     }
 }

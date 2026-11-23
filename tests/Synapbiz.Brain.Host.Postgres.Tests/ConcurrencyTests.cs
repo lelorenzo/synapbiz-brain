@@ -109,10 +109,10 @@ public sealed class ConcurrencyTests
 
         // The clock runs 60 hours from 14:00 UTC on 4 January to 02:00 UTC on the 7th: 60 occurrences of each hourly schedule and two of
         // the daily one (06:00 in New York is 11:00 UTC, on the 5th and on the 6th).
-        var hourly = await rig.ColumnAsync<string>("select business_key from {schema}.process_instance where business_key like 'hourly_skip/%' order by business_key");
+        var hourly = await rig.ColumnAsync<string>("select business_key from {schema}.process_instance where business_key like '@schedule/hourly_skip/%' order by business_key");
         hourly.Should().HaveCount(Hours).And.OnlyHaveUniqueItems();
-        (await rig.CountAsync("process_instance", "business_key like 'hourly_once/%'")).Should().Be(Hours);
-        var daily = await rig.CountAsync("process_instance", "business_key like 'daily/%'");
+        (await rig.CountAsync("process_instance", "business_key like '@schedule/hourly_once/%'")).Should().Be(Hours);
+        var daily = await rig.CountAsync("process_instance", "business_key like '@schedule/daily/%'");
         daily.Should().Be(2);
         (await rig.CountAsync("process_instance")).Should().Be(Hours * 2 + daily);
         (await rig.CountAsync("process_instance", "status = 4 and result = 'ran'")).Should().Be(Hours * 2 + daily);

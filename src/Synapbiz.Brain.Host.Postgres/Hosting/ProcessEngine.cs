@@ -113,6 +113,10 @@ internal sealed class ProcessEngine : IProcessEngine
         if (activation.Zone is not null)
         {
             Guard.Id(activation.Zone, nameof(activation.Zone));
+            if (!DeliveryWindows.IsZoneIdShape(activation.Zone))
+            {
+                throw new ArgumentException("The Zone of the activation must be UTC or an id of the form Area/Location.", nameof(activation));
+            }
         }
 
         Guard.JsonObject(activation.InputJson, nameof(activation.InputJson));
@@ -189,8 +193,9 @@ internal sealed class ProcessEngine : IProcessEngine
 
     /// <summary>
     /// Queues the start of one instance for every event trigger of the tenant that names the event: the business key is read from
-    /// the payload (a trigger whose key is missing or not a non-empty string starts nothing and is logged with ids only) and the
-    /// input is the input of the activation with the mapped payload members laid over it. Returns the number of instances created.
+    /// the payload (a trigger whose key is missing or unusable, or whose payload cannot be read, starts nothing and is logged with ids
+    /// only; see <see cref="TriggerInputs.BusinessKey"/>) and the input is the input of the activation with the mapped payload members
+    /// laid over it. Nothing here throws because of what a payload holds. Returns the number of instances created.
     /// </summary>
     private async Task<int> QueueTriggerStartsAsync(IProcessSession session, ProcessEvent processEvent, DateTimeOffset now, CancellationToken cancellationToken)
     {

@@ -106,7 +106,7 @@ public sealed class ActivationTests
         await rig.DrainAsync();
 
         result.Should().Be(new ActivationResult(1, true));
-        var info = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "hourly_skip/20270104T1430Z");
+        var info = await rig.Engine.FindInstanceAsync(rig.Tenant, Process, "@schedule/hourly_skip/20270104T1430Z");
         info!.State!.Variables["site"].Should().Be("\"s-2\"");
     }
 
