@@ -1,0 +1,63 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "collection.claim_result",
+  "version": 1,
+  "uses": [],
+  "requires": ["collection@1"],
+  "meta": { "title": "What a settled claim means for the case" },
+  "body": {
+    "kind": "collection.claim_result",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "paid",
+        "version": 1,
+        "legacyKey": "paid",
+        "conditions": [
+          { "fact": "status", "op": "equals", "value": { "type": "Code", "value": "paid" } }
+        ],
+        "outcome": { "result": "paid" }
+      },
+      {
+        "id": "denied",
+        "version": 1,
+        "legacyKey": "denied",
+        "conditions": [
+          { "fact": "status", "op": "equals", "value": { "type": "Code", "value": "denied" } }
+        ],
+        "outcome": { "result": "denied" }
+      },
+      {
+        "id": "partly-paid",
+        "version": 1,
+        "legacyKey": "partly-paid",
+        "conditions": [
+          { "fact": "status", "op": "equals", "value": { "type": "Code", "value": "partial" } }
+        ],
+        "outcome": { "result": "pending" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "Paid is paid",
+        "facts": { "status": { "type": "Code", "value": "paid" } },
+        "expect": { "row": "paid", "outcome": { "result": "paid" } }
+      },
+      {
+        "name": "Denied is denied",
+        "facts": { "status": { "type": "Code", "value": "denied" } },
+        "expect": { "row": "denied", "outcome": { "result": "denied" } }
+      },
+      {
+        "name": "Partly paid is still pending",
+        "facts": { "status": { "type": "Code", "value": "partial" } },
+        "expect": { "row": "partly-paid", "outcome": { "result": "pending" } }
+      },
+      {
+        "name": "A voided claim decides nothing",
+        "facts": { "status": { "type": "Code", "value": "voided" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "collection.claim_progress",
+  "version": 1,
+  "uses": [],
+  "requires": ["collection@1"],
+  "meta": { "title": "A claim is settled once it is paid, partly paid, denied or voided" },
+  "body": {
+    "kind": "collection.claim_progress",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "still-open",
+        "version": 1,
+        "legacyKey": "still-open",
+        "conditions": [
+          {
+            "fact": "status",
+            "op": "in",
+            "values": [
+              { "type": "Code", "value": "submitted" },
+              { "type": "Code", "value": "in_review" }
+            ]
+          }
+        ],
+        "outcome": { "progress": "open" }
+      },
+      {
+        "id": "settled",
+        "version": 1,
+        "legacyKey": "settled",
+        "conditions": [
+          {
+            "fact": "status",
+            "op": "in",
+            "values": [
+              { "type": "Code", "value": "paid" },
+              { "type": "Code", "value": "partial" },
+              { "type": "Code", "value": "denied" },
+              { "type": "Code", "value": "voided" }
+            ]
+          }
+        ],
+        "outcome": { "progress": "settled" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "A claim in review is open",
+        "facts": { "status": { "type": "Code", "value": "in_review" } },
+        "expect": { "row": "still-open", "outcome": { "progress": "open" } }
+      },
+      {
+        "name": "A paid claim is settled",
+        "facts": { "status": { "type": "Code", "value": "paid" } },
+        "expect": { "row": "settled", "outcome": { "progress": "settled" } }
+      },
+      {
+        "name": "A denied claim is settled",
+        "facts": { "status": { "type": "Code", "value": "denied" } },
+        "expect": { "row": "settled", "outcome": { "progress": "settled" } }
+      },
+      {
+        "name": "A status nobody described decides nothing",
+        "facts": { "status": { "type": "Code", "value": "archived" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

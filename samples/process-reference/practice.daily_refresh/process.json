@@ -1,0 +1,125 @@
+{
+  "$spec": "brain.process@1",
+  "id": "practice.daily_refresh",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": {
+    "title": "Practice daily refresh",
+    "description": "Started by a schedule every morning: reads the day's case list into a variable and ends. Opening the cases is the consumer's job."
+  },
+  "body": {
+    "subject": "practice",
+    "stages": [],
+    "variables": {
+      "run_for": { "type": "Date", "input": true },
+      "cases": { "type": "Json" }
+    },
+    "triggers": [
+      {
+        "kind": "schedule",
+        "id": "daily",
+        "cron": "0 6 * * *",
+        "misfire": "fireOnce",
+        "input": { "run_for": "scheduledDate" }
+      }
+    ],
+    "start": "list_cases",
+    "steps": {
+      "list_cases": {
+        "kind": "read",
+        "port": "schedule.cases_for_day",
+        "input": { "day": "run_for" },
+        "output": { "cases": "cases" },
+        "retry": { "maxAttempts": 3, "backoff": "exponential", "initial": "PT1M", "max": "PT10M" },
+        "next": "refreshed",
+        "onError": "refresh_attention"
+      },
+      "refresh_attention": {
+        "kind": "humanTask",
+        "queue": "operations",
+        "outcomes": ["handled"],
+        "show": ["run_for"],
+        "on": { "handled": "failed" }
+      },
+      "refreshed": { "kind": "end", "result": "refreshed" },
+      "failed": { "kind": "end", "result": "refresh_failed" }
+    },
+    "scenarios": [
+      {
+        "name": "the day's cases are read and kept",
+        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
+        "events": [
+          { "complete": "list_cases", "output": { "cases": [{ "case_ref": "c-1001" }, { "case_ref": "c-1002" }] } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "refreshed",
+          "trace": ["list_cases", "refreshed"],
+          "variables": {
+            "cases": [{ "case_ref": "c-1001" }, { "case_ref": "c-1002" }]
+          }
+        }
+      },
+      {
+        "name": "a day without cases is an empty list",
+        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
+        "events": [
+          { "complete": "list_cases", "output": { "cases": [] } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "refreshed",
+          "trace": ["list_cases", "refreshed"],
+          "variables": {
+            "cases": []
+          }
+        }
+      },
+      {
+        "name": "a transient failure is retried",
+        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
+        "events": [
+          { "fail": "list_cases", "error": "Transient", "code": "schedule.busy" },
+          { "advance": "PT1M" },
+          { "complete": "list_cases", "output": { "cases": [{ "case_ref": "c-1001" }, { "case_ref": "c-1002" }] } }
+        ],
+        "expect": { "status": "Completed", "result": "refreshed", "trace": ["list_cases", "refreshed"] }
+      },
+      {
+        "name": "a read that fails for good raises an operations task and ends as a failed refresh once a person has handled it",
+        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
+        "events": [
+          { "fail": "list_cases", "error": "Permanent", "code": "schedule.gone" },
+          { "task": "refresh_attention", "outcome": "handled" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "refresh_failed",
+          "trace": ["list_cases", "refresh_attention", "failed"]
+        }
+      },
+      {
+        "name": "a read that is not available raises the same task",
+        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
+        "events": [
+          { "fail": "list_cases", "error": "NotAvailable", "code": "schedule.no_connector" },
+          { "task": "refresh_attention", "outcome": "handled" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "refresh_failed",
+          "trace": ["list_cases", "refresh_attention", "failed"]
+        }
+      },
+      {
+        "name": "a read that fails and is not handled keeps the instance waiting for the person",
+        "start": { "at": "2027-01-05T11:00:00Z", "today": "2027-01-05", "input": { "run_for": "2027-01-05" } },
+        "events": [
+          { "fail": "list_cases", "error": "Permanent", "code": "schedule.gone" }
+        ],
+        "expect": { "status": "Waiting", "trace": ["list_cases", "refresh_attention"] }
+      }
+    ]
+  }
+}

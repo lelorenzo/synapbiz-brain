@@ -1,0 +1,465 @@
+{
+  "$spec": "brain.process@1",
+  "id": "previsit.outreach",
+  "version": 1,
+  "uses": [{ "$ref": "rule/previsit.missing_items" }],
+  "requires": ["previsit@1"],
+  "meta": {
+    "title": "Pre-visit outreach",
+    "description": "Reads what a case is missing and sends at most three reminders inside the contact hours, then hands the case to the front desk."
+  },
+  "body": {
+    "subject": "case",
+    "stages": ["previsit"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "practice_zone": { "type": "Code", "input": true },
+      "missing": { "type": "Integer" }
+    },
+    "windows": {
+      "contact_hours": {
+        "zone": { "variable": "practice_zone" },
+        "days": ["mon", "tue", "wed", "thu", "fri"],
+        "from": "09:00",
+        "to": "18:00"
+      }
+    },
+    "start": "cycle",
+    "steps": {
+      "cycle": {
+        "kind": "loop",
+        "stage": "previsit",
+        "maxIterations": 3,
+        "body": "check",
+        "onExhausted": "escalate_final"
+      },
+      "check": {
+        "kind": "read",
+        "stage": "previsit",
+        "port": "intake.requirements",
+        "input": { "case": "case_ref" },
+        "output": { "missing_count": "missing" },
+        "retry": { "maxAttempts": 3, "backoff": "exponential", "initial": "PT30S", "max": "PT5M" },
+        "next": "assess",
+        "onError": "escalate",
+        "onNotAvailable": "escalate_final"
+      },
+      "assess": {
+        "kind": "decide",
+        "stage": "previsit",
+        "rule": "previsit.missing_items",
+        "facts": { "missing": "missing" },
+        "route": "action",
+        "on": { "none": "done", "some": "send" },
+        "onNoDecision": "escalate",
+        "onError": "escalate"
+      },
+      "send": {
+        "kind": "action",
+        "stage": "previsit",
+        "port": "messaging.reminder",
+        "delivery": "atMostOnce",
+        "contact": true,
+        "window": "contact_hours",
+        "input": { "case": "case_ref", "missing": "missing" },
+        "retry": { "maxAttempts": 3, "backoff": "exponential", "initial": "PT1M", "max": "PT10M" },
+        "next": "reply",
+        "onUnknown": "escalate",
+        "onError": "escalate",
+        "onNotAvailable": "escalate_final",
+        "onNotEntitled": "escalate_final"
+      },
+      "reply": {
+        "kind": "wait",
+        "stage": "previsit",
+        "event": "case.reply_received",
+        "correlation": "case_ref",
+        "timeout": "PT24H",
+        "next": "cycle",
+        "onTimeout": "cycle"
+      },
+      "escalate": {
+        "kind": "humanTask",
+        "stage": "previsit",
+        "queue": "front_desk",
+        "outcomes": ["resolved", "unreachable"],
+        "show": ["case_ref", "missing"],
+        "timeout": "P3D",
+        "on": { "resolved": "cycle", "unreachable": "closed" },
+        "onTimeout": "closed"
+      },
+      "escalate_final": {
+        "kind": "humanTask",
+        "stage": "previsit",
+        "queue": "front_desk",
+        "outcomes": ["resolved", "unreachable"],
+        "show": ["case_ref", "missing"],
+        "timeout": "P3D",
+        "on": { "resolved": "done", "unreachable": "closed" },
+        "onTimeout": "closed"
+      },
+      "done": { "kind": "end", "stage": "previsit", "result": "previsit_closed" },
+      "closed": { "kind": "end", "stage": "previsit", "result": "previsit_unreachable" }
+    },
+    "scenarios": [
+      {
+        "name": "nothing is missing",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_closed",
+          "trace": ["cycle", "check", "assess", "done"],
+          "variables": {
+            "missing": 0
+          }
+        }
+      },
+      {
+        "name": "a reply after the first reminder closes the stage",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "complete": "send" },
+          { "event": "case.reply_received", "correlation": "c-1001", "payload": { } },
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_closed",
+          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "done"],
+          "variables": {
+            "missing": 0
+          }
+        }
+      },
+      {
+        "name": "three reminders without a reply end at the front desk",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "complete": "send" },
+          { "advance": "PT24H" },
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "complete": "send" },
+          { "advance": "PT24H" },
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "complete": "send" },
+          { "advance": "PT24H" },
+          { "task": "escalate_final", "outcome": "unreachable" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_unreachable",
+          "trace": [
+            "cycle",
+            "check",
+            "assess",
+            "send",
+            "reply",
+            "cycle",
+            "check",
+            "assess",
+            "send",
+            "reply",
+            "cycle",
+            "check",
+            "assess",
+            "send",
+            "reply",
+            "cycle",
+            "escalate_final",
+            "closed"
+          ],
+          "variables": {
+            "missing": 2
+          }
+        }
+      },
+      {
+        "name": "the front desk resolves a case after the reminders are used up",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 1 } },
+          { "complete": "send" },
+          { "advance": "PT24H" },
+          { "complete": "check", "output": { "missing_count": 1 } },
+          { "complete": "send" },
+          { "advance": "PT24H" },
+          { "complete": "check", "output": { "missing_count": 1 } },
+          { "complete": "send" },
+          { "advance": "PT24H" },
+          { "task": "escalate_final", "outcome": "resolved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_closed",
+          "trace": [
+            "cycle",
+            "check",
+            "assess",
+            "send",
+            "reply",
+            "cycle",
+            "check",
+            "assess",
+            "send",
+            "reply",
+            "cycle",
+            "check",
+            "assess",
+            "send",
+            "reply",
+            "cycle",
+            "escalate_final",
+            "done"
+          ]
+        }
+      },
+      {
+        "name": "an unknown delivery goes to the front desk, which sends the case back to the loop",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 3 } },
+          { "fail": "send", "error": "Unknown", "code": "messaging.outcome_unknown" },
+          { "task": "escalate", "outcome": "resolved" },
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_closed",
+          "trace": ["cycle", "check", "assess", "send", "escalate", "cycle", "check", "assess", "done"]
+        }
+      },
+      {
+        "name": "a transient failure of the reminder is retried inside the window",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 1 } },
+          { "fail": "send", "error": "Transient", "code": "messaging.busy" },
+          { "advance": "PT1M" },
+          { "complete": "send" },
+          { "event": "case.reply_received", "correlation": "c-1001", "payload": { } },
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_closed",
+          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "done"]
+        }
+      },
+      {
+        "name": "a reminder that is not available hands the whole stage to the front desk",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "fail": "send", "error": "NotAvailable", "code": "messaging.no_connector" },
+          { "task": "escalate_final", "outcome": "resolved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_closed",
+          "trace": ["cycle", "check", "assess", "send", "escalate_final", "done"]
+        }
+      },
+      {
+        "name": "a reminder the practice is not entitled to ends at the front desk after three days",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "fail": "send", "error": "NotEntitled", "code": "messaging.not_in_plan" },
+          { "advance": "P3D" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_unreachable",
+          "trace": ["cycle", "check", "assess", "send", "escalate_final", "closed"]
+        }
+      },
+      {
+        "name": "a zone the host cannot resolve raises a task instead of a contact",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "Nowhere/Unlisted" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "task": "escalate", "outcome": "unreachable" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_unreachable",
+          "trace": ["cycle", "check", "assess", "send", "escalate", "closed"]
+        }
+      },
+      {
+        "name": "a reminder waits for the next opening of the contact hours",
+        "start": {
+          "at": "2027-01-08T23:00:00Z",
+          "today": "2027-01-08",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "advance": "PT63H" },
+          { "complete": "send" },
+          { "event": "case.reply_received", "correlation": "c-1001", "payload": { } },
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_closed",
+          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "done"]
+        }
+      },
+      {
+        "name": "the requirements cannot be read at all",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "fail": "check", "error": "NotAvailable", "code": "intake.no_connector" },
+          { "task": "escalate_final", "outcome": "resolved" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_closed",
+          "trace": ["cycle", "check", "escalate_final", "done"]
+        }
+      },
+      {
+        "name": "the requirements fail for good",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "fail": "check", "error": "Permanent", "code": "intake.gone" },
+          { "task": "escalate", "outcome": "unreachable" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_unreachable",
+          "trace": ["cycle", "check", "escalate", "closed"]
+        }
+      },
+      {
+        "name": "the requirements fail on every attempt and nobody answers the task",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "fail": "check", "error": "Transient", "code": "intake.busy" },
+          { "advance": "PT30S" },
+          { "fail": "check", "error": "Transient", "code": "intake.busy" },
+          { "advance": "PT1M" },
+          { "fail": "check", "error": "Transient", "code": "intake.busy" },
+          { "advance": "P3D" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_unreachable",
+          "trace": ["cycle", "check", "escalate", "closed"]
+        }
+      },
+      {
+        "name": "a negative count decides nothing and goes to the front desk",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": -1 } },
+          { "task": "escalate", "outcome": "unreachable" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_unreachable",
+          "trace": ["cycle", "check", "assess", "escalate", "closed"]
+        }
+      },
+      {
+        "name": "a read without a count makes the rule fail and goes to the front desk",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": { "case_ref": "c-1001", "practice_zone": "America/New_York" }
+        },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { } },
+          { "task": "escalate", "outcome": "unreachable" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "previsit_unreachable",
+          "trace": ["cycle", "check", "assess", "escalate", "closed"]
+        }
+      },
+      {
+        "name": "a case that came without its zone is suspended at the reminder, never failed and never routed",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } }
+        ],
+        "expect": { "status": "Suspended", "trace": ["cycle", "check", "assess", "send"] }
+      }
+    ]
+  }
+}

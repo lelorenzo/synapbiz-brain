@@ -1,0 +1,37 @@
+{
+  "module": "visit",
+  "schemaVersion": 1,
+  "facts": [
+    {
+      "kind": "visit.note_ready",
+      "name": "status",
+      "type": "Code",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "visit.note_ready",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "visit.decisions.read",
+        "author": "visit.decisions.author",
+        "approve": "visit.decisions.approve",
+        "readTrace": "visit.decisions.read_trace"
+      },
+      "outcomes": [
+        {
+          "name": "ready",
+          "type": "Enum",
+          "nullable": false,
+          "labelSource": null,
+          "allowedValues": ["yes", "no"]
+        }
+      ]
+    }
+  ]
+}

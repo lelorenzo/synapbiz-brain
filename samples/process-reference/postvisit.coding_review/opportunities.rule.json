@@ -1,0 +1,49 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "postvisit.opportunities",
+  "version": 1,
+  "uses": [],
+  "requires": ["coding@1"],
+  "meta": { "title": "Coding opportunities found in the facts of a note" },
+  "body": {
+    "kind": "coding.opportunities",
+    "hitPolicy": "collect",
+    "rows": [
+      {
+        "id": "flagged-items",
+        "version": 1,
+        "legacyKey": "flagged-items",
+        "conditions": [
+          { "fact": "flagged", "op": "range", "value": { "type": "Integer", "value": "1" } }
+        ],
+        "outcome": { "opportunity": "C-100" }
+      },
+      {
+        "id": "many-items",
+        "version": 1,
+        "legacyKey": "many-items",
+        "conditions": [
+          { "fact": "items", "op": "range", "value": { "type": "Integer", "value": "5" } }
+        ],
+        "outcome": { "opportunity": "C-200" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "A flagged item is one opportunity",
+        "facts": { "items": { "type": "Integer", "value": "3" }, "flagged": { "type": "Integer", "value": "1" } },
+        "expect": { "row": "flagged-items", "outcome": [{ "opportunity": "C-100" }] }
+      },
+      {
+        "name": "Flagged and many items are two opportunities",
+        "facts": { "items": { "type": "Integer", "value": "6" }, "flagged": { "type": "Integer", "value": "2" } },
+        "expect": { "row": "flagged-items", "outcome": [{ "opportunity": "C-100" }, { "opportunity": "C-200" }] }
+      },
+      {
+        "name": "Nothing flagged and few items decides nothing",
+        "facts": { "items": { "type": "Integer", "value": "2" }, "flagged": { "type": "Integer", "value": "0" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

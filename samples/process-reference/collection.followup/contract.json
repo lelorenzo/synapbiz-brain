@@ -1,0 +1,38 @@
+{
+  "module": "collection",
+  "schemaVersion": 1,
+  "facts": [
+    { "kind": "collection.claim_progress", "name": "status", "type": "Code", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "collection.claim_result", "name": "status", "type": "Code", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null }
+  ],
+  "kinds": [
+    {
+      "id": "collection.claim_progress",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "collection.decisions.read",
+        "author": "collection.decisions.author",
+        "approve": "collection.decisions.approve",
+        "readTrace": "collection.decisions.read_trace"
+      },
+      "outcomes": [
+        { "name": "progress", "type": "Enum", "nullable": false, "labelSource": null, "allowedValues": ["open", "settled"] }
+      ]
+    },
+    {
+      "id": "collection.claim_result",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "collection.decisions.read",
+        "author": "collection.decisions.author",
+        "approve": "collection.decisions.approve",
+        "readTrace": "collection.decisions.read_trace"
+      },
+      "outcomes": [
+        { "name": "result", "type": "Enum", "nullable": false, "labelSource": null, "allowedValues": ["paid", "denied", "pending"] }
+      ]
+    }
+  ]
+}
