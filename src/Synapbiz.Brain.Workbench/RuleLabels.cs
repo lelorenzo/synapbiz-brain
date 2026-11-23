@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Nuvora.Decisions.Contracts.Tables;
 
 namespace Synapbiz.Brain.Workbench;
 
@@ -45,6 +46,13 @@ public sealed record RuleLabels
         get => values;
         init => values = value ?? NoValues;
     }
+
+    /// <summary>
+    /// A host formatter for values: it receives a typed value and returns its text, or null to use the default text. It is asked
+    /// for every value that has no value label (a labelled code or enum member keeps its label), in condition texts and
+    /// sentences alike. Null (the default) means no formatter.
+    /// </summary>
+    public Func<DecisionValue, string?>? ValueFormatter { get; init; }
 
     /// <summary>Row id to title. Never null.</summary>
     public IReadOnlyDictionary<string, string> Rows

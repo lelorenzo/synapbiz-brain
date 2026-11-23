@@ -36,6 +36,8 @@ A rule may carry display names under `meta.display.<en|es>`. A host may build a 
 | `values` | object of objects of strings | Fact or outcome field name, then raw value, to label. |
 | `rows` | object of strings | Row id to title. |
 
+`RuleLabels.ValueFormatter` is not read from `meta`: only a host sets it.
+
 ```csharp
 var labels = RuleLabels.FromMeta(rule.Meta, WorkbenchLocale.En);
 ```
@@ -56,6 +58,16 @@ foreach (var row in view.Rows)
 ```
 
 A condition that says nothing (`any`, or a range with no bound) is listed in `Conditions` but left out of the sentence; a row with nothing left reads `In every case, ...`. The default row reads `Otherwise, ...`. `WorkbenchText.FormatValue` writes one typed value the same way (`yes`/`no`, a decimal with a comma in Spanish, dates as `MM/dd/yyyy` or `dd/MM/yyyy`).
+
+A host can write values its own way with `RuleLabels.ValueFormatter`, a `Func<DecisionValue, string?>`. `FormatValue` asks, in this order: a null value is empty; a code or enum member that has a value label is written by its label; otherwise the formatter, when it is set and returns a text; otherwise the default text above. Condition texts and sentences go through `FormatValue`, so one formatter changes every one of them and a screen can show dates the way the rest of the host does. Outcome values of a row are written from the JSON text of the row and do not go through the formatter.
+
+```csharp
+var labels = RuleLabels.FromMeta(rule.Meta, WorkbenchLocale.En) with
+{
+    ValueFormatter = value => value is DateValue date ? date.Value.ToString("d MMM yyyy", CultureInfo.InvariantCulture) : null,
+};
+// "... received on is at most 30 Jun 2026 ..."; labelled enum values keep their labels, other values keep the default text.
+```
 
 ## Parse typed facts
 

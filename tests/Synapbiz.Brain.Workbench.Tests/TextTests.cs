@@ -110,5 +110,53 @@ public sealed class TextTests
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
+    private static string? Dated(DecisionValue value) =>
+        value is DateValue date ? date.Value.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture) : null;
+
+    [Fact]
+    public void AHostFormatterWritesTheValuesItReturnsATextFor()
+    {
+        var labels = new RuleLabels { ValueFormatter = Dated };
+
+        WorkbenchText.FormatValue(DecisionValue.Date(new DateOnly(2026, 6, 30)), "receivedOn", WorkbenchLocale.Es, labels).Should().Be("30 Jun 2026");
+        WorkbenchText.FormatValue(DecisionValue.Date(new DateOnly(2026, 6, 30)), "receivedOn", WorkbenchLocale.En, labels).Should().Be("30 Jun 2026");
+    }
+
+    [Fact]
+    public void AFormatterThatReturnsNullFallsBackToTheDefaultText()
+    {
+        var labels = new RuleLabels { ValueFormatter = Dated };
+
+        WorkbenchText.FormatValue(DecisionValue.Integer(12), "ageDays", WorkbenchLocale.En, labels).Should().Be("12");
+        WorkbenchText.FormatValue(DecisionValue.Boolean(true), "urgent", WorkbenchLocale.Es, labels).Should().Be("sí");
+        WorkbenchText.FormatValue(DecisionValue.Enum("to_confirm"), "route", WorkbenchLocale.En, labels).Should().Be("to confirm");
+        WorkbenchText.FormatValue(DecisionValue.Code("billing"), "topic", WorkbenchLocale.En, labels).Should().Be("billing");
+    }
+
+    [Fact]
+    public void ALabelledEnumMemberOrCodeKeepsItsLabelAndTheFormatterIsNotAsked()
+    {
+        var asked = new List<DecisionValue>();
+        var labels = Labels with
+        {
+            ValueFormatter = value =>
+            {
+                asked.Add(value);
+                return "formatted";
+            },
+        };
+
+        WorkbenchText.FormatValue(DecisionValue.Enum("to_confirm"), "route", WorkbenchLocale.En, labels).Should().Be("Needs a second look");
+        WorkbenchText.FormatValue(DecisionValue.Code("billing"), "topic", WorkbenchLocale.En, labels).Should().Be("Billing questions");
+        asked.Should().BeEmpty();
+
+        WorkbenchText.FormatValue(DecisionValue.Enum("Fast"), "route", WorkbenchLocale.En, labels).Should().Be("formatted");
+        asked.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void ANullValueIsEmptyEvenWhenAFormatterIsSet() =>
+        WorkbenchText.FormatValue(null, "any", WorkbenchLocale.En, new RuleLabels { ValueFormatter = _ => "never" }).Should().BeEmpty();
+
     private sealed record UnknownValue : DecisionValue;
 }

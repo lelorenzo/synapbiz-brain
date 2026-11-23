@@ -11,6 +11,12 @@
     <!-- brain-spec -->
     <PackageVersion Include="JsonSchema.Net" Version="8.0.5" />
 
+    <!-- workbench panels -->
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+    <PackageVersion Include="bunit" Version="1.38.5" />
+    <!-- Only the demo host: the script of the interactive server render mode (blazor.web.js), which the SDK did not restore for net9.0 on this machine. -->
+    <PackageVersion Include="Microsoft.AspNetCore.App.Internal.Assets" Version="10.0.0" />
+
     <!-- Test stack -->
     <PackageVersion Include="xunit" Version="2.9.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />

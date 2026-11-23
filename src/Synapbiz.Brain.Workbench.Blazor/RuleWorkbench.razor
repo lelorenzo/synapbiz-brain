@@ -1,0 +1,883 @@
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Nuvora.Decisions.Contracts.Tables
+@using Synapbiz.Brain.Spec
+@using Synapbiz.Brain.Workbench
+@using System.Globalization
+@using Nuvora.Decisions.Contracts.Evaluation
+@using Nuvora.Decisions.Contracts.Goldens
+@using Nuvora.Decisions.Contracts.Kinds
+@implements IDisposable
+
+<div class="wb-root" lang="@(Locale == WorkbenchLocale.Es ? "es" : "en")">
+    <div class="wb-main">
+        <div class="wb-panel wb-list-panel">
+            <div class="wb-ph">
+                <h2 class="wb-title">@Rich("list.title")</h2>
+                @if (Rules is not null)
+                {
+                    <div class="wb-meta">@CountLine()</div>
+                }
+            </div>
+            @if (Rules is null)
+            {
+                <div class="wb-skeletons" aria-hidden="true">
+                    <div class="wb-skeleton"></div>
+                    <div class="wb-skeleton"></div>
+                    <div class="wb-skeleton"></div>
+                </div>
+            }
+            else if (Rules.Count > 0)
+            {
+                var selectedKey = SelectedRule?.Key;
+                <div class="wb-list-select-wrap">
+                    <select class="wb-in wb-list-select" aria-label="@Plain("list.aria")" value="@(Rules.ToList().FindIndex(item => item.Key == selectedKey).ToString(CultureInfo.InvariantCulture))" @onchange="SelectFromList">
+                        @for (var position = 0; position < Rules.Count; position++)
+                        {
+                            <option value="@position.ToString(CultureInfo.InvariantCulture)">@TitleOf(Rules[position])</option>
+                        }
+                    </select>
+                </div>
+                <nav class="wb-list" aria-label="@Plain("list.aria")">
+                    @foreach (var group in RuleGroups())
+                    {
+                        <section class="wb-group-section">
+                            @if (group.Heading is not null)
+                            {
+                                <h3 class="wb-group" id="@(idp + "-g" + group.Number)">@group.Heading</h3>
+                            }
+                            <ul class="wb-rules" aria-labelledby="@(group.Heading is not null ? idp + "-g" + group.Number : null)">
+                                @foreach (var entry in group.Entries)
+                                {
+                                    var rule = entry.Rule;
+                                    var index = entry.Index;
+                                    var selected = string.Equals(rule.Key, selectedKey, StringComparison.Ordinal);
+                                    <li>
+                                        <button type="button" class="wb-rule" aria-current="@(selected ? "true" : null)" @onclick="() => SelectRule(rule.Key)" @onkeydown="OnListKeyDown" @ref="refs[RuleRef(index)]">
+                                            <span class="wb-rule-t">
+                                                <span class="wb-rule-name">@TitleOf(rule)</span>
+                                                @if (IsReadable(rule))
+                                                {
+                                                    <span class="@PillClass(rule.State == RuleApprovalState.Approved ? "ok" : "warn")">@Rich(rule.State == RuleApprovalState.Approved ? "state.approved" : "state.draft")</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="@PillClass("neutral")">@Rich("list.unreadable")</span>
+                                                }
+                                            </span>
+                                            @if (IsReadable(rule))
+                                            {
+                                                <span class="wb-rule-s">@ListSummary(rule)</span>
+                                            }
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                </nav>
+            }
+        </div>
+
+        <div class="wb-panel wb-detail">
+            @if (Rules is null)
+            {
+                <div class="wb-body wb-sub" role="status">@Rich("load.loading")</div>
+            }
+            else if (Rules.Count == 0)
+            {
+                <div class="wb-body wb-sub">@Rich("list.empty")</div>
+            }
+            else if (SelectedRule is { } current)
+            {
+                @DetailPanel(current)
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private sealed record Ctx(WorkbenchRule Rule, BrainRule Brain, RuleView View, RuleWork Work, List<ShownFact> Shown);
+
+    private static readonly (ReviewState State, string Key, string PressedKey)[] ReviewParts =
+    [
+        (ReviewState.Confirmed, "review.confirm", "review.confirmed"),
+        (ReviewState.NeedsFix, "review.fix", "review.fixState"),
+        (ReviewState.Question, "review.question", "review.questionState"),
+    ];
+
+    private static readonly (WorkbenchTab Tab, string Key)[] TabKeys =
+    [
+        (WorkbenchTab.Read, "tabs.read"),
+        (WorkbenchTab.Simulate, "tabs.simulate"),
+        (WorkbenchTab.Tests, "tabs.tests"),
+        (WorkbenchTab.Review, "tabs.review"),
+    ];
+
+    private RenderFragment PrivacyNotice() => @<div class="wb-notice" role="note">@Rich("notice.privacy")</div>;
+
+    private RenderFragment Band(string key) => @<div class="wb-band"><span class="@PillClass("sim")">@Rich("pill.simulation")</span><span>@Rich(key)</span></div>;
+
+    private RenderFragment DetailPanel(WorkbenchRule rule)
+    {
+        if (!IsReadable(rule))
+        {
+            return @<text>
+                <div class="wb-ph">
+                    <div class="wb-head"><h1 class="wb-title">@TitleOf(rule)</h1><span class="@PillClass("neutral")">@Rich("list.unreadable")</span></div>
+                </div>
+                <div class="wb-body wb-sub" role="status">@Rich("load.failedBody")</div>
+            </text>;
+        }
+
+        var brain = rule.Rule!;
+        var work = Session.Work(rule.Key);
+        var view = work.View(rule, Locale);
+        var ctx = new Ctx(rule, brain, view, work, FactForm.Shown(brain, view));
+        var run = work.Tests(brain);
+        var exportedItems = work.Reviews.Values.Count(entry => entry.IsExported);
+        var current = Session.SelectedTab;
+
+        return @<text>
+            <div class="wb-ph">
+                <div class="wb-head">
+                    <h1 class="wb-title">@TitleOf(rule)</h1>
+                    <span class="@PillClass(rule.State == RuleApprovalState.Approved ? "ok" : "warn")">@Rich(rule.State == RuleApprovalState.Approved ? "state.approved" : "state.draft")</span>
+                    <span class="wb-sp"></span>
+                    <span class="wb-meta">@Rich("panel.version", ("n", brain.Version.ToString(CultureInfo.InvariantCulture)))</span>
+                </div>
+                <div class="wb-meta">@StateLineOf(rule)@if (!string.IsNullOrWhiteSpace(rule.SourceLine)){@(" " + rule.SourceLine)}</div>
+                <div class="wb-meta wb-small">@Rich("state.elsewhere")</div>
+            </div>
+            <div class="wb-tabs" role="tablist" aria-label="@Plain("tabs.label")">
+                @foreach (var entry in TabKeys)
+                {
+                    var tab = entry.Tab;
+                    var number = (int)tab;
+                    var on = tab == current;
+                    <button type="button" role="tab" id="@(idp + "-tab-" + number)" class="wb-tab" aria-selected="@(on ? "true" : "false")" aria-controls="@(idp + "-panel")" tabindex="@(on ? 0 : -1)" @onclick="() => SelectTab(tab)" @onkeydown="OnTabKeyDown" @ref="refs[TabRef(number)]">
+                        @Rich(entry.Key)
+                        @if (tab == WorkbenchTab.Tests && run.Cases.Count > 0)
+                        {
+                            <span class="@(run.FailedCount > 0 ? "wb-pill wb-pill-n wb-pill-bad" : "wb-pill wb-pill-n")">@(run.FailedCount > 0 ? PluralText("fail.count", run.FailedCount) : OutcomeFormat.Number(run.Cases.Count))</span>
+                        }
+                        @if (tab == WorkbenchTab.Review && exportedItems > 0)
+                        {
+                            <span class="wb-pill wb-pill-n">@OutcomeFormat.Number(exportedItems)</span>
+                        }
+                    </button>
+                }
+            </div>
+            <div class="wb-body" role="tabpanel" id="@(idp + "-panel")" aria-labelledby="@(idp + "-tab-" + (int)current)" tabindex="0">
+                @switch (current)
+                {
+                    case WorkbenchTab.Read:
+                        @ReadPanel(ctx)
+                        break;
+                    case WorkbenchTab.Simulate:
+                        @SimulatePanel(ctx)
+                        break;
+                    case WorkbenchTab.Tests:
+                        @TestsPanel(ctx)
+                        break;
+                    default:
+                        @ReviewPanel(ctx)
+                        break;
+                }
+            </div>
+        </text>;
+    }
+
+    // ----- shared pieces ----------------------------------------------------------------------------------------------
+
+    private RenderFragment ReviewControl(RuleWork work, string target, string groupLabel) => @<div class="wb-rv" role="group" aria-label="@groupLabel">
+        @foreach (var part in ReviewParts)
+        {
+            var state = part.State;
+            var pressed = work.Review(target).State == state;
+            <button type="button" class="wb-seg-part" aria-pressed="@(pressed ? "true" : "false")" @onclick="() => ToggleReview(work, target, state)">@Rich(pressed ? part.PressedKey : part.Key)</button>
+        }
+    </div>;
+
+    private RenderFragment NoteEditor(RuleWork work, string target, string labelKey)
+    {
+        var entry = work.Review(target);
+        if (!NoteVisible(work, target))
+        {
+            return entry.State == ReviewState.Confirmed
+                ? @<button type="button" class="wb-link" @onclick="() => OpenNote(work, target)">@Rich("review.addNote")</button>
+                : @<text></text>;
+        }
+
+        var id = NoteId(target);
+        return @<div class="wb-card wb-note">
+            <label class="wb-label" for="@id">@Rich(labelKey)</label>
+            <textarea id="@id" class="wb-in" rows="2" maxlength="@NoteMax" value="@entry.Note" @onchange="args => SetNote(work, target, args.Value?.ToString())" @ref="refs[NoteRef(target)]"></textarea>
+            @if (entry.Note.Length >= NoteCounterFrom)
+            {
+                <div class="wb-hint">@Plain("review.counter", ("n", OutcomeFormat.Number(entry.Note.Length)), ("max", OutcomeFormat.Number(NoteMax)))</div>
+            }
+        </div>;
+    }
+
+    private RenderFragment FactFields(FactForm form, IReadOnlyList<ShownFact> shown, string scope, Action? changed) => @<text>
+        @foreach (var item in shown)
+        {
+            var fact = item.Fact;
+            var name = fact.Name;
+            var fieldId = idp + "-" + scope + "-" + item.Index.ToString(CultureInfo.InvariantCulture);
+            var hint = HintText(fact);
+            var error = form.Errors.TryGetValue(name, out var code) ? ErrorKey(code) : null;
+            var hintId = fieldId + "-hint";
+            var errorId = fieldId + "-err";
+            var describedBy = string.Join(' ', new[] { hint.Length > 0 ? hintId : null, error is not null ? errorId : null }.OfType<string>());
+            var inputClass = error is null ? "wb-in" : "wb-in wb-in-err";
+            var invalid = error is null ? null : "true";
+            <div class="wb-field">
+                @if (fact.Type == FactType.Boolean)
+                {
+                    var choices = BooleanChoices(fact);
+                    <span class="wb-label" id="@(fieldId + "-label")">@item.View.Label</span>
+                    <div class="wb-radios" role="radiogroup" aria-labelledby="@(fieldId + "-label")" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid">
+                        @for (var position = 0; position < choices.Count; position++)
+                        {
+                            var choice = choices[position];
+                            var slot = position;
+                            <label class="wb-radio"><input type="radio" name="@(fieldId + "-r")" value="@choice.Value" checked="@(form.TextOf(name) == choice.Value)" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldSlotRef(scope, item.Index, slot)]" />@choice.Label</label>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <label class="wb-label" for="@fieldId">@item.View.Label</label>
+                    @if (fact.Type == FactType.Enum && item.View.AllowedValues.Count > 0)
+                    {
+                        <select id="@fieldId" class="@inputClass" value="@form.TextOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldRef(scope, item.Index)]">
+                            @if (fact.Nullable)
+                            {
+                                <option value="">@Plain("sim.noValue")</option>
+                            }
+                            @foreach (var option in item.View.AllowedValues)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                    }
+                    else if (fact.Type == FactType.Date)
+                    {
+                        <input id="@fieldId" type="date" class="@inputClass" value="@form.TextOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldRef(scope, item.Index)]" />
+                    }
+                    else if (fact.Type == FactType.Money)
+                    {
+                        <div class="wb-money">
+                            <input id="@fieldId" type="text" inputmode="decimal" autocomplete="off" class="@inputClass" placeholder="@Plain("sim.amount")" aria-label="@Plain("sim.amount")" value="@form.TextOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldRef(scope, item.Index)]" />
+                            <input type="text" autocomplete="off" maxlength="3" class="@(inputClass + " wb-in-currency")" placeholder="@Plain("sim.currency")" aria-label="@Plain("sim.currency")" value="@form.CurrencyOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetCurrency(form, name, args, changed)" />
+                        </div>
+                    }
+                    else
+                    {
+                        <input id="@fieldId" type="text" autocomplete="off" inputmode="@InputMode(fact.Type)" class="@inputClass" value="@form.TextOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldRef(scope, item.Index)]" />
+                    }
+                }
+                @if (hint.Length > 0)
+                {
+                    <div class="wb-hint" id="@hintId">@hint</div>
+                }
+                @if (error is not null)
+                {
+                    <div class="wb-errt" id="@errorId">@Rich(error)</div>
+                }
+            </div>
+        }
+    </text>;
+
+    private string HintText(FactDescriptor fact)
+    {
+        var parts = new List<string>();
+        var type = fact.Type switch
+        {
+            FactType.Integer => "hint.integer",
+            FactType.Decimal => "hint.decimal",
+            FactType.Money => "hint.money",
+            _ => null,
+        };
+        if (type is not null)
+        {
+            parts.Add(Plain(type));
+        }
+
+        if (!fact.Nullable)
+        {
+            parts.Add(Plain("hint.required"));
+        }
+
+        return string.Join(' ', parts);
+    }
+
+    private static string ErrorKey(string code) => code switch
+    {
+        FactInput.ErrorRequired => "err.required",
+        FactInput.ErrorNotAllowed => "err.notAllowed",
+        FactInput.ErrorNotABoolean => "err.notBoolean",
+        FactInput.ErrorNotAnInteger => "err.notInteger",
+        FactInput.ErrorNotADecimal => "err.notDecimal",
+        FactInput.ErrorNotADate => "err.notDate",
+        FactInput.ErrorNotMoney => "err.notMoney",
+        _ => "err.generic",
+    };
+
+    private List<(string Value, string Label)> BooleanChoices(FactDescriptor fact)
+    {
+        var choices = new List<(string Value, string Label)> { ("true", Plain("sim.yes")), ("false", Plain("sim.no")) };
+        if (fact.Nullable)
+        {
+            choices.Add((string.Empty, Plain("sim.noValue")));
+        }
+
+        return choices;
+    }
+
+    // ----- Read -------------------------------------------------------------------------------------------------------
+
+    private RenderFragment ReadPanel(Ctx c) => @<text>
+        <h2 class="wb-h2">@Rich(PolicyKey(c.View.HitPolicy))</h2>
+        @foreach (var row in c.View.Rows)
+        {
+            var target = RowTarget(row);
+            <div class="wb-row">
+                <span class="wb-num">@SimulationPresenter.Number(row)</span>
+                <div>
+                    @if (row.Title is not null)
+                    {
+                        <div class="wb-row-title">@row.Title</div>
+                    }
+                    <div class="wb-sent">@row.Sentence</div>
+                    @if (c.Rule.RowTexts.TryGetValue(row.RowId, out var shownText))
+                    {
+                        <div class="wb-sub">@Rich("read.rowTextPrefix") «@shownText»</div>
+                    }
+                    @NoteEditor(c.Work, target, "review.noteLabel")
+                </div>
+                @ReviewControl(c.Work, target, Plain("review.groupRow", ("n", SimulationPresenter.Number(row))))
+            </div>
+        }
+        @if (c.View.DefaultRow is { } fallback)
+        {
+            <div class="wb-row wb-row-default">
+                <span class="wb-num">@SimulationPresenter.Number(fallback)</span>
+                <div>
+                    <div class="wb-sent">@fallback.Sentence</div>
+                    @if (c.Rule.RowTexts.TryGetValue(fallback.RowId, out var fallbackText))
+                    {
+                        <div class="wb-sub">@Rich("read.rowTextPrefix") «@fallbackText»</div>
+                    }
+                </div>
+                <span></span>
+            </div>
+        }
+        else
+        {
+            <div class="wb-row wb-row-default">
+                <span class="wb-num">–</span>
+                <div><div class="wb-sent">@Rich("read.noDefaultRow")</div></div>
+                <span></span>
+            </div>
+        }
+        <h2 class="wb-h2 wb-h2-gap">@Rich("read.facts")</h2>
+        <dl class="wb-kv">
+            @foreach (var fact in c.View.Facts)
+            {
+                <dt>@fact.Label</dt>
+                <dd>@TypeWord(fact) · @Rich(fact.Nullable ? "read.optional" : "read.required")</dd>
+            }
+        </dl>
+    </text>;
+
+    // ----- Simulate ---------------------------------------------------------------------------------------------------
+
+    private RenderFragment SimulatePanel(Ctx c)
+    {
+        var work = c.Work;
+        var form = work.Simulator;
+        form.EnsureDefaults(c.Shown);
+        var run = work.Tests(c.Brain);
+        var selectId = idp + "-load";
+
+        return @<text>
+            @Band("band.simulate")
+            <div class="wb-grid2">
+                <div class="wb-card">
+                    <h2 class="wb-h2">@Rich("sim.title")</h2>
+                    @FactFields(form, c.Shown, "sim", () => FieldChanged(work))
+                    <div class="wb-actions">
+                        <button type="button" class="wb-btn wb-btn-primary" @onclick="() => RunSimulation(c.Rule, work, c.Shown)">@Rich("sim.run")</button>
+                        <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => ClearSimulation(work, c.Shown)">@Rich("sim.clear")</button>
+                    </div>
+                    @if (run.Cases.Count > 0)
+                    {
+                        <label class="wb-hint wb-hint-gap" for="@selectId">@Rich("sim.loadCase")</label>
+                        <select id="@selectId" class="wb-in" value="@work.LoadedCase" @onchange="args => LoadCase(work, c.Shown, run.Cases, args)">
+                            <option value="">@Plain("sim.loadCaseNone")</option>
+                            @for (var position = 0; position < run.Cases.Count; position++)
+                            {
+                                <option value="@position.ToString(CultureInfo.InvariantCulture)">@run.Cases[position].Name</option>
+                            }
+                        </select>
+                    }
+                </div>
+                <div class="wb-live" aria-live="polite">
+                    @SimulationResult(c)
+                </div>
+            </div>
+        </text>;
+    }
+
+    private RenderFragment SimulationResult(Ctx c)
+    {
+        var work = c.Work;
+        var result = work.Result;
+        if (work.Simulator.Errors.Count > 0)
+        {
+            return @<div class="wb-sub">@Rich("refuse.fixData")</div>;
+        }
+
+        if (result is null)
+        {
+            return @<div class="wb-sub">@Rich("sim.before")</div>;
+        }
+
+        var stale = work.Stale ? " wb-stale" : string.Empty;
+        if (!result.Succeeded)
+        {
+            var code = result.Failure!.Code;
+            var refusal = RefusalText.For(text, c.View, work.ResultFacts ?? new Dictionary<string, DecisionValue>(), code);
+            return @<div class="@("wb-result wb-result-fail" + stale)" role="alert">
+                @if (work.Stale)
+                {
+                    <div class="wb-stale-note">@Rich("sim.stale")</div>
+                }
+                <h2 class="wb-h2 wb-h2-flush">@Rich("refuse.title")</h2>
+                <div class="wb-refuse-line">@Rich("refuse.intro") @refusal.Line</div>
+                @if (refusal.WayOut == RefusalWayOut.FixData)
+                {
+                    <div class="wb-small">@Rich("refuse.fixData")</div>
+                }
+                else
+                {
+                    <div class="wb-small">@Rich("refuse.addToReview")</div>
+                    <div class="wb-actions wb-actions-tight">
+                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => AddRefusalToReview(work, code)">@Rich("refuse.addButton")</button>
+                    </div>
+                }
+            </div>;
+        }
+
+        var labels = c.Rule.Labels;
+        var decided = result.Outcome as Decided;
+        var groups = decided is null ? [] : OutcomeFormat.Groups(c.View, labels, Locale, decided.OutcomeJson);
+        var why = SimulationPresenter.Why(text, c.View, labels, result);
+        var deciding = SimulationPresenter.DecidingKeys(result);
+        var composed = result.Rows.Count == 0 && c.Brain.Kind.Facts.Any(fact => fact.ComposedFromKind is not null);
+        var folded = c.View.Rows.Count > SimulationPresenter.FoldAfter && !work.ShowAllRows;
+        var shownRows = result.Rows.Where(row => !folded || row.Selected || (row.Matched && !row.IsDefault)).ToList();
+        var hiddenCount = result.Rows.Count - shownRows.Count;
+
+        return @<text>
+            <div class="@((decided is null ? "wb-result wb-result-none" : "wb-result") + stale)">
+                @if (work.Stale)
+                {
+                    <div class="wb-stale-note">@Rich("sim.stale")</div>
+                }
+                <div class="wb-result-head">
+                    <h2 class="wb-h2 wb-h2-flush">@(decided is null ? Rich("sim.noDecision") : Rich("sim.resultTitle", ("values", OutcomeFormat.Summary(groups))))</h2>
+                    <span class="@PillClass("sim")">@Rich("pill.simulation")</span>
+                </div>
+                @if (why is not null)
+                {
+                    <div class="wb-sub wb-why">@why</div>
+                }
+                @for (var position = 0; position < groups.Count; position++)
+                {
+                    var group = groups[position];
+                    @if (groups.Count > 1 && position < deciding.Count)
+                    {
+                        <div class="wb-sub wb-group-note">@Plain("row.label", ("n", SimulationPresenter.RowNumbers(text, c.View, [deciding[position]])))</div>
+                    }
+                    <dl class="wb-kv">
+                        @foreach (var field in group)
+                        {
+                            <dt>@field.Label</dt>
+                            <dd>@field.Text</dd>
+                        }
+                    </dl>
+                }
+                @if (composed)
+                {
+                    <div class="wb-sub">@Rich("sim.composedNote")</div>
+                }
+                <div class="wb-actions wb-actions-tight">
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenFormFromSimulation(c.Rule, work, c.Shown, c.View, labels)">@Rich("sim.saveAsCase")</button>
+                </div>
+            </div>
+            @if (result.Rows.Count > 0)
+            {
+                <h2 class="wb-h2">@Rich("sim.rowByRow")</h2>
+                @foreach (var explanation in shownRows)
+                {
+                    var row = SimulationPresenter.RowByKey(c.View, explanation.Key);
+                    if (row is null)
+                    {
+                        continue;
+                    }
+
+                    var word = SimulationPresenter.Word(explanation);
+                    <div class="@(RowClass(explanation.Selected) + stale)">
+                        <span class="wb-num">@SimulationPresenter.Number(row)</span>
+                        <div>
+                            <div class="wb-sent">@(explanation.Selected ? row.Sentence : SimulationPresenter.ShortSentence(text, row))</div>
+                            @foreach (var condition in row.Conditions)
+                            {
+                                var check = explanation.Conditions.FirstOrDefault(item => item.Index == condition.Index);
+                                var typed = check is null ? string.Empty : WorkbenchText.FormatValue(check.Actual, condition.FactName, Locale, labels);
+                                <div class="wb-cond">
+                                    <span class="@PillClass(check is { Passed: true } ? "ok" : "neutral")">@Rich(check is { Passed: true } ? "cond.met" : "cond.notMet")</span>
+                                    <span class="wb-cond-text">@SimulationPresenter.Capitalize(condition.Text). @(typed.Length > 0 ? Plain("sim.typed", ("value", typed)) : Plain("sim.notTyped"))</span>
+                                </div>
+                            }
+                            @if (word.Key == "row.matchesNoDecide" && c.View.HitPolicy == HitPolicy.First)
+                            {
+                                <div class="wb-sub">@Rich("row.earlier")</div>
+                            }
+                        </div>
+                        <span class="@PillClass(word.Tone)">@Rich(word.Key)</span>
+                    </div>
+                }
+                @if (hiddenCount > 0)
+                {
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => { work.ShowAllRows = true; Session.Touch(); }">@Rich("sim.showAll", ("n", OutcomeFormat.Number(hiddenCount)))</button>
+                }
+            }
+        </text>;
+    }
+
+    // ----- Tests ------------------------------------------------------------------------------------------------------
+
+    private RenderFragment TestsPanel(Ctx c)
+    {
+        var work = c.Work;
+        var run = work.Tests(c.Brain);
+        var labels = c.Rule.Labels;
+        var form = caseForm is not null && string.Equals(caseForm.RuleKey, c.Rule.Key, StringComparison.Ordinal) ? caseForm : null;
+        var failing = run.FailedCount > 0;
+
+        return @<text>
+            @Band("band.tests")
+            @if (form is not null)
+            {
+                @CaseFormPanel(c, form)
+            }
+            <div class="wb-bar">
+                <h2 class="wb-h2 wb-h2-flush">@TestsHeading(run)</h2>
+                <span class="wb-sp"></span>
+                <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => OpenCaseForm(c.Rule, c.Shown)">@Rich("tests.add")</button>
+                <button type="button" class="wb-btn wb-btn-primary" disabled="@testsRunning" @onclick="() => RunAllAsync(c.Rule, work)">@Rich(testsRunning ? "tests.running" : "tests.runAll")</button>
+            </div>
+            @if (run.Cases.Count > 0)
+            {
+                <table class="wb-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">@Rich("tests.th.case")</th>
+                            <th scope="col">@Rich("tests.th.data")</th>
+                            <th scope="col">@Rich("tests.th.expected")</th>
+                            <th scope="col">@Rich("tests.th.actual")</th>
+                            <th scope="col">@Rich("tests.th.status")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var testCase in run.Cases)
+                        {
+                            var target = CaseTarget(testCase.Name);
+                            <tr class="@(testCase.Passed ? null : "wb-fail-row")">
+                                <td>
+                                    @if (testCase.Passed)
+                                    {
+                                        @testCase.Name
+                                    }
+                                    else
+                                    {
+                                        <strong>@testCase.Name</strong>
+                                    }
+                                    @if (!testCase.FromDocument)
+                                    {
+                                        <div class="wb-sub"><span class="@PillClass("neutral")">@Rich("tests.proposed")</span></div>
+                                    }
+                                </td>
+                                <td>@OutcomeFormat.FactsText(c.Brain, c.View, labels, Locale, testCase.Facts)</td>
+                                <td>@ExpectedText(c.View, labels, testCase.Expected)</td>
+                                <td>
+                                    @if (testCase.Passed)
+                                    {
+                                        @ActualText(c.View, labels, testCase)
+                                    }
+                                    else
+                                    {
+                                        <strong>@ActualText(c.View, labels, testCase)</strong>
+                                        @if (testCase.Failure is null)
+                                        {
+                                            <div class="wb-sub">@DecidedByText(c.View, testCase)</div>
+                                        }
+                                    }
+                                </td>
+                                <td>
+                                    <span class="@PillClass(testCase.Passed ? "ok" : "bad")">@Rich(testCase.Passed ? "tests.pass" : "tests.fail")</span>
+                                    @if (!testCase.Passed)
+                                    {
+                                        <div class="wb-cell-gap"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenCaseInSimulator(work, c.Shown, testCase)">@Rich("tests.openSim")</button></div>
+                                    }
+                                    @if (testCase.FromDocument)
+                                    {
+                                        <div class="wb-cell-gap">@ReviewControl(work, target, Plain("review.groupCase", ("name", testCase.Name)))</div>
+                                    }
+                                </td>
+                            </tr>
+                            @if (testCase.FromDocument && NoteVisible(work, target))
+                            {
+                                <tr>
+                                    <td colspan="5">@NoteEditor(work, target, "review.noteLabel")</td>
+                                </tr>
+                            }
+                            else if (testCase.FromDocument && work.Review(target).State == ReviewState.Confirmed)
+                            {
+                                <tr>
+                                    <td colspan="5">@NoteEditor(work, target, "review.noteLabel")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (failing)
+            {
+                <div class="wb-notice wb-notice-gap" role="note">@Rich("tests.failNote")</div>
+            }
+            <h2 class="wb-h2 wb-h2-gap">@Rich("tests.uncovered")</h2>
+            @if (run.UncoveredRowKeys.Count == 0)
+            {
+                <div class="wb-sub wb-sub-flush">@Rich("tests.allCovered")</div>
+            }
+            else
+            {
+                foreach (var key in run.UncoveredRowKeys)
+                {
+                    var row = SimulationPresenter.RowByKey(c.View, key);
+                    if (row is null)
+                    {
+                        continue;
+                    }
+
+                    <div class="wb-row">
+                        <span class="wb-num">@SimulationPresenter.Number(row)</span>
+                        <div class="wb-sent">@row.Sentence</div>
+                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenFormForRow(c.Rule, c.Shown, c.View, labels, key)">@Rich("tests.createFor")</button>
+                    </div>
+                }
+            }
+        </text>;
+    }
+
+    private RenderFragment CaseFormPanel(Ctx c, CaseForm form)
+    {
+        var options = CaseForm.Options(c.Brain, c.View, c.Rule.Labels, Locale);
+        var collect = c.View.HitPolicy == HitPolicy.Collect;
+        var nameId = idp + "-case-name";
+        var expectedId = idp + "-case-expected";
+        var current = CurrentOption(form);
+
+        return @<div class="wb-card wb-case-form">
+            @PrivacyNotice()
+            <h2 class="wb-h2">@Rich("tests.add")</h2>
+            <div class="wb-field">
+                <label class="wb-label" for="@nameId">@Rich("case.name")</label>
+                <input id="@nameId" type="text" autocomplete="off" maxlength="200" class="@(form.NameError is null ? "wb-in" : "wb-in wb-in-err")" value="@form.Name" aria-describedby="@(form.NameError is null ? null : nameId + "-err")" aria-invalid="@(form.NameError is null ? null : "true")" @onchange="args => SetCaseName(form, args)" @ref="refs[CaseNameRef]" />
+                @if (form.NameError is not null)
+                {
+                    <div class="wb-errt" id="@(nameId + "-err")">@Rich(form.NameError)</div>
+                }
+            </div>
+            @FactFields(form.Facts, c.Shown, "case", null)
+            <div class="wb-field">
+                @if (collect)
+                {
+                    <span class="wb-label" id="@(expectedId + "-label")">@Rich("case.expected")</span>
+                    <div class="wb-radios wb-radios-stack" role="group" aria-labelledby="@(expectedId + "-label")">
+                        @foreach (var option in options)
+                        {
+                            var index = option.Index;
+                            <label class="wb-radio"><input type="checkbox" checked="@form.Chosen.Contains(index)" @onchange="args => ChooseOption(form, index, c.View.HitPolicy, args.Value is true)" />@option.Text</label>
+                        }
+                        <label class="wb-radio"><input type="checkbox" checked="@form.ExpectNone" @onchange="args => ChooseNone(form, args.Value is true)" />@Rich("result.none")</label>
+                    </div>
+                }
+                else
+                {
+                    <label class="wb-label" for="@expectedId">@Rich("case.expected")</label>
+                    <select id="@expectedId" class="@(form.ExpectedError is null ? "wb-in" : "wb-in wb-in-err")" value="@current" @onchange="args => ChooseOptionFromSelect(form, args, c.View.HitPolicy)">
+                        <option value="">@Plain("case.pick")</option>
+                        <option value="none">@Plain("result.none")</option>
+                        @foreach (var option in options)
+                        {
+                            <option value="@option.Index.ToString(CultureInfo.InvariantCulture)">@option.Text</option>
+                        }
+                    </select>
+                }
+                @if (form.ExpectedError is not null)
+                {
+                    <div class="wb-errt">@Rich(form.ExpectedError)</div>
+                }
+            </div>
+            <div class="wb-actions">
+                <button type="button" class="wb-btn wb-btn-primary" @onclick="() => SaveCase(c.Rule, c.Work, c.Shown, c.View, c.Rule.Labels)">@Rich("case.save")</button>
+                <button type="button" class="wb-btn wb-btn-secondary" @onclick="CancelCaseForm">@Rich("case.cancel")</button>
+            </div>
+        </div>;
+    }
+
+    // ----- Review -----------------------------------------------------------------------------------------------------
+
+    private RenderFragment ReviewPanel(Ctx c)
+    {
+        var work = c.Work;
+        var counts = CountReview(c.Rule, work, c.View);
+        var run = work.Tests(c.Brain);
+        var labels = c.Rule.Labels;
+        var rowItems = c.View.Rows.Where(row => work.Review(RowTarget(row)).IsExported).ToList();
+        var unreviewed = c.View.Rows.Where(row => !work.Review(RowTarget(row)).IsExported).ToList();
+        var goldenItems = c.Brain.Goldens.Where(golden => work.Review(CaseTarget(golden.Name)).IsExported).ToList();
+        var hasItems = rowItems.Count + goldenItems.Count + work.Cases.Count > 0;
+        var ruleExported = work.Review("rule").IsExported;
+        var exportable = ExportableRuleCount();
+        var scopeText = PluralText("review.scope", exportable);
+        var summary = new List<string>
+        {
+            PluralText("review.summary.rows", counts.RowCount, ("n", OutcomeFormat.Number(counts.ReviewedRows)), ("t", OutcomeFormat.Number(counts.RowCount))),
+        };
+        if (counts.Questions > 0)
+        {
+            summary.Add(PluralText("review.summary.questions", counts.Questions));
+        }
+
+        if (counts.Fixes > 0)
+        {
+            summary.Add(PluralText("review.summary.fixes", counts.Fixes));
+        }
+
+        if (counts.Cases > 0)
+        {
+            summary.Add(PluralText("review.summary.cases", counts.Cases));
+        }
+
+        var reviewerId = idp + "-reviewer";
+
+        return @<text>
+            @PrivacyNotice()
+            <div class="wb-grid2 wb-grid-review">
+                <div>
+                    <h2 class="wb-h2">@Rich("review.title")</h2>
+                    <div class="wb-card wb-card-gap">
+                        <div class="wb-card-head">
+                            <strong>@Rich("review.ruleTarget")</strong>
+                            <span class="wb-sp"></span>
+                            @ReviewControl(work, "rule", Plain("review.groupRule"))
+                        </div>
+                        @NoteEditor(work, "rule", "review.noteShort")
+                    </div>
+                    @if (!hasItems && !ruleExported)
+                    {
+                        <div class="wb-sub">@Rich("review.empty")</div>
+                    }
+                    else if (hasItems)
+                    {
+                        <table class="wb-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">@Rich("review.th.about")</th>
+                                    <th scope="col">@Rich("review.th.state")</th>
+                                    <th scope="col">@Rich("review.th.note")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in rowItems)
+                                {
+                                    var entry = work.Review(RowTarget(row));
+                                    <tr>
+                                        <td>@Plain("row.label", ("n", SimulationPresenter.Number(row)))<div class="wb-sub">@row.Sentence</div></td>
+                                        <td><span class="@PillClass(StateTone(entry.State))">@StateWord(entry.State)</span></td>
+                                        <td>@if (entry.Note.Length > 0) { @entry.Note } else { <span class="wb-sub">@Rich("review.noNote")</span> }</td>
+                                    </tr>
+                                }
+                                @foreach (var goldenName in goldenItems.Select(golden => golden.Name))
+                                {
+                                    var entry = work.Review(CaseTarget(goldenName));
+                                    <tr>
+                                        <td>@Plain("review.case", ("name", goldenName))</td>
+                                        <td><span class="@PillClass(StateTone(entry.State))">@StateWord(entry.State)</span></td>
+                                        <td>@if (entry.Note.Length > 0) { @entry.Note } else { <span class="wb-sub">@Rich("review.noNote")</span> }</td>
+                                    </tr>
+                                }
+                                @foreach (var proposedName in work.Cases.Select(proposed => proposed.Name))
+                                {
+                                    var result = run.Cases.FirstOrDefault(item => !item.FromDocument && item.Name == proposedName);
+                                    <tr>
+                                        <td>@Plain("review.case", ("name", proposedName))</td>
+                                        <td><span class="@PillClass("neutral")">@Rich("review.proposed")</span></td>
+                                        <td>@(result is null ? string.Empty : Plain("review.proposedNote", ("expected", ExpectedText(c.View, labels, result.Expected)), ("actual", ActualText(c.View, labels, result))))</td>
+                                    </tr>
+                                }
+                                @if (unreviewed.Count > 0)
+                                {
+                                    <tr>
+                                        <td>@PluralText("review.rowsUnreviewed", unreviewed.Count, ("rows", SimulationPresenter.JoinWords(text, unreviewed.Select(SimulationPresenter.Number).ToList())))</td>
+                                        <td><span class="@PillClass("neutral")">@Rich("review.unreviewed")</span></td>
+                                        <td><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => SelectTab(WorkbenchTab.Read)">@Rich("review.goRead")</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                <div class="wb-card">
+                    <h2 class="wb-h2">@Rich("review.cardTitle")</h2>
+                    <div class="wb-sub wb-sub-flush">@string.Join(Separator, summary)</div>
+                    @if (exportable > 0)
+                    {
+                        <div class="wb-hint">@scopeText</div>
+                    }
+                    @if (OnExport is not null)
+                    {
+                        <div class="wb-field wb-field-gap">
+                            <label class="wb-label" for="@reviewerId">@Rich("review.name")</label>
+                            <input id="@reviewerId" type="text" autocomplete="off" class="@(nameError ? "wb-in wb-in-err" : "wb-in")" value="@Session.Reviewer" aria-describedby="@(nameError ? reviewerId + "-err" : null)" aria-invalid="@(nameError ? "true" : null)" @onchange="SetReviewer" @ref="refs[ReviewerRef]" />
+                            @if (nameError)
+                            {
+                                <div class="wb-errt" id="@(reviewerId + "-err")">@Rich("review.nameRequired")</div>
+                            }
+                        </div>
+                        <div class="wb-actions">
+                            <button type="button" class="wb-btn wb-btn-primary" disabled="@(exportable == 0)" @onclick="ExportAsync">@Rich("review.export")</button>
+                        </div>
+                        @if (exportable == 0)
+                        {
+                            <div class="wb-hint">@Rich("review.nothingToExport")</div>
+                        }
+                        <div class="wb-hint">@Rich("review.exportHelp")</div>
+                        @if (exportDone && Session.UnexportedRuleCount == 0)
+                        {
+                            <div class="wb-saved" role="status">@(exportPlace is null ? Rich("review.savedNoPlace") : Rich("review.saved", ("place", exportPlace)))</div>
+                        }
+                    }
+                </div>
+            </div>
+        </text>;
+    }
+}
