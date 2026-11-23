@@ -49,7 +49,7 @@ internal static class DraftWording
         [.. problems.Select(problem => Line(text, problem, view, rule, chosen)).Distinct(StringComparer.Ordinal)];
 
     /// <summary>True when every reason is one the person cannot cause with what they entered.</summary>
-    internal static bool IsInternal(IReadOnlyList<DraftProblem> problems) => problems.All(problem => KeyOf(problem.Code) == "refuse.edit.internal");
+    internal static bool IsInternal(IReadOnlyList<DraftProblem> problems) => problems.All(problem => KeyOf(problem) == "refuse.edit.internal");
 
     private static string Line(UiText text, DraftProblem problem, RuleView view, BrainRule? rule, IReadOnlyDictionary<string, string> chosen)
     {
@@ -57,17 +57,23 @@ internal static class DraftWording
         var field = OutcomeLabel(view, problem.Place.OutcomeField);
         var number = problem.Place.RowNumber?.ToString(CultureInfo.InvariantCulture) ?? "–";
         var caseName = problem.Place.CaseName ?? string.Empty;
+        var overlap = problem.Code == TableValidator.CodeOverlap;
+        var pair = overlap ? problem.RowKeys.Select(key => RowNumber(rule, key)).Order().ToList() : [];
         var operatorWord = problem.Fact is { } name && chosen.TryGetValue(name, out var word) ? word : text.Plain(OperatorKey(problem.Op));
         return text.Plain(
-            KeyOf(problem.Code),
+            KeyOf(problem),
             ("operator", operatorWord),
             ("fact", problem.Place.OutcomeField is null ? fact : field),
             ("field", field),
             ("value", problem.Value ?? string.Empty),
-            ("n", problem.Code == TableValidator.CodeOverlap ? RowNumber(rule, problem.RowKeys[0]) : number),
-            ("m", problem.Code == TableValidator.CodeOverlap ? RowNumber(rule, problem.RowKeys[1]) : string.Empty),
+            ("n", overlap ? pair[0].ToString(CultureInfo.InvariantCulture) : number),
+            ("m", overlap ? pair[1].ToString(CultureInfo.InvariantCulture) : string.Empty),
             ("case", caseName));
     }
+
+    /// <summary>The key of the sentence of a reason; an outcome that a test case lacks is the case's problem, not the row's.</summary>
+    private static string KeyOf(DraftProblem problem) =>
+        problem.Place.CaseName is not null && problem.Code is OutcomeRequired or OutcomeTypeMismatch ? "refuse.edit.caseOutcome" : KeyOf(problem.Code);
 
     private static string KeyOf(string code) => code switch
     {
@@ -85,8 +91,8 @@ internal static class DraftWording
         _ => "refuse.edit.internal",
     };
 
-    private static string RowNumber(BrainRule? rule, string key) =>
-        ((rule?.Table.Rows.ToList().FindIndex(row => string.Equals(row.Key, key, StringComparison.Ordinal)) ?? -1) + 1).ToString(CultureInfo.InvariantCulture);
+    private static int RowNumber(BrainRule? rule, string key) =>
+        (rule?.Table.Rows.ToList().FindIndex(row => string.Equals(row.Key, key, StringComparison.Ordinal)) ?? -1) + 1;
 
     private static string FactLabel(RuleView view, string? name) =>
         name is null ? string.Empty : view.Facts.FirstOrDefault(fact => fact.Name == name)?.Label ?? WorkbenchText.Humanize(name);

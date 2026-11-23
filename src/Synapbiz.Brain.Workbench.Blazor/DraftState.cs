@@ -131,6 +131,9 @@ internal sealed class DraftState
     /// <summary>The revision that was exported; null when the draft was never exported.</summary>
     internal int? ExportedRevision { get; set; }
 
+    /// <summary>The row form that is open; null when none is.</summary>
+    internal RowForm? Form { get; set; }
+
     /// <summary>The refusal of the last undo or menu action that is shown under its row or at the top of the draft.</summary>
     internal DraftRefusal? Refusal { get; set; }
 
@@ -188,20 +191,30 @@ internal sealed class DraftState
     {
         if (labels is null || !ReferenceEquals(labelsHost, host) || labelsLocale != locale)
         {
-            var before = RuleLabels.FromMeta(BaseRule.Meta, locale).Rows;
-            var after = RuleLabels.FromMeta(Rule!.Meta, locale).Rows;
-            var rows = host.Rows.Where(pair => !before.ContainsKey(pair.Key) || after.ContainsKey(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-            foreach (var (id, title) in after)
-            {
-                rows[id] = title;
-            }
-
+            var rows = MergedRows(BaseRule, Rule!, host, locale);
             labels = host with { Rows = rows };
             labelsHost = host;
             labelsLocale = locale;
         }
 
         return labels;
+    }
+
+    /// <summary>The row titles of a candidate: the host's, with those the candidate's own <c>meta</c> names or clears.</summary>
+    internal static RuleLabels LabelsOf(BrainRule baseRule, BrainRule candidate, WorkbenchLocale locale, RuleLabels host) =>
+        host with { Rows = MergedRows(baseRule, candidate, host, locale) };
+
+    private static Dictionary<string, string> MergedRows(BrainRule baseRule, BrainRule candidate, RuleLabels host, WorkbenchLocale locale)
+    {
+        var before = RuleLabels.FromMeta(baseRule.Meta, locale).Rows;
+        var after = RuleLabels.FromMeta(candidate.Meta, locale).Rows;
+        var rows = host.Rows.Where(pair => !before.ContainsKey(pair.Key) || after.ContainsKey(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        foreach (var (id, title) in after)
+        {
+            rows[id] = title;
+        }
+
+        return rows;
     }
 
     /// <summary>The draft read as sentences; computed again when the rule, the labels or the locale changed.</summary>
