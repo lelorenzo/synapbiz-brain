@@ -99,13 +99,44 @@ await engine.CancelAsync("t-1", started.InstanceId, "operator.cancelled");
 await engine.ResumeAsync("t-1", started.InstanceId);   // a suspended instance re-runs the step that stopped it
 ```
 
-`StartAsync` returns once the first run of the instance is committed. Everything else happens in the pump: events and child notifications are applied as inbox rows, timers when they fall due, port calls when they are claimed. Queries (`GetInstanceAsync`, `FindInstanceAsync`, `GetHistoryAsync`, `ListOpenTasksAsync`) read committed data, unprotect what they return and never return another tenant's row.
+`StartAsync` returns once the first run of the instance is committed. Everything else happens in the pump: events and child notifications are applied as inbox rows, timers when they fall due, port calls when they are claimed. Queries (`GetInstanceAsync`, `FindInstanceAsync`, `GetHistoryAsync`, `ListOpenTasksAsync`) read committed data, unprotect what they return and never return another tenant's row. The cockpit queries below read many instances at once and never read the state.
 
 A child instance is created in the transaction of its parent but started by the pump. Until a pump pass has applied its start, `GetInstanceAsync` and `FindInstanceAsync` report it with status `Running` and a null `State` (the interpreter has no "created" status and the host does not invent one), and `CancelAsync` and `ResumeAsync` on it return `Ignored` with `process.trigger.stale`: nothing is queued on the caller's behalf, so the caller retries after the first pass.
 
 Routing an event by correlation compares the correlation without regard to case, so that a `Reference` correlation (which the interpreter stores lower-case and matches whatever the case of the input) finds its wait. The host hands the event to the interpreter for the waits that matched only by case and keeps those the interpreter takes, so a `Code` correlation that differs from the stored one in case is `NoTarget`, as before. An event whose instance cannot be asked because its definition is not in the catalog stays a target and the pump decides when the definition is back.
 
 Identifiers (`tenantId`, `processId`, `businessKey`, `eventId`, `taskId`) must be non-empty and at most 200 characters; `InputJson`, `PayloadJson` and `dataJson` must be the text of a JSON object. Otherwise the call throws `ArgumentException` before touching the database.
+
+## Cockpit queries
+
+Read-only queries for a monitoring screen. Each is one statement (or, for `GetCaseAsync`, one read-only transaction), takes no row lock, writes nothing and logs nothing. Every statement filters by tenant first, so an id of another tenant behaves as an unknown id: an empty result or null, never an exception. Arguments are checked with the same guard as the other methods (a null, empty or over-long id is an `ArgumentException`). They never read, decrypt or return the `state` column, a history `data` column or an effect input; the one protected value they return is the `show` text of the open tasks of `GetCaseAsync`, read exactly as `ListOpenTasksAsync` reads it. They call `IPayloadProtector` for nothing else.
+
+```csharp
+var page = await engine.ListInstancesAsync(new ProcessInstanceQuery("t-1", ProcessId: "case.lifecycle", NeedsAttention: true, Limit: 50));
+foreach (var row in page.Items)
+{
+    // row.Status, row.Stage, row.OpenTasks, row.SuspendedDescendants ...
+}
+
+var next = await engine.ListInstancesAsync(new ProcessInstanceQuery("t-1", ProcessId: "case.lifecycle", NeedsAttention: true, Limit: 50, After: page.Next));
+IReadOnlyList<ProcessInstanceCount> counts = await engine.CountInstancesAsync("t-1", "case.lifecycle", rootsOnly: true);
+ProcessCaseView? view = await engine.GetCaseAsync("t-1", rootInstanceId);
+IReadOnlyList<ProcessInstanceSummary> children = await engine.ListChildrenAsync("t-1", rootInstanceId);
+```
+
+**`ProcessInstanceSummary`** is `ProcessInstanceInfo` without `State`, with `ProblemCode` (the stored code, null when there is none) in place of `Problem`, plus `OpenTasks` (open tasks of the instance itself) and `SuspendedDescendants` (descendants whose status is `Suspended`; the instance itself is not counted). An instance row in the internal `Created` status is reported as `Running`, and a filter on `Running` matches both; no other status is remapped.
+
+**Descendants** are the instances reachable through `parent_instance_id`, at any depth, in the same tenant. The walk is a recursive query bounded by depth 16: rows deeper than 16 levels below the instance are not returned and not counted.
+
+**`ListInstancesAsync(ProcessInstanceQuery)`** filters by `ProcessId` (null: every process), `Statuses` (null or empty: every status), `Stage` (the instance's own stage, exact and case-sensitive), `RootsOnly` (default true: instances with no parent) and `NeedsAttention` (suspended, or with a suspended descendant, or with an open task of its own or of a descendant). `Limit` is 1 to 500 (default 100); outside that range it is an `ArgumentOutOfRangeException`. The order is `created_at` descending, then `instance_id` descending. Paging is by keyset over that pair: `After` is the `Next` of the previous page, `Next` is null on the last page, and rows that share a creation instant are neither skipped nor repeated. The cursor is opaque (the creation instant as exact UTC ticks, which holds the microsecond precision of `timestamptz`, and the instance id; no other data); a cursor that does not parse is an `ArgumentException`. Rows inserted or changed between two pages may be missed or seen under their new values; no row is returned twice in one walk. `NeedsAttention` is applied before the page is cut, so a page is full whenever enough rows qualify.
+
+**`CountInstancesAsync(tenantId, processId, rootsOnly)`** returns one `ProcessInstanceCount(ProcessId, Status, Stage, Count)` per distinct process, reported status and stage (a null stage is its own group), ordered by process id, status and stage with null first. `Created` and `Running` rows are one group, and groups with no rows are absent. The text columns are ordered bytewise (`C` collation), not by the locale of the database.
+
+**`GetCaseAsync(tenantId, instanceId)`** returns null when the tenant has no such instance, else a `ProcessCaseView`: `Instance` (its summary), `Descendants` (summaries ordered by creation time then id, oldest first; `ParentInstanceId` rebuilds the tree), `OpenTasks` (the open tasks of the instance and of its descendants as `ProcessTaskInfo`, oldest first, then by task id), `NextTimerDue` (the earliest due time among their timers, null when there is none) and `WaitingForEvents` (the distinct event names the instance and its descendants wait for, ordered, names only and never a correlation value). The reads of one call run in one read-only transaction at repeatable read, so the parts agree with each other.
+
+**`ListChildrenAsync(tenantId, instanceId)`** returns the direct children as summaries, in the order of `Descendants`; an unknown instance gives an empty list.
+
+Migration `0003_cockpit.sql` adds two indexes on `process_instance`: `(tenant_id, created_at desc, instance_id desc)` for the list order and `(tenant_id, status)`. It changes no table or column and applies on a database at `0002` that holds data.
 
 ## Activation, event triggers, schedules and delivery windows
 

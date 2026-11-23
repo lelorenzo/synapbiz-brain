@@ -316,28 +316,54 @@ The answer of `CompleteTaskAsync` is `Applied`, `Ignored` (the task was already 
 
 ## 8. What to show in a cockpit
 
-The engine answers four questions per tenant: an instance by id or by process and business key (`GetInstanceAsync`, `FindInstanceAsync`), its history (`GetHistoryAsync`), and the open tasks of a queue (`ListOpenTasksAsync`). An instance reports its status (`Running`, `Waiting`, `Suspended`, `Completed`, `Cancelled`), its stage, the step it is on, its result, the problem that suspended it, its parent, its times and its full state. The history is the audit trail: every step entered, effect requested and completed or failed, decision (with the rule version and the matching rows), task, wait, timer and window, each with a sequence number and the instant.
+The engine answers these questions per tenant. About one instance: by id or by process and business key (`GetInstanceAsync`, `FindInstanceAsync`), its history (`GetHistoryAsync`). About many: a page of instances newest first with filters (`ListInstancesAsync`), the number of instances per process, status and stage (`CountInstancesAsync`). About a case: the instance with all its descendants, open tasks, next timer and awaited events in one consistent read (`GetCaseAsync`), or only the direct children (`ListChildrenAsync`). And the open tasks of a queue (`ListOpenTasksAsync`). An instance reports its status (`Running`, `Waiting`, `Suspended`, `Completed`, `Cancelled`), its stage, the step it is on, its result, the problem that suspended it, its parent, its times and its full state. The history is the audit trail: every step entered, effect requested and completed or failed, decision (with the rule version and the matching rows), task, wait, timer and window, each with a sequence number and the instant.
 
-A cockpit row for a case is the root's stage and status, plus what the current stage is doing. There is no query for the children of an instance: a child is found through the history of its parent, whose `ChildStarted` entry carries the business key of the child, and then `FindInstanceAsync(tenant, childProcessId, key)`.
+The list, count, case and children queries return a `ProcessInstanceSummary` and never the state: they do not decrypt anything of the instance, so they are cheap enough for a screen that refreshes. A summary carries the status, stage, current step, result, problem code and times of the instance, the number of its own open tasks and the number of suspended descendants, so a row can say that a case needs a person without opening it. A created child that the pump has not started yet is reported, and filtered on, as `Running`. `ListInstancesAsync` keeps only root instances by default (`RootsOnly`), so a case is one row; `NeedsAttention` keeps the instances that are suspended, have a suspended descendant, or have an open task of their own or of a descendant. Pages are keyset pages over creation time and instance id: pass the `Next` of a page as `After` of the next call, and a page whose `Next` is null is the last. A walk sees each row at most once, but a row inserted or changed meanwhile may be missed or seen under its new values.
+
+A cockpit row for a case is the root's stage and status, plus what the current stage is doing, and `GetCaseAsync` returns all of it: the descendants with their `ParentInstanceId` (so the tree can be rebuilt), the open tasks of the whole tree oldest first, the earliest timer due and the names of the events the tree waits for (names only, never a correlation value). The walk goes down to 16 levels.
 
 ```csharp
 internal sealed class Cockpit(IProcessEngine engine)
 {
-    /// <summary>One case for a cockpit row: the root, and the business keys of the children it started, read from its history.</summary>
+    private static readonly string[] StageTrack = ["previsit", "visit", "postvisit", "collection"];
+
+    /// <summary>One case for a cockpit row: the root, the business keys of its children in the order of the stage track and what the case waits for, read in one call.</summary>
     internal async Task<CaseView?> ViewAsync(string tenantId, string caseRef)
     {
         var root = await engine.FindInstanceAsync(tenantId, "case.lifecycle", caseRef);
-        if (root is null)
+        var view = root is null ? null : await engine.GetCaseAsync(tenantId, root.InstanceId);
+        if (view is null)
         {
             return null;
         }
 
-        var history = await engine.GetHistoryAsync(tenantId, root.InstanceId);
-        var childKeys = history
-            .Where(entry => entry.Kind == ProcessHistoryKind.ChildStarted)
-            .Select(entry => JsonNode.Parse(entry.DataJson!)!["childKey"]!.GetValue<string>())
-            .ToList();
-        return new CaseView(root.Stage, root.Status, root.CurrentStep, root.Result, root.Problem?.Code, history.Count, childKeys);
+        var instance = view.Instance;
+        return new CaseView(instance.Stage, instance.Status, instance.CurrentStep, instance.Result, instance.ProblemCode, view.OpenTasks.Count, view.NextTimerDue, [.. view.Descendants.OrderBy(child => Array.IndexOf(StageTrack, child.Stage)).Select(child => child.BusinessKey)]);
+    }
+
+    /// <summary>The cases that need a person: suspended, with a suspended child, or with an open task, newest first, page by page.</summary>
+    internal async Task<IReadOnlyList<ProcessInstanceSummary>> NeedsAttentionAsync(string tenantId)
+    {
+        var rows = new List<ProcessInstanceSummary>();
+        string? after = null;
+        do
+        {
+            var page = await engine.ListInstancesAsync(new ProcessInstanceQuery(tenantId, ProcessId: "case.lifecycle", NeedsAttention: true, Limit: 100, After: after));
+            rows.AddRange(page.Items);
+            after = page.Next;
+        }
+        while (after is not null);
+        return rows;
+    }
+
+    /// <summary>How many open cases are in each stage.</summary>
+    internal async Task<IReadOnlyDictionary<string, int>> OpenCasesPerStageAsync(string tenantId)
+    {
+        var counts = await engine.CountInstancesAsync(tenantId, "case.lifecycle", rootsOnly: true);
+        return counts
+            .Where(count => count.Status is not (ProcessStatus.Completed or ProcessStatus.Cancelled))
+            .GroupBy(count => count.Stage ?? "(none)")
+            .ToDictionary(group => group.Key, group => group.Sum(count => count.Count));
     }
 
     /// <summary>For an operator: says why an instance is suspended and, once the cause is fixed, runs the step that stopped it again.</summary>
@@ -355,10 +381,10 @@ internal sealed class Cockpit(IProcessEngine engine)
     }
 }
 
-internal sealed record CaseView(string? Stage, ProcessStatus Status, string? CurrentStep, string? Result, string? ProblemCode, int HistoryLength, IReadOnlyList<string> ChildKeys);
+internal sealed record CaseView(string? Stage, ProcessStatus Status, string? CurrentStep, string? Result, string? ProblemCode, int OpenTasks, DateTimeOffset? NextTimerDue, IReadOnlyList<string> ChildKeys);
 ```
 
-Useful things to draw: a stage track from the `stages` of the document and `Stage`; a timeline from the history; the open task and its queue; the problem code of a suspended instance. There is no query that lists instances (all suspended ones, or all cases in a stage): keep your own index (the `process.instance.finished` and `process.instance.suspended` log events, or a row you write when you open a case), or read the `process_instance` table of the schema directly, which is a reading you own and not a contract.
+Useful things to draw: a stage track from the `stages` of the document and `Stage`; a timeline from the history; the open task and its queue; the problem code of a suspended instance; the counts per stage as a header. What the engine still does not give you, because it is outside this release, is retention (finished cases stay), reopening a case under the same business key, and counts over time: for those keep your own index (the `process.instance.finished` and `process.instance.suspended` log events, or a row you write when you open a case).
 
 ## 9. Delivery guarantees, and what to do with `Unknown`
 
@@ -407,7 +433,7 @@ A delivery window is applied when its timer is stored and is not checked again w
 | `process.activation.saved`, `process.activation.removed` | Information | An activation was written or removed. |
 | `process.worker.started`, `process.worker.pass_failed` | Information, Error | The worker loop. |
 
-**Suspended instances.** An instance whose step failed with no route for the failure (or whose rule or data was invalid) is `Suspended` with a problem code: the instance stays as it is, its outstanding work is cancelled, and nothing happens until someone acts. A suspension is not a failure: the parent of a suspended child is told nothing and keeps waiting, so the routes of a parent (`onError`) never see it, and no task is raised. Three ways to learn of it: the log event `process.instance.suspended` (tenant, instance, step and code, no business key), the status and `Problem` of an instance you look at (`GetInstanceAsync`, or `FindInstanceAsync` with the business key; the history of the parent names its children, section 8), and your own index of instances, since there is no query that lists them.
+**Suspended instances.** An instance whose step failed with no route for the failure (or whose rule or data was invalid) is `Suspended` with a problem code: the instance stays as it is, its outstanding work is cancelled, and nothing happens until someone acts. A suspension is not a failure: the parent of a suspended child is told nothing and keeps waiting, so the routes of a parent (`onError`) never see it, and no task is raised. Three ways to learn of it: the log event `process.instance.suspended` (tenant, instance, step and code, no business key), the status and `Problem` of an instance you look at (`GetInstanceAsync`, or `FindInstanceAsync` with the business key), and the cockpit queries of section 8: `ListInstancesAsync` with `Statuses` set to `Suspended`, or with `NeedsAttention` to include the cases whose child is suspended (`SuspendedDescendants` on the row says how many).
 
 `ResumeAsync` runs the step that stopped it again. Resume after the cause is fixed on the outside (a port registered, a document back in the catalog); resuming without fixing it suspends the instance again. Some causes cannot be fixed on the outside, because they are inputs: the reference pre-visit stage started without `practice_zone` is suspended at `send` with `process.window.zone_missing`, resuming it suspends it at once again, and the instance has no way to receive the zone. The way out that the engine allows is `CancelAsync` on the suspended child. A cancelled child answers its parent with `process.child.cancelled`, the parent takes the `onError` route of its stage (`ops_previsit` in `case.lifecycle`), and a person continues or closes the case there. Cancelling a parent cancels its children. This path was verified on PostgreSQL with a copy of `case.lifecycle` whose zone check lets the case through (`LifecycleFlowTests`); the reference document itself does not reach it, because its first step stops a case without a zone.
 

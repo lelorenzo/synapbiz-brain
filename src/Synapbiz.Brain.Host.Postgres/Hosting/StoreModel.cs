@@ -191,3 +191,46 @@ internal sealed record ScheduleRow(string TenantId, string ProcessId, string Sch
 
 /// <summary>A schedule row with the activation it belongs to: the pinned definition and the protected input of the activation.</summary>
 internal sealed record ScheduleRecord(ScheduleRow Row, long ProcessVersion, string ProcessHash, string ProtectedInput);
+
+/// <summary>An instance row for a list: no state, no hash, plus the open tasks of the instance and the suspended descendants.</summary>
+internal sealed record InstanceSummaryRecord(
+    string TenantId,
+    string InstanceId,
+    string ProcessId,
+    long ProcessVersion,
+    string BusinessKey,
+    int Status,
+    string? Stage,
+    string? CurrentStep,
+    string? Result,
+    string? ProblemCode,
+    string? ParentInstanceId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    int OpenTasks,
+    int SuspendedDescendants);
+
+/// <summary>The keyset cursor of an instance list: the creation instant and id of the last row of the previous page.</summary>
+internal sealed record InstanceCursor(DateTimeOffset CreatedAt, string InstanceId);
+
+/// <summary>The filters of an instance list. <paramref name="Statuses"/> holds public status ordinals; running also matches the stored created status.</summary>
+internal sealed record InstanceListFilter(
+    string TenantId,
+    string? ProcessId,
+    IReadOnlyList<int>? Statuses,
+    string? Stage,
+    bool RootsOnly,
+    bool NeedsAttention,
+    int Limit,
+    InstanceCursor? After);
+
+/// <summary>One group of the instance count; the status is the reported one.</summary>
+internal sealed record InstanceCountRecord(string ProcessId, int Status, string? Stage, int Count);
+
+/// <summary>The rows of a case, read together.</summary>
+internal sealed record CaseRecord(
+    InstanceSummaryRecord Instance,
+    IReadOnlyList<InstanceSummaryRecord> Descendants,
+    IReadOnlyList<TaskRecord> Tasks,
+    DateTimeOffset? NextTimerDue,
+    IReadOnlyList<string> Events);

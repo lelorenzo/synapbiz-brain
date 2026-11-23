@@ -56,6 +56,21 @@ internal interface IProcessStore
 
     /// <summary>Finds the instance a task belongs to.</summary>
     Task<string?> FindTaskInstanceAsync(string tenantId, string taskId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads one page of instance summaries, newest first (creation time then id, both descending), the rows that sort strictly after
+    /// the cursor. Never reads the state column. At most <see cref="InstanceListFilter.Limit"/> rows.
+    /// </summary>
+    Task<IReadOnlyList<InstanceSummaryRecord>> ListSummariesAsync(InstanceListFilter filter, CancellationToken cancellationToken);
+
+    /// <summary>Counts instances per process, reported status and stage.</summary>
+    Task<IReadOnlyList<InstanceCountRecord>> CountInstancesAsync(string tenantId, string? processId, bool rootsOnly, CancellationToken cancellationToken);
+
+    /// <summary>Reads an instance, its descendants (to a depth of 16), their open tasks, next timer and waited events in one repeatable-read read-only transaction; null when the tenant has no such instance.</summary>
+    Task<CaseRecord?> GetCaseAsync(string tenantId, string instanceId, CancellationToken cancellationToken);
+
+    /// <summary>Reads the summaries of the direct children of an instance, oldest first.</summary>
+    Task<IReadOnlyList<InstanceSummaryRecord>> ListChildrenAsync(string tenantId, string instanceId, CancellationToken cancellationToken);
 }
 
 /// <summary>One transaction. Disposing it without <see cref="CommitAsync"/> rolls everything back.</summary>
