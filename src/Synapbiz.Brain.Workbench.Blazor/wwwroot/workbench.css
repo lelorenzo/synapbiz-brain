@@ -1124,6 +1124,10 @@
   align-items: center;
 }
 
+.wb-ask-diff {
+  flex: 1 1 100%;
+}
+
 .wb-notice-act {
   display: flex;
   flex-wrap: wrap;

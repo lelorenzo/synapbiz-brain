@@ -1321,14 +1321,19 @@
                                     }
                                     else
                                     {
-                                        <strong>@ActualText(c.View, labels, testCase)</strong>
                                         @if (line.Changes)
                                         {
+                                            var sides = SidesOf(c, name);
+                                            @ResultParts(sides.After, sides.Before)
                                             <div class="wb-sub">@NowDecidedBy(c, line, changedRows)</div>
                                         }
-                                        else if (testCase.Failure is null)
+                                        else
                                         {
-                                            <div class="wb-sub">@DecidedByText(c.View, testCase)</div>
+                                            <strong>@ActualText(c.View, labels, testCase)</strong>
+                                            @if (testCase.Failure is null)
+                                            {
+                                                <div class="wb-sub">@DecidedByText(c.View, testCase)</div>
+                                            }
                                         }
                                     }
                                 </td>
@@ -1362,15 +1367,25 @@
                                     }
                                 </td>
                             </tr>
-                            @if (line.Changes && !readOnly && line.Change is { } change)
+                            @if (line.Changes && !readOnly)
                             {
                                 var askId = idp + "-ask-" + lines.IndexOf(line).ToString(CultureInfo.InvariantCulture);
+                                var answers = AnswersFor(c, line);
                                 <tr class="wb-review-line">
                                     <td colspan="5">
                                         <div class="wb-ask" role="group" aria-labelledby="@askId">
                                             <strong id="@askId">@Rich("case.ask")</strong>
-                                            <button type="button" class="wb-btn wb-btn-primary wb-btn-sm" @onclick="() => AcceptCase(c, line)" @ref="refs[AcceptRef(name)]">@Rich("case.accept", ("result", change.After))</button>
-                                            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => ReviewMyChange(c, line)">@Rich("case.reviewMine", ("result", change.Before))</button>
+                                            @if (answers.Lines.Count > 0)
+                                            {
+                                                <div class="wb-ask-diff">
+                                                    @foreach (var item in answers.Lines)
+                                                    {
+                                                        <div class="wb-sub wb-sub-flush">@item</div>
+                                                    }
+                                                </div>
+                                            }
+                                            <button type="button" class="wb-btn wb-btn-primary wb-btn-sm" @onclick="() => AcceptCase(c, line)" @ref="refs[AcceptRef(name)]">@(answers.AcceptResult is { } now ? Rich("case.accept", ("result", now)) : Rich("case.acceptPlain"))</button>
+                                            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => ReviewMyChange(c, line)">@(answers.ReviewResult is { } was ? Rich("case.reviewMine", ("result", was)) : Rich("case.reviewPlain"))</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1583,13 +1598,14 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var entry in change.CasesThatChange)
+                                @foreach (var caseName in change.CasesThatChange.Select(entry => entry.Name))
                                 {
-                                    var line = lines.Find(item => item.Name == entry.Name);
+                                    var line = lines.Find(item => item.Name == caseName);
+                                    var sides = SidesOf(c, caseName);
                                     <tr>
-                                        <td>@entry.Name</td>
-                                        <td>@entry.Before</td>
-                                        <td>@entry.After</td>
+                                        <td>@caseName</td>
+                                        <td>@ResultParts(sides.Before, sides.After)</td>
+                                        <td>@ResultParts(sides.After, sides.Before)</td>
                                         <td>@CaseDecisionPill(line)</td>
                                     </tr>
                                 }
@@ -1643,6 +1659,40 @@
             </div>
         </text>;
     }
+
+    /// <summary>
+    /// A result in the short form of the test table, with a <c>strong</c> only around the parts whose value differs from
+    /// <paramref name="other"/>, the result it is compared with. A side that decides nothing is said in one differing part.
+    /// </summary>
+    private RenderFragment ResultParts(List<List<OutcomeField>>? mine, List<List<OutcomeField>>? other) => mine is null
+        ? @<strong>@Plain("result.none")</strong>
+        : @<text>
+            @for (var group = 0; group < mine.Count; group++)
+            {
+                @if (group > 0)
+                {
+                    <text>; </text>
+                }
+
+                @for (var position = 0; position < mine[group].Count; position++)
+                {
+                    var field = mine[group][position];
+                    @if (position > 0)
+                    {
+                        <text>, </text>
+                    }
+
+                    @if (PartDiffers(field, group, other))
+                    {
+                        <strong>@field.Labelled</strong>
+                    }
+                    else
+                    {
+                        @field.Labelled
+                    }
+                }
+            }
+        </text>;
 
     private RenderFragment CaseDecisionPill(CaseLine? line)
     {

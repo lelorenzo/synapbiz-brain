@@ -140,6 +140,87 @@ public sealed partial class RuleWorkbench
     private HashSet<string> ChangedRowKeys(Ctx c) =>
         ChangesOf(c.Rule, c.Draft!).Rows.Where(row => row.Tag is RowChangeTag.Added or RowChangeTag.Changed).Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
 
+    // ----- what differs between the rule's result and the draft's -----------------------------------------------------------
+
+    /// <summary>The result of one test case on the rule and on the draft, as groups of fields (one group for a decision, one per result under <c>collect</c>); null for a side that decides nothing.</summary>
+    private sealed record ResultSides(List<List<OutcomeField>>? Before, List<List<OutcomeField>>? After);
+
+    /// <summary>What a case gives on the rule and on the draft, each side in the words of the test table.</summary>
+    private ResultSides SidesOf(Ctx c, string name)
+    {
+        var draft = c.Draft!;
+        var golden = c.Brain.Goldens.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal))
+            ?? draft.BaseRule.Goldens.First(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+        return new ResultSides(GroupsOf(c, draft.BaseRule, golden.Facts), GroupsOf(c, c.Brain, golden.Facts));
+    }
+
+    private List<List<OutcomeField>>? GroupsOf(Ctx c, BrainRule rule, IReadOnlyDictionary<string, DecisionValue> facts) =>
+        RuleSimulator.Simulate(rule, facts, DateOnly.MinValue).Outcome is Decided decided
+            ? OutcomeFormat.Groups(c.View, c.Labels, Locale, decided.OutcomeJson)
+            : null;
+
+    /// <summary>One field whose value differs between the two results: its label and its value on each side, in words.</summary>
+    private sealed record FieldDifference(string Label, string Was, string Now);
+
+    /// <summary>The fields of two single results that have another value, the draft's fields first in their order, then the ones only the rule sets.</summary>
+    private List<FieldDifference> FieldDifferences(List<OutcomeField> was, List<OutcomeField> now)
+    {
+        var earlier = was.ToDictionary(field => field.Name, StringComparer.Ordinal);
+        var later = now.ToDictionary(field => field.Name, StringComparer.Ordinal);
+        var differences = new List<FieldDifference>();
+        foreach (var field in now.Concat(was.Where(field => !later.ContainsKey(field.Name))))
+        {
+            var before = earlier.GetValueOrDefault(field.Name);
+            var after = later.GetValueOrDefault(field.Name);
+            if (!string.Equals(before?.Text, after?.Text, StringComparison.Ordinal))
+            {
+                differences.Add(new FieldDifference(field.Label, before?.Text ?? Plain("form.noValue"), after?.Text ?? Plain("form.noValue")));
+            }
+        }
+
+        return differences;
+    }
+
+    /// <summary>What the two answers of a changed case say: the lines over the buttons, and the result each button names (null when the button has no result in it).</summary>
+    private sealed record CaseAnswers(IReadOnlyList<string> Lines, string? AcceptResult, string? ReviewResult);
+
+    /// <summary>
+    /// The answers of a case whose result changed. One or two fields that differ are named on the buttons, each with its value;
+    /// more than two, or a side that has no result, leave the buttons plain and put one line per field (one line for the whole
+    /// result) over them.
+    /// </summary>
+    private CaseAnswers AnswersFor(Ctx c, CaseLine line)
+    {
+        var sides = SidesOf(c, line.Name);
+        if (sides.Before is { Count: 1 } was && sides.After is { Count: 1 } now)
+        {
+            var differences = FieldDifferences(was[0], now[0]);
+            if (differences.Count is 1 or 2)
+            {
+                return new CaseAnswers(
+                    [],
+                    string.Join(", ", differences.Select(item => item.Label + ": " + item.Now)),
+                    string.Join(", ", differences.Select(item => item.Label + ": " + item.Was)));
+            }
+
+            if (differences.Count > 2)
+            {
+                return new CaseAnswers([.. differences.Select(item => Plain("case.diff", ("field", item.Label), ("a", item.Was), ("b", item.Now)))], null, null);
+            }
+        }
+
+        return new CaseAnswers([Plain("case.diff", ("field", Plain("case.result")), ("a", SideText(sides.Before)), ("b", SideText(sides.After)))], null, null);
+    }
+
+    private string SideText(List<List<OutcomeField>>? groups) => groups is null ? Plain("case.noResult") : OutcomeFormat.LabelledSummary(groups);
+
+    /// <summary>True when the field is not in the other result, or has another value there: the part of a result that is shown in bold.</summary>
+    private static bool PartDiffers(OutcomeField field, int group, List<List<OutcomeField>>? other) =>
+        other is null
+        || group >= other.Count
+        || other[group].FirstOrDefault(item => string.Equals(item.Name, field.Name, StringComparison.Ordinal)) is not { } twin
+        || !string.Equals(twin.Text, field.Text, StringComparison.Ordinal);
+
     // ----- steps --------------------------------------------------------------------------------------------------------
 
     private static ProposedCase ProposedOf(BrainRule brain, string name, IReadOnlyDictionary<string, DecisionValue> facts, GoldenExpectation expectation) =>
