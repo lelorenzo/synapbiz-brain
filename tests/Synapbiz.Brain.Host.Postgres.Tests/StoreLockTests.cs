@@ -119,6 +119,80 @@ public sealed class StoreLockTests
         (await second.LockInstanceAsync(new InstanceKey(rig.Tenant, "missing"), skipLocked: false, CancellationToken.None)).Should().BeNull();
     }
 
+    [Fact]
+    public void TheOperationsThatWriteAnActivationOrAScheduleAreGuardedByTheirOwnKeyAndNothingElseTakesAKey()
+    {
+        var methods = typeof(IProcessSession).GetMethods();
+
+        methods.Where(method => method.GetCustomAttribute<RequiresActivationLockAttribute>() is not null).Select(method => method.Name).Order(StringComparer.Ordinal).Should().Equal(
+            "DeleteActivationAsync",
+            "DeleteSchedulesExceptAsync",
+            "GetSchedulesForUpdateAsync",
+            "ReplaceEventTriggersAsync",
+            "SaveActivationAsync",
+            "UpsertScheduleAsync");
+        methods.Where(method => method.GetCustomAttribute<RequiresScheduleLockAttribute>() is not null).Select(method => method.Name).Should().Equal("SaveScheduleAsync");
+        methods.Where(method => method.GetCustomAttribute<RequiresActivationLockAttribute>() is not null).Should().OnlyContain(method => method.GetParameters()[0].ParameterType == typeof(ActivationKey));
+        methods.Where(method => method.GetCustomAttribute<RequiresScheduleLockAttribute>() is not null).Should().OnlyContain(method => method.GetParameters()[0].ParameterType == typeof(ScheduleKey));
+        methods.Where(method => method.GetCustomAttribute<RequiresActivationLockAttribute>() is null && method.GetParameters().Length > 0 && method.GetParameters()[0].ParameterType == typeof(ActivationKey))
+            .Select(method => method.Name).Order(StringComparer.Ordinal).Should().Equal("GetActivationAsync", "LockActivationAsync");
+        methods.Where(method => method.GetCustomAttribute<RequiresScheduleLockAttribute>() is null && method.GetParameters().Length > 0 && method.GetParameters()[0].ParameterType == typeof(ScheduleKey))
+            .Select(method => method.Name).Should().Equal("LockScheduleAsync");
+    }
+
+    [Fact]
+    public async Task EveryGuardedActivationAndScheduleOperationFailsWithoutItsLockAndWorksOnceItIsHeld()
+    {
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("trigger-schedule"));
+        await rig.Engine.ActivateAsync(new ProcessActivation(rig.Tenant, "host.trigger_schedule", "UTC"));
+        var store = rig.Provider.GetRequiredService<IProcessStore>();
+        var activation = new ActivationKey(rig.Tenant, "host.trigger_schedule");
+        var schedule = new ScheduleKey(rig.Tenant, "host.trigger_schedule", "daily");
+        await using var session = await store.BeginAsync(CancellationToken.None);
+
+        foreach (var method in typeof(IProcessSession).GetMethods().Where(method => method.GetCustomAttribute<RequiresActivationLockAttribute>() is not null))
+        {
+            var call = (Task)method.Invoke(session, Arguments(method, activation))!;
+            await FluentActions.Awaiting(() => call).Should().ThrowExactlyAsync<InvalidOperationException>(method.Name);
+        }
+
+        var save = (Task)typeof(IProcessSession).GetMethod(nameof(IProcessSession.SaveScheduleAsync))!.Invoke(session, [schedule, Rig.Start, CancellationToken.None])!;
+        await FluentActions.Awaiting(() => save).Should().ThrowExactlyAsync<InvalidOperationException>();
+
+        await session.LockActivationAsync(activation, CancellationToken.None);
+        (await session.GetSchedulesForUpdateAsync(activation, CancellationToken.None)).Should().HaveCount(3);
+        (await session.LockScheduleAsync(schedule, skipLocked: false, CancellationToken.None)).Should().NotBeNull();
+        await session.SaveScheduleAsync(schedule, Rig.Start, CancellationToken.None);
+        await FluentActions.Awaiting(() => session.SaveScheduleAsync(new ScheduleKey(rig.Tenant, "host.trigger_schedule", "hourly_skip"), Rig.Start, CancellationToken.None)).Should().ThrowExactlyAsync<InvalidOperationException>();
+        await FluentActions.Awaiting(() => session.DeleteActivationAsync(new ActivationKey("t-2", "host.trigger_schedule"), CancellationToken.None)).Should().ThrowExactlyAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task ADueScheduleLockedByAnotherTransactionIsSkippedWhenAskedAndAMissingOneGivesNull()
+    {
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("trigger-schedule"));
+        await rig.Engine.ActivateAsync(new ProcessActivation(rig.Tenant, "host.trigger_schedule", "UTC"));
+        var store = rig.Provider.GetRequiredService<IProcessStore>();
+        var key = new ScheduleKey(rig.Tenant, "host.trigger_schedule", "daily");
+        await using var first = await store.BeginAsync(CancellationToken.None);
+        await using var second = await store.BeginAsync(CancellationToken.None);
+        var locked = await first.LockScheduleAsync(key, skipLocked: false, CancellationToken.None);
+
+        (await second.LockScheduleAsync(key, skipLocked: true, CancellationToken.None)).Should().BeNull();
+        (await second.LockScheduleAsync(new ScheduleKey(rig.Tenant, "host.trigger_schedule", "missing"), skipLocked: false, CancellationToken.None)).Should().BeNull();
+        locked!.Row.Cron.Should().Be("0 6 * * *");
+        locked.ProcessVersion.Should().Be(1);
+    }
+
+    private static object?[] Arguments(MethodInfo method, ActivationKey key)
+    {
+        var arguments = Arguments(method, new InstanceKey(key.TenantId, key.ProcessId));
+        arguments[0] = key;
+        return arguments;
+    }
+
     private static object?[] Arguments(MethodInfo method, InstanceKey key)
     {
         var parameters = method.GetParameters();

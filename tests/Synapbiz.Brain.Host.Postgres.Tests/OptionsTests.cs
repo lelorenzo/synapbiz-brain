@@ -77,6 +77,19 @@ public sealed class OptionsTests
         options.MaxConcurrentEffects.Should().Be(8);
         options.PortTimeout.Should().Be(TimeSpan.FromSeconds(60));
         options.EffectLease.Should().Be(TimeSpan.FromSeconds(120));
+        options.ScheduleMisfireGrace.Should().Be(TimeSpan.FromMinutes(5));
+    }
+
+    [Fact]
+    public void ANegativeMisfireGraceFailsOnFirstResolutionAndNamesTheMemberWhileZeroIsAccepted()
+    {
+        var negative = () => Resolve<ProcessHostOptions>(
+            services => services.AddBrainProcessHostPostgres(store => store.ConnectionString = Connection, host => host.ScheduleMisfireGrace = TimeSpan.FromSeconds(-1)));
+        var zero = Resolve<ProcessHostOptions>(
+            services => services.AddBrainProcessHostPostgres(store => store.ConnectionString = Connection, host => host.ScheduleMisfireGrace = TimeSpan.Zero));
+
+        negative.Should().Throw<OptionsValidationException>().Which.Message.Should().Contain("ScheduleMisfireGrace");
+        zero.ScheduleMisfireGrace.Should().Be(TimeSpan.Zero);
     }
 
     [Theory]

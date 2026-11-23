@@ -19,7 +19,11 @@ internal static class TriggerInputs
     {
         try
         {
-            return JsonNode.Parse(payloadJson) as JsonObject;
+            var payload = JsonNode.Parse(payloadJson) as JsonObject;
+
+            // The members of a parsed object are indexed lazily, so a repeated member name only throws on first access: touch it here.
+            _ = payload?.ContainsKey(string.Empty);
+            return payload;
         }
         catch (ArgumentException)
         {

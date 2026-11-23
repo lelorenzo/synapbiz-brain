@@ -113,4 +113,33 @@ public sealed class ProtectionTests
             }
         }
     }
+
+    [Fact]
+    public async Task TheActivationInputAndTheWindowFailureOfATriggerFlowAreProtectedAndRoundTrip()
+    {
+        const string zone = "Zq/Secret-Zone-1";
+        await using var rig = await Rig.CreateAsync(new ReversingProtector());
+        rig.Catalog.Add(Fixtures.Host("trigger-schedule"), Fixtures.Host("window-zone-variable"));
+        var activation = new ProcessActivation(rig.Tenant, "host.trigger_schedule", "Test/Fixed", "{\"site\":\"" + Secret + "\"}");
+
+        await rig.Engine.ActivateAsync(activation);
+        (await rig.Engine.ActivateAsync(activation)).Changed.Should().BeFalse("the stored input is read back through the protector and compared with the new one");
+        await rig.StartAsync("host.window_zone", "k-1", "{\"case_ref\":\"c-1\",\"practice_zone\":\"" + zone + "\"}");
+        rig.Time.Advance(TimeSpan.FromMinutes(30));
+        await rig.DrainAsync();
+
+        var inputs = await rig.ColumnAsync<string>("select input from {schema}.process_activation");
+        inputs.Should().ContainSingle().Which.Should().StartWith(ReversingProtector.Marker).And.NotContain(Secret).And.NotContain("site");
+        foreach (var kind in new[] { 1, 6 })
+        {
+            var payloads = await rig.ColumnAsync<string>("select payload from {schema}.process_inbox where kind = @k", ("k", (short)kind));
+            payloads.Should().NotBeEmpty($"a row of kind {kind} was written");
+            payloads.Should().OnlyContain(value => value.StartsWith(ReversingProtector.Marker, StringComparison.Ordinal));
+            payloads.Should().NotContain(value => value.Contains(Secret, StringComparison.Ordinal) || value.Contains("timerId", StringComparison.Ordinal) || value.Contains("\"input\"", StringComparison.Ordinal));
+        }
+
+        (await rig.CountAsync("process_inbox", "status <> 2")).Should().Be(0, "every row was applied, so every protected payload was read back");
+        (await rig.Engine.FindInstanceAsync(rig.Tenant, "host.trigger_schedule", "hourly_skip/20270104T1430Z"))!.State!.Variables["site"].Should().Be("\"" + Secret + "\"");
+        (await rig.Engine.FindInstanceAsync(rig.Tenant, "host.window_zone", "k-1"))!.Result.Should().Be("failed");
+    }
 }
