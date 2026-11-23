@@ -133,6 +133,22 @@ public sealed partial class GuideTests
     }
 
     [Fact]
+    public void TheCockpitLabelsFollowTheLanguageThenEnglishThenTheId()
+    {
+        var process = ReferenceFlows.All().Single(candidate => candidate.Id == "previsit.outreach");
+        var spanish = new CaseLabels(process, "es");
+        var french = new CaseLabels(process, "fr");
+
+        spanish.Title.Should().Be(ProcessDisplay.From(process).Title("es"));
+        spanish.Step("send").Should().Be(ProcessDisplay.From(process).Step("es", "send")).And.NotBe("send");
+        french.Step("send").Should().Be("Send reminder", "an unknown language falls back to English");
+        french.Step("not_a_step").Should().Be("not_a_step", "a step with no label shows its id");
+        new CaseLabels(process, "es").Result(null).Should().BeNull();
+        spanish.Queue("front_desk").Should().NotBeNullOrEmpty();
+        spanish.Stage("previsit").Should().NotBe("previsit");
+    }
+
+    [Fact]
     public void TheCalendarGivesTheLocalDayOfTheTenant()
     {
         var calendar = new PracticeCalendar(new Practices(TestZoneResolver.Eastern));

@@ -1,0 +1,31 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.deadline_wait",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "A wait whose timeout is two hours before an instant" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "visit_at": { "type": "Instant", "input": true },
+      "answer": { "type": "Code" }
+    },
+    "start": "gate",
+    "steps": {
+      "gate": {
+        "kind": "wait",
+        "event": "reply",
+        "correlation": "case_ref",
+        "output": { "text": "answer" },
+        "timeout": { "until": "visit_at", "offset": "-PT2H" },
+        "next": "done",
+        "onTimeout": "expired"
+      },
+      "done": { "kind": "end", "result": "replied" },
+      "expired": { "kind": "end", "result": "expired" }
+    }
+  }
+}

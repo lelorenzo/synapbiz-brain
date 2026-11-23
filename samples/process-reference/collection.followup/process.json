@@ -6,7 +6,85 @@
   "requires": ["collection@1"],
   "meta": {
     "title": "Collection follow-up",
-    "description": "Observes a claim through a read port and an event until it is paid, denied or written off. It never submits or changes a claim: denials and write-offs are decisions of a person."
+    "description": "Observes a claim through a read port and an event until it is paid, denied or written off. It never submits or changes a claim: denials and write-offs are decisions of a person.",
+    "display": {
+      "en": {
+        "title": "Collection follow-up",
+        "stages": { "collection": "Collection" },
+        "steps": {
+          "await_submitted": "Wait for the claim to be submitted",
+          "overdue": "Claim overdue",
+          "cycle": "Status check round",
+          "poll_claim": "Check the claim status",
+          "route_claim": "Route by claim status",
+          "denial": "Handle the denial",
+          "balance_wait": "Wait for the balance",
+          "stalled": "Claim stalled",
+          "exhausted": "Checks used up",
+          "confirm": "Confirm the payment",
+          "collected": "Collected",
+          "written_off": "Written off",
+          "closed_manual": "Closed by a person"
+        },
+        "results": {
+          "collected": "Collected",
+          "written_off": "Written off",
+          "manual_close": "Closed by a person"
+        },
+        "queues": {
+          "billing_followup": "Billing follow-up",
+          "denials": "Denials",
+          "billing_confirmation": "Billing confirmation"
+        },
+        "outcomes": {
+          "submitted": "Submitted",
+          "manual_close": "Close by hand",
+          "resubmitted": "Resubmitted",
+          "written_off": "Written off",
+          "keep_waiting": "Keep waiting",
+          "paid": "Paid"
+        },
+        "events": { "claim.submitted": "Claim submitted" }
+      },
+      "es": {
+        "title": "Seguimiento de cobro",
+        "stages": { "collection": "Cobro" },
+        "steps": {
+          "await_submitted": "Esperar el env\u00edo del reclamo",
+          "overdue": "Reclamo atrasado",
+          "cycle": "Ronda de consulta de estado",
+          "poll_claim": "Consultar el estado del reclamo",
+          "route_claim": "Encaminar seg\u00fan el estado",
+          "denial": "Atender la denegaci\u00f3n",
+          "balance_wait": "Esperar el saldo",
+          "stalled": "Reclamo detenido",
+          "exhausted": "Consultas agotadas",
+          "confirm": "Confirmar el pago",
+          "collected": "Cobrado",
+          "written_off": "Dado de baja",
+          "closed_manual": "Cerrado por una persona"
+        },
+        "results": {
+          "collected": "Cobrado",
+          "written_off": "Dado de baja",
+          "manual_close": "Cerrado por una persona"
+        },
+        "queues": {
+          "billing_followup": "Seguimiento de facturaci\u00f3n",
+          "denials": "Denegaciones",
+          "billing_confirmation": "Confirmaci\u00f3n de facturaci\u00f3n"
+        },
+        "outcomes": {
+          "submitted": "Enviado",
+          "manual_close": "Cerrar a mano",
+          "resubmitted": "Reenviado",
+          "written_off": "Dado de baja",
+          "keep_waiting": "Seguir esperando",
+          "paid": "Pagado"
+        },
+        "events": { "claim.submitted": "Reclamo enviado" }
+      }
+    }
   },
   "body": {
     "subject": "case",

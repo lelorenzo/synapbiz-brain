@@ -98,9 +98,11 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
                 break;
             case HumanTaskStep task:
                 CheckTask(task, path);
+                CheckVariableType(task.TimeoutAt?.Variable, path + "/timeout/until", VariableType.Instant);
                 break;
             case WaitStep wait:
                 CheckVariableType(wait.Correlation, path + "/correlation", VariableType.Code, VariableType.Reference);
+                CheckVariableType(wait.TimeoutAt?.Variable, path + "/timeout/until", VariableType.Instant);
                 break;
             case TimerStep timer:
                 CheckVariableType(timer.Until, path + "/until", VariableType.Instant);
@@ -162,6 +164,15 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
         if (step.Contact && step.Window is null)
         {
             errors.Add(Diagnostics.WindowRequired(path + "/contact"));
+        }
+
+        if (step.Interrupt is { } interrupt)
+        {
+            CheckVariableType(interrupt.Correlation, path + "/interruptBy/correlation", VariableType.Code, VariableType.Reference);
+            if (step.Window is null)
+            {
+                errors.Add(Diagnostics.InterruptRequiresWindow(path + "/interruptBy"));
+            }
         }
     }
 
@@ -647,7 +658,9 @@ internal sealed class ScenarioValidator(ProcessDefinition definition, List<Brain
     }
 
     private bool IsKnownEvent(string name) =>
-        definition.Accepts.Contains(name) || definition.Steps.OfType<WaitStep>().Any(step => string.Equals(step.Event, name, StringComparison.Ordinal));
+        definition.Accepts.Contains(name)
+        || definition.Steps.OfType<WaitStep>().Any(step => string.Equals(step.Event, name, StringComparison.Ordinal))
+        || definition.Steps.OfType<ActionStep>().Any(step => step.Interrupt is { } interrupt && string.Equals(interrupt.Event, name, StringComparison.Ordinal));
 
     private void CheckExpect(JsonObject expect, string path)
     {

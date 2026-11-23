@@ -292,6 +292,32 @@ internal sealed record CaseView(string? Stage, ProcessStatus Status, string? Cur
 
 // guide:end
 
+// guide:begin cockpit-labels
+internal sealed class CaseLabels(BrainProcess process, string language)
+{
+    private readonly ProcessDisplay display = ProcessDisplay.From(process);
+
+    /// <summary>The title of the process for the user's language, then English, then the id.</summary>
+    internal string Title => display.Title(language) ?? process.Id;
+
+    /// <summary>A stage of the track: the label, or the stage name when the document has none.</summary>
+    internal string Stage(string stage) => display.Stage(language, stage) ?? stage;
+
+    /// <summary>The step a case is on, or the step of a timeline row.</summary>
+    internal string Step(string step) => display.Step(language, step) ?? step;
+
+    /// <summary>The queue of an open task.</summary>
+    internal string Queue(string queue) => display.Queue(language, queue) ?? queue;
+
+    /// <summary>What a finished case ended as; an instance that has not finished has no result and shows nothing.</summary>
+    internal string? Result(string? result) => result is null ? null : display.Result(language, result) ?? result;
+
+    /// <summary>The event a case waits for, from the names <c>GetCaseAsync</c> returns.</summary>
+    internal string Event(string name) => display.Event(language, name) ?? name;
+}
+
+// guide:end
+
 // guide:begin retention
 internal sealed class Retention(IProcessEngine engine, TimeProvider time)
 {

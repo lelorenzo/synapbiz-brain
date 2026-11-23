@@ -17,7 +17,7 @@ All members are required and no other member is allowed.
 | `version` | Integer from 1 to 9007199254740991. Changing a process means a new version. |
 | `uses` | Array of unique `{"$ref": "<kind>/<id>"}`. It must hold `rule/<id>` for every rule a `decide` step names and `process/<id>` for every process a `subprocess` step names, and nothing else. |
 | `requires` | Array of unique `<module>@<n>` contract addresses. |
-| `meta` | Free object (title, labels). Not interpreted; `BrainProcess.Meta` returns a deep copy. |
+| `meta` | Free object (title, labels). The interpreter does not read it and no member of it is an error; `BrainProcess.Meta` returns a deep copy. The convention `meta.display` holds the labels people read, see [Display labels](#display-labels). |
 | `body` | The process, below. |
 
 ## The body
@@ -61,11 +61,11 @@ Every step has a `kind` and may have a `stage`. "Mapping" means an object of str
 | `kind` | Members |
 | --- | --- |
 | `read` | `port`; `input?` (port parameter to variable); `output?` (result member to variable); `retry?`; `next`; `onError?`, `onNotAvailable?`, `onNotEntitled?` |
-| `action` | as `read`, plus `delivery` (`atLeastOnce` or `atMostOnce`) and `onUnknown`, required with `atMostOnce` and forbidden otherwise; `contact?` (boolean, `true` needs a `window`) and `window?` (the name of a delivery window) |
+| `action` | as `read`, plus `delivery` (`atLeastOnce` or `atMostOnce`) and `onUnknown`, required with `atMostOnce` and forbidden otherwise; `contact?` (boolean, `true` needs a `window`), `window?` (the name of a delivery window) and `interruptBy?` (an event that ends the wait for the window, needs a `window`; see [An interruptible delivery window](#an-interruptible-delivery-window)) |
 | `poll` | `port`, `input?`, `output?`, `retry?`, `onError?`, `onNotAvailable?`, `onNotEntitled?` as for `read`; `rule`, `facts` as for `decide` (hit policy `unique` or `first`); `field` (an `Enum` or `Boolean` outcome of the rule), `until` (non-empty, unique values of that field that end the poll); `every` (duration); `backoff?` (`fixed`, the default, or `exponential`); `max?` (the largest interval, only with `exponential`); `maxDuration` (duration); `next`; `onExpired` |
 | `ai` | `port`, `model`, `prompt` `{ "id", "version" }`, `input?`, `inputSchema`, `outputSchema`, `output?`, `maxAttempts?` (1 to 5, default 1), `retry?`, `next` (a `decide` step), `onInvalid`, `onError?`, `onNotAvailable?`, `onNotEntitled?` |
 | `decide` | `rule`, `facts` (fact name to variable); either `output?` and one of `next` or `route` with `on` (rule of hit policy `unique` or `first`), or `collectInto` and `next` (hit policy `collect`); `onNoDecision`; `onError?` |
-| `humanTask` | `queue`, `outcomes`, `show?` (variables to show), `output?` (data member to variable), `on` (outcome to step), `timeout?`, `onTimeout` (required with `timeout`, forbidden without) |
+| `humanTask` | `queue`, `outcomes`, `show?` (variables to show), `output?` (data member to variable), `on` (outcome to step), `timeout?` (a duration, or `{ "until", "offset?" }` for a [timeout tied to an instant](#timeouts-tied-to-an-instant)), `onTimeout` (required with `timeout`, forbidden without) |
 | `wait` | `event`, `correlation?` (a `Code` or `Reference` variable), `output?` (payload member to variable), `next`, `timeout?`, `onTimeout` (as for `humanTask`) |
 | `timer` | exactly one of `after` (duration) or `until` (an `Instant` variable); `offset?` (signed duration, only with `until`); `next` |
 | `loop` | `maxIterations` (1 to 10000), `body`, `onExhausted`; optionally `forEach` (a `Json` variable holding an array), `item` (a `Json` variable) and `next`, which come together or not at all |
@@ -113,7 +113,7 @@ The facts are built from the mapped variables (a variable without a value leaves
 
 ### `humanTask`
 
-Asks the host to create a task in `queue` with the listed `outcomes` and the values of the `show` variables. `TaskCompleted` names one outcome and carries a data object that is assigned through `output`; the step goes to `on[outcome]`. An unknown outcome, or data that does not fit, is **rejected** and leaves the task open. With `timeout` the host also receives a timer; when it fires the task is cancelled and the step goes to `onTimeout`.
+Asks the host to create a task in `queue` with the listed `outcomes` and the values of the `show` variables. `TaskCompleted` names one outcome and carries a data object that is assigned through `output`; the step goes to `on[outcome]`. An unknown outcome, or data that does not fit, is **rejected** and leaves the task open. With `timeout` the host also receives a timer; when it fires the task is cancelled and the step goes to `onTimeout`. The timeout may be tied to an instant instead of a length of time, see [Timeouts tied to an instant](#timeouts-tied-to-an-instant).
 
 ### `timer`
 
@@ -121,9 +121,76 @@ Asks the host to create a task in `queue` with the listed `outcomes` and the val
 
 ### `wait` and events
 
-The step waits for an event of the given name; with `correlation` only an event with the same correlation value matches. If the oldest matching event is already in the inbox (see below) it is consumed on entering and nothing is requested. `timeout` and `onTimeout` work as for tasks.
+The step waits for an event of the given name; with `correlation` only an event with the same correlation value matches. If the oldest matching event is already in the inbox (see below) it is consumed on entering and nothing is requested. `timeout` and `onTimeout` work as for tasks, in both forms (a duration or an instant).
 
 An `EventReceived` trigger is handled in this order: a finished instance ignores it; the step that waits for it consumes it; otherwise, if the name is in `accepts`, it is appended to the inbox (even while the instance is suspended); otherwise it is **rejected** with `process.event.not_accepted`.
+
+### Timeouts tied to an instant
+
+`timeout` of a `wait` and of a `humanTask` is a duration text, as above, or an object that names the instant the step must be left by:
+
+```json
+"timeout": { "until": "visit_at", "offset": "-PT2H" }
+```
+
+`until` names a declared variable of type `Instant` (another type is `process.variable.type`, an undeclared name is `process.variable.unknown`, both at `/timeout/until`). `offset` is optional and is a signed duration with the rules of the `offset` of a `timer` step (a bad one is `process.duration.invalid` at `/timeout/offset`). `onTimeout` is required with the object form and forbidden without a `timeout`, as for a duration. An object with another member, without `until`, or any other shape is `spec.structure.schema` at the offending value.
+
+On entering the step, in this order:
+
+1. A `wait` first applies the inbox rule: a matching buffered event is consumed and the step leaves through `next`; no timeout is computed (so the variable need not have a value).
+2. The due instant is the value of the variable plus the offset. A variable with no value suspends the instance with `process.timeout.instant_missing` (the problem detail and the history data hold the variable name); `ResumeRequested` enters the step again.
+3. A due instant at or before the clock: the step requests no wait and no task, records `TimedOut` (data `{"dueAt": ...}`) and goes to `onTimeout` at once. This differs from a `timer` step, which always requests its timer even when it is already due: a timeout is a deadline, and a deadline that has passed is a timeout.
+4. Otherwise the step requests its wait or task and a `TimerRequest` with the usual timeout timer id (`I/S/E/timeout`) due at that instant. The event or the task winning (the timer is cancelled) and the timer winning (the wait or task is cancelled) are as for a duration.
+
+The due instant is fixed when the step is entered: a later change of the variable does not move a pending timeout, and the state keeps only the timer id. A flow that wants a new deadline enters the step again. A scenario needs no new member: `advance` fires timers by their due time.
+
+### An interruptible delivery window
+
+An `action` that names a `window` may also name an event that ends the wait for the window:
+
+```json
+"interruptBy": { "event": "case.reply_received", "correlation": "case_ref", "output": { "reply_kind": "kind" }, "to": "reply_arrived" }
+```
+
+`event`, `correlation?` and `output?` follow the rules of a `wait` step (the same validation and codes: `correlation` is a `Code` or `Reference` variable, `output` maps payload members to variables); `to` is a step id (`process.step.unknown` otherwise, and the edge counts for reachability and for the cycle rule). `interruptBy` without `window` is `process.action.interrupt_requires_window`, at `/interruptBy`.
+
+At every gate of the action (before the first attempt and before each retry, where a `WindowRequest` is emitted for an action without `interruptBy`):
+
+1. If a matching event is already in the inbox it is consumed: no `WindowRequest` and no `WaitRequest` are emitted, the history records `EventConsumed` and `WindowInterrupted`, `output` is assigned and the step goes to `to`. The check comes before the zone is read, so a buffered event needs no zone; the correlation is read first, as for a `wait` (`process.wait.correlation_missing`, `process.wait.correlation_invalid`).
+2. Otherwise the interpreter emits the `WindowRequest` and then a `WaitRequest` (wait id `I/S/E/A/wait`, one per attempt) for the event, and records `WindowWaiting` and `WaitStarted`. The pending kind stays `Window`; its state member gains `interruptWaitId`, written only in this case.
+3. A matching `EventReceived` while the gate is pending: the interpreter emits `CancelTimerRequest` for the window timer, records `EventConsumed` and `WindowInterrupted`, assigns `output` and goes to `to`; the effect is not requested. The wait row is consumed by the event itself.
+4. `TimerFired` for the window: the interpreter emits `CancelWaitRequest`, records `WindowOpened` and requests the effect as before. From then on the event does not interrupt: an event that arrives while the effect is outstanding, or during a retry delay, follows the inbox rule (buffered when the name is in `accepts`, otherwise rejected). A retry delay runs before the gate and is not interruptible; only the gate is.
+5. `WindowFailed`, cancelling and suspending cancel the wait together with the window timer.
+6. An event whose payload is not an object, or does not fit `output`, follows the rule of an awaited event with a bad payload: the instance is suspended with `process.variable.type_mismatch` (the event is consumed, as for a `wait`) and both requests are cancelled; a resume enters the gate again.
+
+Whichever of the event and the window timer reaches the instance first wins; the other finds nothing outstanding and is ignored (`Ignored`, `process.trigger.stale`) or, for the event, buffered. The `interruptBy` event does not have to be in `accepts` to interrupt, but an event of that name that arrives when it cannot interrupt is rejected unless it is.
+
+### Display labels
+
+`meta` stays a free object. By convention the labels people read live in `meta.display`:
+
+```json
+"meta": {
+  "title": "Pre-visit outreach",
+  "display": {
+    "en": { "title": "Pre-visit outreach", "stages": { "previsit": "Before the visit" }, "steps": { "send": "Send reminder" }, "results": { "ready": "Ready" }, "queues": { "front_desk": "Front desk" }, "outcomes": { "approved": "Approved" } },
+    "es": { "title": "Contacto previo a la visita", "steps": { "send": "Enviar recordatorio" } }
+  }
+}
+```
+
+A language key is a lower-case two-letter code. Each language object has an optional `title` and any of the groups `stages`, `steps`, `results`, `queues`, `outcomes`, `events` and `windows`, each an object of id to a non-empty text of at most 120 characters. The ids are the stage names, step ids, the `result` of an `end` step, the `queue` of a `humanTask`, its `outcomes`, the event names a `wait`, an `interruptBy` or an event trigger names, and the names under `windows`.
+
+`ProcessDisplay.From(process)` returns a reader with `Title(language)`, `Stage(language, id)`, `Step(...)`, `Result(...)`, `Queue(...)`, `Outcome(...)`, `Event(...)` and `Window(...)`. Each answers in the language asked for, then in `en`, then with `null` (the caller shows its own text or the id). The language is compared without regard to case and a region suffix is dropped (`ES` and `es-MX` ask for `es`). The reader never throws on a `meta` of any shape: a member that does not have the shape of the convention is ignored.
+
+The diagnostics are warnings, never errors, and never prevent loading. `BrainSpecError` has no severity and the loader reports errors only, so the warnings come from `ProcessDisplay.Validate(process)` (the loader is unchanged), ordered by path then code:
+
+| Code | Condition |
+| --- | --- |
+| `process.display.invalid` | a `display` member of the wrong shape, at its path: `display` not an object, a language key that is not two lower-case letters or whose value is not an object, a member of a language other than `title` and the groups, a group that is not an object, a label that is not a text of 1 to 120 characters |
+| `process.display.unknown_id` | a label for a stage, step, result, queue, outcome, event or window the document does not have, at the path of the label |
+
+The six documents of [samples/process-reference](../../samples/process-reference/README.md) label every stage, step, result, queue, outcome, event and window they have, in `en` and `es`.
 
 ### `loop`
 
@@ -170,7 +237,7 @@ The library never starts an instance by itself: a host reads `BrainProcess.Trigg
 
 `zone` is an IANA id (shape check as for schedules: `UTC`, or `Area/Location` matching `^[A-Za-z_]+(/[A-Za-z0-9_+\-]+){1,2}$`) or `{ "variable": "<Code variable>" }`; `days` is a non-empty list of unique `mon` to `sun`; `from` and `to` are `HH:mm` with `from` earlier than `to` (a window does not cross midnight; `to` may be `24:00`). The window is open on a listed local day from `from` inclusive to `to` exclusive. Errors are `process.window.invalid` (at the offending member) and `process.window.unknown` (a step names an undeclared window); a window that no step uses is not an error.
 
-At run time the interpreter emits `WindowRequest(Step, TimerId, Zone, Days, From, To)` (`To` is `00:00` for a window that closes at the end of the day), records `WindowWaiting` and waits with the pending kind `Window`. The host answers with `TimerFired(TimerId)` at an instant inside the window, at once when it is open now; the interpreter records `WindowOpened` and requests the effect. A retry delay runs first, then the gate again. If the zone variable has no value the instance suspends with `process.window.zone_missing`. If the host cannot resolve the zone, or the value of the zone variable does not have the shape above (`localtime`, `EST5EDT`, `Factory`, a path, an empty text are refused without the system time zone database being asked; `DeliveryWindows.IsZoneIdShape` is the check), it delivers `WindowFailed(TimerId, "process.window.zone_unknown")`: the step goes to `onError`, or the instance suspends with that code. Cancelling or suspending the instance cancels a pending window with `CancelTimerRequest`.
+At run time the interpreter emits `WindowRequest(Step, TimerId, Zone, Days, From, To)` (`To` is `00:00` for a window that closes at the end of the day), records `WindowWaiting` and waits with the pending kind `Window`. The host answers with `TimerFired(TimerId)` at an instant inside the window, at once when it is open now; the interpreter records `WindowOpened` and requests the effect. A retry delay runs first, then the gate again. If the zone variable has no value the instance suspends with `process.window.zone_missing`. If the host cannot resolve the zone, or the value of the zone variable does not have the shape above (`localtime`, `EST5EDT`, `Factory`, a path, an empty text are refused without the system time zone database being asked; `DeliveryWindows.IsZoneIdShape` is the check), it delivers `WindowFailed(TimerId, "process.window.zone_unknown")`: the step goes to `onError`, or the instance suspends with that code. Cancelling or suspending the instance cancels a pending window with `CancelTimerRequest`. An action may also name an event that ends the wait, see [An interruptible delivery window](#an-interruptible-delivery-window).
 
 `DeliveryWindows.NextOpen(now, zone, days, from, to)` is the pure helper hosts and scenarios use. On each listed local day the window is the interval from its opening instant (inclusive) to its closing instant (exclusive). The instant of a local time that occurs twice is its first occurrence; the instant of a local time inside a gap is the end of the gap; a window whose two instants coincide (a gap swallows it) is empty that day. `NextOpen` returns `now` when `now` is inside such an interval, otherwise the earliest opening instant after `now` (as UTC). So a window that spans the repeated hour of an autumn change stays open through both passes, and one that closes inside it closes on the first pass. A window timer is not re-checked when it fires, and an `atLeastOnce` contact action whose lease expired may be requested again after the window closed: declare a contact action `atMostOnce` when a repeat outside the window is worse than a missed contact.
 
@@ -205,7 +272,7 @@ BrainProcess process = loaded.Process!;
 | `process.step.unreachable` | a step cannot be reached from `start` |
 | `process.stage.unknown` | `stage` is not listed in `stages` |
 | `process.variable.unknown` | a mapping value or variable member names no declared variable |
-| `process.variable.type` | a variable is used where its type is not allowed (collect, loop, `until`, `correlation`; a fact or output mapping of a different type) |
+| `process.variable.type` | a variable is used where its type is not allowed (collect, loop, `until` of a timer or of a `timeout`, `correlation` of a `wait` or an `interruptBy`; a fact or output mapping of a different type) |
 | `process.variable.initial` | `initial` is not a valid value, or `allowedValues` is misused |
 | `process.rule.unavailable` | the rule is not in the load context |
 | `process.rule.fact_unknown` | a `facts` key is not a fact of the rule's kind |
@@ -221,6 +288,7 @@ BrainProcess process = loaded.Process!;
 | `process.cycle.unbounded` | the step graph without the `body` edges of `loop` steps has a cycle (a step that routes back to a step before it, or a loop whose `onExhausted` or `next` path leads back into a cycle) |
 | `process.duration.invalid` | a duration that matches the pattern but is zero, longer than 3660 days or has no component |
 | `process.action.window_required` | an `action` with `contact: true` names no `window` |
+| `process.action.interrupt_requires_window` | an `action` has `interruptBy` and names no `window` |
 | `process.window.invalid` | a window member is out of range, malformed or contradictory (zone shape, days, times, `from` not before `to`) |
 | `process.window.unknown` | a step names a window the document does not declare |
 | `process.trigger.event_duplicate` | two event triggers share one event name |
@@ -259,7 +327,7 @@ AdvanceResult next = process.Advance(state, new EffectCompleted(effectId, output
 | `EffectFailed(effectId, kind, code, retryAfter?)` | a port call failed; kinds `Transient`, `RateLimited`, `NotAvailable`, `NotEntitled`, `Permanent`, `Unknown` |
 | `TimerFired(timerId)` | a requested timer is due (timers of retry delays, `timer` steps, timeouts, poll rounds and delivery windows) |
 | `WindowFailed(timerId, code)` | the host cannot resolve the zone of a pending delivery window (`process.window.zone_unknown`) |
-| `EventReceived(name, correlation, payloadJson)` | an external event arrived |
+| `EventReceived(name, correlation, payloadJson)` | an external event arrived (consumed by a `wait`, by the gate of an action with `interruptBy`, or buffered) |
 | `TaskCompleted(taskId, outcome, dataJson)` | a person finished a task |
 | `ChildCompleted(childKey, result, outputJson)` / `ChildFailed(childKey, code)` | the child process ended |
 | `CancelRequested(reason)` | stop the instance: outstanding timers, waits and tasks are cancelled |
@@ -267,7 +335,7 @@ AdvanceResult next = process.Advance(state, new EffectCompleted(effectId, output
 
 ### Requests
 
-`EffectRequest` (step, effect id, idempotency key, kind `Read`/`Action`/`Ai`, port, input JSON, attempt, delivery, and for `ai` the model and prompt), `TimerRequest` (id, due time), `CancelTimerRequest`, `WaitRequest` (event, correlation), `CancelWaitRequest`, `TaskRequest` (queue, outcomes, JSON to show), `CancelTaskRequest`, `ChildStartRequest` (process, input JSON), `WindowRequest` (step, timer id, zone, days, from, to).
+`EffectRequest` (step, effect id, idempotency key, kind `Read`/`Action`/`Ai`, port, input JSON, attempt, delivery, and for `ai` the model and prompt), `TimerRequest` (id, due time), `CancelTimerRequest`, `WaitRequest` (event, correlation), `CancelWaitRequest`, `TaskRequest` (queue, outcomes, JSON to show), `CancelTaskRequest`, `ChildStartRequest` (process, input JSON), `WindowRequest` (step, timer id, zone, days, from, to). An action with `interruptBy` emits its `WindowRequest` and a `WaitRequest` in one result.
 
 ### Identifiers
 
@@ -279,18 +347,18 @@ Identifiers are derived, never generated. With the instance id `I`, the step `S`
 | effect id | `I/S/E/A` |
 | timer id | `I/S/E/timer`; retry delay `I/S/E/retry/A`; timeout `I/S/E/timeout` |
 | wait id, task id, child key | `I/S/E/wait`, `I/S/E/task`, `I/S/E/child` |
-| delivery window | `I/S/E/A/window` |
+| delivery window | `I/S/E/A/window`; the wait of its `interruptBy`, `I/S/E/A/wait` |
 | `poll` round `R` | idempotency key `I/S/E/rR`; effect id `I/S/E/rR/A`; retry delay `I/S/E/rR/retry/A`; next round timer `I/S/E/rR/poll` |
 
 A resume gives the step a fresh entry number, so the host never confuses a re-run with the earlier attempt.
 
 ### State and history
 
-`ProcessState.ToJson()` is the serialized state (stable text: object keys in a fixed order, variables and counters in ordinal order) and `ProcessState.FromJson` reads it back (a `null` element of a `forEach` array clears `item`, and such a state round-trips); text that is not a state throws `DecisionEngineException` with the code `process.state.malformed`. The state holds the status (`Waiting`, `Suspended`, `Completed`, `Cancelled`), current step, stage, result, variables, loop counters, the outstanding work (`Pending`; its kind is one of `Effect`, `RetryDelay`, `Timer`, `Wait`, `Task`, `Child` and `Window`), the event inbox and, when suspended, the `Problem` (code, step, detail). A poll in progress adds the member `poll` (`{"round":R,"startedAt":"..."}`); it is written only then, so a state written without it still loads and a state of any other step has the same text as before.
+`ProcessState.ToJson()` is the serialized state (stable text: object keys in a fixed order, variables and counters in ordinal order) and `ProcessState.FromJson` reads it back (a `null` element of a `forEach` array clears `item`, and such a state round-trips); text that is not a state throws `DecisionEngineException` with the code `process.state.malformed`. The state holds the status (`Waiting`, `Suspended`, `Completed`, `Cancelled`), current step, stage, result, variables, loop counters, the outstanding work (`Pending`; its kind is one of `Effect`, `RetryDelay`, `Timer`, `Wait`, `Task`, `Child` and `Window`), the event inbox and, when suspended, the `Problem` (code, step, detail). A poll in progress adds the member `poll` (`{"round":R,"startedAt":"..."}`); it is written only then, so a state written without it still loads and a state of any other step has the same text as before. While an action with `interruptBy` waits for its window and its event, `pending` gains the member `interruptWaitId` (the wait id of the event), written only then: every other state, including a window gate without `interruptBy`, has the text it always had.
 
 Every `DateTimeOffset` in a request or a history entry is UTC, whatever offset the host clock has. Suspending an instance cancels its outstanding work like `CancelRequested` does: `CancelWaitRequest`, `CancelTaskRequest` and `CancelTimerRequest` (timeouts and retry delays included). A payload that is malformed JSON or has a duplicate member name never throws: a malformed effect output is a permanent failure (`process.effect.output_malformed`); malformed task data, event payload or trigger input is rejected with `process.variable.type_mismatch` (an awaited event suspends the instance with that code); a malformed child output is a child failure.
 
-Every history entry has a sequence number (continuing across advances), the time, the step, the step's entry number, the attempt, a kind (`Started`, `StepEntered`, `EffectRequested`, `EffectCompleted`, `EffectFailed`, `RetryScheduled`, `Decided`, `TaskRequested`, `TaskCompleted`, `WaitStarted`, `EventConsumed`, `EventBuffered`, `TimerStarted`, `TimerFired`, `TimedOut`, `LoopIteration`, `LoopExhausted`, `ChildStarted`, `ChildCompleted`, `ChildFailed`, `Suspended`, `Resumed`, `Cancelled`, `Completed`, `WindowWaiting`, `WindowOpened`, `PollExpired`), an optional code and an optional JSON object. History never contains a value that the state or the trigger did not contain.
+Every history entry has a sequence number (continuing across advances), the time, the step, the step's entry number, the attempt, a kind (`Started`, `StepEntered`, `EffectRequested`, `EffectCompleted`, `EffectFailed`, `RetryScheduled`, `Decided`, `TaskRequested`, `TaskCompleted`, `WaitStarted`, `EventConsumed`, `EventBuffered`, `TimerStarted`, `TimerFired`, `TimedOut`, `LoopIteration`, `LoopExhausted`, `ChildStarted`, `ChildCompleted`, `ChildFailed`, `Suspended`, `Resumed`, `Cancelled`, `Completed`, `WindowWaiting`, `WindowOpened`, `PollExpired`, `WindowInterrupted`), an optional code and an optional JSON object. History never contains a value that the state or the trigger did not contain.
 
 ### Run-time codes
 
@@ -306,6 +374,7 @@ Every history entry has a sequence number (continuing across advances), the time
 | `process.ai.input_invalid` / `process.ai.output_invalid` | the ai input or answer does not satisfy its schema |
 | `process.route.unmatched` | a route value or child result has no entry and the step has no `onError` |
 | `process.timer.until_missing` | an `until` timer has no instant |
+| `process.timeout.instant_missing` | the `Instant` variable of a `timeout` tied to an instant has no value when the step is entered; the detail is the variable name |
 | `process.wait.correlation_missing` | a `wait` declares a correlation variable that has no value |
 | `process.wait.correlation_invalid` | the correlation of a `wait` holds the character U+0000, which a store cannot keep as text and no event could match; the instance is suspended instead of waiting |
 | `process.loop.not_a_list` | a `forEach` variable holds no array |
@@ -848,3 +917,216 @@ A second synthetic process shows the additions together: it is started by an eve
 ```
 
 Reading it: `send` is a contact action tied to `contact_hours` (Monday to Friday, 09:00 to 18:00 in New York), so at 23:00 UTC in January (18:00 local) the notice waits for the next morning. `await_reply` reads `intake.replies` after the notice, asks the rule for `state`, and ends on `answered`; otherwise it waits one hour, then two, then four (the `max`), and expires once the next read would fall after the sixth hour. A read that fails for good goes to `failed`, as does a window zone the host cannot resolve. The documentation tests load these files and run the scenarios.
+
+## Deadline example
+
+A third synthetic process shows the two additions together, with the labels. A reminder is sent only inside contact hours, and the wait for the contact hours can be interrupted by the person's reply (`interruptBy`). A confirmation is awaited until two hours before the visit, and a call to the person is open until the visit starts (`timeout` tied to the instant of the visit). It uses no rule, so there is no contract or rule file. Its scenarios use `zones` to answer the window.
+
+```json
+{
+  "$spec": "brain.process@1",
+  "id": "visit.reminder",
+  "version": 1,
+  "uses": [],
+  "requires": ["reminder@1"],
+  "meta": {
+    "title": "Visit reminder with a deadline",
+    "display": {
+      "en": {
+        "title": "Visit reminder",
+        "stages": { "reminder": "Reminder" },
+        "steps": {
+          "remind": "Send the reminder",
+          "await_confirmation": "Wait for the confirmation",
+          "handle_reply": "Handle the reply",
+          "call_patient": "Call the patient",
+          "confirmed": "Confirmed",
+          "unreachable": "Unreachable",
+          "lapsed": "Lapsed"
+        },
+        "results": { "confirmed": "Confirmed", "unreachable": "Unreachable", "lapsed": "Lapsed" },
+        "queues": { "front_desk": "Front desk" },
+        "outcomes": { "handled": "Handled", "reached": "Reached", "unreachable": "Unreachable" },
+        "events": { "case.reply_received": "Reply received", "visit.confirmed": "Visit confirmed" },
+        "windows": { "contact_hours": "Contact hours" }
+      },
+      "es": {
+        "title": "Recordatorio de visita",
+        "stages": { "reminder": "Recordatorio" },
+        "steps": {
+          "remind": "Enviar el recordatorio",
+          "await_confirmation": "Esperar la confirmación",
+          "handle_reply": "Atender la respuesta",
+          "call_patient": "Llamar al paciente",
+          "confirmed": "Confirmada",
+          "unreachable": "Sin contacto",
+          "lapsed": "Vencida"
+        },
+        "results": { "confirmed": "Confirmada", "unreachable": "Sin contacto", "lapsed": "Vencida" },
+        "queues": { "front_desk": "Recepción" },
+        "outcomes": { "handled": "Atendida", "reached": "Localizado", "unreachable": "Sin contacto" },
+        "events": { "case.reply_received": "Respuesta recibida", "visit.confirmed": "Visita confirmada" },
+        "windows": { "contact_hours": "Horario de contacto" }
+      }
+    }
+  },
+  "body": {
+    "subject": "case",
+    "stages": ["reminder"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "visit_at": { "type": "Instant", "input": true },
+      "reply_kind": { "type": "Code" }
+    },
+    "accepts": ["case.reply_received", "visit.confirmed"],
+    "windows": {
+      "contact_hours": { "zone": "America/New_York", "days": ["mon", "tue", "wed", "thu", "fri"], "from": "09:00", "to": "18:00" }
+    },
+    "start": "remind",
+    "steps": {
+      "remind": {
+        "kind": "action",
+        "stage": "reminder",
+        "port": "messaging.reminder",
+        "delivery": "atMostOnce",
+        "contact": true,
+        "window": "contact_hours",
+        "input": { "case": "case_ref" },
+        "interruptBy": {
+          "event": "case.reply_received",
+          "correlation": "case_ref",
+          "output": { "reply_kind": "reply_kind" },
+          "to": "handle_reply"
+        },
+        "next": "await_confirmation",
+        "onUnknown": "call_patient",
+        "onError": "call_patient"
+      },
+      "await_confirmation": {
+        "kind": "wait",
+        "stage": "reminder",
+        "event": "visit.confirmed",
+        "correlation": "case_ref",
+        "timeout": { "until": "visit_at", "offset": "-PT2H" },
+        "next": "confirmed",
+        "onTimeout": "call_patient"
+      },
+      "handle_reply": {
+        "kind": "humanTask",
+        "stage": "reminder",
+        "queue": "front_desk",
+        "outcomes": ["handled"],
+        "show": ["case_ref", "reply_kind"],
+        "timeout": { "until": "visit_at", "offset": "-PT1H" },
+        "on": { "handled": "confirmed" },
+        "onTimeout": "lapsed"
+      },
+      "call_patient": {
+        "kind": "humanTask",
+        "stage": "reminder",
+        "queue": "front_desk",
+        "outcomes": ["reached", "unreachable"],
+        "show": ["case_ref"],
+        "timeout": { "until": "visit_at" },
+        "on": { "reached": "confirmed", "unreachable": "unreachable" },
+        "onTimeout": "lapsed"
+      },
+      "confirmed": { "kind": "end", "stage": "reminder", "result": "confirmed" },
+      "unreachable": { "kind": "end", "stage": "reminder", "result": "unreachable" },
+      "lapsed": { "kind": "end", "stage": "reminder", "result": "lapsed" }
+    },
+    "scenarios": [
+      {
+        "name": "a reply interrupts the wait for the contact hours",
+        "start": { "at": "2027-01-04T23:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-05T20:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "event": "case.reply_received", "correlation": "c-1", "payload": { "reply_kind": "reschedule" } },
+          { "task": "handle_reply", "outcome": "handled" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "confirmed",
+          "trace": ["remind", "handle_reply", "confirmed"],
+          "variables": { "reply_kind": "reschedule" }
+        }
+      },
+      {
+        "name": "the window opens first and the reminder goes out",
+        "start": { "at": "2027-01-04T23:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-05T20:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "advance": "PT15H" },
+          { "complete": "remind" },
+          { "event": "visit.confirmed", "correlation": "c-1" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "confirmed",
+          "trace": ["remind", "await_confirmation", "confirmed"]
+        }
+      },
+      {
+        "name": "a reply while the reminder is being sent is kept and does not interrupt",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-04T20:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "event": "case.reply_received", "correlation": "c-1", "payload": { "reply_kind": "question" } },
+          { "complete": "remind" },
+          { "event": "visit.confirmed", "correlation": "c-1" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "confirmed",
+          "trace": ["remind", "await_confirmation", "confirmed"]
+        }
+      },
+      {
+        "name": "no confirmation two hours before the visit goes to a person",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-04T20:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "remind" },
+          { "advance": "PT4H" },
+          { "task": "call_patient", "outcome": "unreachable" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "unreachable",
+          "trace": ["remind", "await_confirmation", "call_patient", "unreachable"]
+        }
+      },
+      {
+        "name": "a visit that is too close for the wait goes to a person at once",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-04T15:30:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "remind" },
+          { "task": "call_patient", "outcome": "reached" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "confirmed",
+          "trace": ["remind", "await_confirmation", "call_patient", "confirmed"]
+        }
+      },
+      {
+        "name": "a call still open when the visit starts lapses",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-04T16:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "remind" },
+          { "advance": "PT2H" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "lapsed",
+          "trace": ["remind", "await_confirmation", "call_patient", "lapsed"]
+        }
+      }
+    ]
+  }
+}
+```
+
+Reading it: at 23:00 UTC in January (18:00 in New York) the window is closed, so `remind` emits the window request and a wait for `case.reply_received` together; the reply arrives first, the step goes to `handle_reply` with `reply_kind` assigned, and no reminder is sent. When the window opens first, the reminder goes out and a reply that arrives while it is being sent is kept in the inbox (the name is in `accepts`) without interrupting. `await_confirmation` is left through `onTimeout` at two hours before `visit_at`, and at once when the visit is closer than that. `call_patient` is open until the visit starts and then lapses. The documentation tests load this file, run its scenarios, check that the page shows it as it is and that `ProcessDisplay.Validate` has nothing to say about its labels.

@@ -28,7 +28,7 @@ internal sealed partial class ProcessRun
 
     // 6.1 and 6.2: read, action and ai. An action that names a delivery window waits for it before every attempt.
     private string? RequestEffect(EffectStep step) =>
-        step is ActionStep { Window: { } window } ? EnterWindow(definition.Windows[window]) : SendEffect(step);
+        step is ActionStep { Window: { } window } action ? EnterWindow(action, definition.Windows[window]) : SendEffect(step);
 
     private string? SendEffect(EffectStep step)
     {
@@ -281,20 +281,57 @@ internal sealed partial class ProcessRun
             show[name] = JsonNode.Parse(variables[name]);
         }
 
-        requests.Add(new TaskRequest(step.Id, TaskId(), step.Queue, step.Outcomes, JsonText.Canonical(show)));
-        Log(ProcessHistoryKind.TaskRequested, null, Data(("taskId", TaskId())));
-        Block(new ProcessPending(ProcessPendingKind.Task, TaskId(), StartTimeout(step.Timeout)));
-        return null;
-    }
-
-    private string? StartTimeout(TimeSpan? timeout)
-    {
-        if (timeout is not { } span)
+        if (!TryDueTime(step.Timeout, step.TimeoutAt, out var due))
         {
             return null;
         }
 
-        requests.Add(new TimerRequest(currentStep!, TimeoutTimerId(), Durations.Add(clock.Now, span)));
+        if (due is { } instant && instant <= clock.Now)
+        {
+            return TimeOutAtOnce(step.OnTimeout!, instant);
+        }
+
+        requests.Add(new TaskRequest(step.Id, TaskId(), step.Queue, step.Outcomes, JsonText.Canonical(show)));
+        Log(ProcessHistoryKind.TaskRequested, null, Data(("taskId", TaskId())));
+        Block(new ProcessPending(ProcessPendingKind.Task, TaskId(), StartTimeout(due)));
+        return null;
+    }
+
+    // The due time of a timeout, fixed now: the clock plus a duration, or the value of an Instant variable plus an offset (the
+    // variable having no value suspends the instance). No timeout leaves it null.
+    private bool TryDueTime(TimeSpan? timeout, TimeoutAt? at, out DateTimeOffset? due)
+    {
+        due = timeout is { } span ? Durations.Add(clock.Now, span) : null;
+        if (at is null)
+        {
+            return true;
+        }
+
+        if (!variables.TryGetValue(at.Variable, out var text) || !VariableValues.TryInstant(JsonText.Text(JsonNode.Parse(text))!, out var instant))
+        {
+            Suspend("process.timeout.instant_missing", at.Variable);
+            return false;
+        }
+
+        due = Durations.Add(instant, at.Offset);
+        return true;
+    }
+
+    // A timeout that is due when the step is entered: nothing is requested, and the step leaves through onTimeout.
+    private string? TimeOutAtOnce(string onTimeout, DateTimeOffset due)
+    {
+        Log(ProcessHistoryKind.TimedOut, null, Data(("dueAt", due.ToString("O", CultureInfo.InvariantCulture))));
+        return onTimeout;
+    }
+
+    private string? StartTimeout(DateTimeOffset? due)
+    {
+        if (due is not { } instant)
+        {
+            return null;
+        }
+
+        requests.Add(new TimerRequest(currentStep!, TimeoutTimerId(), instant));
         return TimeoutTimerId();
     }
 
@@ -347,38 +384,72 @@ internal sealed partial class ProcessRun
     // 6.6: wait.
     private string? EnterWait(WaitStep step)
     {
-        string? correlation = null;
-        if (step.Correlation is { } variable)
+        if (!TryCorrelation(step.Correlation, out var correlation))
         {
-            if (!variables.TryGetValue(variable, out var text))
-            {
-                Suspend("process.wait.correlation_missing", null);
-                return null;
-            }
-
-            correlation = JsonText.Text(JsonNode.Parse(text));
-            if (correlation?.Contains('\0', StringComparison.Ordinal) == true)
-            {
-                // No store keeps a text with U+0000, so no host could match this wait to an event: the step is not entered.
-                Suspend("process.wait.correlation_invalid", null);
-                return null;
-            }
+            return null;
         }
 
-        var index = inbox.FindIndex(buffered =>
-            string.Equals(buffered.Name, step.Event, StringComparison.Ordinal)
-            && (step.Correlation is null || string.Equals(NormalizedCorrelation(step, buffered.Correlation), correlation, StringComparison.Ordinal)));
-        if (index >= 0)
+        if (TakeBuffered(step.Event, step.Correlation, correlation) is { } buffered)
         {
-            var buffered = inbox[index];
-            inbox.RemoveAt(index);
             return ConsumeEvent(step, JsonText.ParseObject(buffered.PayloadJson));
+        }
+
+        if (!TryDueTime(step.Timeout, step.TimeoutAt, out var due))
+        {
+            return null;
+        }
+
+        if (due is { } instant && instant <= clock.Now)
+        {
+            return TimeOutAtOnce(step.OnTimeout!, instant);
         }
 
         requests.Add(new WaitRequest(step.Id, WaitId(), step.Event, correlation));
         Log(ProcessHistoryKind.WaitStarted, null, Data(("waitId", WaitId()), ("event", step.Event)));
-        Block(new ProcessPending(ProcessPendingKind.Wait, WaitId(), StartTimeout(step.Timeout)));
+        Block(new ProcessPending(ProcessPendingKind.Wait, WaitId(), StartTimeout(due)));
         return null;
+    }
+
+    // The correlation value of a wait or an interruptBy, read from its variable; false when the instance was suspended instead.
+    private bool TryCorrelation(string? variable, out string? correlation)
+    {
+        correlation = null;
+        if (variable is null)
+        {
+            return true;
+        }
+
+        if (!variables.TryGetValue(variable, out var text))
+        {
+            Suspend("process.wait.correlation_missing", null);
+            return false;
+        }
+
+        correlation = JsonText.Text(JsonNode.Parse(text));
+        if (correlation?.Contains('\0', StringComparison.Ordinal) == true)
+        {
+            // No store keeps a text with U+0000, so no host could match this wait to an event: the step is not entered.
+            Suspend("process.wait.correlation_invalid", null);
+            return false;
+        }
+
+        return true;
+    }
+
+    // Takes the oldest buffered event of the name (and the correlation, when there is one) out of the inbox.
+    private BufferedEvent? TakeBuffered(string eventName, string? variable, string? correlation)
+    {
+        var index = inbox.FindIndex(buffered =>
+            string.Equals(buffered.Name, eventName, StringComparison.Ordinal)
+            && (variable is null || string.Equals(NormalizedCorrelation(variable, buffered.Correlation), correlation, StringComparison.Ordinal)));
+        if (index < 0)
+        {
+            return null;
+        }
+
+        var found = inbox[index];
+        inbox.RemoveAt(index);
+        return found;
     }
 
     private string? ConsumeEvent(WaitStep step, JsonObject? payload)

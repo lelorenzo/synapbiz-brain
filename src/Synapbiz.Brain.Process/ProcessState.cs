@@ -61,7 +61,8 @@ public enum ProcessPendingKind
 /// <param name="Kind">What kind of work.</param>
 /// <param name="Id">The id of the work: the effect id, timer id, wait id, task id or child key.</param>
 /// <param name="TimeoutTimerId">The id of the timeout timer of a wait or a task, if it has one.</param>
-public sealed record ProcessPending(ProcessPendingKind Kind, string Id, string? TimeoutTimerId = null);
+/// <param name="InterruptWaitId">The id of the wait for the event of an <c>interruptBy</c> while the instance waits for a delivery window; null otherwise. Written to the state only when it is set.</param>
+public sealed record ProcessPending(ProcessPendingKind Kind, string Id, string? TimeoutTimerId = null, string? InterruptWaitId = null);
 
 /// <summary>An event that arrived while no step waited for it and that the definition accepts.</summary>
 /// <param name="Name">The event name.</param>
@@ -295,6 +296,11 @@ public sealed class ProcessState : IEquatable<ProcessState>
         writer.WriteString("kind", Pending.Kind.ToString());
         writer.WriteString("id", Pending.Id);
         writer.WriteString("timeoutTimerId", Pending.TimeoutTimerId);
+        if (Pending.InterruptWaitId is { } interruptWaitId)
+        {
+            writer.WriteString("interruptWaitId", interruptWaitId);
+        }
+
         writer.WriteEndObject();
     }
 
@@ -407,7 +413,7 @@ public sealed class ProcessState : IEquatable<ProcessState>
             throw Fail("$.pending.kind", "unknown kind");
         }
 
-        return new ProcessPending(parsed, RequiredText(map, "id"), OptionalText(map, "timeoutTimerId"));
+        return new ProcessPending(parsed, RequiredText(map, "id"), OptionalText(map, "timeoutTimerId"), map["interruptWaitId"] is null ? null : RequiredText(map, "interruptWaitId"));
     }
 
     private static List<BufferedEvent> ReadInbox(JsonNode? node)

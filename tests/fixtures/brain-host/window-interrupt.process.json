@@ -1,0 +1,38 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.gate",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "A contact action in contact hours that a reply can interrupt" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "answer": { "type": "Code" }
+    },
+    "accepts": ["reply"],
+    "windows": {
+      "contact_hours": { "zone": "America/New_York", "days": ["mon", "tue", "wed", "thu", "fri"], "from": "09:00", "to": "18:00" }
+    },
+    "start": "send",
+    "steps": {
+      "send": {
+        "kind": "action",
+        "port": "t.send",
+        "delivery": "atLeastOnce",
+        "contact": true,
+        "window": "contact_hours",
+        "input": { "case": "case_ref" },
+        "interruptBy": { "event": "reply", "correlation": "case_ref", "output": { "text": "answer" }, "to": "interrupted" },
+        "retry": { "maxAttempts": 2, "backoff": "fixed", "initial": "PT5M" },
+        "next": "done",
+        "onError": "failed"
+      },
+      "done": { "kind": "end", "result": "sent" },
+      "interrupted": { "kind": "end", "result": "interrupted" },
+      "failed": { "kind": "end", "result": "failed" }
+    }
+  }
+}

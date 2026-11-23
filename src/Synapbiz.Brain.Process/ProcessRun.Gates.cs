@@ -8,9 +8,24 @@ namespace Synapbiz.Brain.Process;
 /// <summary>The steps that wait before or between effects: delivery windows on actions and the <c>poll</c> step (sections 3 and 4 of the W1-C specification).</summary>
 internal sealed partial class ProcessRun
 {
-    // The wait for a delivery window: the effect is requested only when the host says the window is open.
-    private string? EnterWindow(WindowDef window)
+    // The wait for a delivery window: the effect is requested only when the host says the window is open. An action with an
+    // interruptBy first looks for its event in the inbox and, when there is none, waits for the window and for the event together.
+    private string? EnterWindow(ActionStep action, WindowDef window)
     {
+        string? correlation = null;
+        if (action.Interrupt is { } interrupt)
+        {
+            if (!TryCorrelation(interrupt.Correlation, out correlation))
+            {
+                return null;
+            }
+
+            if (TakeBuffered(interrupt.Event, interrupt.Correlation, correlation) is { } buffered)
+            {
+                return InterruptGate(action, interrupt, JsonText.ParseObject(buffered.PayloadJson));
+            }
+        }
+
         var zone = window.Zone;
         if (window.ZoneVariable is { } name)
         {
@@ -26,13 +41,54 @@ internal sealed partial class ProcessRun
         var timerId = WindowTimerId();
         requests.Add(new WindowRequest(currentStep!, timerId, zone!, window.Days, window.From, window.To));
         Log(ProcessHistoryKind.WindowWaiting, null, Data(("timerId", timerId), ("zone", zone!)));
+        if (action.Interrupt is { } gate)
+        {
+            var waitId = GateWaitId();
+            requests.Add(new WaitRequest(currentStep!, waitId, gate.Event, correlation));
+            Log(ProcessHistoryKind.WaitStarted, null, Data(("waitId", waitId), ("event", gate.Event)));
+            Block(new ProcessPending(ProcessPendingKind.Window, timerId, null, waitId));
+            return null;
+        }
+
         Block(new ProcessPending(ProcessPendingKind.Window, timerId));
         return null;
+    }
+
+    // The event of an interruptBy reached the gate, already buffered or while the gate waits: its payload is assigned through
+    // output (a payload that does not fit suspends, as for a wait), the window timer is cancelled and the step goes to "to".
+    private string? InterruptGate(ActionStep action, InterruptDef interrupt, JsonObject? payload)
+    {
+        if (payload is null || !TryAssign(interrupt.Output, payload, out var updates))
+        {
+            Suspend("process.variable.type_mismatch", null);
+            return null;
+        }
+
+        Apply(updates);
+        if (pending is { Kind: ProcessPendingKind.Window } gate)
+        {
+            requests.Add(new CancelTimerRequest(action.Id, gate.Id));
+        }
+
+        pending = null;
+        Log(ProcessHistoryKind.EventConsumed, null, Data(("event", interrupt.Event)));
+        Log(ProcessHistoryKind.WindowInterrupted, null, Data(("event", interrupt.Event)));
+        return interrupt.To;
+    }
+
+    // The gate stops waiting for its event: the window opened, failed, or the instance was cancelled or suspended.
+    private void CancelGateWait()
+    {
+        if (pending is { Kind: ProcessPendingKind.Window, InterruptWaitId: { } waitId })
+        {
+            requests.Add(new CancelWaitRequest(currentStep!, waitId));
+        }
     }
 
     // The host could not resolve the zone: the step fails like an effect that failed for good, without a retry.
     private string? OnWindowFailed(ActionStep step, WindowFailed failed)
     {
+        CancelGateWait();
         Log(ProcessHistoryKind.EffectFailed, failed.Code, Data(("timerId", failed.TimerId)));
         pending = null;
         return RouteOrSuspend(step.OnError, failed.Code, null);

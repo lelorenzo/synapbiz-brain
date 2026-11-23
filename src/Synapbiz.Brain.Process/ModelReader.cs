@@ -236,18 +236,35 @@ internal sealed partial class ModelReader(List<BrainSpecError> errors)
         return JsonText.Text(step["kind"]) switch
         {
             "read" => new ReadStep(id, stage, Port(step), ReadMapping(step["input"]), ReadMapping(step["output"]), ReadRetry(step, path), Next(step), OnError(step), Route(step, "onNotAvailable"), Route(step, "onNotEntitled")),
-            "action" => new ActionStep(id, stage, Port(step), ReadMapping(step["input"]), ReadMapping(step["output"]), ReadRetry(step, path), Next(step), OnError(step), Route(step, "onNotAvailable"), Route(step, "onNotEntitled"), JsonText.Text(step["delivery"]) == "atMostOnce", Route(step, "onUnknown"), step["contact"]?.GetValue<bool>() ?? false, JsonText.Text(step["window"])),
+            "action" => new ActionStep(id, stage, Port(step), ReadMapping(step["input"]), ReadMapping(step["output"]), ReadRetry(step, path), Next(step), OnError(step), Route(step, "onNotAvailable"), Route(step, "onNotEntitled"), JsonText.Text(step["delivery"]) == "atMostOnce", Route(step, "onUnknown"), step["contact"]?.GetValue<bool>() ?? false, JsonText.Text(step["window"]), ReadInterrupt(step["interruptBy"])),
             "ai" => ReadAi(id, stage, step, path),
             "decide" => ReadDecide(id, stage, step),
             "poll" => ReadPoll(id, stage, step, path),
-            "humanTask" => new HumanTaskStep(id, stage, JsonText.Text(step["queue"])!, Strings(step["outcomes"]), Strings(step["show"]), ReadMapping(step["output"]), ReadTable(step["on"])!, ReadDuration(step, "timeout", path), Route(step, "onTimeout")),
-            "wait" => new WaitStep(id, stage, JsonText.Text(step["event"])!, JsonText.Text(step["correlation"]), ReadMapping(step["output"]), Next(step), ReadDuration(step, "timeout", path), Route(step, "onTimeout")),
+            "humanTask" => new HumanTaskStep(id, stage, JsonText.Text(step["queue"])!, Strings(step["outcomes"]), Strings(step["show"]), ReadMapping(step["output"]), ReadTable(step["on"])!, ReadDuration(step, "timeout", path), Route(step, "onTimeout"), ReadTimeoutAt(step, path)),
+            "wait" => new WaitStep(id, stage, JsonText.Text(step["event"])!, JsonText.Text(step["correlation"]), ReadMapping(step["output"]), Next(step), ReadDuration(step, "timeout", path), Route(step, "onTimeout"), ReadTimeoutAt(step, path)),
             "timer" => new TimerStep(id, stage, ReadDuration(step, "after", path), JsonText.Text(step["until"]), ReadDuration(step, "offset", path, signed: true), Next(step)),
             "loop" => new LoopStep(id, stage, step["maxIterations"]!.GetValue<int>(), Route(step, "body")!, Route(step, "onExhausted")!, JsonText.Text(step["forEach"]), JsonText.Text(step["item"]), Route(step, "next")),
             "subprocess" => new SubprocessStep(id, stage, JsonText.Text(step["process"])!, ReadMapping(step["input"]), ReadMapping(step["output"]), Route(step, "next"), ReadTable(step["on"]), OnError(step)),
             _ => new EndStep(id, stage, JsonText.Text(step["result"])!),
         };
     }
+
+    // The object form of a timeout (a document of the schema has a text or an object there): the instant variable and the optional signed offset.
+    private TimeoutAt? ReadTimeoutAt(JsonObject step, string path)
+    {
+        if (step["timeout"] is not JsonObject timeout)
+        {
+            return null;
+        }
+
+        var offset = ReadDuration(timeout, "offset", JsonText.Pointer(path, "timeout"), signed: true);
+        return new TimeoutAt(JsonText.Text(timeout["until"])!, offset ?? TimeSpan.Zero);
+    }
+
+    private static InterruptDef? ReadInterrupt(JsonNode? node) =>
+        node is JsonObject interrupt
+            ? new InterruptDef(JsonText.Text(interrupt["event"])!, JsonText.Text(interrupt["correlation"]), ReadMapping(interrupt["output"]), Route(interrupt, "to")!)
+            : null;
 
     private static string Port(JsonObject step) => JsonText.Text(step["port"])!;
 

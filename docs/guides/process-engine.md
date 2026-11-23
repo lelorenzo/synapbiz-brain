@@ -386,6 +386,33 @@ internal sealed class Cockpit(IProcessEngine engine)
 internal sealed record CaseView(string? Stage, ProcessStatus Status, string? CurrentStep, string? Result, string? ProblemCode, int OpenTasks, DateTimeOffset? NextTimerDue, IReadOnlyList<string> ChildKeys);
 ```
 
+Every name a cockpit shows (a stage, a step, a queue, a result, an event) is an id of the document, which is meant for the machine. A document can carry the words a person reads in `meta.display`, one object per language, and `ProcessDisplay` reads them: `Title`, `Stage`, `Step`, `Result`, `Queue`, `Outcome`, `Event` and `Window` answer in the language asked for, then in English, then with `null`, and the caller shows the id when it gets `null`. The reader never throws and the labels never change how a process runs; see [the reference](../reference/brain-process-v1.md#display-labels) for the convention and for the warnings `ProcessDisplay.Validate` returns. The six reference documents label every stage, step, result, queue, outcome and event in `en` and `es`.
+
+```csharp
+internal sealed class CaseLabels(BrainProcess process, string language)
+{
+    private readonly ProcessDisplay display = ProcessDisplay.From(process);
+
+    /// <summary>The title of the process for the user's language, then English, then the id.</summary>
+    internal string Title => display.Title(language) ?? process.Id;
+
+    /// <summary>A stage of the track: the label, or the stage name when the document has none.</summary>
+    internal string Stage(string stage) => display.Stage(language, stage) ?? stage;
+
+    /// <summary>The step a case is on, or the step of a timeline row.</summary>
+    internal string Step(string step) => display.Step(language, step) ?? step;
+
+    /// <summary>The queue of an open task.</summary>
+    internal string Queue(string queue) => display.Queue(language, queue) ?? queue;
+
+    /// <summary>What a finished case ended as; an instance that has not finished has no result and shows nothing.</summary>
+    internal string? Result(string? result) => result is null ? null : display.Result(language, result) ?? result;
+
+    /// <summary>The event a case waits for, from the names <c>GetCaseAsync</c> returns.</summary>
+    internal string Event(string name) => display.Event(language, name) ?? name;
+}
+```
+
 Useful things to draw: a stage track from the `stages` of the document and `Stage`; a timeline from the history; the open task and its queue; the problem code of a suspended instance; the counts per stage as a header. What the engine still does not give you, because it is outside this release, is reopening a finished case, and counts over time (a purged case leaves no trace in the tables): for those keep your own index (the `process.instance.finished` and `process.instance.suspended` log events, or a row you write when you open a case).
 
 ## 9. Delivery guarantees, and what to do with `Unknown`
@@ -495,4 +522,4 @@ internal sealed record RetentionReport(int Trees, int Instances, int Events);
 
 An instance is pinned to the version and the content hash of the document it started with; every later trigger finds that exact definition through the catalog. Publishing a new version of a process therefore changes nothing for the instances that are running. A new instance starts on the latest version: an event trigger or schedule on the version pinned by the last activation, a child on the latest version in the catalog at the moment its parent reaches the subprocess step. To move new cases to a new version, add it to the catalog and call `ActivateAsync` again; keep the old version in the catalog until its last instance has finished. There is no way to move a running instance to a new version.
 
-A change to the package is a change of the library, not of the documents: `brain.process@1` documents keep loading, and a new version of the library says in the changelog when the format gains something. This guide describes version 0.3.0.
+A change to the package is a change of the library, not of the documents: `brain.process@1` documents keep loading, and a new version of the library says in the changelog when the format gains something. This guide describes version 0.4.0.

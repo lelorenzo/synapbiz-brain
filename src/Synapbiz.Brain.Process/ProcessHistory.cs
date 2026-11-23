@@ -83,6 +83,9 @@ public enum ProcessHistoryKind
 
     /// <summary>A <c>poll</c> step ran out of time before its condition held.</summary>
     PollExpired,
+
+    /// <summary>An event named by the <c>interruptBy</c> of an action ended the wait for its delivery window; the step went to the member <c>to</c>.</summary>
+    WindowInterrupted,
 }
 
 /// <summary>One entry of the append-only history of an instance.</summary>
