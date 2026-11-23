@@ -52,4 +52,4 @@ Brief: `docs/briefs/` (W1-D). Plan: [plan.md](plan.md). No engine feature is add
 
 ## Independent verification
 
-- [ ] Independent verification
+- [x] Independent verification (2026-11-23: no blocker, three should-fix findings and notes, repaired in one pass; gates re-run after the repair)
