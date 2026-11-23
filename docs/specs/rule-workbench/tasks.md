@@ -68,4 +68,4 @@
 - [x] Changes tab and proposal export
 - [x] Demo (`LoadDraft`, `OutcomeTexts`), screenshots in light and dark
 - [x] Docs: reference page, spec, changelog
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate
