@@ -18,9 +18,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The two helpers of the process tests that read a run from its history: the independent player and the route map. They are compiled here as they are, so that the flow surface is proved against them. -->
+    <Compile Include="../Synapbiz.Brain.Process.Tests/ScenarioTracer.cs" Link="ProcessTests/ScenarioTracer.cs" />
+    <Compile Include="../Synapbiz.Brain.Process.Tests/RouteMap.cs" Link="ProcessTests/RouteMap.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
   </ItemGroup>
 

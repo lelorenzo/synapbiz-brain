@@ -1,0 +1,60 @@
+process visit.reminder v1
+Subject: case
+Stages: [reminder]
+Start: remind
+Accepts: [case.reply_received, visit.confirmed]
+Requires: [reminder@1]
+Variables: [{Name=case_ref, Type=Code, IsInput=true}, {Name=visit_at, Type=Instant, IsInput=true}, {Name=reply_kind, Type=Code, IsInput=false}]
+Windows: [{Name=contact_hours, Zone=America/New_York, Days=[Monday, Tuesday, Wednesday, Thursday, Friday], From=09:00, To=18:00}]
+Scenarios: [a reply interrupts the wait for the contact hours, the window opens first and the reminder goes out, a reply while the reminder is being sent is kept and does not interrupt, no confirmation two hours before the visit goes to a person, a visit that is too close for the wait goes to a person at once, a call still open when the visit starts lapses]
+step remind
+  Kind: Action
+  Stage: reminder
+  Routes: [{Label=next, Target=await_confirmation}, {Label=onError, Target=call_patient}, {Label=onUnknown, Target=call_patient}, {Label=interrupt, Target=handle_reply}]
+  Port: messaging.reminder
+  Delivery: AtMostOnce
+  IsContact: true
+  Window: contact_hours
+  Retry: {MaxAttempts=1, Backoff=none, Initial=00:00:00}
+  Interrupt: {Event=case.reply_received, Correlation=case_ref, Target=handle_reply, Output=[{Name=reply_kind, Variable=reply_kind}]}
+  Inputs: [{Name=case, Variable=case_ref}]
+  InputNames: [case_ref]
+  OutputNames: [reply_kind]
+step await_confirmation
+  Kind: Wait
+  Stage: reminder
+  Routes: [{Label=next, Target=confirmed}, {Label=onTimeout, Target=call_patient}]
+  Event: visit.confirmed
+  Correlation: case_ref
+  Timeout: {Variable=visit_at, Offset=-02:00:00}
+  InputNames: [case_ref, visit_at]
+step handle_reply
+  Kind: HumanTask
+  Stage: reminder
+  Routes: [{Label=on:handled, Target=confirmed}, {Label=onTimeout, Target=lapsed}]
+  Queue: front_desk
+  Outcomes: [handled]
+  Show: [case_ref, reply_kind]
+  Timeout: {Variable=visit_at, Offset=-01:00:00}
+  InputNames: [case_ref, reply_kind, visit_at]
+step call_patient
+  Kind: HumanTask
+  Stage: reminder
+  Routes: [{Label=on:reached, Target=confirmed}, {Label=on:unreachable, Target=unreachable}, {Label=onTimeout, Target=lapsed}]
+  Queue: front_desk
+  Outcomes: [reached, unreachable]
+  Show: [case_ref]
+  Timeout: {Variable=visit_at, Offset=00:00:00}
+  InputNames: [case_ref, visit_at]
+step confirmed
+  Kind: End
+  Stage: reminder
+  Result: confirmed
+step unreachable
+  Kind: End
+  Stage: reminder
+  Result: unreachable
+step lapsed
+  Kind: End
+  Stage: reminder
+  Result: lapsed

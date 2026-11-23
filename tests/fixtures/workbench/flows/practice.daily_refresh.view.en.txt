@@ -1,0 +1,18 @@
+flow practice.daily_refresh v1
+title: Practice daily refresh
+start: list_cases
+step list_cases [Read] Read the case list of the day
+  stage: -
+  does: Reads information from `schedule.cases_for_day`. It sends `run_for`. It keeps `cases`. If the call fails for a passing reason it tries again, up to 3 attempts in all.
+  next: When it succeeds: go to Refreshed
+  onError: If it fails: go to Operations: refresh failed
+step refresh_attention [Task for a person] Operations: refresh failed
+  stage: -
+  does: Gives a task to the queue Operations. A person chooses Handled. The person sees `run_for`.
+  on:handled: If the person chooses Handled: go to Refresh failed
+step refreshed [End] Refreshed
+  stage: -
+  does: Ends the case with the result Refreshed.
+step failed [End] Refresh failed
+  stage: -
+  does: Ends the case with the result Refresh failed.

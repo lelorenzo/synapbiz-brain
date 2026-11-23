@@ -6,13 +6,18 @@
     <AssemblyName>Synapbiz.Brain.Workbench</AssemblyName>
     <PackageId>Synapbiz.Brain.Workbench</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Headless rule workbench for brain.rule@1: plain-language rule views, simulation with a per-row explanation, test runs, revision diff and review documents, all on the Brain decision engine.</Description>
+    <Description>Headless workbench for brain.rule@1 and brain.process@1: plain-language rule views, simulation with a per-row explanation, test runs, revision diff and review documents on the Brain decision engine, and flow descriptions, a flow simulator, route coverage and flow review documents on the Brain process library.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
     <ProjectReference Include="../Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
     <ProjectReference Include="../Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Synapbiz.Brain.Workbench.Tests" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,36 @@
+flow visit.reminder v1
+title: Recordatorio de visita
+start: remind
+stage reminder: Recordatorio
+step remind [Acción] Enviar el recordatorio
+  stage: Recordatorio
+  does: Pide a `messaging.reminder` que haga algo. Contacta a una persona. Nunca se envía dos veces. Solo sale dentro de la ventana de envío Horario de contacto. Si llega `case.reply_received` mientras espera la ventana, la espera termina. Envía `case_ref`. Guarda `reply_kind`.
+  next: Si sale bien: ir a Esperar la confirmación
+  onError: Si falla: ir a Llamar al paciente
+  onUnknown: Si no se sabe si salió: ir a Llamar al paciente
+  interrupt: Si llega `case.reply_received` mientras espera la ventana: ir a Atender la respuesta
+step await_confirmation [Espera de un evento] Esperar la confirmación
+  stage: Recordatorio
+  does: Espera el evento `visit.confirmed`. Solo cuenta el evento que trae el mismo `case_ref`.
+  next: Cuando llega el evento: ir a Confirmada
+  onTimeout: Si no llega respuesta 2 horas antes de `visit_at`: ir a Llamar al paciente
+step handle_reply [Tarea para una persona] Atender la respuesta
+  stage: Recordatorio
+  does: Entrega una tarea a la cola Recepción. Una persona elige Atendida. La persona ve `case_ref` y `reply_kind`.
+  on:handled: Si la persona elige Atendida: ir a Confirmada
+  onTimeout: Si no llega respuesta 1 hora antes de `visit_at`: ir a Vencida
+step call_patient [Tarea para una persona] Llamar al paciente
+  stage: Recordatorio
+  does: Entrega una tarea a la cola Recepción. Una persona elige Localizado o Sin contacto. La persona ve `case_ref`.
+  on:reached: Si la persona elige Localizado: ir a Confirmada
+  on:unreachable: Si la persona elige Sin contacto: ir a Sin contacto
+  onTimeout: Si no llega respuesta antes de `visit_at`: ir a Vencida
+step confirmed [Fin] Confirmada
+  stage: Recordatorio
+  does: Cierra el caso con el resultado Confirmada.
+step unreachable [Fin] Sin contacto
+  stage: Recordatorio
+  does: Cierra el caso con el resultado Sin contacto.
+step lapsed [Fin] Vencida
+  stage: Recordatorio
+  does: Cierra el caso con el resultado Vencida.

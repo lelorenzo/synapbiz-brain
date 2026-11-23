@@ -1,0 +1,99 @@
+process collection.followup v1
+Subject: case
+Stages: [collection]
+Start: await_submitted
+Uses: [rule/collection.claim_progress, rule/collection.claim_result]
+Requires: [collection@1]
+Variables: [{Name=case_ref, Type=Code, IsInput=true}, {Name=claim_status, Type=Code, IsInput=false}]
+Scenarios: [the claim is paid at the first read, the claim is paid after three reads, a denial is resubmitted by a person and the claim is then paid, a denial is written off by a person, a partial payment waits a week and reads again, a claim that is not submitted in time raises a task, and a person says it was, a claim that is not submitted in time is closed by hand, denials that come back every time use up the loop and a person writes the claim off, balances that stay open use up the loop and a person closes the case, a claim that stays in review expires the poll and a person keeps waiting, a claim that stays in review expires the poll and a person closes the case, a practice with no claims connector confirms the payment by hand, a practice with no claims connector writes the case off by hand, a practice not entitled to the claims connector confirms by hand, a read that fails for good goes to a person, a transient failure of the read is retried, a read without a status makes the rule fail and goes to a person, a settled status nobody described goes to a person]
+step await_submitted
+  Kind: Wait
+  Stage: collection
+  Routes: [{Label=next, Target=cycle}, {Label=onTimeout, Target=overdue}]
+  Event: claim.submitted
+  Correlation: case_ref
+  Timeout: {Duration=10.00:00:00}
+  InputNames: [case_ref]
+step overdue
+  Kind: HumanTask
+  Stage: collection
+  Routes: [{Label=on:manual_close, Target=closed_manual}, {Label=on:submitted, Target=cycle}]
+  Queue: billing_followup
+  Outcomes: [submitted, manual_close]
+  Show: [case_ref]
+  InputNames: [case_ref]
+step cycle
+  Kind: Loop
+  Stage: collection
+  Routes: [{Label=body, Target=poll_claim}, {Label=onExhausted, Target=exhausted}]
+  Loop: {MaxIterations=3}
+step poll_claim
+  Kind: Poll
+  Stage: collection
+  Routes: [{Label=next, Target=route_claim}, {Label=onError, Target=stalled}, {Label=onNotAvailable, Target=confirm}, {Label=onNotEntitled, Target=confirm}, {Label=onExpired, Target=stalled}]
+  Port: claims.status
+  Retry: {MaxAttempts=3, Backoff=exponential, Initial=00:00:30, Max=00:05:00}
+  Rule: collection.claim_progress
+  Poll: {Field=progress, Until=[settled], Every=1.00:00:00, Backoff=exponential, Max=7.00:00:00, MaxDuration=30.00:00:00}
+  Inputs: [{Name=case, Variable=case_ref}]
+  Facts: [{Name=status, Variable=claim_status}]
+  Outputs: [{Name=status, Variable=claim_status}]
+  InputNames: [case_ref, claim_status]
+  OutputNames: [claim_status]
+step route_claim
+  Kind: Decide
+  Stage: collection
+  Routes: [{Label=on:denied, Target=denial}, {Label=on:paid, Target=collected}, {Label=on:pending, Target=balance_wait}, {Label=onNoDecision, Target=stalled}, {Label=onError, Target=stalled}]
+  Rule: collection.claim_result
+  RouteField: result
+  Facts: [{Name=status, Variable=claim_status}]
+  InputNames: [claim_status]
+step denial
+  Kind: HumanTask
+  Stage: collection
+  Routes: [{Label=on:resubmitted, Target=cycle}, {Label=on:written_off, Target=written_off}]
+  Queue: denials
+  Outcomes: [resubmitted, written_off]
+  Show: [case_ref, claim_status]
+  InputNames: [case_ref, claim_status]
+step balance_wait
+  Kind: Timer
+  Stage: collection
+  Routes: [{Label=next, Target=cycle}]
+  Timer: {After=7.00:00:00}
+step stalled
+  Kind: HumanTask
+  Stage: collection
+  Routes: [{Label=on:keep_waiting, Target=cycle}, {Label=on:manual_close, Target=closed_manual}]
+  Queue: billing_followup
+  Outcomes: [keep_waiting, manual_close]
+  Show: [case_ref, claim_status]
+  InputNames: [case_ref, claim_status]
+step exhausted
+  Kind: HumanTask
+  Stage: collection
+  Routes: [{Label=on:manual_close, Target=closed_manual}, {Label=on:written_off, Target=written_off}]
+  Queue: billing_followup
+  Outcomes: [written_off, manual_close]
+  Show: [case_ref, claim_status]
+  InputNames: [case_ref, claim_status]
+step confirm
+  Kind: HumanTask
+  Stage: collection
+  Routes: [{Label=on:paid, Target=collected}, {Label=on:written_off, Target=written_off}]
+  Queue: billing_confirmation
+  Outcomes: [paid, written_off]
+  Show: [case_ref]
+  InputNames: [case_ref]
+step collected
+  Kind: End
+  Stage: collection
+  Result: collected
+step written_off
+  Kind: End
+  Stage: collection
+  Result: written_off
+step closed_manual
+  Kind: End
+  Stage: collection
+  Result: manual_close

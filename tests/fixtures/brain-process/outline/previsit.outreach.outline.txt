@@ -1,0 +1,77 @@
+process previsit.outreach v1
+Subject: case
+Stages: [previsit]
+Start: cycle
+Uses: [rule/previsit.missing_items]
+Requires: [previsit@1]
+Variables: [{Name=case_ref, Type=Code, IsInput=true}, {Name=practice_zone, Type=Code, IsInput=true}, {Name=missing, Type=Integer, IsInput=false}]
+Windows: [{Name=contact_hours, ZoneVariable=practice_zone, Days=[Monday, Tuesday, Wednesday, Thursday, Friday], From=09:00, To=18:00}]
+Scenarios: [nothing is missing, a reply after the first reminder closes the stage, three reminders without a reply end at the front desk, the front desk resolves a case after the reminders are used up, an unknown delivery goes to the front desk, which sends the case back to the loop, a transient failure of the reminder is retried inside the window, a reminder that is not available hands the whole stage to the front desk, a reminder the practice is not entitled to ends at the front desk after three days, a zone the host cannot resolve raises a task instead of a contact, a reminder waits for the next opening of the contact hours, the requirements cannot be read at all, the requirements fail for good, the requirements fail on every attempt and nobody answers the task, a negative count decides nothing and goes to the front desk, a read without a count makes the rule fail and goes to the front desk, a case that came without its zone is suspended at the reminder, never failed and never routed]
+step cycle
+  Kind: Loop
+  Stage: previsit
+  Routes: [{Label=body, Target=check}, {Label=onExhausted, Target=escalate_final}]
+  Loop: {MaxIterations=3}
+step check
+  Kind: Read
+  Stage: previsit
+  Routes: [{Label=next, Target=assess}, {Label=onError, Target=escalate}, {Label=onNotAvailable, Target=escalate_final}]
+  Port: intake.requirements
+  Retry: {MaxAttempts=3, Backoff=exponential, Initial=00:00:30, Max=00:05:00}
+  Inputs: [{Name=case, Variable=case_ref}]
+  Outputs: [{Name=missing_count, Variable=missing}]
+  InputNames: [case_ref]
+  OutputNames: [missing]
+step assess
+  Kind: Decide
+  Stage: previsit
+  Routes: [{Label=on:none, Target=done}, {Label=on:some, Target=send}, {Label=onNoDecision, Target=escalate}, {Label=onError, Target=escalate}]
+  Rule: previsit.missing_items
+  RouteField: action
+  Facts: [{Name=missing, Variable=missing}]
+  InputNames: [missing]
+step send
+  Kind: Action
+  Stage: previsit
+  Routes: [{Label=next, Target=reply}, {Label=onError, Target=escalate}, {Label=onNotAvailable, Target=escalate_final}, {Label=onNotEntitled, Target=escalate_final}, {Label=onUnknown, Target=escalate}]
+  Port: messaging.reminder
+  Delivery: AtMostOnce
+  IsContact: true
+  Window: contact_hours
+  Retry: {MaxAttempts=3, Backoff=exponential, Initial=00:01:00, Max=00:10:00}
+  Inputs: [{Name=case, Variable=case_ref}, {Name=missing, Variable=missing}]
+  InputNames: [case_ref, missing]
+step reply
+  Kind: Wait
+  Stage: previsit
+  Routes: [{Label=next, Target=cycle}, {Label=onTimeout, Target=cycle}]
+  Event: case.reply_received
+  Correlation: case_ref
+  Timeout: {Duration=1.00:00:00}
+  InputNames: [case_ref]
+step escalate
+  Kind: HumanTask
+  Stage: previsit
+  Routes: [{Label=on:resolved, Target=cycle}, {Label=on:unreachable, Target=closed}, {Label=onTimeout, Target=closed}]
+  Queue: front_desk
+  Outcomes: [resolved, unreachable]
+  Show: [case_ref, missing]
+  Timeout: {Duration=3.00:00:00}
+  InputNames: [case_ref, missing]
+step escalate_final
+  Kind: HumanTask
+  Stage: previsit
+  Routes: [{Label=on:resolved, Target=done}, {Label=on:unreachable, Target=closed}, {Label=onTimeout, Target=closed}]
+  Queue: front_desk
+  Outcomes: [resolved, unreachable]
+  Show: [case_ref, missing]
+  Timeout: {Duration=3.00:00:00}
+  InputNames: [case_ref, missing]
+step done
+  Kind: End
+  Stage: previsit
+  Result: previsit_closed
+step closed
+  Kind: End
+  Stage: previsit
+  Result: previsit_unreachable

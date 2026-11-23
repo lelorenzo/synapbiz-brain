@@ -1,0 +1,6 @@
+flow flow.child v1
+title: Batch child
+start: finish
+step finish [End] Finish
+  stage: -
+  does: Ends the case with the result Done.

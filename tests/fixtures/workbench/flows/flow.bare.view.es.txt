@@ -1,0 +1,21 @@
+flow flow.bare v1
+title: Pasos desnudos
+start: blink
+step blink [Temporizador] Parpadeo
+  stage: -
+  does: Espera 1 segundo.
+  next: Cuando llega la hora: ir a Pausa
+step pause [Temporizador] Pausa
+  stage: -
+  does: Espera 30 segundos.
+  next: Cuando llega la hora: ir a Juzgar
+step judge [Decisión] Juzgar
+  stage: -
+  does: Decide con la regla `conf.default_rule`. El campo de resultado `level` indica adónde va el flujo.
+  on:high: Si `level` es `high`: ir a Bien
+  on:low: Si `level` es `low`: ir a Bien
+  onNoDecision: Si la regla no da resultado: ir a Bien
+  onError: Si no se puede aplicar la regla: ir a Bien
+step fine [Fin] Bien
+  stage: -
+  does: Cierra el caso con el resultado Bien.

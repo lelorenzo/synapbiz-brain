@@ -319,6 +319,8 @@ internal sealed class ProcessDefinition
 
     internal required JsonObject Meta { get; init; }
 
+    internal IReadOnlyList<string> Requires { get; init; } = [];
+
     internal IReadOnlyList<ProcessTriggerDeclaration> Triggers { get; init; } = [];
 
     internal IReadOnlyDictionary<string, WindowDef> Windows { get; init; } = new Dictionary<string, WindowDef>(StringComparer.Ordinal);

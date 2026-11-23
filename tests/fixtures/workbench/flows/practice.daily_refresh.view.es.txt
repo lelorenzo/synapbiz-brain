@@ -1,0 +1,18 @@
+flow practice.daily_refresh v1
+title: Actualización diaria de la práctica
+start: list_cases
+step list_cases [Lectura] Leer la lista de casos del día
+  stage: -
+  does: Lee información de `schedule.cases_for_day`. Envía `run_for`. Guarda `cases`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 3 intentos en total.
+  next: Si sale bien: ir a Actualizado
+  onError: Si falla: ir a Operaciones: falló la actualización
+step refresh_attention [Tarea para una persona] Operaciones: falló la actualización
+  stage: -
+  does: Entrega una tarea a la cola Operaciones. Una persona elige Atendido. La persona ve `run_for`.
+  on:handled: Si la persona elige Atendido: ir a Actualización fallida
+step refreshed [Fin] Actualizado
+  stage: -
+  does: Cierra el caso con el resultado Actualizado.
+step failed [Fin] Actualización fallida
+  stage: -
+  does: Cierra el caso con el resultado Actualización fallida.

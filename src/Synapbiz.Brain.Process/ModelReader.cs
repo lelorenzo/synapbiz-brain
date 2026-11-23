@@ -44,6 +44,7 @@ internal sealed partial class ModelReader(List<BrainSpecError> errors)
             StepsById = steps.ToDictionary(step => step.Id, StringComparer.Ordinal),
             Uses = [.. root["uses"]!.AsArray().Select((use, index) => (JsonText.Text(use!["$ref"])!, index))],
             Meta = (JsonObject)root["meta"]!.AsObject().DeepClone(),
+            Requires = Strings(root["requires"]),
             Scenarios = body["scenarios"] is JsonArray scenarios ? (JsonArray)scenarios.DeepClone() : [],
             Triggers = ReadTriggers(body["triggers"]),
             Windows = ReadWindows(body["windows"]),

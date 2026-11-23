@@ -1,0 +1,80 @@
+process postvisit.coding_review v1
+Subject: case
+Stages: [postvisit]
+Start: read_note
+Uses: [rule/postvisit.opportunities, rule/postvisit.assist_gate, rule/postvisit.suggestion_check]
+Requires: [coding@1]
+Variables: [{Name=case_ref, Type=Code, IsInput=true}, {Name=assist_enabled, Type=Boolean, IsInput=true}, {Name=items, Type=Integer, IsInput=false}, {Name=flagged, Type=Integer, IsInput=false}, {Name=opportunities, Type=Json, IsInput=false}, {Name=suggested_code, Type=Code, IsInput=false}, {Name=confidence, Type=Integer, IsInput=false}, {Name=suggestion_usable, Type=Boolean, IsInput=false}, {Name=final_code, Type=Code, IsInput=false}]
+Scenarios: [the assistant is off and the physician approves, a usable suggestion is shown to the physician, who approves, an unsure suggestion is marked so, and the physician changes the code, the physician rejects the coding, an answer that breaks the output schema twice goes to the physician without a suggestion, an answer with a member the schema does not allow, every time, goes to the physician without a suggestion, an answer without a confidence goes to the physician without a verdict, an answer the rule cannot judge goes to the physician without a verdict, a transient failure of the assistant is retried, an assistant that fails goes to the physician without a suggestion, an assistant that is not available goes to the physician without a suggestion, a note that cannot be read still goes to the physician, a note that fails to read still goes to the physician, a read that is retried and then answers, a note without opportunities goes straight to the physician, a read without facts makes the rule fail and goes to the physician, a count the gate cannot judge goes to the physician, a practice that never said whether the assistant is enabled goes to the physician]
+step read_note
+  Kind: Read
+  Stage: postvisit
+  Routes: [{Label=next, Target=find_opportunities}, {Label=onError, Target=physician_review}, {Label=onNotAvailable, Target=physician_review}]
+  Port: records.note_facts
+  Retry: {MaxAttempts=3, Backoff=exponential, Initial=00:00:30, Max=00:05:00}
+  Inputs: [{Name=case, Variable=case_ref}]
+  Outputs: [{Name=flagged, Variable=flagged}, {Name=items, Variable=items}]
+  InputNames: [case_ref]
+  OutputNames: [flagged, items]
+step find_opportunities
+  Kind: Decide
+  Stage: postvisit
+  Routes: [{Label=next, Target=assist_gate}, {Label=onNoDecision, Target=physician_review}, {Label=onError, Target=physician_review}]
+  Rule: postvisit.opportunities
+  CollectInto: opportunities
+  Facts: [{Name=flagged, Variable=flagged}, {Name=items, Variable=items}]
+  InputNames: [flagged, items]
+  OutputNames: [opportunities]
+step assist_gate
+  Kind: Decide
+  Stage: postvisit
+  Routes: [{Label=on:no, Target=physician_review}, {Label=on:yes, Target=suggest}, {Label=onNoDecision, Target=physician_review}, {Label=onError, Target=physician_review}]
+  Rule: postvisit.assist_gate
+  RouteField: use
+  Facts: [{Name=assist_enabled, Variable=assist_enabled}, {Name=items, Variable=items}]
+  InputNames: [assist_enabled, items]
+step suggest
+  Kind: Ai
+  Stage: postvisit
+  Routes: [{Label=next, Target=check_suggestion}, {Label=onError, Target=physician_review}, {Label=onNotAvailable, Target=physician_review}, {Label=onInvalid, Target=physician_review}]
+  Port: assist.suggest
+  Retry: {MaxAttempts=2, Backoff=fixed, Initial=00:01:00}
+  Inputs: [{Name=case, Variable=case_ref}, {Name=opportunities, Variable=opportunities}]
+  Outputs: [{Name=code, Variable=suggested_code}, {Name=confidence, Variable=confidence}]
+  InputNames: [case_ref, opportunities]
+  OutputNames: [suggested_code, confidence]
+  Model: model-a
+  PromptId: coding-suggest
+  PromptVersion: 1
+  MaxAttempts: 2
+  HasInputSchema: true
+  HasOutputSchema: true
+  InputSchemaJson: {"properties":{"case":{"type":"string"},"opportunities":{"type":"array"}},"required":["case","opportunities"],"type":"object"}
+  OutputSchemaJson: {"additionalProperties":false,"properties":{"code":{"pattern":"^C-[0-9]{3}$","type":"string"},"confidence":{"type":"integer"}},"required":["code"],"type":"object"}
+step check_suggestion
+  Kind: Decide
+  Stage: postvisit
+  Routes: [{Label=next, Target=physician_review}, {Label=onNoDecision, Target=physician_review}, {Label=onError, Target=physician_review}]
+  Rule: postvisit.suggestion_check
+  Facts: [{Name=confidence, Variable=confidence}]
+  Outputs: [{Name=usable, Variable=suggestion_usable}]
+  InputNames: [confidence]
+  OutputNames: [suggestion_usable]
+step physician_review
+  Kind: HumanTask
+  Stage: postvisit
+  Routes: [{Label=on:approved, Target=approved}, {Label=on:changed, Target=approved}, {Label=on:rejected, Target=rejected}]
+  Queue: physician_review
+  Outcomes: [approved, changed, rejected]
+  Show: [case_ref, opportunities, suggested_code, confidence, suggestion_usable]
+  Outputs: [{Name=code, Variable=final_code}]
+  InputNames: [case_ref, opportunities, suggested_code, confidence, suggestion_usable]
+  OutputNames: [final_code]
+step approved
+  Kind: End
+  Stage: postvisit
+  Result: coding_approved
+step rejected
+  Kind: End
+  Stage: postvisit
+  Result: coding_rejected

@@ -7,14 +7,14 @@ using System.Xml.Linq;
 namespace Synapbiz.Brain.ArchitectureTests;
 
 /// <summary>
-/// Freezes what <c>Synapbiz.Brain.Workbench</c> may depend on: the base class library and the three Brain libraries, with no
+/// Freezes what <c>Synapbiz.Brain.Workbench</c> may depend on: the base class library and the four Brain libraries, with no
 /// package of its own. The workbench adds presentation and comparison to the engine and must stay free of anything else.
 /// </summary>
 public sealed class WorkbenchAssemblyCouplingTests
 {
     private const string Workbench = "Synapbiz.Brain.Workbench";
 
-    private static readonly string[] Libraries = ["Synapbiz.Brain.Contracts", "Synapbiz.Brain.Engine", "Synapbiz.Brain.Spec"];
+    private static readonly string[] Libraries = ["Synapbiz.Brain.Contracts", "Synapbiz.Brain.Engine", "Synapbiz.Brain.Process", "Synapbiz.Brain.Spec"];
 
     /// <summary>
     /// The packages the restore graph of the workbench project holds. The project declares none: the two build analyzers come
@@ -33,7 +33,7 @@ public sealed class WorkbenchAssemblyCouplingTests
     ];
 
     [Fact]
-    public void TheWorkbenchAssemblyReferencesOnlyTheBclAndTheThreeLibraries()
+    public void TheWorkbenchAssemblyReferencesOnlyTheBclAndTheFourLibraries()
     {
         var bcl = Directory.EnumerateFiles(RuntimeEnvironment.GetRuntimeDirectory(), "*.dll")
             .Select(Path.GetFileNameWithoutExtension).ToHashSet(StringComparer.Ordinal);
@@ -72,7 +72,7 @@ public sealed class WorkbenchAssemblyCouplingTests
     }
 
     [Fact]
-    public void TheWorkbenchProjectDeclaresNoPackageAndReferencesExactlyTheThreeLibraries()
+    public void TheWorkbenchProjectDeclaresNoPackageAndReferencesExactlyTheFourLibraries()
     {
         var path = Path.Combine(FindRepositoryRoot(), "src", Workbench, Workbench + ".csproj");
         var project = XDocument.Load(path);

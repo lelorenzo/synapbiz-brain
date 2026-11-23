@@ -1,0 +1,66 @@
+process previsit.outreach v1
+Subject: case
+Stages: [previsit]
+Start: cycle
+Uses: [rule/previsit.missing_items]
+Requires: [outreach@1]
+Variables: [{Name=case_ref, Type=Code, IsInput=true}, {Name=missing, Type=Integer, IsInput=false}]
+Scenarios: [nothing missing, reply after the first reminder, two reminders then escalate, unknown delivery goes to a task, transient failure is retried]
+step cycle
+  Kind: Loop
+  Stage: previsit
+  Routes: [{Label=body, Target=check}, {Label=onExhausted, Target=escalate_final}]
+  Loop: {MaxIterations=2}
+step check
+  Kind: Read
+  Routes: [{Label=next, Target=assess}, {Label=onError, Target=escalate}]
+  Port: intake.status
+  Retry: {MaxAttempts=1, Backoff=none, Initial=00:00:00}
+  Inputs: [{Name=case, Variable=case_ref}]
+  Outputs: [{Name=missing_count, Variable=missing}]
+  InputNames: [case_ref]
+  OutputNames: [missing]
+step assess
+  Kind: Decide
+  Routes: [{Label=on:none, Target=done}, {Label=on:remind, Target=send}, {Label=onNoDecision, Target=escalate}, {Label=onError, Target=escalate}]
+  Rule: previsit.missing_items
+  RouteField: action
+  Facts: [{Name=missing, Variable=missing}]
+  InputNames: [missing]
+step send
+  Kind: Action
+  Routes: [{Label=next, Target=reply}, {Label=onError, Target=escalate}, {Label=onUnknown, Target=escalate}]
+  Port: messaging.notice
+  Delivery: AtMostOnce
+  Retry: {MaxAttempts=3, Backoff=exponential, Initial=00:01:00, Max=00:10:00}
+  Inputs: [{Name=case, Variable=case_ref}, {Name=missing, Variable=missing}]
+  InputNames: [case_ref, missing]
+step reply
+  Kind: Wait
+  Routes: [{Label=next, Target=cycle}, {Label=onTimeout, Target=cycle}]
+  Event: form_submitted
+  Correlation: case_ref
+  Timeout: {Duration=1.00:00:00}
+  InputNames: [case_ref]
+step escalate
+  Kind: HumanTask
+  Routes: [{Label=on:resolved, Target=cycle}, {Label=on:unreachable, Target=closed}, {Label=onTimeout, Target=closed}]
+  Queue: front_desk
+  Outcomes: [resolved, unreachable]
+  Show: [case_ref, missing]
+  Timeout: {Duration=3.00:00:00}
+  InputNames: [case_ref, missing]
+step escalate_final
+  Kind: HumanTask
+  Routes: [{Label=on:resolved, Target=done}, {Label=on:unreachable, Target=closed}, {Label=onTimeout, Target=closed}]
+  Queue: front_desk
+  Outcomes: [resolved, unreachable]
+  Show: [case_ref, missing]
+  Timeout: {Duration=3.00:00:00}
+  InputNames: [case_ref, missing]
+step done
+  Kind: End
+  Result: ready
+step closed
+  Kind: End
+  Result: unreachable

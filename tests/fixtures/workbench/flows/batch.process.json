@@ -1,0 +1,463 @@
+{
+  "$spec": "brain.process@1",
+  "id": "flow.batch",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "rule/conf.flag_rule"
+    },
+    {
+      "$ref": "rule/conf.default_rule"
+    },
+    {
+      "$ref": "process/flow.child"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Batch with a loop, a timer, one AI try and a poll",
+    "display": {
+      "en": {
+        "title": "Batch run",
+        "stages": {
+          "run": "Run"
+        },
+        "steps": {
+          "each": "Each item",
+          "child": "Run the child",
+          "nap": "Wait until the visit",
+          "ask": "Ask for a pick",
+          "check": "Check the pick",
+          "poll_state": "Wait for the state",
+          "judge": "Judge the count",
+          "ok": "Finished",
+          "broken": "Broken",
+          "verify": "Verify the pick"
+        },
+        "results": {
+          "ok": "Finished",
+          "broken": "Broken"
+        }
+      },
+      "es": {
+        "title": "Ejecución por lotes",
+        "stages": {
+          "run": "Ejecución"
+        },
+        "steps": {
+          "each": "Cada elemento",
+          "child": "Ejecutar el hijo",
+          "nap": "Esperar hasta la visita",
+          "ask": "Pedir una elección",
+          "check": "Revisar la elección",
+          "poll_state": "Esperar el estado",
+          "judge": "Juzgar el conteo",
+          "ok": "Terminado",
+          "broken": "Roto",
+          "verify": "Comprobar la elección"
+        },
+        "results": {
+          "ok": "Terminado",
+          "broken": "Roto"
+        }
+      }
+    }
+  },
+  "body": {
+    "subject": "batch",
+    "stages": [
+      "run"
+    ],
+    "variables": {
+      "batch_ref": {
+        "type": "Code",
+        "input": true
+      },
+      "items": {
+        "type": "Json",
+        "input": true
+      },
+      "visit_at": {
+        "type": "Instant",
+        "input": true
+      },
+      "current": {
+        "type": "Json"
+      },
+      "pick": {
+        "type": "Code"
+      },
+      "count": {
+        "type": "Integer"
+      },
+      "state_count": {
+        "type": "Integer"
+      }
+    },
+    "triggers": [
+      {
+        "kind": "schedule",
+        "id": "weekdays",
+        "cron": "30 7 * * 1-5",
+        "misfire": "skip",
+        "input": {}
+      },
+      {
+        "kind": "schedule",
+        "id": "mondays",
+        "cron": "0 8 * * 0,1,6",
+        "misfire": "skip",
+        "input": {}
+      },
+      {
+        "kind": "schedule",
+        "id": "odd",
+        "cron": "*/5 9 1 * *",
+        "misfire": "fireOnce",
+        "input": {}
+      },
+      {
+        "kind": "schedule",
+        "id": "midweek",
+        "cron": "0 9 * * 2,3,4,5",
+        "misfire": "skip",
+        "input": {}
+      }
+    ],
+    "start": "each",
+    "steps": {
+      "each": {
+        "kind": "loop",
+        "stage": "run",
+        "maxIterations": 5,
+        "forEach": "items",
+        "item": "current",
+        "body": "child",
+        "next": "nap",
+        "onExhausted": "broken"
+      },
+      "child": {
+        "kind": "subprocess",
+        "stage": "run",
+        "process": "flow.child",
+        "input": {
+          "item_ref": "current"
+        },
+        "onError": "broken",
+        "next": "each"
+      },
+      "nap": {
+        "kind": "timer",
+        "stage": "run",
+        "until": "visit_at",
+        "offset": "PT1H",
+        "next": "ask"
+      },
+      "ask": {
+        "kind": "ai",
+        "stage": "run",
+        "port": "assist.pick",
+        "model": "model-a",
+        "prompt": {
+          "id": "pick",
+          "version": 2
+        },
+        "input": {
+          "batch": "batch_ref"
+        },
+        "inputSchema": {
+          "type": "object",
+          "required": [
+            "batch"
+          ],
+          "properties": {
+            "batch": {
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": {
+          "type": "object",
+          "required": [
+            "pick"
+          ],
+          "properties": {
+            "pick": {
+              "type": "string"
+            },
+            "size": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "pick": "pick",
+          "size": "count"
+        },
+        "maxAttempts": 1,
+        "next": "verify",
+        "onInvalid": "broken",
+        "onError": "broken",
+        "onNotAvailable": "broken"
+      },
+      "check": {
+        "kind": "poll",
+        "stage": "run",
+        "port": "records.state",
+        "input": {
+          "batch": "batch_ref"
+        },
+        "output": {
+          "count": "state_count"
+        },
+        "retry": {
+          "maxAttempts": 2,
+          "backoff": "fixed",
+          "initial": "PT1M"
+        },
+        "rule": "conf.flag_rule",
+        "facts": {
+          "count": "state_count"
+        },
+        "field": "flag",
+        "until": [
+          "true"
+        ],
+        "every": "PT1M",
+        "backoff": "fixed",
+        "maxDuration": "PT45M",
+        "next": "judge",
+        "onExpired": "broken",
+        "onError": "broken",
+        "onNotAvailable": "broken",
+        "onNotEntitled": "broken"
+      },
+      "judge": {
+        "kind": "decide",
+        "stage": "run",
+        "rule": "conf.default_rule",
+        "facts": {
+          "count": "count"
+        },
+        "onNoDecision": "ok",
+        "onError": "broken",
+        "route": "level",
+        "on": {
+          "high": "ok",
+          "low": "broken"
+        }
+      },
+      "ok": {
+        "kind": "end",
+        "stage": "run",
+        "result": "ok"
+      },
+      "broken": {
+        "kind": "end",
+        "stage": "run",
+        "result": "broken"
+      },
+      "verify": {
+        "kind": "decide",
+        "stage": "run",
+        "rule": "conf.flag_rule",
+        "facts": {
+          "count": "count"
+        },
+        "route": "flag",
+        "on": {
+          "true": "check",
+          "false": "broken"
+        },
+        "onNoDecision": "broken",
+        "onError": "broken"
+      }
+    },
+    "scenarios": [
+      {
+        "name": "both items run, the pick is large and the state settles after a second read",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": {
+            "batch_ref": "b-1",
+            "items": [
+              {
+                "id": "a"
+              },
+              {
+                "id": "b"
+              }
+            ],
+            "visit_at": "2027-01-10T15:00:00Z"
+          }
+        },
+        "events": [
+          {
+            "child": "child",
+            "result": "done",
+            "output": {}
+          },
+          {
+            "child": "child",
+            "result": "done",
+            "output": {}
+          },
+          {
+            "advance": "P7D"
+          },
+          {
+            "complete": "ask",
+            "output": {
+              "pick": "p-1",
+              "size": 12
+            }
+          },
+          {
+            "complete": "check",
+            "output": {
+              "count": 1
+            }
+          },
+          {
+            "advance": "PT1M"
+          },
+          {
+            "complete": "check",
+            "output": {
+              "count": 12
+            }
+          }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "ok",
+          "trace": [
+            "each",
+            "child",
+            "each",
+            "child",
+            "each",
+            "nap",
+            "ask",
+            "verify",
+            "check",
+            "judge",
+            "ok"
+          ]
+        }
+      },
+      {
+        "name": "a small pick ends the batch as broken",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": {
+            "batch_ref": "b-1",
+            "items": [
+              {
+                "id": "a"
+              },
+              {
+                "id": "b"
+              }
+            ],
+            "visit_at": "2027-01-10T15:00:00Z"
+          }
+        },
+        "events": [
+          {
+            "child": "child",
+            "result": "done",
+            "output": {}
+          },
+          {
+            "child": "child",
+            "result": "done",
+            "output": {}
+          },
+          {
+            "advance": "P7D"
+          },
+          {
+            "complete": "ask",
+            "output": {
+              "pick": "p-2",
+              "size": 3
+            }
+          }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "broken",
+          "trace": [
+            "each",
+            "child",
+            "each",
+            "child",
+            "each",
+            "nap",
+            "ask",
+            "verify",
+            "broken"
+          ]
+        }
+      },
+      {
+        "name": "an answer that does not fit ends the batch as broken",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": {
+            "batch_ref": "b-1",
+            "items": [
+              {
+                "id": "a"
+              },
+              {
+                "id": "b"
+              }
+            ],
+            "visit_at": "2027-01-10T15:00:00Z"
+          }
+        },
+        "events": [
+          {
+            "child": "child",
+            "result": "done",
+            "output": {}
+          },
+          {
+            "child": "child",
+            "result": "done",
+            "output": {}
+          },
+          {
+            "advance": "P7D"
+          },
+          {
+            "complete": "ask",
+            "output": {
+              "pick": 5
+            }
+          }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "broken",
+          "trace": [
+            "each",
+            "child",
+            "each",
+            "child",
+            "each",
+            "nap",
+            "ask",
+            "broken"
+          ]
+        }
+      }
+    ]
+  }
+}

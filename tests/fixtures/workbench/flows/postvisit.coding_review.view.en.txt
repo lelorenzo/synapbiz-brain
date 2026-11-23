@@ -1,0 +1,57 @@
+flow postvisit.coding_review v1
+title: Post-visit coding review
+start: read_note
+stage postvisit: After the visit
+step read_note [Read] Read the note facts
+  stage: After the visit
+  does: Reads information from `records.note_facts`. It sends `case_ref`. It keeps `flagged` and `items`. If the call fails for a passing reason it tries again, up to 3 attempts in all.
+  next: When it succeeds: go to Find coding opportunities
+  onError: If it fails: go to Physician review
+  onNotAvailable: If the connection is not available: go to Physician review
+step find_opportunities [Decision] Find coding opportunities
+  stage: After the visit
+  does: Judges with the rule `postvisit.opportunities` using `flagged` and `items`. Every matching result is kept in `opportunities`.
+  next: Then: go to Decide whether to ask the assistant
+  onNoDecision: If the rule gives no result: go to Physician review
+  onError: If the rule cannot be applied: go to Physician review
+step assist_gate [Decision] Decide whether to ask the assistant
+  stage: After the visit
+  does: Judges with the rule `postvisit.assist_gate` using `assist_enabled` and `items`. The result field `use` says where the flow goes.
+  on:no: If `use` is `no`: go to Physician review
+  on:yes: If `use` is `yes`: go to Ask the assistant
+  onNoDecision: If the rule gives no result: go to Physician review
+  onError: If the rule cannot be applied: go to Physician review
+step suggest [AI answer] Ask the assistant
+  stage: After the visit
+  does: Asks an AI model (`model-a`, prompt `coding-suggest` version 1) through `assist.suggest`. It sends `case_ref` and `opportunities`. It keeps `suggested_code` and `confidence`. If the call fails for a passing reason it tries again, up to 2 attempts in all. The rule `postvisit.suggestion_check` judges the answer next.
+  next: When an answer fits: go to Check the suggestion
+  onError: If it fails: go to Physician review
+  onNotAvailable: If the connection is not available: go to Physician review
+  onInvalid: If the answer does not fit the expected form: go to Physician review
+  ai input: case_ref, opportunities
+  ai input schema: {"properties":{"case":{"type":"string"},"opportunities":{"type":"array"}},"required":["case","opportunities"],"type":"object"}
+  ai output schema: {"additionalProperties":false,"properties":{"code":{"pattern":"^C-[0-9]{3}$","type":"string"},"confidence":{"type":"integer"}},"required":["code"],"type":"object"}
+  ai fills: suggested_code, confidence
+  ai judged by: postvisit.suggestion_check
+  ai note: The model and the prompt are fixed in the document: `model-a`, prompt `coding-suggest` version 1.
+  ai note: It gets 2 attempts to give an answer that fits the expected form.
+  ai note: The rule `postvisit.suggestion_check` judges the answer next.
+  ai note: When the answer never fits, the call fails or the AI is not available, the flow does not stop: it goes on at Physician review.
+step check_suggestion [Decision] Check the suggestion
+  stage: After the visit
+  does: Judges with the rule `postvisit.suggestion_check` using `confidence`. It keeps `suggestion_usable`.
+  next: Then: go to Physician review
+  onNoDecision: If the rule gives no result: go to Physician review
+  onError: If the rule cannot be applied: go to Physician review
+step physician_review [Task for a person] Physician review
+  stage: After the visit
+  does: Gives a task to the queue Physician review. A person chooses Approved, Changed or Rejected. The person sees `case_ref`, `opportunities`, `suggested_code`, `confidence` and `suggestion_usable`. It keeps `final_code`.
+  on:approved: If the person chooses Approved: go to Coding approved
+  on:changed: If the person chooses Changed: go to Coding approved
+  on:rejected: If the person chooses Rejected: go to Coding rejected
+step approved [End] Coding approved
+  stage: After the visit
+  does: Ends the case with the result Coding approved.
+step rejected [End] Coding rejected
+  stage: After the visit
+  does: Ends the case with the result Coding rejected.

@@ -1,0 +1,36 @@
+flow visit.reminder v1
+title: Visit reminder
+start: remind
+stage reminder: Reminder
+step remind [Action] Send the reminder
+  stage: Reminder
+  does: Asks `messaging.reminder` to do something. It contacts a person. It is never sent twice. It only goes out inside the delivery window Contact hours. If `case.reply_received` arrives while it waits for the window, the wait ends. It sends `case_ref`. It keeps `reply_kind`.
+  next: When it succeeds: go to Wait for the confirmation
+  onError: If it fails: go to Call the patient
+  onUnknown: If it is not known whether it went out: go to Call the patient
+  interrupt: If `case.reply_received` arrives while it waits for the window: go to Handle the reply
+step await_confirmation [Wait for an event] Wait for the confirmation
+  stage: Reminder
+  does: Waits for the event `visit.confirmed`. Only the event that carries the same `case_ref` counts.
+  next: When the event arrives: go to Confirmed
+  onTimeout: If no answer arrives 2 hours before `visit_at`: go to Call the patient
+step handle_reply [Task for a person] Handle the reply
+  stage: Reminder
+  does: Gives a task to the queue Front desk. A person chooses Handled. The person sees `case_ref` and `reply_kind`.
+  on:handled: If the person chooses Handled: go to Confirmed
+  onTimeout: If no answer arrives 1 hour before `visit_at`: go to Lapsed
+step call_patient [Task for a person] Call the patient
+  stage: Reminder
+  does: Gives a task to the queue Front desk. A person chooses Reached or Unreachable. The person sees `case_ref`.
+  on:reached: If the person chooses Reached: go to Confirmed
+  on:unreachable: If the person chooses Unreachable: go to Unreachable
+  onTimeout: If no answer arrives by `visit_at`: go to Lapsed
+step confirmed [End] Confirmed
+  stage: Reminder
+  does: Ends the case with the result Confirmed.
+step unreachable [End] Unreachable
+  stage: Reminder
+  does: Ends the case with the result Unreachable.
+step lapsed [End] Lapsed
+  stage: Reminder
+  does: Ends the case with the result Lapsed.

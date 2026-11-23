@@ -1,0 +1,19 @@
+flow flow.clock v1
+title: Clock watch
+start: settle
+stage watch: Watch
+step settle [Timer] Settle until the due time
+  stage: Watch
+  does: Waits until `due`.
+  next: When the time comes: go to Hold for a ping
+step hold [Wait for an event] Hold for a ping
+  stage: Watch
+  does: Waits for the event `clock.ping`.
+  next: When the event arrives: go to Released
+  onTimeout: If no answer arrives by `due`: go to Expired
+step released [End] Released
+  stage: Watch
+  does: Ends the case with the result Released.
+step expired [End] Expired
+  stage: Watch
+  does: Ends the case with the result Expired.

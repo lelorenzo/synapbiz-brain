@@ -1,0 +1,109 @@
+{
+  "$spec": "brain.process@1",
+  "id": "flow.bare",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "rule/conf.default_rule"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Bare steps",
+    "display": {
+      "en": {
+        "title": "Bare steps",
+        "steps": {
+          "blink": "Blink",
+          "pause": "Pause",
+          "judge": "Judge",
+          "fine": "Fine"
+        },
+        "results": {
+          "fine": "Fine"
+        }
+      },
+      "es": {
+        "title": "Pasos desnudos",
+        "steps": {
+          "blink": "Parpadeo",
+          "pause": "Pausa",
+          "judge": "Juzgar",
+          "fine": "Bien"
+        },
+        "results": {
+          "fine": "Bien"
+        }
+      }
+    }
+  },
+  "body": {
+    "subject": "bare",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      }
+    },
+    "start": "blink",
+    "steps": {
+      "blink": {
+        "kind": "timer",
+        "after": "PT1S",
+        "next": "pause"
+      },
+      "pause": {
+        "kind": "timer",
+        "after": "PT30S",
+        "next": "judge"
+      },
+      "judge": {
+        "kind": "decide",
+        "rule": "conf.default_rule",
+        "facts": {},
+        "route": "level",
+        "on": {
+          "low": "fine",
+          "high": "fine"
+        },
+        "onNoDecision": "fine",
+        "onError": "fine"
+      },
+      "fine": {
+        "kind": "end",
+        "result": "fine"
+      }
+    },
+    "scenarios": [
+      {
+        "name": "the bare flow ends fine",
+        "start": {
+          "at": "2027-01-04T14:00:00Z",
+          "today": "2027-01-04",
+          "input": {
+            "ref": "r-1"
+          }
+        },
+        "events": [
+          {
+            "advance": "PT1S"
+          },
+          {
+            "advance": "PT30S"
+          }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "fine",
+          "trace": [
+            "blink",
+            "pause",
+            "judge",
+            "fine"
+          ]
+        }
+      }
+    ]
+  }
+}

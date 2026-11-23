@@ -1,0 +1,107 @@
+process case.lifecycle v1
+Subject: case
+Stages: [previsit, visit, postvisit, collection]
+Start: zone_check
+Uses: [rule/lifecycle.zone_ready, process/previsit.outreach, process/visit.note_wait, process/postvisit.coding_review, process/collection.followup]
+Requires: [lifecycle@1]
+Variables: [{Name=case_ref, Type=Code, IsInput=true}, {Name=practice_zone, Type=Code, IsInput=true}, {Name=assist_enabled, Type=Boolean, IsInput=true}, {Name=missing_at_close, Type=Integer, IsInput=false}]
+Triggers: [{Event=case.opened, BusinessKeyMember=case_ref, Kind=event, Input=[[case_ref, case_ref], [practice_zone, practice_zone]]}]
+Scenarios: [a case runs its four stages and the money is collected, a case whose reminders went unanswered still goes on to the visit, a visit that did not happen closes the case without a visit, a rejected coding closes the case without billing, a claim that is written off ends the case as written off, a collection stage closed by hand ends the case as a manual close, a failed pre-visit stage raises an operations task, which lets the case go on, a failed pre-visit stage is closed by hand, a failed visit stage raises an operations task, a failed coding stage raises an operations task and never reaches billing, a result nobody listed raises the operations task of the stage, a failed collection stage raises an operations task, a case opened without its zone raises the operations task before any reminder, which lets the case go on, a case opened without its zone is closed by hand, a zone that is empty raises the same task]
+step zone_check
+  Kind: Decide
+  Stage: previsit
+  Routes: [{Label=on:yes, Target=previsit}, {Label=onNoDecision, Target=ops_zone}, {Label=onError, Target=ops_zone}]
+  Rule: lifecycle.zone_ready
+  RouteField: ready
+  Facts: [{Name=practice_zone, Variable=practice_zone}]
+  InputNames: [practice_zone]
+step previsit
+  Kind: Subprocess
+  Stage: previsit
+  Routes: [{Label=on:previsit_closed, Target=visit}, {Label=on:previsit_unreachable, Target=visit}, {Label=onError, Target=ops_previsit}]
+  Process: previsit.outreach
+  Inputs: [{Name=case_ref, Variable=case_ref}, {Name=practice_zone, Variable=practice_zone}]
+  Outputs: [{Name=missing, Variable=missing_at_close}]
+  InputNames: [case_ref, practice_zone]
+  OutputNames: [missing_at_close]
+step visit
+  Kind: Subprocess
+  Stage: visit
+  Routes: [{Label=on:note_signed, Target=postvisit}, {Label=on:visit_cancelled, Target=closed_no_visit}, {Label=onError, Target=ops_visit}]
+  Process: visit.note_wait
+  Inputs: [{Name=case_ref, Variable=case_ref}]
+  InputNames: [case_ref]
+step postvisit
+  Kind: Subprocess
+  Stage: postvisit
+  Routes: [{Label=on:coding_approved, Target=collection}, {Label=on:coding_rejected, Target=closed_not_billed}, {Label=onError, Target=ops_postvisit}]
+  Process: postvisit.coding_review
+  Inputs: [{Name=assist_enabled, Variable=assist_enabled}, {Name=case_ref, Variable=case_ref}]
+  InputNames: [assist_enabled, case_ref]
+step collection
+  Kind: Subprocess
+  Stage: collection
+  Routes: [{Label=on:collected, Target=collected}, {Label=on:manual_close, Target=manual_close}, {Label=on:written_off, Target=written_off}, {Label=onError, Target=ops_collection}]
+  Process: collection.followup
+  Inputs: [{Name=case_ref, Variable=case_ref}]
+  InputNames: [case_ref]
+step ops_zone
+  Kind: HumanTask
+  Stage: previsit
+  Routes: [{Label=on:close, Target=manual_close}, {Label=on:continue, Target=visit}]
+  Queue: operations
+  Outcomes: [continue, close]
+  Show: [case_ref]
+  InputNames: [case_ref]
+step ops_previsit
+  Kind: HumanTask
+  Stage: previsit
+  Routes: [{Label=on:close, Target=manual_close}, {Label=on:continue, Target=visit}]
+  Queue: operations
+  Outcomes: [continue, close]
+  Show: [case_ref]
+  InputNames: [case_ref]
+step ops_visit
+  Kind: HumanTask
+  Stage: visit
+  Routes: [{Label=on:close, Target=manual_close}]
+  Queue: operations
+  Outcomes: [close]
+  Show: [case_ref, missing_at_close]
+  InputNames: [case_ref, missing_at_close]
+step ops_postvisit
+  Kind: HumanTask
+  Stage: postvisit
+  Routes: [{Label=on:close, Target=manual_close}]
+  Queue: operations
+  Outcomes: [close]
+  Show: [case_ref]
+  InputNames: [case_ref]
+step ops_collection
+  Kind: HumanTask
+  Stage: collection
+  Routes: [{Label=on:close, Target=manual_close}]
+  Queue: operations
+  Outcomes: [close]
+  Show: [case_ref]
+  InputNames: [case_ref]
+step collected
+  Kind: End
+  Stage: collection
+  Result: collected
+step written_off
+  Kind: End
+  Stage: collection
+  Result: written_off
+step closed_no_visit
+  Kind: End
+  Stage: visit
+  Result: closed_no_visit
+step closed_not_billed
+  Kind: End
+  Stage: postvisit
+  Result: closed_not_billed
+step manual_close
+  Kind: End
+  Stage: collection
+  Result: manual_close

@@ -1,6 +1,6 @@
 # Consuming the packages
 
-The seven packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) carry one version, 0.4.0 at the time of writing (0.1.0 held the first three only; the two workbench packages, the process library and the PostgreSQL host first appear in 0.2.0), and are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
+The seven packages (`Synapbiz.Brain.Contracts`, `Synapbiz.Brain.Engine`, `Synapbiz.Brain.Spec`, `Synapbiz.Brain.Workbench`, `Synapbiz.Brain.Workbench.Blazor`, `Synapbiz.Brain.Process` and `Synapbiz.Brain.Host.Postgres`) carry one version, 0.5.0 at the time of writing (0.1.0 held the first three only; the two workbench packages, the process library and the PostgreSQL host first appear in 0.2.0), and are published to the private GitHub Packages NuGet feed of the repository owner when a tag `vX.Y.Z` is pushed (`.github/workflows/release.yml`).
 
 ## Feed
 

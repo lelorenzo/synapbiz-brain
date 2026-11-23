@@ -1,0 +1,21 @@
+flow flow.bare v1
+title: Bare steps
+start: blink
+step blink [Timer] Blink
+  stage: -
+  does: Waits 1 second.
+  next: When the time comes: go to Pause
+step pause [Timer] Pause
+  stage: -
+  does: Waits 30 seconds.
+  next: When the time comes: go to Judge
+step judge [Decision] Judge
+  stage: -
+  does: Judges with the rule `conf.default_rule`. The result field `level` says where the flow goes.
+  on:high: If `level` is `high`: go to Fine
+  on:low: If `level` is `low`: go to Fine
+  onNoDecision: If the rule gives no result: go to Fine
+  onError: If the rule cannot be applied: go to Fine
+step fine [End] Fine
+  stage: -
+  does: Ends the case with the result Fine.
