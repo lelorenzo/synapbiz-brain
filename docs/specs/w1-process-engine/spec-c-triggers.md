@@ -156,3 +156,15 @@ Docs: reference pages of the format and of the host, `docs/architecture/overview
 ## 9. Out of scope
 
 Calendars of holidays, windows that cross midnight, cron seconds or names, per-instance schedule changes, catch-up of every missed occurrence, moving running instances to a new version, HTTP endpoints, metrics, the four reference flows and the version bump (W1-D).
+
+## 10. Amendments after independent verification (2026-11-23)
+
+Normative; where they differ from the sections above they win.
+
+1. **Business key from an event.** The key member must be a JSON string that, after trimming, is non-empty, is at most 200 characters, contains no control character and no unpaired surrogate, and does not start with `@`. Anything else means no start for that trigger (`process.trigger.no_business_key`, ids only in the log). Reading the key never throws, and a bad key never prevents the event from being recorded and routed to waiting instances.
+2. **Business key of a schedule start.** `@schedule/{scheduleId}/{occurrence as yyyyMMddTHHmmZ}`. The `@` prefix is reserved for the host, so a key taken from a payload cannot collide with it.
+3. **Zone ids.** The activation's `Zone` and the value of a window's zone variable must have the shape of section 2 (`UTC` or `Area/Location`); any other text is rejected (`ArgumentException` at activation; `WindowFailed` with `process.window.zone_unknown` for a window) without asking the system database.
+4. **Loader totality.** No input text makes `BrainProcessLoader.Load` throw; a number the schema evaluation cannot represent is a schema violation at its path.
+5. **Window in a repeated hour.** `DeliveryWindows.NextOpen` returns the earliest instant at or after `now` at which the window is open, also when the opening or closing time falls in a repeated local hour. For a repeated local time the first occurrence is the opening or closing instant.
+6. **Documented, unchanged behaviour.** A cron day field counts as restricted unless its text is exactly `*`. In the repeated hour of a daylight saving change a cron expression fires on the first pass only, so an every-minute or hourly schedule is silent for that one hour. On a day a zone skips entirely (a date-line change) nothing fires for that day.
+7. **Exposed collections.** `BrainProcess.Triggers`, their `Input` maps and `WindowRequest.Days` are read-only copies; a caller cannot change the definition through them.
