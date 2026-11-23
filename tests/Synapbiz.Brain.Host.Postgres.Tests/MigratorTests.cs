@@ -24,7 +24,7 @@ public sealed class MigratorTests
                 .Should().Be(1, table + " must exist");
         }
 
-        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version")).Should().Equal(1, 2, 3);
+        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version")).Should().Equal(1, 2, 3, 4);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class MigratorTests
 
         await migrator.MigrateAsync();
 
-        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version")).Should().Equal(1, 2, 3);
+        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version")).Should().Equal(1, 2, 3, 4);
         (await rig.ColumnAsync<DateTimeOffset>("select applied_at from {schema}.process_schema_version")).Should().Equal(before);
         (await rig.ScalarAsync<long>("select count(*) from information_schema.tables where table_schema = @s", ("s", rig.Schema))).Should().Be(Tables.Length);
     }
@@ -61,12 +61,12 @@ public sealed class MigratorTests
     public async Task ASchemaThatHasOnlyTheFirstScriptIsUpgradedByTheSecondOne()
     {
         await using var rig = await Rig.CreateAsync();
-        await rig.ExecuteAsync("drop table {schema}.process_activation; drop table {schema}.process_event_trigger; drop table {schema}.process_schedule; drop index {schema}.ix_process_instance_created; drop index {schema}.ix_process_instance_status; delete from {schema}.process_schema_version where version >= 2");
+        await rig.ExecuteAsync("drop table {schema}.process_activation; drop table {schema}.process_event_trigger; drop table {schema}.process_schedule; drop index {schema}.ix_process_instance_created; drop index {schema}.ix_process_instance_status; drop index {schema}.ix_process_instance_purge; drop index {schema}.ix_process_event_received; drop index {schema}.ix_process_inbox_instance; delete from {schema}.process_schema_version where version >= 2");
         (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version")).Should().Equal(1);
 
         await rig.Provider.GetRequiredService<IProcessStoreMigrator>().MigrateAsync();
 
-        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version order by version")).Should().Equal(1, 2, 3);
+        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version order by version")).Should().Equal(1, 2, 3, 4);
         (await rig.CountAsync("process_schedule")).Should().Be(0);
         (await rig.CountAsync("process_activation")).Should().Be(0);
         (await rig.CountAsync("process_event_trigger")).Should().Be(0);
@@ -77,7 +77,7 @@ public sealed class MigratorTests
     {
         await using var rig = await Rig.CreateAsync();
 
-        (await rig.ColumnAsync<DateTimeOffset>("select applied_at from {schema}.process_schema_version")).Should().Equal(Rig.Start, Rig.Start, Rig.Start);
+        (await rig.ColumnAsync<DateTimeOffset>("select applied_at from {schema}.process_schema_version")).Should().Equal(Rig.Start, Rig.Start, Rig.Start, Rig.Start);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class MigratorTests
 
         await Task.WhenAll(Enumerable.Range(0, 6).Select(index => (index % 2 == 0 ? first : second).MigrateAsync()));
 
-        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version")).Should().Equal(1, 2, 3);
+        (await rig.ColumnAsync<int>("select version from {schema}.process_schema_version")).Should().Equal(1, 2, 3, 4);
         (await rig.ScalarAsync<long>("select count(*) from information_schema.tables where table_schema = @s", ("s", rig.Schema))).Should().Be(Tables.Length);
     }
 

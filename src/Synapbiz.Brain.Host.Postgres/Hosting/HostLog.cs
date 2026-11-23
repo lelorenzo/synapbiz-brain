@@ -64,4 +64,10 @@ internal static partial class HostLog
 
     [LoggerMessage(EventId = 19, Level = LogLevel.Information, Message = "process.activation.removed: tenant {TenantId} process {ProcessId} removed {Removed}")]
     internal static partial void ActivationRemoved(ILogger logger, string tenantId, string processId, bool removed);
+
+    [LoggerMessage(EventId = 20, Level = LogLevel.Information, Message = "process.instance.purged: tenant {TenantId} root instance {InstanceId} purged with the row counts {Counts}")]
+    internal static partial void InstancePurged(ILogger logger, string tenantId, string instanceId, PurgeCounts counts);
+
+    [LoggerMessage(EventId = 21, Level = LogLevel.Warning, Message = "process.effect.orphaned: tenant {TenantId} instance {InstanceId} effect {EffectId} came back after its instance or its effect row was purged; the result is dropped")]
+    internal static partial void EffectOrphaned(ILogger logger, string tenantId, string instanceId, string effectId);
 }

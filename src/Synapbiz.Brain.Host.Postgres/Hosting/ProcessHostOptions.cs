@@ -26,6 +26,14 @@ public sealed class ProcessHostOptions
     /// (exactly this late) the occurrence is on time.
     /// </summary>
     public TimeSpan ScheduleMisfireGrace { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// The longest <see cref="IProcessEngine.PurgeInstanceAsync"/> keeps trying to lock a whole tree that another transaction holds,
+    /// from just above zero to five minutes. A purge never waits for a row lock: it tries, gives the locks back and tries again after
+    /// a short randomized pause. When this time has passed since the call began the result is <see cref="PurgeStatus.Refused"/> with
+    /// the code <c>process.purge.busy</c> and nothing has changed.
+    /// </summary>
+    public TimeSpan PurgeLockTimeout { get; set; } = TimeSpan.FromSeconds(10);
 }
 
 /// <summary>Validates <see cref="ProcessHostOptions"/> when they are first resolved.</summary>
@@ -63,6 +71,11 @@ internal sealed class ProcessHostOptionsValidator : IValidateOptions<ProcessHost
         if (options.ScheduleMisfireGrace < TimeSpan.Zero)
         {
             failures.Add("ProcessHostOptions.ScheduleMisfireGrace must not be negative.");
+        }
+
+        if (options.PurgeLockTimeout <= TimeSpan.Zero || options.PurgeLockTimeout > TimeSpan.FromMinutes(5))
+        {
+            failures.Add("ProcessHostOptions.PurgeLockTimeout must be greater than zero and at most 5 minutes.");
         }
 
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);

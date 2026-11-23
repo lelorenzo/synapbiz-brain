@@ -1,4 +1,6 @@
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Options;
 using Synapbiz.Brain.Process;
 
 namespace Synapbiz.Brain.Process.Hosting;
@@ -9,15 +11,24 @@ internal sealed class ProcessEngine : IProcessEngine
     private const string NotFound = "process.instance.not_found";
     private const string Stale = "process.trigger.stale";
     private const string Unavailable = "process.definition.unavailable";
+    private const string NotRoot = "process.purge.not_root";
+    private const string NotFinished = "process.purge.not_finished";
+    private const string Busy = "process.purge.busy";
+    private static readonly TimeSpan FirstPurgePause = TimeSpan.FromMilliseconds(20);
+    private static readonly TimeSpan LongestPurgePause = TimeSpan.FromMilliseconds(250);
     private const int MaxPageSize = 500;
+    private const int MaxPurgeTrees = 500;
+    private const int MaxPurgeEvents = 5000;
 
     private readonly IProcessStore store;
     private readonly ProcessRuntime runtime;
+    private readonly ProcessHostOptions options;
 
-    internal ProcessEngine(IProcessStore store, ProcessRuntime runtime)
+    internal ProcessEngine(IProcessStore store, ProcessRuntime runtime, IOptions<ProcessHostOptions> options)
     {
         this.store = store;
         this.runtime = runtime;
+        this.options = options.Value;
     }
 
     /// <inheritdoc />
@@ -431,6 +442,195 @@ internal sealed class ProcessEngine : IProcessEngine
         Guard.NoControlCharacters(instanceId, nameof(instanceId));
         var rows = await store.ListChildrenAsync(tenantId, instanceId, cancellationToken).ConfigureAwait(false);
         return [.. rows.Select(ToSummary)];
+    }
+
+    /// <inheritdoc />
+    public async Task<PurgeResult> PurgeInstanceAsync(string tenantId, string instanceId, PurgeMode mode, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.Id(instanceId, nameof(instanceId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(instanceId, nameof(instanceId));
+        if (!Enum.IsDefined(mode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mode), mode, "The value must be a defined purge mode.");
+        }
+
+        var begun = runtime.Time.GetTimestamp();
+        var pause = FirstPurgePause;
+        while (true)
+        {
+            var attempt = await AttemptPurgeAsync(
+                tenantId,
+                instanceId,
+                root => InstanceRefusal(root, mode),
+                cancellationToken).ConfigureAwait(false);
+            switch (attempt.Outcome)
+            {
+                case PurgeOutcome.Purged:
+                    return new PurgeResult(PurgeStatus.Purged, attempt.Counts);
+                case PurgeOutcome.NotFound:
+                    return new PurgeResult(PurgeStatus.NotFound, PurgeCounts.None);
+                case PurgeOutcome.Refused:
+                    return new PurgeResult(PurgeStatus.Refused, PurgeCounts.None, attempt.Code);
+            }
+
+            // The tree was not wholly acquired (or grew while it was). The attempt has given every lock back, so waiting here holds
+            // nothing: a short randomized pause, longer each time up to a quarter of a second, until the timeout has passed.
+            var remaining = options.PurgeLockTimeout - runtime.Time.GetElapsedTime(begun);
+            if (remaining <= TimeSpan.Zero)
+            {
+                return new PurgeResult(PurgeStatus.Refused, PurgeCounts.None, Busy);
+            }
+
+            var jittered = TimeSpan.FromMilliseconds((pause.TotalMilliseconds / 2) + RandomNumberGenerator.GetInt32((int)(pause.TotalMilliseconds / 2) + 1));
+            await Task.Delay(jittered < remaining ? jittered : remaining, runtime.Time, cancellationToken).ConfigureAwait(false);
+            pause = TimeSpan.FromTicks(Math.Min(pause.Ticks * 2, LongestPurgePause.Ticks));
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<PurgeBatchResult> PurgeFinishedBeforeAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.InRange(limit, 1, MaxPurgeTrees, nameof(limit));
+        var cutoff = ToStoredPrecision(before);
+        var trees = 0;
+        var counts = PurgeCounts.None;
+        FinishedRoot? after = null;
+        while (trees < limit)
+        {
+            var page = await store.ScanFinishedRootsAsync(tenantId, cutoff, limit, after, cancellationToken).ConfigureAwait(false);
+            foreach (var candidate in page)
+            {
+                var purged = await TryPurgeFinishedRootAsync(tenantId, candidate.InstanceId, cutoff, cancellationToken).ConfigureAwait(false);
+                if (purged is not null)
+                {
+                    trees++;
+                    counts = counts.Plus(purged);
+                    if (trees == limit)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (page.Count < limit)
+            {
+                break;
+            }
+
+            after = page[^1];
+        }
+
+        var further = await store.ScanFinishedRootsAsync(tenantId, cutoff, 1, null, cancellationToken).ConfigureAwait(false);
+        return new PurgeBatchResult(trees, counts, further.Count > 0);
+    }
+
+    /// <inheritdoc />
+    public async Task<PurgeEventsResult> PurgeEventsBeforeAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.NoControlCharacters(tenantId, nameof(tenantId));
+        Guard.InRange(limit, 1, MaxPurgeEvents, nameof(limit));
+        var purged = await store.PurgeEventsAsync(tenantId, ToStoredPrecision(before), limit, cancellationToken).ConfigureAwait(false);
+        return new PurgeEventsResult(purged.Deleted, purged.More);
+    }
+
+    /// <summary>The instant at the precision the database stores (a microsecond), so that the scan and the check under the lock compare the same value.</summary>
+    private static DateTimeOffset ToStoredPrecision(DateTimeOffset moment) => new(moment.UtcTicks - (moment.UtcTicks % 10), TimeSpan.Zero);
+
+    /// <summary>The code with which <see cref="PurgeInstanceAsync"/> refuses the locked root, or null when its tree may be purged in the mode.</summary>
+    private static string? InstanceRefusal(LockedInstance root, PurgeMode mode)
+    {
+        if (root.ParentInstanceId is not null)
+        {
+            return NotRoot;
+        }
+
+        return mode == PurgeMode.FinishedOnly && !StoredStatus.IsFinished(root.Status) ? NotFinished : null;
+    }
+
+    /// <summary>
+    /// Purges one finished root found by a scan, in one attempt: no retry and no wait. A tree that is not wholly acquired, that grew
+    /// while it was acquired, or whose root no longer qualifies under the locks is left for a later call. Null when it was not purged.
+    /// </summary>
+    private async Task<PurgeCounts?> TryPurgeFinishedRootAsync(string tenantId, string rootId, DateTimeOffset before, CancellationToken cancellationToken)
+    {
+        var attempt = await AttemptPurgeAsync(
+            tenantId,
+            rootId,
+            root => root.ParentInstanceId is not null || !StoredStatus.IsFinished(root.Status) || root.UpdatedAt >= before ? NotFinished : null,
+            cancellationToken).ConfigureAwait(false);
+        return attempt.Outcome == PurgeOutcome.Purged ? attempt.Counts : null;
+    }
+
+    /// <summary>
+    /// One attempt to purge the tree of a root, in one transaction, that never waits for a row lock. It reads the ids of the tree
+    /// without locking, then locks all of them in one <c>skip locked</c> statement; if any row was not locked it ends (the
+    /// transaction rolls back and gives everything up) and the caller decides whether to try again. With every row locked it walks the
+    /// tree again, and ends the same way if a row appeared that it does not hold. Only then does it decide, from the root row it holds,
+    /// whether the tree may go (<paramref name="refusal"/> gives the code of a refusal, or null), and delete and commit. Because the
+    /// transaction never waits while it holds a lock, it cannot be part of a deadlock cycle.
+    /// </summary>
+    private async Task<PurgeAttempt> AttemptPurgeAsync(string tenantId, string rootId, Func<LockedInstance, string?> refusal, CancellationToken cancellationToken)
+    {
+        var session = await store.BeginAsync(cancellationToken).ConfigureAwait(false);
+        await using (session.ConfigureAwait(false))
+        {
+            var ids = await session.ReadTreeAsync(tenantId, rootId, cancellationToken).ConfigureAwait(false);
+            if (ids.Count == 0)
+            {
+                return new PurgeAttempt(PurgeOutcome.NotFound, PurgeCounts.None, null);
+            }
+
+            var locked = await session.TryLockInstancesAsync(tenantId, ids, cancellationToken).ConfigureAwait(false);
+            if (locked.Count < ids.Count)
+            {
+                return PurgeAttempt.Retry;
+            }
+
+            var held = locked.Select(row => row.InstanceId).ToHashSet(StringComparer.Ordinal);
+            var again = await session.ReadTreeAsync(tenantId, rootId, cancellationToken).ConfigureAwait(false);
+            var root = locked.FirstOrDefault(row => string.Equals(row.InstanceId, rootId, StringComparison.Ordinal));
+            if (root is null || again.Any(id => !held.Contains(id)))
+            {
+                return PurgeAttempt.Retry;
+            }
+
+            var code = refusal(root);
+            if (code is not null)
+            {
+                return new PurgeAttempt(PurgeOutcome.Refused, PurgeCounts.None, code);
+            }
+
+            var rootKey = new InstanceKey(tenantId, rootId);
+            var history = await session.DeleteTreeRowsAsync(rootKey, ids, PurgeTable.History, cancellationToken).ConfigureAwait(false);
+            var timers = await session.DeleteTreeRowsAsync(rootKey, ids, PurgeTable.Timers, cancellationToken).ConfigureAwait(false);
+            var waits = await session.DeleteTreeRowsAsync(rootKey, ids, PurgeTable.Waits, cancellationToken).ConfigureAwait(false);
+            var tasks = await session.DeleteTreeRowsAsync(rootKey, ids, PurgeTable.Tasks, cancellationToken).ConfigureAwait(false);
+            var effects = await session.DeleteTreeRowsAsync(rootKey, ids, PurgeTable.Effects, cancellationToken).ConfigureAwait(false);
+            var inbox = await session.DeleteTreeRowsAsync(rootKey, ids, PurgeTable.Inbox, cancellationToken).ConfigureAwait(false);
+            var instances = await session.DeleteTreeRowsAsync(rootKey, ids, PurgeTable.Instances, cancellationToken).ConfigureAwait(false);
+            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+            var counts = new PurgeCounts(instances, history, timers, waits, tasks, effects, inbox);
+            HostLog.InstancePurged(runtime.Logger, tenantId, rootId, counts);
+            return new PurgeAttempt(PurgeOutcome.Purged, counts, null);
+        }
+    }
+
+    private enum PurgeOutcome
+    {
+        Purged = 1,
+        NotFound = 2,
+        Refused = 3,
+        Retry = 4,
+    }
+
+    private readonly record struct PurgeAttempt(PurgeOutcome Outcome, PurgeCounts Counts, string? Code)
+    {
+        internal static PurgeAttempt Retry { get; } = new(PurgeOutcome.Retry, PurgeCounts.None, null);
     }
 
     private static ProcessInstanceSummary ToSummary(InstanceSummaryRecord row) => new(

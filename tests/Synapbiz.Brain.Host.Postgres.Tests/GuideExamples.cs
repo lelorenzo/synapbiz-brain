@@ -167,6 +167,7 @@ internal static class CaseProcessesRegistration
                 host.PortTimeout = TimeSpan.FromSeconds(60);
                 host.EffectLease = TimeSpan.FromSeconds(120);
                 host.ScheduleMisfireGrace = TimeSpan.FromMinutes(5);
+                host.PurgeLockTimeout = TimeSpan.FromSeconds(10);
             });
     }
 }
@@ -288,6 +289,54 @@ internal sealed class Cockpit(IProcessEngine engine)
 }
 
 internal sealed record CaseView(string? Stage, ProcessStatus Status, string? CurrentStep, string? Result, string? ProblemCode, int OpenTasks, DateTimeOffset? NextTimerDue, IReadOnlyList<string> ChildKeys);
+
+// guide:end
+
+// guide:begin retention
+internal sealed class Retention(IProcessEngine engine, TimeProvider time)
+{
+    // The consumer's rules, not the host's: finished cases are kept 35 days; an event id is remembered for 7 days.
+    private static readonly TimeSpan CaseRetention = TimeSpan.FromDays(35);
+    private static readonly TimeSpan EventWindow = TimeSpan.FromDays(7);
+
+    /// <summary>The job of one tenant, run once a night: purges the cases that finished longer ago than the retention, then the event ids older than the window.</summary>
+    internal async Task<RetentionReport> RunAsync(string tenantId, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        var trees = 0;
+        var instances = 0;
+        PurgeBatchResult batch;
+        do
+        {
+            batch = await engine.PurgeFinishedBeforeAsync(tenantId, now - CaseRetention, 100, cancellationToken);
+            trees += batch.Trees;
+            instances += batch.Counts.Instances;
+        }
+        while (batch.More && batch.Trees > 0);
+
+        var events = 0;
+        PurgeEventsResult page;
+        do
+        {
+            page = await engine.PurgeEventsBeforeAsync(tenantId, now - EventWindow, 5000, cancellationToken);
+            events += page.Events;
+        }
+        while (page.More);
+
+        return new RetentionReport(trees, instances, events);
+    }
+
+    /// <summary>A request to erase a case now, whatever its state: finds the root by its business key and removes the whole tree. The report holds numbers only, so it can go to an audit log. A refusal with the code <c>process.purge.busy</c> means that another transaction held the case for the whole <c>PurgeLockTimeout</c> and nothing changed: record the request as open and try again on the next run.</summary>
+    internal async Task<PurgeResult> EraseAsync(string tenantId, string caseRef, CancellationToken cancellationToken)
+    {
+        var root = await engine.FindInstanceAsync(tenantId, "case.lifecycle", caseRef, cancellationToken);
+        return root is null
+            ? new PurgeResult(PurgeStatus.NotFound, PurgeCounts.None)
+            : await engine.PurgeInstanceAsync(tenantId, root.InstanceId, PurgeMode.Force, cancellationToken);
+    }
+}
+
+internal sealed record RetentionReport(int Trees, int Instances, int Events);
 
 // guide:end
 

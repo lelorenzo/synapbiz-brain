@@ -71,6 +71,16 @@ internal interface IProcessStore
 
     /// <summary>Reads the summaries of the direct children of an instance, oldest first.</summary>
     Task<IReadOnlyList<InstanceSummaryRecord>> ListChildrenAsync(string tenantId, string instanceId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads one page of the finished roots (no parent, status completed or cancelled) of a tenant whose update time is earlier than
+    /// <paramref name="before"/>, oldest first (update time, then instance id bytewise), the rows that sort strictly after the cursor.
+    /// Takes no lock.
+    /// </summary>
+    Task<IReadOnlyList<FinishedRoot>> ScanFinishedRootsAsync(string tenantId, DateTimeOffset before, int limit, FinishedRoot? after, CancellationToken cancellationToken);
+
+    /// <summary>Deletes up to <paramref name="limit"/> event id rows of a tenant received before an instant, oldest first, in one statement.</summary>
+    Task<EventPurge> PurgeEventsAsync(string tenantId, DateTimeOffset before, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>One transaction. Disposing it without <see cref="CommitAsync"/> rolls everything back.</summary>
@@ -218,6 +228,29 @@ internal interface IProcessSession : IAsyncDisposable
     /// <summary>Sets the next fire time of a schedule row.</summary>
     [RequiresScheduleLock]
     Task SaveScheduleAsync(ScheduleKey key, DateTimeOffset nextFireAt, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads, without taking any lock, the ids of the instances of the tree whose root has the given id: the root itself, when it
+    /// exists in the tenant, and every descendant at any depth, with the tenant compared at every level of the walk. Empty when the
+    /// tenant has no such instance. A snapshot of one statement: a transaction that commits later is not in it.
+    /// </summary>
+    Task<IReadOnlyList<string>> ReadTreeAsync(string tenantId, string rootId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Locks the given instance rows of a tenant in one statement with <c>skip locked</c>, so that it never waits for a lock that
+    /// another transaction holds, and returns the rows it locked in instance id byte order. The caller compares the number of rows
+    /// with the number of ids: fewer rows means that a row is locked by someone else (or is gone), and the caller must end the
+    /// transaction. The rows returned are held by this session from then on.
+    /// </summary>
+    Task<IReadOnlyList<LockedInstance>> TryLockInstancesAsync(string tenantId, IReadOnlyList<string> instanceIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes the rows of one table for the given instances of the tree of <paramref name="root"/>; returns the number of rows
+    /// deleted. Every id must be held by this session (locked by <see cref="TryLockInstancesAsync"/>), otherwise it fails with
+    /// <see cref="InvalidOperationException"/> before it deletes anything.
+    /// </summary>
+    [RequiresInstanceLock]
+    Task<int> DeleteTreeRowsAsync(InstanceKey root, IReadOnlyList<string> instanceIds, PurgeTable table, CancellationToken cancellationToken);
 
     /// <summary>Commits the transaction.</summary>
     Task CommitAsync(CancellationToken cancellationToken);

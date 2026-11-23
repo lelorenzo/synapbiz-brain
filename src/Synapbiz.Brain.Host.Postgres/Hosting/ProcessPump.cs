@@ -604,12 +604,19 @@ internal sealed class ProcessPump : IProcessPump
     {
         var none = CancellationToken.None;
         var item = new WorkRef(effect.TenantId, effect.InstanceId, effect.EffectId);
+        var found = false;
         await WithInstanceAsync(
             item,
             false,
             async (session, instance) =>
             {
                 var current = await session.GetEffectAsync(instance.Key, effect.EffectId, none).ConfigureAwait(false);
+                if (current is null)
+                {
+                    return true;
+                }
+
+                found = true;
                 if (current is not { Status: EffectStatus.Running } || current.LeaseOwner != owner)
                 {
                     return true;
@@ -618,5 +625,11 @@ internal sealed class ProcessPump : IProcessPump
                 return await AdvanceEffectAsync(session, instance, effect.EffectId, trigger, runtime.Clock(instance.TenantId), none).ConfigureAwait(false);
             },
             none).ConfigureAwait(false);
+        if (!found)
+        {
+            // The port did its work, but the instance or the effect row was purged while the call was in flight: nothing is left to
+            // apply the result to, and nothing may be recreated.
+            HostLog.EffectOrphaned(runtime.Logger, effect.TenantId, effect.InstanceId, effect.EffectId);
+        }
     }
 }
