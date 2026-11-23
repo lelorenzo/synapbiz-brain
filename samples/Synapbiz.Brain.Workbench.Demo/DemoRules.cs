@@ -57,6 +57,7 @@ internal sealed class DemoRules
                 StateLine = StateLine(source.State, es),
                 SourceLine = es ? "Fuente: archivo de ejemplo " + source.File + "." : "Source: example file " + source.File + ".",
                 RowTexts = RowTexts(source.Key, es),
+                HeadlineFields = source.Key == "intake" ? ["route", "queue"] : null,
             });
         }
 

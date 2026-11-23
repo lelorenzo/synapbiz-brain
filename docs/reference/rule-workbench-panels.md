@@ -9,7 +9,7 @@ Namespace `Synapbiz.Brain.Workbench.Blazor`; references `Synapbiz.Brain.Contract
 - **List.** Rules grouped under headings, each with its state, row count, test result and review progress. A rule the host could not load is listed as unreadable. Below 1100 px the list collapses to a select.
 - **Read.** One sentence per row, the default row last, and the rule's facts and outcomes.
 - **Simulate.** A form of example facts built from the contract, the result with a per-row explanation, and the engine's refusal in words when it does not accept the facts. "Save as a test case" opens the add-case form on the Test cases tab.
-- **Test cases.** The rule's golden cases run on the engine plus the cases the reviewer proposes, rows with no passing case, and a form to propose a case.
+- **Test cases.** The rule's golden cases run on the engine plus the cases the reviewer proposes, rows with no passing case, and a form to propose a case. Each case row has a small "Review" button under its status; it opens a full-width line under the row with the confirm / fix / question control and the note field, and once a mark is set the mark's pill replaces the button and toggles the same line (`aria-expanded`, `aria-controls`).
 - **Review.** A confirm / fix / question mark per row, per proposed case and for the whole rule, notes, the reviewer's name and the export.
 
 Two markings are always drawn: the simulation band and pill on Simulate and Test cases, and the privacy notice on Review. The host may reword them through `TextOverrides` but cannot empty them.
@@ -45,6 +45,7 @@ One record per rule, supplied by the host.
 | `Rule` | The loaded `BrainRule`; `null` when the rule could not be read. |
 | `RuleText` | The exact text of the rule document, used for the content hash of an exported review. A rule with no text counts as unreadable. |
 | `FallbackTitle` | The title to show when `Rule` is `null`. |
+| `HeadlineFields` | `IReadOnlyList<string>?` | The outcome field names the result heading shows, in order. `null` or empty shows the first field, of the kind's outcome fields, that the decided outcome sets. The definition list under the heading always shows every field. |
 | `Labels` | `RuleLabels` for the current locale (build it per locale). |
 | `State` | `RuleApprovalState.Draft` or `Approved`, as the host reports it. |
 | `StateLine` | A sentence under the title; `null` shows the default line of the state. |
@@ -62,6 +63,16 @@ In-memory state of one reviewer: selected rule and tab, reviewer name, and for e
 ### Export
 
 On "Export review" the component builds one `brain.rule-review@1` document for each rule that has a mark, a note or a proposed case, and calls `OnExport` once with a `WorkbenchExport` (`Files`: `WorkbenchExportFile(SuggestedName, Json, Review)`). The host decides where the files go and returns a short place text. The component then shows "saved" and the session counts nothing as unexported. The export needs the reviewer's name: without it the component marks the name field and moves focus there. Nothing is exported when no rule has a mark, a note or a proposed case. The component does not catch an exception thrown by `OnExport`; handle failures inside it.
+
+## Refinements after the design review (W-B2)
+
+- **No repeated value.** The why-sentence adds the value the person typed only for conditions whose operator is `NotEquals`, `NotIn`, `Range`, `StartsWith` or `IsNotNull`. For `Equals`, `In` and `IsNull` it uses the condition text alone, and in "Row by row" a condition that is met drops the "You entered ..." sentence. A condition that is not met always keeps it, or the "did not enter" sentence.
+- **Any-value conditions.** A condition whose operator is `Any`, or a `Range` with no bound, is not listed in "Row by row" and is not named in the why-sentence. A row with no other condition shows one line, `row.always`.
+- **Headline and labelled values.** The result heading shows only the headline fields (`WorkbenchRule.HeadlineFields`). In the heading and in the "expected" and "the rule gives" columns, a value of a `Boolean`, `Integer`, `Decimal` or `Money` outcome field is written `<field label>: <value>`; other values stand alone. Parts are joined with `, `, with no final joiner.
+- **Money input.** One amount text input and a currency select 88 px wide. Options: `USD` plus every currency that appears in a `Money` operand of a condition on that fact in the rule's table, distinct, `USD` first and the rest in ordinal order; default `USD`. The hint is `hint.moneyUsd` when `USD` is the only option, else `hint.money`. There is no placeholder. An empty amount is an empty fact whatever the select shows.
+- **Date input.** The `<input type="date">` carries `lang="es"` or `lang="en"` from the locale, so the browser writes the date in the language of the panel.
+- **Long rules.** "Row by row" always shows the deciding rows and every row that matched. When the rule has more than six rows (the default row counts), the rows that do not apply are folded behind the "show the {n} rows that do not apply" button; with six or fewer every row is shown. This replaces the earlier threshold of twelve.
+- **A fix or a question needs its note.** In the Review tab an item whose mark is fix or question and whose note is empty or white space shows `review.noteMissing` in the warn tone and a `review.writeNote` button that opens that item's note field and focuses it. While any such item exists in any rule of the session, "Export the review" does not call `OnExport` and shows `review.notesNeeded` with the count. A confirmed item needs no note.
 
 ## Style: the `--wb-*` token contract
 
@@ -117,7 +128,8 @@ The four markings (`band.simulate`, `band.tests`, `pill.simulation`, `notice.pri
 | `hint.code` | Texto. | Text. |
 | `hint.decimal` | Número, con punto decimal. | Number, with a decimal point. |
 | `hint.integer` | Número entero. | Whole number. |
-| `hint.money` | Monto y moneda de tres letras. | Amount and a three-letter currency. |
+| `hint.money` | Monto y moneda. | Amount and currency. |
+| `hint.moneyUsd` | Monto en dólares. | Amount in dollars. |
 | `hint.required` | Obligatorio. | Required. |
 | `list.aria` | Lista de reglas | Rule list |
 | `list.casesFail.one` | {f} de {t} casos falla | {f} of {t} cases fails |
@@ -199,7 +211,9 @@ The four markings (`band.simulate`, `band.tests`, `pill.simulation`, `notice.pri
 | `review.nameRequired` | Escriba su nombre para firmar la revisión. | Enter your name to sign the review. |
 | `review.noNote` | Sin nota | No note |
 | `review.noteLabel` | Nota para quien mantiene la regla | Note for the rule's maintainer |
+| `review.noteMissing` | Falta la nota | Note missing |
 | `review.noteShort` | Nota | Note |
+| `review.notesNeeded` | Escriba la nota de {n} elementos antes de exportar. | Write the note for {n} items before exporting. |
 | `review.nothingToExport` | No hay nada que exportar. | There is nothing to export. |
 | `review.proposed` | Caso propuesto | Proposed case |
 | `review.proposedNote` | Se espera {expected}. Hoy la regla da {actual}. | Expected: {expected}. Today the rule gives: {actual}. |
@@ -225,6 +239,8 @@ The four markings (`band.simulate`, `band.tests`, `pill.simulation`, `notice.pri
 | `review.th.state` | Estado | State |
 | `review.title` | Su revisión de esta regla | Your review of this rule |
 | `review.unreviewed` | Sin revisar | Not reviewed |
+| `review.writeNote` | Escribir la nota | Write the note |
+| `row.always` | Se cumple siempre. | Always met. |
 | `row.decides` | Decide | Decides |
 | `row.earlier` | Una fila anterior decidió primero. | An earlier row decided first. |
 | `row.label` | Fila {n} | Row {n} |
@@ -272,6 +288,7 @@ The four markings (`band.simulate`, `band.tests`, `pill.simulation`, `notice.pri
 | `tests.pass.one` | {p} de {t} caso pasa | {p} of {t} case passes |
 | `tests.pass.other` | {p} de {t} casos pasan | {p} of {t} cases pass |
 | `tests.proposed` | Propuesto por usted | Proposed by you |
+| `tests.review` | Revisar | Review |
 | `tests.runAll` | Probar todos | Run all |
 | `tests.running` | Probando… | Running… |
 | `tests.th.actual` | La regla da | The rule gives |

@@ -8,8 +8,15 @@ using Synapbiz.Brain.Workbench;
 
 namespace Synapbiz.Brain.Workbench.Blazor;
 
-/// <summary>One field of an outcome: the label of the field and its value in words.</summary>
-internal sealed record OutcomeField(string Label, string Text);
+/// <summary>One field of an outcome: the field's name and label, its type when the kind declares it, and its value in words.</summary>
+internal sealed record OutcomeField(string Name, string Label, string Text, FactType? Type)
+{
+    /// <summary>True for a yes/no, whole number, number or money value, which never stands alone: it carries the field's label.</summary>
+    internal bool NeedsLabel => Type is FactType.Boolean or FactType.Integer or FactType.Decimal or FactType.Money;
+
+    /// <summary>The value, written <c>label: value</c> when it needs its label and as it is otherwise.</summary>
+    internal string Labelled => NeedsLabel ? Label + ": " + Text : Text;
+}
 
 /// <summary>Writes the outcome JSON of a row, a result or an expectation in words, the way the rule view writes it.</summary>
 internal static class OutcomeFormat
@@ -41,6 +48,24 @@ internal static class OutcomeFormat
     internal static string Summary(IReadOnlyList<List<OutcomeField>> groups) =>
         string.Join("; ", groups.Select(group => string.Join(", ", group.Select(field => field.Text))));
 
+    /// <summary>The fields of every group, each value carrying its label when it needs one, fields joined by commas and groups by semicolons.</summary>
+    internal static string LabelledSummary(IReadOnlyList<List<OutcomeField>> groups) =>
+        string.Join("; ", groups.Select(group => string.Join(", ", group.Select(field => field.Labelled))));
+
+    /// <summary>
+    /// The headline of every group: the fields named in <paramref name="headline"/>, in that order; when none of them is set, or
+    /// none is named, the first field the outcome sets.
+    /// </summary>
+    internal static string HeadlineSummary(IReadOnlyList<List<OutcomeField>> groups, IReadOnlyList<string>? headline) =>
+        string.Join("; ", groups.Select(group => string.Join(", ", HeadlineOf(group, headline).Select(field => field.Labelled))));
+
+    private static List<OutcomeField> HeadlineOf(List<OutcomeField> group, IReadOnlyList<string>? headline)
+    {
+        var named = (headline ?? []).Select(name => group.FirstOrDefault(field => string.Equals(field.Name, name, StringComparison.Ordinal)))
+            .OfType<OutcomeField>().Distinct().ToList();
+        return named.Count > 0 ? named : [.. group.Take(1)];
+    }
+
     private static List<OutcomeField> Fields(RuleView view, RuleLabels labels, WorkbenchLocale locale, JsonObject outcome)
     {
         var declared = view.OutcomeFields.ToDictionary(field => field.Name, StringComparer.Ordinal);
@@ -54,8 +79,10 @@ internal static class OutcomeFormat
             {
                 var found = declared.TryGetValue(name, out var field);
                 fields.Add(new OutcomeField(
+                    name,
                     found ? field!.Label : WorkbenchText.Humanize(name),
-                    ValueText(name, found ? field!.Type : null, value, labels, locale)));
+                    ValueText(name, found ? field!.Type : null, value, labels, locale),
+                    found ? field!.Type : null));
             }
         }
 

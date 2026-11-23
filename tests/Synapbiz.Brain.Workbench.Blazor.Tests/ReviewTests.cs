@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using Bunit;
 using FluentAssertions;
 using Nuvora.Decisions.Contracts.Tables;
@@ -10,6 +11,19 @@ public sealed class ReviewTests
 {
     private static void RowButton(Harness harness, int row, string word) =>
         harness.FindAll(".wb-row .wb-rv")[row].QuerySelectorAll("button").First(item => item.TextContent.StartsWith(word, StringComparison.Ordinal)).Click();
+
+    /// <summary>Opens the review line under a case of the test table when it is closed and presses one part of its control.</summary>
+    private static void ReviewCase(Harness harness, int caseIndex, int part)
+    {
+        static IElement Row(Harness harness, int caseIndex) => harness.FindAll(".wb-table tbody tr:not(.wb-review-line)")[caseIndex];
+
+        if (Row(harness, caseIndex).NextElementSibling is not { } line || !line.ClassList.Contains("wb-review-line"))
+        {
+            Row(harness, caseIndex).QuerySelectorAll("button").Last().Click();
+        }
+
+        Row(harness, caseIndex).NextElementSibling!.QuerySelectorAll(".wb-rv button")[part].Click();
+    }
 
     private static void WriteNote(Harness harness, string note) => harness.FindAll("textarea")[^1].Change(note);
 
@@ -29,7 +43,7 @@ public sealed class ReviewTests
         WriteNote(harness, "The limit should be 50.");
         RowButton(harness, 1, "Confirm");
         harness.Open(WorkbenchTab.Tests);
-        harness.FindAll(".wb-table .wb-rv")[0].QuerySelectorAll("button")[2].Click();
+        ReviewCase(harness, 0, 2);
         harness.Find(".wb-table textarea").Change("Is a high score really no decision?");
         harness.Press("Add a case");
         harness.Type("Case name", "A score of 50");
@@ -100,7 +114,7 @@ public sealed class ReviewTests
         RowButton(harness, 0, "Fix");
         WriteNote(harness, "The limit should be 50.");
         harness.Open(WorkbenchTab.Tests);
-        harness.FindAll(".wb-table .wb-rv")[1].QuerySelectorAll("button")[0].Click();
+        ReviewCase(harness, 1, 0);
         harness.Open(WorkbenchTab.Review);
 
         harness.FindAll(".wb-grid-review .wb-table thead th").Select(item => item.TextContent).Should().Equal("About", "State", "Note");
@@ -345,6 +359,8 @@ public sealed class ReviewTests
         harness.Session.UnexportedRuleCount.Should().Be(1);
         harness.FindAll(".wb-saved").Should().BeEmpty();
 
+        // A question needs its note before the export goes.
+        harness.Find(".wb-grid-review textarea").Change("Is this rule meant to cover every stage?");
         harness.Press("Export the review");
         harness.Session.UnexportedRuleCount.Should().Be(0);
         harness.FindAll(".wb-saved").Should().ContainSingle();
@@ -404,6 +420,11 @@ public sealed class ReviewTests
         harness.Press("Simulate");
         harness.Press("Add to the review");
         harness.Type("Your name", "Reviewer One");
+
+        // A fix with no note is held back; confirming the whole rule instead leaves a note that is the engine code alone.
+        harness.Press("Export the review");
+        harness.Exports.Should().BeEmpty();
+        harness.Find(".wb-card-head .wb-rv").QuerySelectorAll("button")[0].Click();
         harness.Press("Export the review");
         harness.Exports[0].Files[0].Review.Items[0].Note.Should().Be("(engine code: decisions.evaluation.multiple_matches)");
     }

@@ -271,10 +271,14 @@ internal static class Fx
     internal static string WithoutCases() => Edited("readiness", root => GoldensOf(root).Clear());
 
     /// <summary>A copy of a rule with another table and kind, for the cases the fixtures do not cover.</summary>
-    internal static BrainRule WithTable(BrainRule rule, DecisionTable table, Nuvora.Decisions.Contracts.Kinds.DecisionKindDescriptor? kind = null)
+    internal static BrainRule WithTable(
+        BrainRule rule,
+        DecisionTable table,
+        Nuvora.Decisions.Contracts.Kinds.DecisionKindDescriptor? kind = null,
+        IReadOnlyList<Nuvora.Decisions.Contracts.Goldens.GoldenCase>? goldens = null)
     {
         var constructor = typeof(BrainRule).GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Single();
         var rowIds = table.Rows.Concat(table.DefaultRow is null ? [] : [table.DefaultRow]).ToDictionary(row => row.Key, row => row.Key, StringComparer.Ordinal);
-        return (BrainRule)constructor.Invoke([rule.Id, rule.Version, kind ?? rule.Kind, table, rule.Goldens, rowIds, rule.Meta.DeepClone()]);
+        return (BrainRule)constructor.Invoke([rule.Id, rule.Version, kind ?? rule.Kind, table, goldens ?? rule.Goldens, rowIds, rule.Meta.DeepClone()]);
     }
 }

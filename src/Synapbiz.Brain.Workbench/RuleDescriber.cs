@@ -59,9 +59,10 @@ public static class RuleDescriber
 
         var outcomeText = outcome.Count == 0
             ? SentenceTemplates.Text(locale, "outcome.none")
-            : string.Join(
-                SentenceTemplates.Text(locale, "sentence.list"),
-                outcome.Select(value => SentenceTemplates.Text(locale, "outcome.field", ("field", value.FieldLabel), ("value", value.Text))));
+            : SentenceTemplates.Join(
+                locale,
+                "sentence.and",
+                [.. outcome.Select(value => SentenceTemplates.Text(locale, "outcome.field", ("field", value.FieldLabel), ("value", value.Text)))]);
 
         var sentence = isDefault
             ? SentenceTemplates.Text(locale, "sentence.default", ("outcome", outcomeText))
@@ -81,7 +82,7 @@ public static class RuleDescriber
     private static string Sentence(List<string> conditions, string outcome, WorkbenchLocale locale) =>
         conditions.Count == 0
             ? SentenceTemplates.Text(locale, "sentence.always", ("outcome", outcome))
-            : SentenceTemplates.Text(locale, "sentence.if", ("conditions", string.Join(SentenceTemplates.Text(locale, "sentence.and"), conditions)), ("outcome", outcome));
+            : SentenceTemplates.Text(locale, "sentence.if", ("conditions", SentenceTemplates.Join(locale, "sentence.and", conditions)), ("outcome", outcome));
 
     /// <summary>A condition and whether it says nothing (any value, or a range without a bound) and so is left out of the sentence.</summary>
     private static (ConditionView View, bool Vacuous) DescribeCondition(Condition condition, int index, WorkbenchLocale locale, RuleLabels labels)
@@ -96,8 +97,8 @@ public static class RuleDescriber
             Operator.Equals => (SentenceTemplates.Text(locale, "operator.equals", ("fact", fact), ("value", One(condition.Value))), false),
             Operator.NotEquals => (SentenceTemplates.Text(locale, "operator.notEquals", ("fact", fact), ("value", One(condition.Value))), false),
             Operator.StartsWith => (SentenceTemplates.Text(locale, "operator.startsWith", ("fact", fact), ("value", One(condition.Value))), false),
-            Operator.In => (SentenceTemplates.Text(locale, "operator.in", ("fact", fact), ("values", List(condition.Values, One, locale))), false),
-            Operator.NotIn => (SentenceTemplates.Text(locale, "operator.notIn", ("fact", fact), ("values", List(condition.Values, One, locale))), false),
+            Operator.In => (SentenceTemplates.Text(locale, "operator.in", ("fact", fact), ("values", List(condition.Values, One, locale, "sentence.or"))), false),
+            Operator.NotIn => (SentenceTemplates.Text(locale, "operator.notIn", ("fact", fact), ("values", List(condition.Values, One, locale, "sentence.nor"))), false),
             Operator.IsNull => (SentenceTemplates.Text(locale, "operator.isNull", ("fact", fact)), false),
             Operator.IsNotNull => (SentenceTemplates.Text(locale, "operator.isNotNull", ("fact", fact)), false),
             Operator.Range => RangeText(condition, fact, any, One, locale),
@@ -107,8 +108,8 @@ public static class RuleDescriber
         return (new ConditionView(index, condition.FactName, fact, condition.Operator, text), vacuous);
     }
 
-    private static string List(IReadOnlyList<DecisionValue> values, Func<DecisionValue?, string> one, WorkbenchLocale locale) =>
-        string.Join(SentenceTemplates.Text(locale, "sentence.list"), values.Select(one));
+    private static string List(IReadOnlyList<DecisionValue> values, Func<DecisionValue?, string> one, WorkbenchLocale locale, string joinerKey) =>
+        SentenceTemplates.Join(locale, joinerKey, [.. values.Select(one)]);
 
     private static (string Text, bool Vacuous) RangeText(
         Condition condition, string fact, string any, Func<DecisionValue?, string> one, WorkbenchLocale locale)
@@ -133,7 +134,7 @@ public static class RuleDescriber
 
         return bounds.Count == 0
             ? (any, true)
-            : (SentenceTemplates.Text(locale, "operator.rangeBounds", ("fact", fact), ("bounds", string.Join(SentenceTemplates.Text(locale, "sentence.and"), bounds))), false);
+            : (SentenceTemplates.Text(locale, "operator.rangeBounds", ("fact", fact), ("bounds", SentenceTemplates.Join(locale, "sentence.and", bounds))), false);
     }
 
     private static List<OutcomeValueView> DescribeOutcome(BrainRule rule, Row row, WorkbenchLocale locale, RuleLabels labels)

@@ -44,7 +44,7 @@ var labels = RuleLabels.FromMeta(rule.Meta, WorkbenchLocale.En);
 
 ## Describe a rule
 
-`RuleDescriber.Describe` returns a `RuleView`: the facts (with their allowed values), the outcome fields, the rows in decision order and the default row. Each row carries its conditions as text, its outcome values and one sentence. The sentence templates are those of the source repository's sentence generator, in English and Spanish.
+`RuleDescriber.Describe` returns a `RuleView`: the facts (with their allowed values), the outcome fields, the rows in decision order and the default row. Each row carries its conditions as text, its outcome values and one sentence. The sentence templates started as those of the source repository's sentence generator and are no longer a verbatim copy: the set and emptiness operators read more plainly and every list has a final joiner, in English and Spanish.
 
 ```csharp
 var view = RuleDescriber.Describe(rule, WorkbenchLocale.En, labels);
@@ -58,6 +58,11 @@ foreach (var row in view.Rows)
 ```
 
 A condition that says nothing (`any`, or a range with no bound) is listed in `Conditions` but left out of the sentence; a row with nothing left reads `In every case, ...`. The default row reads `Otherwise, ...`. `WorkbenchText.FormatValue` writes one typed value the same way (`yes`/`no`, a decimal with a comma in Spanish, dates as `MM/dd/yyyy` or `dd/MM/yyyy`).
+
+How the sentences read:
+
+- **Lists.** One item is written as it is; two items are joined by the final joiner; three or more are separated by commas with the final joiner before the last, and never a comma before it. The conditions of a sentence and the parts of an outcome use `and` (`y`): `If A, B and C, then route is Escalate, queue is Urgent queue and notify is yes.` The values of an "is one of" condition use `or` (`o`) and the values of an "is none of" condition use `or` in English and `ni` in Spanish.
+- **Operators.** Equals reads `topic is a`; one of reads `topic is a or b`; none of reads `topic is not a or b` (Spanish `topic no es a ni b`); empty reads `rating has no value` (`rating no tiene valor`) and not empty reads `rating has a value` (`rating tiene valor`). The empty and not-empty wording avoids agreeing a word with the gender of the label.
 
 A host can write values its own way with `RuleLabels.ValueFormatter`, a `Func<DecisionValue, string?>`. `FormatValue` asks, in this order: a null value is empty; a code or enum member that has a value label is written by its label; otherwise the formatter, when it is set and returns a text; otherwise the default text above. Condition texts and sentences go through `FormatValue`, so one formatter changes every one of them and a screen can show dates the way the rest of the host does. Outcome values of a row are written from the JSON text of the row and do not go through the formatter.
 
