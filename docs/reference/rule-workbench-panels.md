@@ -114,9 +114,9 @@ Guided editing is offered for a rule only when `WorkbenchRule.Rule`, `RuleText` 
 ### What the reviewer sees
 
 - **Start.** "Propose changes" in the rule header starts a draft (the base text with no edit). A bar under the header says which of the two views is shown and switches between "Current rule" and "Your draft"; a draft with changes asks before it is discarded.
-- **Read, in the draft view.** Each row has "Edit" and "More" (move up, move down, add a row below, remove). The row form shows the conditions as a sentence-sized line per fact (an operator and a value) and the outcome fields; "It reads" previews the row, and warnings (a row that always matches, one that can never decide, a gap in coverage) appear before applying. A change the loader or the validator refuses stays in the form with the reason in words and marks the field; the draft does not change. A changed row shows a tag, "Before: ..." and "Undo"; a removed row stays struck through with "Restore".
-- **Test cases, in the draft view.** The fourth column is "Your draft gives". A case that passed on the rule and gives another result on the draft is "Changes" (not "Fails") and asks which result is correct: accept the new result (a decision on the case) or review the change (goes to the row that explains it). The line over the cases counts them apart ("7 of 9 cases pass · 2 change"); a case that already failed on the rule keeps "fail" ("6 of 9 cases pass · 2 change · 1 fails"). Read and the tab say how many cases changed. A case that is accepted or changed to a decision stays where it is in the list and in the exported document; one changed to expect no decision is written again and moves to the end. Cases can have what they expect changed, be removed (and restored) and be added; in the draft view the review controls are not shown and nothing is written to the review.
-- **Changes.** A fifth tab, shown only while the rule has a draft: the library's summary, each changed row with "Before:" above "Now:" (a row whose only change is its name is listed too, tagged "Changed", with one line that says what it was named and what it is named now), the warnings that remain true, the cases that change result with the decision taken on each, and the card "Send the proposal" (reason, up to 1000 characters, and name, both required). Export is held while any case still changes result. The file is saved through `OnExport`; the draft stays and is marked as exported, and changing it afterwards says so in the bar. A draft whose rule changed underneath (its base text no longer matches) becomes read-only and can still be exported, bound to its base.
+- **Read, in the draft view.** Each row has "Edit" and "More" (move up, move down, add a row below, remove); the button shows a caret drawn by the stylesheet (a `--wb-ink-2` border triangle that points up while the menu is open), not a glyph in the text, so screen readers read "More" only. Each test case in the draft view has the same menu, with "Change what is expected" and "Remove the case"; a removed case keeps a visible "Restore". The row form shows the conditions as a sentence-sized line per fact (an operator and a value) and the outcome fields; "It reads" previews the row, and warnings (a row that always matches, one that can never decide, a gap in coverage) appear before applying. A change the loader or the validator refuses stays in the form with the reason in words and marks the field; the draft does not change. A changed row shows a tag, "Before: ..." and "Undo"; a removed row stays struck through with "Restore".
+- **Test cases, in the draft view.** The fourth column is "Your draft gives". A case that passed on the rule and gives another result on the draft is "Changes" (not "Fails") and asks which result is correct: accept the new result (a decision on the case) or review the change (goes to the row that explains it). The line over the cases counts them apart ("7 of 9 cases pass · 2 change"); a case that already failed on the rule keeps "fail" ("6 of 9 cases pass · 2 change · 1 fails"). Read and the tab say how many cases changed. A case whose expectation is accepted or changed (to another decision, to no decision, or under `collect` to zero, one or several results) stays where it is in the list and in the exported document, because every change is a `SetCaseExpectation`; only a new case goes to the end. The two answers of a changed case name only the fields that differ: one or two fields read "Queue: Phone queue · accept the new result" and "Queue: Urgent queue · review my change"; with more than two, or when a side has no result, the buttons read "Accept the new result" and "Review my change" and one line per differing field ("{field}: before {a}, now {b}"), or one line for the whole result, stands over them. In the "Your draft gives" column of a changed case, and in the "Before" and "Now" columns of the Changes tab, the results are in the short form of the test table and only the parts whose value differs are bold. Cases can have what they expect changed, be removed (and restored) and be added; in the draft view the review controls are not shown and nothing is written to the review.
+- **Changes.** A fifth tab, shown only while the rule has a draft: the library's summary, each changed row, titled "Row 3 · Invoices on the web" when the row has a name (the draft's; the rule's for a removed row) and "Row 3" when it has none, with "Before:" above "Now:" (a row whose only change is its name is listed too, tagged "Changed", with one line that says what it was named and what it is named now and no sentences). The row count of the summary, the tab, the export card, the draft bar and the discard dialog is the number of rows the library lists, plus the default row, the warnings that remain true, the cases that change result with the decision taken on each, and the card "Send the proposal" (reason, up to 1000 characters, and name, both required). Export is held while any case still changes result. The file is saved through `OnExport`; the draft stays and is marked as exported, and changing it afterwards says so in the bar. A draft whose rule changed underneath (its base text no longer matches) becomes read-only and can still be exported, bound to its base.
 
 ### Keys and markings
 
@@ -142,28 +142,32 @@ The seven markings (`band.simulate`, `band.tests`, `pill.simulation`, `notice.pr
 | `band.simulateDraft` | Simulando su borrador, no la regla actual. | Simulating your draft, not the current rule. |
 | `band.tests` | Los casos de prueba son ejemplos inventados. | Test cases are made-up examples. |
 | `band.testsDraft` | Probando su borrador, no la regla actual. | Testing your draft, not the current rule. |
-| `case.accept` | {result}: aceptar el nuevo resultado | {result}: accept the new result |
+| `case.accept` | {result} · aceptar el nuevo resultado | {result} · accept the new result |
+| `case.acceptPlain` | Aceptar el nuevo resultado | Accept the new result |
 | `case.apply` | Aplicar a mi borrador | Apply to my draft |
 | `case.ask` | ¿Cuál es el resultado correcto para este caso? | What is the correct result for this case? |
 | `case.cancel` | Cancelar | Cancel |
 | `case.change` | Cambiar lo que se espera | Change what is expected |
-| `case.changeFor` | Cambiar lo que se espera del caso {name} | Change what the case {name} expects |
 | `case.changes` | Cambia | Changes |
+| `case.diff` | {field}: antes {a}, ahora {b} | {field}: before {a}, now {b} |
 | `case.currentGives` | La regla actual da esto. | The current rule gives this. |
 | `case.decidesChanged` | Decide la fila {n}, que usted cambió. | Row {n} decides, which you changed. |
 | `case.editTitle` | Cambiar lo que se espera del caso {name} | Change what the case {name} expects |
 | `case.expectChanged` | Resultado esperado cambiado | Expected result changed |
 | `case.expected` | Resultado que se espera | Expected result |
 | `case.expectedRequired` | Elija el resultado que se espera. | Choose the expected result. |
+| `case.moreFor` | Más acciones del caso {name} | More actions for the case {name} |
 | `case.name` | Nombre del caso | Case name |
 | `case.nameRequired` | Escriba un nombre para el caso. | Enter a name for the case. |
 | `case.nameTaken` | Ya hay un caso con ese nombre. | A case with that name already exists. |
+| `case.noResult` | sin resultado | no result |
 | `case.noRowDecides` | Ninguna fila decide. | No row decides. |
 | `case.pick` | Elija un resultado… | Choose a result… |
 | `case.remove` | Quitar el caso | Remove the case |
-| `case.removeFor` | Quitar el caso {name} | Remove the case {name} |
 | `case.restoreFor` | Restaurar el caso {name} | Restore the case {name} |
-| `case.reviewMine` | {result}: revisar mi cambio | {result}: review my change |
+| `case.result` | Resultado | Result |
+| `case.reviewMine` | {result} · revisar mi cambio | {result} · review my change |
+| `case.reviewPlain` | Revisar mi cambio | Review my change |
 | `case.save` | Guardar caso | Save case |
 | `case.tagNew` | Nuevo | New |
 | `case.tagRemoved` | Quitado | Removed |

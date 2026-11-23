@@ -178,3 +178,39 @@ No new token: the draft bar uses the notice triple, tags use the pill tones, the
 2. For each test case whose result differs between rule and draft: the deciding row before and after (12.6).
 3. The loader's refusal codes, each with the row and the fact or field it concerns, so the form can mark the field.
 4. For outcome fields backed by host texts: the list of allowed values, so the form can offer a select of sentences.
+
+## 13. Review of the guided-editing captures
+
+The captures of W-C2 showed seven things to refine (brief W-C3). The headless library gains two small additions; the panels change as follows.
+
+### 13.1 Answers name only what differs (test case in "Cambia")
+
+Compare the outcome fields of the rule's result and the draft's result.
+
+- **One or two fields differ**: each button reads the differing fields as "{campo}: {valor}" joined by ", ", then " · ", then the action. "Cola: Cola telefónica · aceptar el nuevo resultado" and "Cola: Cola urgente · revisar mi cambio". English: "Queue: Phone queue · accept the new result" and "Queue: Urgent queue · review my change".
+- **More than two differ, or one side has no result** (or a `collect` rule gives several results): the buttons read "Aceptar el nuevo resultado" and "Revisar mi cambio" (English "Accept the new result" and "Review my change"). Over them, one line per differing field, "{campo}: antes {a}, ahora {b}" / "{field}: before {a}, now {b}"; when a side has no result, or the rule collects, one line for the whole result, "Resultado: antes {a}, ahora sin resultado" / "Result: before {a}, now no result".
+- Values are the labelled short form of the test table.
+
+### 13.2 Bold marks the difference only
+
+In "Su borrador da" of a changed case, and in "Antes" and "Ahora" of the Changes tab's case table, a part of the result is bold (one `strong` per part) only when its value differs from the other side's; the rest is regular. A side that decides nothing reads "La regla no decide" in bold when the other side decides. The Changes tab uses the short form of the test table ("escalado, Cola telefónica, Avisar: sí, Prioridad: 1"), not sentences; the parts come from the same formatter, not from parsing text.
+
+### 13.3 One menu per case
+
+Each case has one "Más" menu, the menu of the rows, with "Cambiar lo que se espera" and "Quitar el caso". "Restaurar" stays a visible button on a removed case. A case in "Cambia" keeps its two answers as the visible actions and also has the menu.
+
+### 13.4 The list keeps its order
+
+Every expectation change is a `SetCaseExpectation` (a decision, no decision, or the results of a `collect` rule), so a case never moves. Only new cases go to the end.
+
+### 13.5 Counts agree
+
+The summary sentence, the Changes pill, the export card, the draft bar and the discard dialog all count the rows of `RuleChangeView.Rows`, which now lists a row whose only change is its name. The panel has no rename detection of its own; the name sentences ("Antes se llamaba…", "Antes no tenía nombre…", "Ahora no tiene nombre") stay.
+
+### 13.6 Row name in the Changes tab
+
+A card is titled "Fila {n} · {nombre}" when the row has a name on the side it is numbered by (after for added, changed and moved rows; before for removed rows), else "Fila {n}". The name is the display label, never a key.
+
+### 13.7 "Más" shows that it opens
+
+The button's text is followed by a caret drawn in CSS (a border triangle in `--wb-ink-2`, up while the menu is open), not a glyph in the string, so the keys do not change and screen readers read "Más" only. Rows and case table.
