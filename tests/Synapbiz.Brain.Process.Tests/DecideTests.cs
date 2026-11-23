@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using FluentAssertions;
+using Synapbiz.Brain.Spec;
 
 namespace Synapbiz.Brain.Process.Tests;
 
@@ -139,7 +140,7 @@ public sealed class DecideTests
         var driver = Started(Flag(), "{}");
 
         driver.State.Result.Should().Be("err");
-        driver.Kinds.Should().NotContain(ProcessHistoryKind.Decided);
+        AssertFailedDecision(driver);
     }
 
     [Fact]
@@ -152,13 +153,26 @@ public sealed class DecideTests
         driver.State.Problem.Code.Should().NotBeNullOrEmpty().And.NotBe("process.route.unmatched");
         driver.State.Problem.Detail.Should().NotBeNullOrEmpty();
         driver.Last.History[^1].Kind.Should().Be(ProcessHistoryKind.Suspended);
+        AssertFailedDecision(driver);
+        driver.Last.History.Single(entry => entry.Kind == ProcessHistoryKind.Decided).Code.Should().Be(driver.State.Problem.Code);
+    }
+
+    private static void AssertFailedDecision(Driver driver)
+    {
+        var entry = driver.Last.History.Single(item => item.Kind == ProcessHistoryKind.Decided);
+        var data = JsonNode.Parse(entry.DataJson!)!.AsObject();
+
+        entry.Step.Should().Be("s");
+        entry.Code.Should().NotBeNullOrEmpty();
+        data.Select(member => member.Key).Should().Equal("error", "rule", "version");
+        data["error"]!.GetValue<string>().Should().Be(entry.Code);
+        data["rule"]!.GetValue<string>().Should().Be("conf.flag_rule");
+        data["version"]!.GetValue<long>().Should().Be(1);
     }
 
     [Fact]
-    public void DecimalAndMoneyOutcomesAreWrittenAsJsonNumbersAndAreNotConverted()
+    public void DecimalAndMoneyOutcomesAreWrittenAsJsonNumbersByTheRuleLibrary()
     {
-        // Section 7 of the specification: the rule library writes Decimal as a JSON number and Money as an object of numbers, not as the
-        // strings of section 2.2. The interpreter does not invent a conversion; it refuses the assignment (open question for the owner).
         var driver = Started(Flag());
         var outcome = JsonNode.Parse(JsonNode.Parse(driver.Last.History.Single(item => item.Kind == ProcessHistoryKind.Decided).DataJson!)!["outcome"]!.ToJsonString())!.AsObject();
 
@@ -169,22 +183,97 @@ public sealed class DecideTests
         outcome["total"]!.GetValueKind().Should().Be(System.Text.Json.JsonValueKind.Number);
         outcome["when"]!.GetValue<string>().Should().Be("2027-01-04");
         outcome["owner"]!.GetValue<string>().Should().Be("00000000-0000-0000-0000-000000000001");
-
-        var ratio = Started(Flag("\"output\": { \"ratio\": \"ratio\" }, \"next\": \"yes\""));
-        ratio.State.Result.Should().Be("err");
-        ratio.State.Variables.Should().NotContainKey("ratio");
-
-        var price = Started(Flag("\"output\": { \"price\": \"price\" }, \"next\": \"yes\""));
-        price.State.Result.Should().Be("err");
     }
 
     [Fact]
-    public void ADecimalOutcomeWithoutOnErrorSuspendsWithATypeMismatch()
+    public void ADecimalOutcomeBecomesTheRawLexemeAsAString()
     {
-        var driver = Started(Flag("\"output\": { \"ratio\": \"ratio\" }, \"next\": \"yes\"", errors: ""));
+        var driver = Started(Flag("\"output\": { \"ratio\": \"ratio\" }, \"next\": \"yes\""));
+
+        driver.State.Result.Should().Be("yes");
+        driver.Variable("ratio").Should().Be("\"1.5\"");
+    }
+
+    [Fact]
+    public void AMoneyOutcomeBecomesAnAmountStringAndTheCurrency()
+    {
+        var driver = Started(Flag("\"output\": { \"price\": \"price\" }, \"next\": \"yes\""));
+
+        driver.State.Result.Should().Be("yes");
+        driver.Variable("price").Should().Be("{\"amount\":\"2.5\",\"currency\":\"USD\"}");
+    }
+
+    [Theory]
+    [InlineData("0.10")]
+    [InlineData("-12.345678901234567890123456")]
+    [InlineData("3.1415926535897932384626433")]
+    [InlineData("0")]
+    public void TheLexemeIsKeptExactlyAndNeverGoesThroughAFloatingType(string lexeme)
+    {
+        var rule = Docs.RuleFrom(RuleWith($$"""{ "flag": true, "ratio": {{lexeme}}, "price": { "amount": {{lexeme}}, "currency": "EUR" } }"""));
+        var driver = Run(rule, "\"output\": { \"ratio\": \"ratio\", \"price\": \"price\" }, \"next\": \"yes\"");
+
+        driver.State.Result.Should().Be("yes");
+        driver.Variable("ratio").Should().Be("\"" + lexeme + "\"");
+        driver.Variable("price").Should().Be("{\"amount\":\"" + lexeme + "\",\"currency\":\"EUR\"}");
+    }
+
+    [Theory]
+    [InlineData("1E2")]
+    [InlineData("1.5e-3")]
+    public void ANumberInExponentNotationIsATypeMismatch(string lexeme)
+    {
+        var rule = Docs.RuleFrom(RuleWith($$"""{ "flag": true, "ratio": {{lexeme}} }"""));
+        var driver = Run(rule, "\"output\": { \"ratio\": \"ratio\" }, \"next\": \"yes\"");
+
+        driver.State.Result.Should().Be("err");
+        driver.State.Variables.Should().NotContainKey("ratio");
+    }
+
+    [Fact]
+    public void AMoneyAmountInExponentNotationIsATypeMismatch()
+    {
+        var rule = Docs.RuleFrom(RuleWith("""{ "flag": true, "price": { "amount": 2E1, "currency": "USD" } }"""));
+        var driver = Run(rule, "\"output\": { \"price\": \"price\" }, \"next\": \"yes\"");
+
+        driver.State.Result.Should().Be("err");
+        driver.State.Variables.Should().NotContainKey("price");
+    }
+
+    [Fact]
+    public void ATypeMismatchOnAnOutcomeWithoutOnErrorSuspends()
+    {
+        var rule = Docs.RuleFrom(RuleWith("""{ "flag": true, "ratio": 1E2 }"""));
+        var driver = Run(rule, "\"output\": { \"ratio\": \"ratio\" }, \"next\": \"yes\"", errors: "");
 
         driver.State.Status.Should().Be(ProcessStatus.Suspended);
         driver.State.Problem!.Code.Should().Be("process.variable.type_mismatch");
+    }
+
+    private static string RuleWith(string outcome) => $$"""
+        {
+          "$spec": "brain.rule@1", "id": "conf.exp_rule", "version": 3, "uses": [], "requires": ["conf@1"], "meta": {},
+          "body": {
+            "kind": "conf.flag", "hitPolicy": "first",
+            "rows": [ { "id": "any", "version": 1, "legacyKey": "any",
+              "conditions": [ { "fact": "count", "op": "range", "value": { "type": "Integer", "value": "0" } } ],
+              "outcome": {{outcome}} } ],
+            "goldens": []
+          }
+        }
+        """;
+
+    private static Driver Run(BrainRule rule, string extra, string errors = ", \"onError\": \"err\"")
+    {
+        var decide = $$"""{ "kind": "decide", "rule": "conf.exp_rule", "facts": { "count": "count" }, {{extra}}, "onNoDecision": "none"{{errors}} }""";
+        var ends = EndIds.Where(id => decide.Contains($": \"{id}\"", StringComparison.Ordinal))
+            .Select(id => $$"""
+                "{{id}}": { "kind": "end", "result": "{{id}}" }
+                """);
+        var steps = "{ \"s\": " + decide + ", " + string.Join(", ", ends) + " }";
+        var driver = new Driver(Docs.Load(Variables, steps, uses: """[{ "$ref": "rule/conf.exp_rule" }]""", rules: rule));
+        driver.Start("""{ "count": 1 }""");
+        return driver;
     }
 
     [Fact]

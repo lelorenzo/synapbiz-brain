@@ -406,7 +406,7 @@ public sealed class FlowTests
     }
 
     [Fact]
-    public void ResumingAfterTheStepLimitReRunsThePreviousStepAndMayCompleteTheInstance()
+    public void ResumeAtOrAboveTheStepLimitIsRejectedAndChangesNothing()
     {
         var steps = """
             {
@@ -417,12 +417,37 @@ public sealed class FlowTests
         var driver = Started(steps, extra: """ "limits": { "maxSteps": 1 } """);
         driver.Send(new TimerFired("i-1/s/1/timer"));
         driver.State.Problem.Should().Be(new ProcessProblem("process.limits.max_steps", "s"));
+        var suspended = driver.State;
 
-        driver.Send(new ResumeRequested());
+        var result = driver.Send(new ResumeRequested());
 
-        // The resume does not check the limit and runs the step that was current when the limit was hit: here the timer again.
-        driver.State.Status.Should().Be(ProcessStatus.Waiting);
-        driver.Single<TimerRequest>().TimerId.Should().Be("i-1/s/3/timer");
+        result.Disposition.Should().Be(AdvanceDisposition.Rejected);
+        result.Code.Should().Be("process.limits.max_steps");
+        result.State.Should().BeSameAs(suspended);
+        result.Requests.Should().BeEmpty();
+        result.History.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ResumeBelowTheStepLimitStillWorks()
+    {
+        var steps = """
+            {
+              "s": { "kind": "read", "port": "p", "next": "n" },
+              "n": { "kind": "end", "result": "ok" }
+            }
+            """;
+        var driver = Started(steps, extra: """ "limits": { "maxSteps": 3 } """);
+        driver.Send(new EffectFailed("i-1/s/1/1", ProcessErrorKind.Permanent, "x"));
+
+        driver.Send(new ResumeRequested()).Disposition.Should().Be(AdvanceDisposition.Applied);
+        driver.State.StepCount.Should().Be(2);
+        driver.Send(new EffectFailed("i-1/s/2/1", ProcessErrorKind.Permanent, "x"));
+        driver.Send(new ResumeRequested()).Disposition.Should().Be(AdvanceDisposition.Applied);
+        driver.State.StepCount.Should().Be(3);
+        driver.Send(new EffectFailed("i-1/s/3/1", ProcessErrorKind.Permanent, "x"));
+
+        driver.Send(new ResumeRequested()).Code.Should().Be("process.limits.max_steps");
     }
 
     [Fact]

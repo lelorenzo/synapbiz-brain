@@ -154,10 +154,25 @@ internal static partial class VariableValues
     /// Money differ (the rule library writes them as JSON numbers, the document as strings), and the specification does
     /// not say how to convert them, so they are refused here until it does.
     /// </summary>
+    // Section 7: the rule library writes a Decimal outcome as a JSON number and a Money outcome as { amount: number, currency }.
+    // The variable receives the raw lexeme of the number as its string; nothing goes through a binary floating type.
     internal static bool TryFromOutcome(FactType type, VariableDef target, JsonNode? member, out string? canonical)
     {
         canonical = null;
-        return type is not (FactType.Decimal or FactType.Money) && TryNormalize(target, member, out canonical);
+        return type switch
+        {
+            FactType.Decimal => TryLexeme(member, out var lexeme) && TryNormalize(target, JsonValue.Create(lexeme), out canonical),
+            FactType.Money => member is JsonObject money && money.Count == 2
+                && TryLexeme(money["amount"], out var amount)
+                && TryNormalize(target, new JsonObject { ["amount"] = amount, ["currency"] = money["currency"]?.DeepClone() }, out canonical),
+            _ => TryNormalize(target, member, out canonical),
+        };
+    }
+
+    private static bool TryLexeme(JsonNode? node, out string lexeme)
+    {
+        lexeme = node is JsonValue { } value && value.GetValueKind() == JsonValueKind.Number ? value.ToJsonString() : "";
+        return lexeme.Length > 0 && DecimalPattern().IsMatch(lexeme);
     }
 
     private static decimal ParseDecimal(string text) =>

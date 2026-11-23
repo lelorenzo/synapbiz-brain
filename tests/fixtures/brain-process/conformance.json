@@ -4332,6 +4332,388 @@
     }
   },
   {
+    "name": "valid decide routed by an enum",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "level",
+            "on": {
+              "high": "e",
+              "low": "f"
+            },
+            "onNoDecision": "e",
+            "onError": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "f": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid decide routed by a value that only the default row produces",
+    "context": {
+      "rules": [
+        "default"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.default_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.default_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "note",
+            "on": {
+              "big": "e",
+              "fallback": "f"
+            },
+            "onNoDecision": "e",
+            "onError": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "f": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "route.incomplete: an enum route without a value that a row produces",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "level",
+            "on": {
+              "high": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.incomplete: a code route without the value of the default row",
+    "context": {
+      "rules": [
+        "default"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.default_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.default_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "note",
+            "on": {
+              "big": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.unknown_value: an enum route with a value that no row produces",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "level",
+            "on": {
+              "high": "e",
+              "low": "e",
+              "medium": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/medium"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.unknown_value and incomplete: a code route with another value",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "note",
+            "on": {
+              "huge": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        },
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/huge"
+        }
+      ]
+    }
+  },
+  {
     "name": "route.incomplete: a humanTask that does not route an outcome",
     "context": {
       "rules": []

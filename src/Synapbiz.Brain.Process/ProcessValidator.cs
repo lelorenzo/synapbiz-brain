@@ -174,7 +174,7 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
 
         CheckHitPolicy(step, rule, path);
         CheckCollect(step, path);
-        CheckRoute(step, kind, path);
+        CheckRoute(step, rule, path);
     }
 
     private void CheckHitPolicy(DecideStep step, BrainRule rule, string path)
@@ -196,29 +196,51 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
         }
     }
 
-    private void CheckRoute(DecideStep step, DecisionKindDescriptor kind, string path)
+    private void CheckRoute(DecideStep step, BrainRule rule, string path)
     {
         if (step.Route is null || step.On is null)
         {
             return;
         }
 
-        var field = FindOutcome(kind, step.Route);
+        var field = FindOutcome(rule.Kind, step.Route);
         if (field is null || field.Type is not (FactType.Enum or FactType.Boolean or FactType.Code))
         {
             errors.Add(Diagnostics.UnknownOutcome(path + "/route"));
             return;
         }
 
-        var keys = step.On.Select(entry => entry.Key).ToHashSet(StringComparer.Ordinal);
-        if (field.Type == FactType.Boolean && (!keys.Contains("true") || !keys.Contains("false")))
+        var keys = step.On.Select(entry => entry.Key).ToList();
+        if (field.Type == FactType.Boolean)
+        {
+            if (!keys.Contains("true", StringComparer.Ordinal) || !keys.Contains("false", StringComparer.Ordinal))
+            {
+                errors.Add(Diagnostics.IncompleteRoute(path + "/on"));
+            }
+
+            return;
+        }
+
+        var produced = ProducedValues(rule, step.Route);
+        if (produced.Any(value => !keys.Contains(value, StringComparer.Ordinal)))
         {
             errors.Add(Diagnostics.IncompleteRoute(path + "/on"));
         }
 
-        // The values of an Enum outcome field are not exposed by the public surface of Synapbiz.Brain.Spec, so the
-        // checks process.route.incomplete (Enum) and process.route.unknown_value cannot be applied to a decide step.
-        // See the open question in the report of the change that introduced this library.
+        foreach (var key in keys.Where(key => !produced.Contains(key)))
+        {
+            errors.Add(Diagnostics.UnknownRouteValue(JsonText.Pointer(path + "/on", key)));
+        }
+    }
+
+    // The values that the rows and the default row of the rule can produce for an outcome field: the domain of a route.
+    private static HashSet<string> ProducedValues(BrainRule rule, string field)
+    {
+        var rows = rule.Table.DefaultRow is null ? rule.Table.Rows : [.. rule.Table.Rows, rule.Table.DefaultRow];
+        return rows
+            .Select(row => JsonText.Text(JsonText.ParseObject(row.Outcome)?[field]))
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     private bool TypeDiffers(string variable, FactType type) =>

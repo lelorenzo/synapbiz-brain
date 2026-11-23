@@ -219,6 +219,11 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
             return TriggerOutcome.Stale;
         }
 
+        if (stepCount >= definition.MaxSteps)
+        {
+            return TriggerOutcome.Reject("process.limits.max_steps");
+        }
+
         problem = null;
         status = ProcessStatus.Waiting;
         Log(ProcessHistoryKind.Resumed);

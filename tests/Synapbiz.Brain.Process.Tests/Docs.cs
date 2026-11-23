@@ -14,6 +14,9 @@ internal static class Docs
     /// <summary>The rule of kind <c>conf.flag</c> (hit policy first): ten or more is big, zero to nine is small, below zero decides nothing.</summary>
     internal static BrainRule FlagRule { get; } = LoadRule("conformance.flag.rule.json");
 
+    /// <summary>The rule of kind <c>conf.flag</c> with a default row: a row sets note <c>big</c>, the default row sets <c>fallback</c>.</summary>
+    internal static BrainRule DefaultRule { get; } = LoadRule("conformance.default.rule.json");
+
     /// <summary>The collect rule of kind <c>conf.list</c>.</summary>
     internal static BrainRule ListRule { get; } = LoadRule("conformance.list.rule.json");
 
@@ -44,11 +47,14 @@ internal static class Docs
 
     internal static JsonObject Input(string json) => JsonNode.Parse(json)!.AsObject();
 
-    private static BrainRule LoadRule(string file)
+    /// <summary>Loads a rule of the conformance contract from its text.</summary>
+    internal static BrainRule RuleFrom(string text)
     {
-        var loaded = BrainRuleLoader.Load(TestFiles.Read(TestFiles.Fixtures + file), [Contract.Value]);
-        return loaded.Rule ?? throw new InvalidOperationException(file + ": " + string.Join("; ", loaded.Errors.Select(error => error.Code + "@" + error.Path)));
+        var loaded = BrainRuleLoader.Load(text, [Contract.Value]);
+        return loaded.Rule ?? throw new InvalidOperationException(string.Join("; ", loaded.Errors.Select(error => error.Code + "@" + error.Path)));
     }
+
+    private static BrainRule LoadRule(string file) => RuleFrom(TestFiles.Read(TestFiles.Fixtures + file));
 }
 
 /// <summary>Drives one instance: keeps the state and everything the interpreter asked for and wrote.</summary>

@@ -170,6 +170,7 @@ internal sealed partial class ProcessRun
         }
         catch (BrainException error)
         {
+            Log(ProcessHistoryKind.Decided, error.ErrorCode, FailedDecision(rule, error.ErrorCode));
             return RouteOrSuspend(step.OnError, error.ErrorCode, error.Message);
         }
 
@@ -219,6 +220,9 @@ internal sealed partial class ProcessRun
         var target = step.On!.Where(entry => string.Equals(entry.Key, key, StringComparison.Ordinal)).Select(entry => entry.Value).FirstOrDefault();
         return RouteOrSuspend(target ?? step.OnError, "process.route.unmatched", null);
     }
+
+    private static string FailedDecision(BrainRule rule, string code) =>
+        JsonText.Canonical(new JsonObject { ["rule"] = rule.Id, ["version"] = rule.Version, ["error"] = code });
 
     private static string DecisionProvenance(BrainRule rule, DecisionResult decision)
     {

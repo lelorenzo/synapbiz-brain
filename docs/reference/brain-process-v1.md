@@ -90,7 +90,8 @@ An `ai` step validates its input object against `inputSchema` before asking (a f
 
 The facts are built from the mapped variables (a variable without a value leaves the fact out) and the rule is evaluated for the clock's `Today`. The `Decided` history entry carries the provenance: rule id and version, whether it decided, the matched row keys, the outcome, the facts and a hash of the facts.
 
-- No decision goes to `onNoDecision`. A rule error goes to `onError`, or suspends with the error's code.
+- No decision goes to `onNoDecision`. A rule error is recorded in a `Decided` entry (code = the error code, data `{"rule":..,"version":..,"error":..}`) and goes to `onError`, or suspends with that code.
+- Outcome values are assigned to variables of the same type. A `Decimal` outcome field (a JSON number in the rule library) becomes the number's raw text as the variable's string, and a `Money` outcome `{amount: number, currency}` becomes `{amount: "<raw text>", currency}`; the number is never converted to a binary floating type. A number that does not match the `Decimal` form (exponent notation, for example) is a `process.variable.type_mismatch`, routed to `onError` or suspension.
 - With `unique` or `first` rules, `output` assigns outcome fields to variables, then the step goes to `next` or follows `route`: the value of that outcome field (a `Boolean` as `"true"` or `"false"`) selects the entry of `on`. A value without an entry goes to `onError`, or suspends with `process.route.unmatched`.
 - With a `collect` rule the whole outcome array is stored in the `Json` variable `collectInto`.
 
@@ -157,8 +158,8 @@ BrainProcess process = loaded.Process!;
 | `process.rule.fact_unknown` | a `facts` key is not a fact of the rule's kind |
 | `process.rule.outcome_unknown` | an `output` key or the `route` is not an outcome field of the kind (also when the route field is not an `Enum`, `Boolean` or `Code`) |
 | `process.rule.hit_policy` | members for a `collect` rule on a `unique` or `first` rule, or the reverse |
-| `process.route.incomplete` | a `Boolean` route lacks `true` or `false`; a `humanTask` `on` lacks one of its `outcomes` |
-| `process.route.unknown_value` | a `humanTask` `on` has a key that is not one of its `outcomes` |
+| `process.route.incomplete` | at `/on`: a `Boolean` route lacks `true` or `false`; an `Enum` or `Code` route lacks a value that some row or the default row of the rule produces for the route field; a `humanTask` `on` lacks one of its `outcomes` |
+| `process.route.unknown_value` | at `/on/<key>`: an `Enum` or `Code` route has a key that no row and no default row of the rule produces for the route field; a `humanTask` `on` has a key that is not one of its `outcomes` |
 | `process.uses.missing` | a rule or process named by a step is not in `uses` |
 | `process.uses.unused` | `uses` lists something no step names |
 | `process.subprocess.unavailable` | the child process is not among the known process ids |
@@ -168,7 +169,7 @@ BrainProcess process = loaded.Process!;
 | `process.duration.invalid` | a duration that matches the pattern but is zero, longer than 3660 days or has no component |
 | `process.scenario.invalid` | a scenario names an unknown step, variable or event, or is otherwise malformed |
 
-Known limit: the values of an `Enum` outcome field are not available to the process library, so a `decide` route on an `Enum` field is not checked for completeness at load time; a value without an entry is caught at run time (`process.route.unmatched`). `Decimal` and `Money` outcome fields cannot be assigned to variables (the rule library writes them as JSON numbers, a process variable holds them as strings); such an `output` entry ends in `process.variable.type_mismatch`.
+The domain of a `decide` route is read from the rule: the values that its rows and its default row set for the route field. A row that leaves the route field empty produces no value; if such a row matches at run time the step goes to `onError`, or suspends with `process.route.unmatched`.
 
 ## Running an instance
 
@@ -184,7 +185,7 @@ AdvanceResult next = process.Advance(state, new EffectCompleted(effectId, output
 
 - `Applied`: store the new state, carry out the requests, store the history.
 - `Ignored` (`process.trigger.stale`): the trigger matches nothing outstanding, for example a result delivered twice. State, requests and history are empty or unchanged. Delivering twice is harmless.
-- `Rejected`: the trigger was understood but refused (`process.definition.mismatch`, `process.task.outcome_unknown`, `process.event.not_accepted`, `process.variable.type_mismatch`). Nothing changed.
+- `Rejected`: the trigger was understood but refused (`process.definition.mismatch`, `process.task.outcome_unknown`, `process.event.not_accepted`, `process.variable.type_mismatch`, and `process.limits.max_steps` for a resume at the step limit). Nothing changed.
 
 ### Triggers
 
@@ -197,7 +198,7 @@ AdvanceResult next = process.Advance(state, new EffectCompleted(effectId, output
 | `TaskCompleted(taskId, outcome, dataJson)` | a person finished a task |
 | `ChildCompleted(childKey, result, outputJson)` / `ChildFailed(childKey, code)` | the child process ended |
 | `CancelRequested(reason)` | stop the instance: outstanding timers, waits and tasks are cancelled |
-| `ResumeRequested` | run the current step again after a suspension |
+| `ResumeRequested` | run the current step again after a suspension; refused with `process.limits.max_steps` when the instance has already used its step limit |
 
 ### Requests
 
@@ -238,7 +239,7 @@ Every history entry has a sequence number (continuing across advances), the time
 | `process.timer.until_missing` | an `until` timer has no instant |
 | `process.wait.correlation_missing` | a `wait` declares a correlation variable that has no value |
 | `process.loop.not_a_list` | a `forEach` variable holds no array |
-| `process.limits.max_steps` | the instance entered more steps than `limits.maxSteps`; it is suspended on the step before |
+| `process.limits.max_steps` | the instance entered more steps than `limits.maxSteps`; it is suspended on the step before; a later `ResumeRequested` is rejected with the same code while `StepCount` is at or above the limit |
 | `process.state.malformed` | `ProcessState.FromJson` could not read the text |
 
 ## Scenarios

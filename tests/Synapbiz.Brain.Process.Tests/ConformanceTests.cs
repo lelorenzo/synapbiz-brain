@@ -84,6 +84,7 @@ public sealed class ConformanceTests
     {
         "flag" => Docs.FlagRule,
         "list" => Docs.ListRule,
+        "default" => Docs.DefaultRule,
         "outreach" => TestFiles.OutreachRule(),
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown rule name in the conformance file."),
     };
