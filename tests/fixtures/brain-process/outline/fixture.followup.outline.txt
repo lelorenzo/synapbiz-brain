@@ -1,0 +1,42 @@
+process notice.followup v1
+Subject: case
+Stages: [notice]
+Start: send
+Uses: [rule/notice.reply_state]
+Requires: [followup@1]
+Variables: [{Name=case_ref, Type=Code, IsInput=true}, {Name=replies, Type=Integer, IsInput=false}]
+Windows: [{Name=contact_hours, Zone=America/New_York, Days=[Monday, Tuesday, Wednesday, Thursday, Friday], From=09:00, To=18:00}]
+Triggers: [{Event=case.opened, BusinessKeyMember=case_ref, Kind=event, Input=[[case_ref, case_ref]]}, {Id=morning, Cron=0 8 * * 1-5, Zone=America/New_York, Misfire=Skip, Kind=schedule, Input=[]}]
+Scenarios: [open window sends at once and the second round finds a reply, a closed window holds the notice until the next opening, the poll expires after the longest allowed time, a zone the host cannot resolve follows onError, a failed read after its retries follows onError]
+step send
+  Kind: Action
+  Stage: notice
+  Routes: [{Label=next, Target=await_reply}, {Label=onError, Target=failed}]
+  Port: messaging.notice
+  Delivery: AtLeastOnce
+  IsContact: true
+  Window: contact_hours
+  Retry: {MaxAttempts=2, Backoff=fixed, Initial=00:05:00}
+  Inputs: [{Name=case, Variable=case_ref}]
+  InputNames: [case_ref]
+step await_reply
+  Kind: Poll
+  Routes: [{Label=next, Target=done}, {Label=onError, Target=failed}, {Label=onExpired, Target=expired}]
+  Port: intake.replies
+  Retry: {MaxAttempts=1, Backoff=none, Initial=00:00:00}
+  Rule: notice.reply_state
+  Poll: {Field=state, Until=[answered], Every=01:00:00, Backoff=exponential, Max=04:00:00, MaxDuration=06:00:00}
+  Inputs: [{Name=case, Variable=case_ref}]
+  Facts: [{Name=replies, Variable=replies}]
+  Outputs: [{Name=reply_count, Variable=replies}]
+  InputNames: [case_ref, replies]
+  OutputNames: [replies]
+step done
+  Kind: End
+  Result: answered
+step expired
+  Kind: End
+  Result: expired
+step failed
+  Kind: End
+  Result: failed

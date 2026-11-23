@@ -1,0 +1,28 @@
+process practice.daily_refresh v1
+Subject: practice
+Start: list_cases
+Variables: [{Name=run_for, Type=Date, IsInput=true}, {Name=cases, Type=Json, IsInput=false}]
+Triggers: [{Id=daily, Cron=0 6 * * *, Misfire=FireOnce, Kind=schedule, Input=[[run_for, scheduledDate]]}]
+Scenarios: [the day's cases are read and kept, a day without cases is an empty list, a transient failure is retried, a read that fails for good raises an operations task and ends as a failed refresh once a person has handled it, a read that is not available raises the same task, a read that fails and is not handled keeps the instance waiting for the person]
+step list_cases
+  Kind: Read
+  Routes: [{Label=next, Target=refreshed}, {Label=onError, Target=refresh_attention}]
+  Port: schedule.cases_for_day
+  Retry: {MaxAttempts=3, Backoff=exponential, Initial=00:01:00, Max=00:10:00}
+  Inputs: [{Name=day, Variable=run_for}]
+  Outputs: [{Name=cases, Variable=cases}]
+  InputNames: [run_for]
+  OutputNames: [cases]
+step refresh_attention
+  Kind: HumanTask
+  Routes: [{Label=on:handled, Target=failed}]
+  Queue: operations
+  Outcomes: [handled]
+  Show: [run_for]
+  InputNames: [run_for]
+step refreshed
+  Kind: End
+  Result: refreshed
+step failed
+  Kind: End
+  Result: refresh_failed

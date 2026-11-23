@@ -1,0 +1,45 @@
+process visit.note_wait v1
+Subject: case
+Stages: [visit]
+Start: await_note
+Uses: [rule/visit.note_ready]
+Requires: [visit@1]
+Variables: [{Name=case_ref, Type=Code, IsInput=true}, {Name=note_status, Type=Code, IsInput=false}]
+Scenarios: [the note is signed at the first read, the note is signed after two more reads, one of them with a status nobody described, the note is never signed and the front desk learns it was signed meanwhile, the note is never signed and the visit did not happen, a transient failure of the read is retried inside the round, a read that fails for good goes to the chase task, a read that fails on every attempt goes to the chase task, a read without a status makes the rule fail and goes to the chase task, a practice with no connector confirms the note by hand, a practice with no connector confirms that the visit did not happen, a practice not entitled to the connector confirms the note by hand]
+step await_note
+  Kind: Poll
+  Stage: visit
+  Routes: [{Label=next, Target=signed}, {Label=onError, Target=chase_note}, {Label=onNotAvailable, Target=confirm_note}, {Label=onNotEntitled, Target=confirm_note}, {Label=onExpired, Target=chase_note}]
+  Port: records.note_status
+  Retry: {MaxAttempts=3, Backoff=exponential, Initial=00:00:30, Max=00:05:00}
+  Rule: visit.note_ready
+  Poll: {Field=ready, Until=[yes], Every=01:00:00, Backoff=exponential, Max=08:00:00, MaxDuration=2.00:00:00}
+  Inputs: [{Name=case, Variable=case_ref}]
+  Facts: [{Name=status, Variable=note_status}]
+  Outputs: [{Name=status, Variable=note_status}]
+  InputNames: [case_ref, note_status]
+  OutputNames: [note_status]
+step chase_note
+  Kind: HumanTask
+  Stage: visit
+  Routes: [{Label=on:no_visit, Target=cancelled}, {Label=on:signed, Target=signed}]
+  Queue: note_followup
+  Outcomes: [signed, no_visit]
+  Show: [case_ref, note_status]
+  InputNames: [case_ref, note_status]
+step confirm_note
+  Kind: HumanTask
+  Stage: visit
+  Routes: [{Label=on:no_visit, Target=cancelled}, {Label=on:signed, Target=signed}]
+  Queue: note_confirmation
+  Outcomes: [signed, no_visit]
+  Show: [case_ref]
+  InputNames: [case_ref]
+step signed
+  Kind: End
+  Stage: visit
+  Result: note_signed
+step cancelled
+  Kind: End
+  Stage: visit
+  Result: visit_cancelled
