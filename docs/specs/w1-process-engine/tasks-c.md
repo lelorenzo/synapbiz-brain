@@ -48,4 +48,4 @@ Spec: [spec-c-triggers.md](spec-c-triggers.md). The core is the pure library `Sy
 
 ## Independent verification
 
-- [ ] Independent verification of every gate
+- [x] Independent verification (2026-11-23: no blocker, three should-fix findings and notes, repaired in one pass; gates re-run after the repair)

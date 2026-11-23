@@ -139,7 +139,7 @@ Tables (migration `0002_triggers.sql`, `tenant_id` first in every key): `process
 - otherwise the schedule misfired (the host was down or late). `skip` drops every occurrence that is not on time and fires `ok` only if it is on time; `fireOnce` drops `o1 .. ok-1` and fires `ok` whether or not it is on time;
 - sets `next_fire_at` to the first occurrence after `now`.
 
-Firing queues a start with business key `{scheduleId}/{occurrence as yyyyMMddTHHmmZ}` and the input from the activation overlaid by the `scheduledFor` / `scheduledDate` mappings, so two pumps can never start two instances for one occurrence. A definition the catalog cannot supply leaves the row untouched (same treatment as the other work kinds, including item isolation and paging of spec B section 11).
+Firing queues a start with business key `@schedule/{scheduleId}/{occurrence as yyyyMMddTHHmmZ}` (section 10.2) and the input from the activation overlaid by the `scheduledFor` / `scheduledDate` mappings, so two pumps can never start two instances for one occurrence. A definition the catalog cannot supply leaves the row untouched (same treatment as the other work kinds, including item isolation and paging of spec B section 11).
 
 **Windows.** A `WindowRequest` is stored as a timer row whose `due_at` is `DeliveryWindows.NextOpen(now, zone, ...)`; when the zone id cannot be resolved the host queues `WindowFailed` for the instance instead. Firing re-checks nothing: the due time was inside the window by construction and timer precision is the pump tick.
 
