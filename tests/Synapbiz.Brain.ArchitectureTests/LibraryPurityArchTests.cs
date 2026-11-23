@@ -4,6 +4,7 @@ using Nuvora.Decisions.Contracts;
 using Nuvora.Decisions.Engine.Evaluation;
 using Synapbiz.Brain.Spec;
 using Synapbiz.Brain.Workbench;
+using Synapbiz.Brain.Workbench.Blazor;
 
 namespace Synapbiz.Brain.ArchitectureTests;
 
@@ -29,7 +30,7 @@ public sealed class LibraryPurityArchTests
             ["System.IO.MemoryStream..ctor", "System.IO.MemoryStream.GetBuffer", "System.IO.Stream.get_Length"],
     };
 
-    private static readonly string[] LibraryList = ["Contracts", "Engine", "Spec", "Workbench"];
+    private static readonly string[] LibraryList = ["Contracts", "Engine", "Spec", "Workbench", "WorkbenchBlazor"];
 
     public static TheoryData<string> LibraryNames => [.. LibraryList];
 
@@ -64,6 +65,7 @@ public sealed class LibraryPurityArchTests
         "Engine" => typeof(TableEvaluator).Assembly,
         "Spec" => typeof(BrainRuleLoader).Assembly,
         "Workbench" => typeof(RuleSimulator).Assembly,
+        "WorkbenchBlazor" => typeof(RuleWorkbench).Assembly,
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown library."),
     };
 
