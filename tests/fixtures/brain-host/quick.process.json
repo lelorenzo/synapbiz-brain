@@ -1,0 +1,19 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.quick",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Completes at once" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true }
+    },
+    "start": "done",
+    "steps": {
+      "done": { "kind": "end", "result": "instant" }
+    }
+  }
+}

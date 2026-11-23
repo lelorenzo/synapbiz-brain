@@ -1,0 +1,33 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.buffer",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "An accepted event arrives while a person is working, and is consumed later" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "answer": { "type": "Code" }
+    },
+    "accepts": ["early"],
+    "start": "work",
+    "steps": {
+      "work": {
+        "kind": "humanTask",
+        "queue": "work_q",
+        "outcomes": ["go"],
+        "on": { "go": "gate" }
+      },
+      "gate": {
+        "kind": "wait",
+        "event": "early",
+        "output": { "text": "answer" },
+        "next": "done"
+      },
+      "done": { "kind": "end", "result": "consumed" }
+    }
+  }
+}

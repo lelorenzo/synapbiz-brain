@@ -1,0 +1,27 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.child",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "A child that a person finishes" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "value": { "type": "Code" }
+    },
+    "start": "hold",
+    "steps": {
+      "hold": {
+        "kind": "humanTask",
+        "queue": "child_q",
+        "outcomes": ["finish"],
+        "output": { "value": "value" },
+        "on": { "finish": "done" }
+      },
+      "done": { "kind": "end", "result": "finished" }
+    }
+  }
+}

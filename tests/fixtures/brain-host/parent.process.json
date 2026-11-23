@@ -1,0 +1,29 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.parent",
+  "version": 1,
+  "uses": [{ "$ref": "process/host.child" }],
+  "requires": [],
+  "meta": { "title": "Starts one child and waits for it" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "child_value": { "type": "Code" }
+    },
+    "start": "spawn",
+    "steps": {
+      "spawn": {
+        "kind": "subprocess",
+        "process": "host.child",
+        "input": { "case_ref": "case_ref" },
+        "output": { "value": "child_value" },
+        "next": "done",
+        "onError": "failed"
+      },
+      "done": { "kind": "end", "result": "parent_done" },
+      "failed": { "kind": "end", "result": "child_failed" }
+    }
+  }
+}

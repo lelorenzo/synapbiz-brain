@@ -1,0 +1,32 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.task",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "A human task with a timeout" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "note": { "type": "Code" }
+    },
+    "start": "review",
+    "steps": {
+      "review": {
+        "kind": "humanTask",
+        "queue": "review_q",
+        "outcomes": ["approve", "reject"],
+        "show": ["case_ref"],
+        "output": { "note": "note" },
+        "timeout": "PT1H",
+        "on": { "approve": "approved", "reject": "rejected" },
+        "onTimeout": "late"
+      },
+      "approved": { "kind": "end", "result": "approved" },
+      "rejected": { "kind": "end", "result": "rejected" },
+      "late": { "kind": "end", "result": "late" }
+    }
+  }
+}

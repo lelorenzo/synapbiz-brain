@@ -1,0 +1,35 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.rta",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Read, wait for a timer, then act" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "amount": { "type": "Integer" }
+    },
+    "start": "read",
+    "steps": {
+      "read": {
+        "kind": "read",
+        "port": "t.read",
+        "input": { "case": "case_ref" },
+        "output": { "amount": "amount" },
+        "next": "pause"
+      },
+      "pause": { "kind": "timer", "after": "PT30S", "next": "act" },
+      "act": {
+        "kind": "action",
+        "port": "t.act",
+        "delivery": "atLeastOnce",
+        "input": { "case": "case_ref" },
+        "next": "done"
+      },
+      "done": { "kind": "end", "result": "ok" }
+    }
+  }
+}

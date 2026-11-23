@@ -1,0 +1,32 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.retry",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "A read with a fixed retry" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "amount": { "type": "Integer" }
+    },
+    "start": "check",
+    "steps": {
+      "check": {
+        "kind": "read",
+        "port": "t.read",
+        "input": { "case": "case_ref" },
+        "output": { "amount": "amount" },
+        "retry": { "maxAttempts": 3, "backoff": "fixed", "initial": "PT1M" },
+        "next": "done",
+        "onError": "failed",
+        "onNotAvailable": "unavailable"
+      },
+      "done": { "kind": "end", "result": "ok" },
+      "failed": { "kind": "end", "result": "failed" },
+      "unavailable": { "kind": "end", "result": "unavailable" }
+    }
+  }
+}
