@@ -14,4 +14,10 @@
 - [x] Tests: concurrency A and B, tenant isolation, payload protection, definition unavailable, options and arguments, worker, store lock discipline, logging hygiene
 - [x] Architecture tests: `HostAssemblyCouplingTests` (reference set, project file, restore graph, `Npgsql` confinement, purity scan unchanged)
 - [x] Docs: `docs/reference/process-host-postgres.md`, architecture overview, changelog, README, consuming guide, plan
+- [x] Repair R1: one failing item does not stop the pass (per-item isolation, `process.item.failed`, test with a protector that throws for one tenant)
+- [x] Repair R2: keyset paging of every scan, so left items do not starve the others (tests with `BatchSize = 1` for timers, inbox rows and effects)
+- [x] Repair R3: wait candidates matched without regard to case, the interpreter asked about the ones that matched only by case (Reference upper-case completes, Code differing in case is `NoTarget`)
+- [x] Repair R4: slot first, then claim, then invoke; a stop claims nothing more and records the result of a call in flight (tests with at-most-once effects, one slot, the pass cancelled)
+- [x] Repair R5: tests for the child and cancel inbox payloads, the lock wait on a result, re-validation under the lock (inbox order, re-claimed lease, consumed timer) and tenant collisions on instance and task ids
+- [x] Repair R6: docs (plan, changelog, reference page, this list)
 - [ ] Independent verification of every gate
