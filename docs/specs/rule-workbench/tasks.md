@@ -27,6 +27,21 @@
 - [x] Docs: reference page, overview, changelog, README, consuming guide
 - [x] Independent verification of every gate
 
+## W-B2 — panel refinements
+
+- [x] Brief
+- [x] Sentence grammar in the headless library: list joiners, plainer set and emptiness sentences
+- [x] Review control in the test table
+- [x] No repeated value, any-value conditions
+- [x] Headline fields and labelled values
+- [x] Money select, date `lang`
+- [x] Folding after six rows
+- [x] A fix or a question needs its note, export held
+- [x] bUnit tests for each item
+- [x] Screenshots of the demo, with the review line and the missing note
+- [x] Docs: reference pages, changelog
+- [ ] Independent verification of every gate
+
 ## W-C — guided editing
 
 - [ ] Brief
