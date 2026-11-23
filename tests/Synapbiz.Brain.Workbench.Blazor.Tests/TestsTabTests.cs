@@ -39,8 +39,8 @@ public sealed class TestsTabTests
         var first = harness.FindAll(".wb-table tbody tr")[0].QuerySelectorAll("td");
         first[0].TextContent.Should().Be("An urgent phone request is escalated");
         first[1].TextContent.Should().Be("Contact channel the phone line, topic billing-late, urgent yes, Age in days 100");
-        first[2].TextContent.Should().Be("escalation, Urgent queue, yes, 1");
-        first[3].TextContent.Should().Be("escalation, Urgent queue, yes, 1");
+        first[2].TextContent.Should().Be("escalation, Urgent queue, notify: yes, priority: 1");
+        first[3].TextContent.Should().Be("escalation, Urgent queue, notify: yes, priority: 1");
         first[4].QuerySelector(".wb-pill")!.TextContent.Should().Be("Passes");
         harness.FindAll(".wb-fail-row").Should().BeEmpty();
         harness.FindAll(".wb-notice").Should().BeEmpty();
@@ -317,12 +317,12 @@ public sealed class TestsTabTests
         harness.Type("Age in days", "30");
         harness.Type("rating", "2");
         harness.Type("amount", "250.00");
-        harness.Find("input.wb-in-currency").Change("usd");
+        harness.Find("select.wb-in-currency").Change("USD");
         harness.Press("Simulate");
         harness.Press("Save as a test case");
 
         harness.Input("amount").GetAttribute("value").Should().Be("250.00");
-        harness.Find(".wb-case-form input.wb-in-currency").GetAttribute("value").Should().Be("USD");
+        harness.Find(".wb-case-form select.wb-in-currency").GetAttribute("value").Should().Be("USD");
     }
 
     [Fact]
@@ -346,9 +346,13 @@ public sealed class TestsTabTests
     }
 
     [Fact]
-    public void ACaseOfTheDocumentCanBeReviewedFromTheTable()
+    public void ACaseOfTheDocumentCanBeReviewedFromItsLineUnderTheRow()
     {
         using var harness = Open(Fx.Rule("intake.first"));
+        harness.FindAll(".wb-table .wb-rv").Should().BeEmpty();
+        var button = harness.FindAll(".wb-table tbody tr")[0].QuerySelector("button.wb-btn-secondary")!;
+        button.TextContent.Should().Be("Review");
+        button.Click();
         var control = harness.FindAll(".wb-table .wb-rv")[0];
         control.GetAttribute("aria-label").Should().Be("Review of the case An urgent phone request is escalated");
 
@@ -356,9 +360,10 @@ public sealed class TestsTabTests
         harness.FindAll(".wb-table textarea").Should().ContainSingle();
         harness.Find(".wb-table textarea").Change("The urgency should depend on the age.");
 
-        harness.FindAll(".wb-table .wb-rv")[1].QuerySelectorAll("button")[0].Click();
-        harness.FindAll(".wb-table button.wb-link").Should().ContainSingle().Which.TextContent.Should().Be("Add a note");
-        harness.Tab(WorkbenchTab.Review).QuerySelector(".wb-pill")!.TextContent.Should().Be("2");
+        harness.FindAll(".wb-table .wb-rv")[0].QuerySelectorAll("button")[0].Click();
+        harness.FindAll(".wb-table button.wb-link").Should().BeEmpty();
+        harness.FindAll(".wb-table textarea").Should().ContainSingle();
+        harness.Tab(WorkbenchTab.Review).QuerySelector(".wb-pill")!.TextContent.Should().Be("1");
     }
 
     [Fact]

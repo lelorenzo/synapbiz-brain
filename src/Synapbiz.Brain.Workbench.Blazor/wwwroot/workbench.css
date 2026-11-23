@@ -226,6 +226,15 @@
   margin-left: 4px;
 }
 
+.wb-pill-btn {
+  margin: 0;
+  cursor: pointer;
+}
+
+.wb-pill-btn:hover {
+  text-decoration: underline;
+}
+
 /* ----- tabs --------------------------------------------------------------------------------------------------------------- */
 
 .wb-tabs {
@@ -600,8 +609,24 @@
 
 .wb-money {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) 88px;
   gap: 8px;
+}
+
+.wb-missing {
+  color: var(--wb-warn-ink);
+  font-weight: 600;
+}
+
+.wb-missing-note {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-review-line td {
+  background: var(--wb-neutral-bg);
 }
 
 .wb-radios {

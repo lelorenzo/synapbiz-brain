@@ -1,6 +1,7 @@
 using System.Globalization;
 using Nuvora.Decisions.Contracts.Evaluation;
 using Nuvora.Decisions.Contracts.Tables;
+using Synapbiz.Brain.Spec;
 using Synapbiz.Brain.Workbench;
 
 namespace Synapbiz.Brain.Workbench.Blazor;
@@ -11,8 +12,42 @@ internal sealed record RowWord(string Key, string Tone);
 /// <summary>Words for a simulation result. It only arranges what the headless library reports; it decides nothing.</summary>
 internal static class SimulationPresenter
 {
-    /// <summary>More rows than this and the rows that do not apply are folded away until the reviewer asks for them.</summary>
-    internal const int FoldAfter = 12;
+    /// <summary>
+    /// A rule with more rows than this (the default row counts) folds the rows that do not apply away until the reviewer asks for
+    /// them. The deciding rows and every row that matched are always shown.
+    /// </summary>
+    internal const int FoldAfter = 6;
+
+    /// <summary>The number of rows of a rule, the default row included.</summary>
+    internal static int RowCount(RuleView view) => view.Rows.Count + (view.DefaultRow is null ? 0 : 1);
+
+    /// <summary>
+    /// True when a condition accepts any value and so is neither listed nor named: an <c>Any</c> condition, or a range with no
+    /// bound. It reads the rule's own condition and compares nothing.
+    /// </summary>
+    internal static bool AcceptsAny(BrainRule rule, RowView row, ConditionView condition)
+    {
+        if (condition.Operator == Operator.Any)
+        {
+            return true;
+        }
+
+        if (condition.Operator != Operator.Range)
+        {
+            return false;
+        }
+
+        var source = rule.Table.Rows.Concat(rule.Table.DefaultRow is null ? [] : [rule.Table.DefaultRow])
+            .FirstOrDefault(item => string.Equals(item.Key, row.Key, StringComparison.Ordinal));
+        return source?.Conditions.ElementAtOrDefault(condition.Index) is { Value: null, UpperValue: null };
+    }
+
+    /// <summary>
+    /// True when the value the reviewer typed is added to the text of a condition: only for the operators whose text does not
+    /// already say it. An equals, one-of or empty condition reads the same without the value.
+    /// </summary>
+    internal static bool AddsTypedValue(Operator op) =>
+        op is Operator.NotEquals or Operator.NotIn or Operator.Range or Operator.StartsWith or Operator.IsNotNull;
 
     internal static RowView? RowByKey(RuleView view, string key) =>
         view.Rows.Concat(view.DefaultRow is null ? [] : [view.DefaultRow]).FirstOrDefault(row => string.Equals(row.Key, key, StringComparison.Ordinal));
@@ -39,7 +74,7 @@ internal static class SimulationPresenter
         [.. result.Rows.Where(row => row.Selected).Select(row => row.Key)];
 
     /// <summary>The sentence that says which row decided and why; null when the rule did not decide.</summary>
-    internal static string? Why(UiText text, RuleView view, RuleLabels labels, SimulationResult result)
+    internal static string? Why(UiText text, BrainRule rule, RuleView view, RuleLabels labels, SimulationResult result)
     {
         if (result.Outcome is not Decided)
         {
@@ -70,7 +105,7 @@ internal static class SimulationPresenter
         }
 
         var parts = new List<string>();
-        foreach (var condition in row.Conditions.Where(condition => condition.Operator != Operator.Any))
+        foreach (var condition in row.Conditions.Where(condition => !AcceptsAny(rule, row, condition)))
         {
             var check = winner.Conditions.FirstOrDefault(item => item.Index == condition.Index);
             if (check is { Passed: true })
@@ -85,7 +120,7 @@ internal static class SimulationPresenter
 
     private static string Condition(ConditionView condition, ConditionCheck check, RuleLabels labels, WorkbenchLocale locale)
     {
-        var typed = WorkbenchText.FormatValue(check.Actual, condition.FactName, locale, labels);
+        var typed = AddsTypedValue(condition.Operator) ? WorkbenchText.FormatValue(check.Actual, condition.FactName, locale, labels) : string.Empty;
         if (typed.Length == 0)
         {
             return condition.Text;
@@ -112,9 +147,9 @@ internal static class SimulationPresenter
         value.Length == 0 ? value : char.ToUpperInvariant(value[0]) + value[1..];
 
     /// <summary>The row as the condition half of its sentence, <c>If ...</c> with the three dots; the whole sentence when there is no condition to show.</summary>
-    internal static string ShortSentence(UiText text, RowView row)
+    internal static string ShortSentence(UiText text, BrainRule rule, RowView row)
     {
-        var parts = row.Conditions.Where(condition => condition.Operator != Operator.Any).Select(condition => condition.Text).ToList();
+        var parts = row.Conditions.Where(condition => !AcceptsAny(rule, row, condition)).Select(condition => condition.Text).ToList();
         if (row.IsDefault || parts.Count == 0)
         {
             return row.Sentence;

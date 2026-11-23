@@ -52,16 +52,18 @@ public sealed class SimulateTests
         harness.Input("Age in days").GetAttribute("inputmode").Should().Be("numeric");
         harness.Input("rating").GetAttribute("inputmode").Should().Be("decimal");
         harness.Input("received on").GetAttribute("type").Should().Be("date");
+        harness.Input("received on").GetAttribute("lang").Should().Be("en");
 
         var group = harness.Group("urgent");
         group.GetAttribute("role").Should().Be("radiogroup");
         group.QuerySelectorAll("label").Select(item => item.TextContent).Should().Equal("Yes", "No");
 
         var money = harness.Input("amount");
-        money.GetAttribute("placeholder").Should().Be("Amount");
-        var currency = harness.Find("input.wb-in-currency");
-        currency.GetAttribute("maxlength").Should().Be("3");
-        currency.GetAttribute("placeholder").Should().Be("Three-letter currency");
+        money.GetAttribute("placeholder").Should().BeNull();
+        money.GetAttribute("aria-label").Should().Be("Amount");
+        var currency = harness.Find("select.wb-in-currency");
+        currency.GetAttribute("aria-label").Should().Be("Three-letter currency");
+        currency.QuerySelectorAll("option").Select(item => item.TextContent).Should().Equal("USD");
     }
 
     [Fact]
@@ -94,7 +96,7 @@ public sealed class SimulateTests
     {
         using var harness = OpenIntake();
         harness.FindAll(".wb-hint").Select(item => item.TextContent).Should().Contain(
-            ["Required.", "Whole number. Required.", "Number, with a decimal point.", "Amount and a three-letter currency."]);
+            ["Required.", "Whole number. Required.", "Number, with a decimal point.", "Amount in dollars."]);
         harness.Input("Age in days").GetAttribute("aria-describedby").Should().NotBeNull();
         harness.Input("received on").GetAttribute("aria-describedby").Should().BeNull();
     }
@@ -109,8 +111,8 @@ public sealed class SimulateTests
     }
 
     [Theory]
-    [InlineData(WorkbenchLocale.En, "Result: escalation, Urgent queue, yes, 1", "Row 1 decided because urgent (yes) is yes and Contact channel (the phone line) is the phone line.")]
-    [InlineData(WorkbenchLocale.Es, "Resultado: escalado, Cola urgente, sí, 1", "Decidió la fila 1 porque urgent (sí) es sí y Canal de contacto (la línea telefónica) es la línea telefónica.")]
+    [InlineData(WorkbenchLocale.En, "Result: escalation", "Row 1 decided because urgent is yes and Contact channel is the phone line.")]
+    [InlineData(WorkbenchLocale.Es, "Resultado: escalado", "Decidió la fila 1 porque urgent es sí y Canal de contacto es la línea telefónica.")]
     public void ADecidedResultHasItsHeadingItsReasonAndItsOutcome(WorkbenchLocale locale, string heading, string why)
     {
         using var harness = OpenIntake(locale);
@@ -133,6 +135,10 @@ public sealed class SimulateTests
         using var harness = OpenIntake();
         FillIntake(harness, WorkbenchLocale.En, "Phone", "billing-late", "true", "100");
 
+        // The rule has nine rows, so the six that do not apply are folded until asked for (the brief's threshold is six).
+        Words(harness).Should().Equal("Decides", "Matches, does not decide", "Matches, does not decide");
+        harness.Press("Show the 6 rows that do not apply");
+
         Words(harness).Should().Equal(
             "Decides", "Matches, does not decide", "Does not apply", "Does not apply", "Does not apply",
             "Does not apply", "Matches, does not decide", "Does not apply", "Does not apply");
@@ -143,19 +149,18 @@ public sealed class SimulateTests
         rows[0].ClassList.Should().Contain("wb-win");
         rows[1].ClassList.Should().NotContain("wb-win");
         rows[0].QuerySelectorAll(".wb-cond").Select(item => Harness.Normalise(item.TextContent)).Should().Equal(
-            "Met Urgent is yes. You entered yes.",
-            "Met Contact channel is the phone line. You entered the phone line.",
-            "Met Topic can be anything. You entered billing-late.");
+            "Met Urgent is yes.",
+            "Met Contact channel is the phone line.");
         rows[2].QuerySelectorAll(".wb-cond .wb-pill").Select(item => item.TextContent).Should().Equal("Not met", "Not met");
-        Harness.Normalise(rows[3].QuerySelectorAll(".wb-cond")[1].TextContent).Should().Be("Met Rating is empty. You did not enter this.");
+        Harness.Normalise(rows[3].QuerySelectorAll(".wb-cond")[1].TextContent).Should().Be("Met Rating has no value.");
         rows[^1].QuerySelector(".wb-num")!.TextContent.Should().Be("–");
         harness.FindAll(".wb-live .wb-row .wb-pill").Where(item => item.TextContent == "Decides").Should().ContainSingle()
             .Which.ClassList.Should().Contain("wb-pill-ok");
     }
 
     [Theory]
-    [InlineData(WorkbenchLocale.En, "Row 4 decided because Age in days (3) is at least 0 and less than 7 and rating is empty.")]
-    [InlineData(WorkbenchLocale.Es, "Decidió la fila 4 porque Antigüedad en días (3) es como mínimo 0 y menor que 7 y rating está vacío.")]
+    [InlineData(WorkbenchLocale.En, "Row 4 decided because Age in days (3) is at least 0 and less than 7 and rating has no value.")]
+    [InlineData(WorkbenchLocale.Es, "Decidió la fila 4 porque Antigüedad en días (3) es como mínimo 0 y menor que 7 y rating no tiene valor.")]
     public void TheReasonNamesTheTypedValueRightAfterTheLabelOfEachCondition(WorkbenchLocale locale, string why)
     {
         using var harness = OpenIntake(locale);
@@ -164,8 +169,8 @@ public sealed class SimulateTests
     }
 
     [Theory]
-    [InlineData(WorkbenchLocale.En, "No row matched, so the default case applies.", "Result: standard handling, General queue", "Decides")]
-    [InlineData(WorkbenchLocale.Es, "Ninguna fila se cumplió, así que aplica el caso por defecto.", "Resultado: trámite estándar, Cola general", "Decide")]
+    [InlineData(WorkbenchLocale.En, "No row matched, so the default case applies.", "Result: standard handling", "Decides")]
+    [InlineData(WorkbenchLocale.Es, "Ninguna fila se cumplió, así que aplica el caso por defecto.", "Resultado: trámite estándar", "Decide")]
     public void WhenNoRowMatchesTheDefaultRowDecides(WorkbenchLocale locale, string why, string heading, string word)
     {
         using var harness = OpenIntake(locale);
@@ -318,7 +323,7 @@ public sealed class SimulateTests
             ("Age in days", "abc", "Enter a whole number, for example 12."),
             ("rating", "x", "Enter a number, for example 7.5."),
             ("received on", "not-a-date", "Choose a date."),
-            ("amount", "12", "Enter an amount and a three-letter currency, for example 12.50 USD."),
+            ("amount", "twelve", "Enter an amount and a three-letter currency, for example 12.50 USD."),
             ("Contact channel", "Bogus", "Choose one of the options."),
             ("topic", "", "This is required."),
         };
@@ -362,10 +367,10 @@ public sealed class SimulateTests
         FillIntake(harness, WorkbenchLocale.En, "Web", "x", "false", "30", run: false);
         harness.Type("rating", "2");
         harness.Type("amount", "250.00");
-        harness.Find("input.wb-in-currency").Change("usd");
+        harness.Find("select.wb-in-currency").Change("USD");
         harness.Press("Simulate");
 
-        harness.Find(".wb-result .wb-h2").TextContent.Should().Be("Result: manual review, Review queue, 4");
+        harness.Find(".wb-result .wb-h2").TextContent.Should().Be("Result: manual review");
         harness.Find(".wb-why").TextContent.Should().Contain("amount (250.00 USD)");
     }
 
@@ -440,7 +445,7 @@ public sealed class SimulateTests
         using var harness = OpenIntake();
         harness.Find("select[id$=-load]").Change("5");
         harness.Input("amount").GetAttribute("value").Should().Be("250");
-        harness.Find("input.wb-in-currency").GetAttribute("value").Should().Be("USD");
+        harness.Find("select.wb-in-currency").GetAttribute("value").Should().Be("USD");
         harness.Input("rating").GetAttribute("value").Should().Be("2");
 
         harness.Find("select[id$=-load]").Change("0");

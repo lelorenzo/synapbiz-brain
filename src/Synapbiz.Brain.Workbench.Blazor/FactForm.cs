@@ -28,6 +28,41 @@ internal sealed class FactForm
 
     internal string CurrencyOf(string name) => currencies.GetValueOrDefault(name, string.Empty);
 
+    /// <summary>The currency the select shows: the chosen one, or the default.</summary>
+    internal string CurrencyChoice(string name) =>
+        currencies.GetValueOrDefault(name, string.Empty) is { Length: > 0 } chosen ? chosen : DefaultCurrency;
+
+    /// <summary>The currency a money field starts with.</summary>
+    internal const string DefaultCurrency = "USD";
+
+    /// <summary>
+    /// The currencies the select of a money fact offers: the default one first, then every currency a condition on that fact
+    /// names in a money operand, once each, in ordinal order. A currency already loaded into the field (from a test case) is kept
+    /// at the end so that loading a case never changes its value.
+    /// </summary>
+    internal static List<string> CurrencyOptions(BrainRule rule, string factName, string loaded)
+    {
+        var found = new SortedSet<string>(StringComparer.Ordinal);
+        var rows = rule.Table.DefaultRow is null ? rule.Table.Rows : [.. rule.Table.Rows, rule.Table.DefaultRow];
+        foreach (var condition in rows.SelectMany(row => row.Conditions).Where(condition => string.Equals(condition.FactName, factName, StringComparison.Ordinal)))
+        {
+            IEnumerable<DecisionValue?> operands = [.. condition.Values, condition.Value, condition.UpperValue];
+            foreach (var operand in operands.OfType<MoneyValue>())
+            {
+                found.Add(operand.Currency);
+            }
+        }
+
+        found.Remove(DefaultCurrency);
+        List<string> options = [DefaultCurrency, .. found];
+        if (loaded.Length > 0 && !options.Contains(loaded, StringComparer.Ordinal))
+        {
+            options.Add(loaded);
+        }
+
+        return options;
+    }
+
     internal void SetText(string name, string? text) => texts[name] = text ?? string.Empty;
 
     internal void SetCurrency(string name, string? text) => currencies[name] = text ?? string.Empty;
@@ -114,7 +149,6 @@ internal sealed class FactForm
     private string JoinMoney(string name)
     {
         var amount = TextOf(name).Trim();
-        var currency = CurrencyOf(name).Trim().ToUpperInvariant();
-        return string.IsNullOrEmpty(amount) && string.IsNullOrEmpty(currency) ? string.Empty : (amount + " " + currency).Trim();
+        return amount.Length == 0 ? string.Empty : amount + " " + CurrencyChoice(name).Trim().ToUpperInvariant();
     }
 }

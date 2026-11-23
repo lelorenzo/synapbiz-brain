@@ -9,7 +9,7 @@
 @using Nuvora.Decisions.Contracts.Kinds
 @implements IDisposable
 
-<div class="wb-root" lang="@(Locale == WorkbenchLocale.Es ? "es" : "en")">
+<div class="wb-root" lang="@LangCode">
     <div class="wb-main">
         <div class="wb-panel wb-list-panel">
             <div class="wb-ph">
@@ -199,6 +199,8 @@
         }
     </div>;
 
+    private RenderFragment MissingNote(RuleWork work, string target) => @<span class="wb-missing-note"><span class="wb-missing">@Rich("review.noteMissing")</span> <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => WriteNote(work, target)">@Rich("review.writeNote")</button></span>;
+
     private RenderFragment NoteEditor(RuleWork work, string target, string labelKey)
     {
         var entry = work.Review(target);
@@ -220,13 +222,14 @@
         </div>;
     }
 
-    private RenderFragment FactFields(FactForm form, IReadOnlyList<ShownFact> shown, string scope, Action? changed) => @<text>
+    private RenderFragment FactFields(BrainRule brain, FactForm form, IReadOnlyList<ShownFact> shown, string scope, Action? changed) => @<text>
         @foreach (var item in shown)
         {
             var fact = item.Fact;
             var name = fact.Name;
             var fieldId = idp + "-" + scope + "-" + item.Index.ToString(CultureInfo.InvariantCulture);
-            var hint = HintText(fact);
+            var currencies = fact.Type == FactType.Money ? FactForm.CurrencyOptions(brain, name, form.CurrencyOf(name)) : [];
+            var hint = HintText(fact, currencies);
             var error = form.Errors.TryGetValue(name, out var code) ? ErrorKey(code) : null;
             var hintId = fieldId + "-hint";
             var errorId = fieldId + "-err";
@@ -265,13 +268,18 @@
                     }
                     else if (fact.Type == FactType.Date)
                     {
-                        <input id="@fieldId" type="date" class="@inputClass" value="@form.TextOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldRef(scope, item.Index)]" />
+                        <input id="@fieldId" type="date" lang="@LangCode" class="@inputClass" value="@form.TextOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldRef(scope, item.Index)]" />
                     }
                     else if (fact.Type == FactType.Money)
                     {
                         <div class="wb-money">
-                            <input id="@fieldId" type="text" inputmode="decimal" autocomplete="off" class="@inputClass" placeholder="@Plain("sim.amount")" aria-label="@Plain("sim.amount")" value="@form.TextOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldRef(scope, item.Index)]" />
-                            <input type="text" autocomplete="off" maxlength="3" class="@(inputClass + " wb-in-currency")" placeholder="@Plain("sim.currency")" aria-label="@Plain("sim.currency")" value="@form.CurrencyOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetCurrency(form, name, args, changed)" />
+                            <input id="@fieldId" type="text" inputmode="decimal" autocomplete="off" class="@inputClass" aria-label="@Plain("sim.amount")" value="@form.TextOf(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetField(form, name, args, changed)" @ref="refs[FieldRef(scope, item.Index)]" />
+                            <select class="@(inputClass + " wb-in-currency")" aria-label="@Plain("sim.currency")" value="@form.CurrencyChoice(name)" aria-describedby="@(describedBy.Length > 0 ? describedBy : null)" aria-invalid="@invalid" @onchange="args => SetCurrency(form, name, args, changed)">
+                                @foreach (var currency in currencies)
+                                {
+                                    <option value="@currency">@(currency)</option>
+                                }
+                            </select>
                         </div>
                     }
                     else
@@ -291,14 +299,14 @@
         }
     </text>;
 
-    private string HintText(FactDescriptor fact)
+    private string HintText(FactDescriptor fact, IReadOnlyList<string> currencies)
     {
         var parts = new List<string>();
         var type = fact.Type switch
         {
             FactType.Integer => "hint.integer",
             FactType.Decimal => "hint.decimal",
-            FactType.Money => "hint.money",
+            FactType.Money => currencies.Count > 1 ? "hint.money" : "hint.moneyUsd",
             _ => null,
         };
         if (type is not null)
@@ -408,7 +416,7 @@
             <div class="wb-grid2">
                 <div class="wb-card">
                     <h2 class="wb-h2">@Rich("sim.title")</h2>
-                    @FactFields(form, c.Shown, "sim", () => FieldChanged(work))
+                    @FactFields(c.Brain, form, c.Shown, "sim", () => FieldChanged(work))
                     <div class="wb-actions">
                         <button type="button" class="wb-btn wb-btn-primary" @onclick="() => RunSimulation(c.Rule, work, c.Shown)">@Rich("sim.run")</button>
                         <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => ClearSimulation(work, c.Shown)">@Rich("sim.clear")</button>
@@ -475,10 +483,10 @@
         var labels = c.Rule.Labels;
         var decided = result.Outcome as Decided;
         var groups = decided is null ? [] : OutcomeFormat.Groups(c.View, labels, Locale, decided.OutcomeJson);
-        var why = SimulationPresenter.Why(text, c.View, labels, result);
+        var why = SimulationPresenter.Why(text, c.Brain, c.View, labels, result);
         var deciding = SimulationPresenter.DecidingKeys(result);
         var composed = result.Rows.Count == 0 && c.Brain.Kind.Facts.Any(fact => fact.ComposedFromKind is not null);
-        var folded = c.View.Rows.Count > SimulationPresenter.FoldAfter && !work.ShowAllRows;
+        var folded = SimulationPresenter.RowCount(c.View) > SimulationPresenter.FoldAfter && !work.ShowAllRows;
         var shownRows = result.Rows.Where(row => !folded || row.Selected || (row.Matched && !row.IsDefault)).ToList();
         var hiddenCount = result.Rows.Count - shownRows.Count;
 
@@ -489,7 +497,7 @@
                     <div class="wb-stale-note">@Rich("sim.stale")</div>
                 }
                 <div class="wb-result-head">
-                    <h2 class="wb-h2 wb-h2-flush">@(decided is null ? Rich("sim.noDecision") : Rich("sim.resultTitle", ("values", OutcomeFormat.Summary(groups))))</h2>
+                    <h2 class="wb-h2 wb-h2-flush">@(decided is null ? Rich("sim.noDecision") : Rich("sim.resultTitle", ("values", OutcomeFormat.HeadlineSummary(groups, c.Rule.HeadlineFields))))</h2>
                     <span class="@PillClass("sim")">@Rich("pill.simulation")</span>
                 </div>
                 @if (why is not null)
@@ -531,17 +539,24 @@
                     }
 
                     var word = SimulationPresenter.Word(explanation);
+                    var listed = row.Conditions.Where(condition => !SimulationPresenter.AcceptsAny(c.Brain, row, condition)).ToList();
                     <div class="@(RowClass(explanation.Selected) + stale)">
                         <span class="wb-num">@SimulationPresenter.Number(row)</span>
                         <div>
-                            <div class="wb-sent">@(explanation.Selected ? row.Sentence : SimulationPresenter.ShortSentence(text, row))</div>
-                            @foreach (var condition in row.Conditions)
+                            <div class="wb-sent">@(explanation.Selected ? row.Sentence : SimulationPresenter.ShortSentence(text, c.Brain, row))</div>
+                            @if (listed.Count == 0 && !row.IsDefault)
+                            {
+                                <div class="wb-cond"><span class="wb-cond-text">@Rich("row.always")</span></div>
+                            }
+                            @foreach (var condition in listed)
                             {
                                 var check = explanation.Conditions.FirstOrDefault(item => item.Index == condition.Index);
+                                var met = check is { Passed: true };
                                 var typed = check is null ? string.Empty : WorkbenchText.FormatValue(check.Actual, condition.FactName, Locale, labels);
+                                var entered = EnteredText(met, condition.Operator, typed);
                                 <div class="wb-cond">
-                                    <span class="@PillClass(check is { Passed: true } ? "ok" : "neutral")">@Rich(check is { Passed: true } ? "cond.met" : "cond.notMet")</span>
-                                    <span class="wb-cond-text">@SimulationPresenter.Capitalize(condition.Text). @(typed.Length > 0 ? Plain("sim.typed", ("value", typed)) : Plain("sim.notTyped"))</span>
+                                    <span class="@PillClass(met ? "ok" : "neutral")">@Rich(met ? "cond.met" : "cond.notMet")</span>
+                                    <span class="wb-cond-text">@(SimulationPresenter.Capitalize(condition.Text) + "." + (entered.Length > 0 ? " " + entered : string.Empty))</span>
                                 </div>
                             }
                             @if (word.Key == "row.matchesNoDecide" && c.View.HitPolicy == HitPolicy.First)
@@ -637,20 +652,28 @@
                                     }
                                     @if (testCase.FromDocument)
                                     {
-                                        <div class="wb-cell-gap">@ReviewControl(work, target, Plain("review.groupCase", ("name", testCase.Name)))</div>
+                                        var state = work.Review(target).State;
+                                        var lineOpen = work.OpenLines.Contains(target);
+                                        <div class="wb-cell-gap">
+                                            @if (state == ReviewState.Unreviewed)
+                                            {
+                                                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-expanded="@(lineOpen ? "true" : "false")" aria-controls="@LineId(target)" @onclick="() => ToggleLine(work, target)">@Rich("tests.review")</button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="@(PillClass(StateTone(state)) + " wb-pill-btn")" aria-expanded="@(lineOpen ? "true" : "false")" aria-controls="@LineId(target)" @onclick="() => ToggleLine(work, target)">@StateWord(state)</button>
+                                            }
+                                        </div>
                                     }
                                 </td>
                             </tr>
-                            @if (testCase.FromDocument && NoteVisible(work, target))
+                            @if (testCase.FromDocument && work.OpenLines.Contains(target))
                             {
-                                <tr>
-                                    <td colspan="5">@NoteEditor(work, target, "review.noteLabel")</td>
-                                </tr>
-                            }
-                            else if (testCase.FromDocument && work.Review(target).State == ReviewState.Confirmed)
-                            {
-                                <tr>
-                                    <td colspan="5">@NoteEditor(work, target, "review.noteLabel")</td>
+                                <tr class="wb-review-line" id="@LineId(target)">
+                                    <td colspan="5">
+                                        @ReviewControl(work, target, Plain("review.groupCase", ("name", testCase.Name)))
+                                        @NoteEditor(work, target, "review.noteLabel")
+                                    </td>
                                 </tr>
                             }
                         }
@@ -705,7 +728,7 @@
                     <div class="wb-errt" id="@(nameId + "-err")">@Rich(form.NameError)</div>
                 }
             </div>
-            @FactFields(form.Facts, c.Shown, "case", null)
+            @FactFields(c.Brain, form.Facts, c.Shown, "case", null)
             <div class="wb-field">
                 @if (collect)
                 {
@@ -778,6 +801,7 @@
         }
 
         var reviewerId = idp + "-reviewer";
+        var missingNotes = MissingNoteCount();
 
         return @<text>
             @PrivacyNotice()
@@ -791,6 +815,10 @@
                             @ReviewControl(work, "rule", Plain("review.groupRule"))
                         </div>
                         @NoteEditor(work, "rule", "review.noteShort")
+                        @if (work.Review("rule").NeedsNote)
+                        {
+                            <div class="wb-cell-gap">@MissingNote(work, "rule")</div>
+                        }
                     </div>
                     @if (!hasItems && !ruleExported)
                     {
@@ -813,7 +841,7 @@
                                     <tr>
                                         <td>@Plain("row.label", ("n", SimulationPresenter.Number(row)))<div class="wb-sub">@row.Sentence</div></td>
                                         <td><span class="@PillClass(StateTone(entry.State))">@StateWord(entry.State)</span></td>
-                                        <td>@if (entry.Note.Length > 0) { @entry.Note } else { <span class="wb-sub">@Rich("review.noNote")</span> }</td>
+                                        <td>@if (entry.NeedsNote) { @MissingNote(work, RowTarget(row)) } else if (entry.Note.Length > 0) { @entry.Note } else { <span class="wb-sub">@Rich("review.noNote")</span> }</td>
                                     </tr>
                                 }
                                 @foreach (var goldenName in goldenItems.Select(golden => golden.Name))
@@ -822,7 +850,7 @@
                                     <tr>
                                         <td>@Plain("review.case", ("name", goldenName))</td>
                                         <td><span class="@PillClass(StateTone(entry.State))">@StateWord(entry.State)</span></td>
-                                        <td>@if (entry.Note.Length > 0) { @entry.Note } else { <span class="wb-sub">@Rich("review.noNote")</span> }</td>
+                                        <td>@if (entry.NeedsNote) { @MissingNote(work, CaseTarget(goldenName)) } else if (entry.Note.Length > 0) { @entry.Note } else { <span class="wb-sub">@Rich("review.noNote")</span> }</td>
                                     </tr>
                                 }
                                 @foreach (var proposedName in work.Cases.Select(proposed => proposed.Name))
@@ -866,6 +894,10 @@
                         <div class="wb-actions">
                             <button type="button" class="wb-btn wb-btn-primary" disabled="@(exportable == 0)" @onclick="ExportAsync">@Rich("review.export")</button>
                         </div>
+                        @if (notesHeld && missingNotes > 0)
+                        {
+                            <div class="wb-errt" role="alert">@Rich("review.notesNeeded", ("n", OutcomeFormat.Number(missingNotes)))</div>
+                        }
                         @if (exportable == 0)
                         {
                             <div class="wb-hint">@Rich("review.nothingToExport")</div>

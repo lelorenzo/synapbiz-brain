@@ -20,7 +20,7 @@ public sealed class RuleDescriberTests
 
     [Fact]
     public void AnEnumSetIsListedWithItsMembers() =>
-        ReadinessRow("late-stage", WorkbenchLocale.En).Sentence.Should().Be("If stage is one of Review, Complete, then note is late-stage.");
+        ReadinessRow("late-stage", WorkbenchLocale.En).Sentence.Should().Be("If stage is Review or Complete, then note is late-stage.");
 
     [Fact]
     public void TheReadinessViewCarriesTheRuleFactsAndRowsInOrder()
@@ -43,26 +43,26 @@ public sealed class RuleDescriberTests
 
     private static readonly string[] EnglishSentences =
     [
-        "If urgent is yes and channel is Phone, then route is Escalate, queue is urgent, notify is yes, priority is 1.",
-        "If topic starts with bill and channel is not Email, then route is Fast, queue is billing, notify is no, priority is 2.",
-        "If topic is one of invoice, refund and channel is one of Email, Web, then route is Standard, queue is billing-email, priority is 2.",
-        "If age days is at least 0 and less than 7 and rating is empty, then route is Fast, queue is new.",
-        "If rating is greater than 3 and at most 5 and received on is not empty, then route is Standard, queue is followup, notify is yes.",
-        "If amount is greater than 100 USD and less than 500 USD and age days is between 7 and 60, then route is Manual, queue is review, priority is 4.",
-        "If age days is at least 61, then route is Manual, queue is backlog, priority is 5.",
-        "If account is empty and channel is none of Phone, Email and age days is less than 365 and received on is at most 06/30/2026, then route is Manual, queue is unassigned, notify is no.",
+        "If urgent is yes and channel is Phone, then route is Escalate, queue is urgent, notify is yes and priority is 1.",
+        "If topic starts with bill and channel is not Email, then route is Fast, queue is billing, notify is no and priority is 2.",
+        "If topic is invoice or refund and channel is Email or Web, then route is Standard, queue is billing-email and priority is 2.",
+        "If age days is at least 0 and less than 7 and rating has no value, then route is Fast and queue is new.",
+        "If rating is greater than 3 and at most 5 and received on has a value, then route is Standard, queue is followup and notify is yes.",
+        "If amount is greater than 100 USD and less than 500 USD and age days is between 7 and 60, then route is Manual, queue is review and priority is 4.",
+        "If age days is at least 61, then route is Manual, queue is backlog and priority is 5.",
+        "If account has no value, channel is not Phone or Email, age days is less than 365 and received on is at most 06/30/2026, then route is Manual, queue is unassigned and notify is no.",
     ];
 
     private static readonly string[] SpanishSentences =
     [
-        "Si urgent es sí y channel es Phone, entonces route es Escalate, queue es urgent, notify es sí, priority es 1.",
-        "Si topic empieza por bill y channel no es Email, entonces route es Fast, queue es billing, notify es no, priority es 2.",
-        "Si topic es uno de invoice, refund y channel es uno de Email, Web, entonces route es Standard, queue es billing-email, priority es 2.",
-        "Si age days es como mínimo 0 y menor que 7 y rating está vacío, entonces route es Fast, queue es new.",
-        "Si rating es mayor que 3 y como máximo 5 y received on no está vacío, entonces route es Standard, queue es followup, notify es sí.",
-        "Si amount es mayor que 100 USD y menor que 500 USD y age days está entre 7 y 60, entonces route es Manual, queue es review, priority es 4.",
-        "Si age days es como mínimo 61, entonces route es Manual, queue es backlog, priority es 5.",
-        "Si account está vacío y channel no es ninguno de Phone, Email y age days es menor que 365 y received on es como máximo 30/06/2026, entonces route es Manual, queue es unassigned, notify es no.",
+        "Si urgent es sí y channel es Phone, entonces route es Escalate, queue es urgent, notify es sí y priority es 1.",
+        "Si topic empieza por bill y channel no es Email, entonces route es Fast, queue es billing, notify es no y priority es 2.",
+        "Si topic es invoice o refund y channel es Email o Web, entonces route es Standard, queue es billing-email y priority es 2.",
+        "Si age days es como mínimo 0 y menor que 7 y rating no tiene valor, entonces route es Fast y queue es new.",
+        "Si rating es mayor que 3 y como máximo 5 y received on tiene valor, entonces route es Standard, queue es followup y notify es sí.",
+        "Si amount es mayor que 100 USD y menor que 500 USD y age days está entre 7 y 60, entonces route es Manual, queue es review y priority es 4.",
+        "Si age days es como mínimo 61, entonces route es Manual, queue es backlog y priority es 5.",
+        "Si account no tiene valor, channel no es Phone ni Email, age days es menor que 365 y received on es como máximo 30/06/2026, entonces route es Manual, queue es unassigned y notify es no.",
     ];
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class RuleDescriberTests
         var view = RuleDescriber.Describe(TestFiles.LoadIntake("intake.first.rule.json"), WorkbenchLocale.En);
 
         view.Rows.Select(row => row.Sentence).Should().Equal(EnglishSentences);
-        view.DefaultRow!.Sentence.Should().Be("Otherwise, route is Standard, queue is general.");
+        view.DefaultRow!.Sentence.Should().Be("Otherwise, route is Standard and queue is general.");
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class RuleDescriberTests
         var view = RuleDescriber.Describe(TestFiles.LoadIntake("intake.first.rule.json"), WorkbenchLocale.Es);
 
         view.Rows.Select(row => row.Sentence).Should().Equal(SpanishSentences);
-        view.DefaultRow!.Sentence.Should().Be("En cualquier otro caso, route es Standard, queue es general.");
+        view.DefaultRow!.Sentence.Should().Be("En cualquier otro caso, route es Standard y queue es general.");
     }
 
     [Theory]
@@ -164,7 +164,7 @@ public sealed class RuleDescriberTests
         view.Rows[0].Title.Should().Be("Urgent calls");
         view.Rows[1].Title.Should().BeNull();
         view.Rows[0].Sentence.Should().Be(
-            "If urgent is yes and Contact channel is the phone line, then Route is escalation, queue is urgent, notify is yes, priority is 1.");
+            "If urgent is yes and Contact channel is the phone line, then Route is escalation, queue is urgent, notify is yes and priority is 1.");
         view.Rows[0].Outcome[0].Should().Be(new OutcomeValueView("route", "Route", "Escalate", "escalation"));
         view.Rows[5].Sentence.Should().Contain("Age in days is between 7 and 60");
     }
@@ -180,7 +180,7 @@ public sealed class RuleDescriberTests
         view.Title.Should().Be("Enrutamiento de solicitudes");
         view.Rows[0].Title.Should().Be("Llamadas urgentes");
         view.Rows[0].Sentence.Should().Be(
-            "Si urgent es sí y Canal de contacto es la línea telefónica, entonces Ruta es escalado, queue es urgent, notify es sí, priority es 1.");
+            "Si urgent es sí y Canal de contacto es la línea telefónica, entonces Ruta es escalado, queue es urgent, notify es sí y priority es 1.");
     }
 
     [Fact]
@@ -304,10 +304,10 @@ public sealed class RuleDescriberTests
         var built = Samples.WithTable(rule, table);
 
         RuleDescriber.Describe(built, WorkbenchLocale.En).Rows[0].Conditions.Select(condition => condition.Text).Should().Equal(
-            "topic is a", "topic is not a", "topic is one of a, b", "topic is none of a, b", "rating is empty", "rating is not empty",
+            "topic is a", "topic is not a", "topic is a or b", "topic is not a or b", "rating has no value", "rating has a value",
             "topic starts with a", "age days is between 1 and 2", "age days is greater than 1", "age days is at most 2");
         RuleDescriber.Describe(built, WorkbenchLocale.Es).Rows[0].Conditions.Select(condition => condition.Text).Should().Equal(
-            "topic es a", "topic no es a", "topic es uno de a, b", "topic no es ninguno de a, b", "rating está vacío", "rating no está vacío",
+            "topic es a", "topic no es a", "topic es a o b", "topic no es a ni b", "rating no tiene valor", "rating tiene valor",
             "topic empieza por a", "age days está entre 1 y 2", "age days es mayor que 1", "age days es como máximo 2");
     }
 
@@ -342,5 +342,71 @@ public sealed class RuleDescriberTests
         var table = new DecisionTable(HitPolicy.First, [Samples.RowOf("r", "null")], null);
 
         RuleDescriber.Describe(Samples.WithTable(rule, table), WorkbenchLocale.En).Rows.Single().Outcome.Should().BeEmpty();
+    }
+
+    private static string[] Letters(int count) => [.. "abcd".Take(count).Select(letter => letter.ToString())];
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, 1, "topic is a", "topic is not a")]
+    [InlineData(WorkbenchLocale.En, 2, "topic is a or b", "topic is not a or b")]
+    [InlineData(WorkbenchLocale.En, 3, "topic is a, b or c", "topic is not a, b or c")]
+    [InlineData(WorkbenchLocale.En, 4, "topic is a, b, c or d", "topic is not a, b, c or d")]
+    [InlineData(WorkbenchLocale.Es, 1, "topic es a", "topic no es a")]
+    [InlineData(WorkbenchLocale.Es, 2, "topic es a o b", "topic no es a ni b")]
+    [InlineData(WorkbenchLocale.Es, 3, "topic es a, b o c", "topic no es a, b ni c")]
+    [InlineData(WorkbenchLocale.Es, 4, "topic es a, b, c o d", "topic no es a, b, c ni d")]
+    public void ValuesOfASetAreJoinedWithTheFinalJoinerAndNoCommaBeforeIt(WorkbenchLocale locale, int count, string expectedIn, string expectedNotIn)
+    {
+        var values = Letters(count).Select(DecisionValue.Code).ToList();
+        var table = new DecisionTable(
+            HitPolicy.First,
+            [Samples.RowOf("all", """{"route":"Fast"}""", Condition.In("topic", values), Condition.NotIn("topic", values))],
+            null);
+        var built = Samples.WithTable(TestFiles.LoadIntake("intake.first.rule.json"), table);
+
+        RuleDescriber.Describe(built, locale).Rows[0].Conditions.Select(condition => condition.Text).Should().Equal(expectedIn, expectedNotIn);
+    }
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, 1, "If topic is a, then route is Fast.")]
+    [InlineData(WorkbenchLocale.En, 2, "If topic is a and urgent is yes, then route is Fast.")]
+    [InlineData(WorkbenchLocale.En, 3, "If topic is a, urgent is yes and age days is at least 1, then route is Fast.")]
+    [InlineData(WorkbenchLocale.En, 4, "If topic is a, urgent is yes, age days is at least 1 and rating has a value, then route is Fast.")]
+    [InlineData(WorkbenchLocale.Es, 1, "Si topic es a, entonces route es Fast.")]
+    [InlineData(WorkbenchLocale.Es, 2, "Si topic es a y urgent es sí, entonces route es Fast.")]
+    [InlineData(WorkbenchLocale.Es, 3, "Si topic es a, urgent es sí y age days es como mínimo 1, entonces route es Fast.")]
+    [InlineData(WorkbenchLocale.Es, 4, "Si topic es a, urgent es sí, age days es como mínimo 1 y rating tiene valor, entonces route es Fast.")]
+    public void ConditionsOfASentenceAreJoinedWithTheFinalJoinerAndNoCommaBeforeIt(WorkbenchLocale locale, int count, string expected)
+    {
+        Condition[] all =
+        [
+            Condition.Equals("topic", DecisionValue.Code("a")),
+            Condition.Equals("urgent", DecisionValue.Boolean(true)),
+            Condition.Range("ageDays", DecisionValue.Integer(1), null, true, true),
+            Condition.IsNotNull("rating"),
+        ];
+        var table = new DecisionTable(HitPolicy.First, [Samples.RowOf("r", """{"route":"Fast"}""", [.. all.Take(count)])], null);
+        var built = Samples.WithTable(TestFiles.LoadIntake("intake.first.rule.json"), table);
+
+        RuleDescriber.Describe(built, locale).Rows[0].Sentence.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, 1, "In every case, route is Fast.")]
+    [InlineData(WorkbenchLocale.En, 2, "In every case, route is Fast and queue is new.")]
+    [InlineData(WorkbenchLocale.En, 3, "In every case, route is Fast, queue is new and notify is yes.")]
+    [InlineData(WorkbenchLocale.En, 4, "In every case, route is Fast, queue is new, notify is yes and priority is 2.")]
+    [InlineData(WorkbenchLocale.Es, 1, "En todos los casos, route es Fast.")]
+    [InlineData(WorkbenchLocale.Es, 2, "En todos los casos, route es Fast y queue es new.")]
+    [InlineData(WorkbenchLocale.Es, 3, "En todos los casos, route es Fast, queue es new y notify es sí.")]
+    [InlineData(WorkbenchLocale.Es, 4, "En todos los casos, route es Fast, queue es new, notify es sí y priority es 2.")]
+    public void OutcomePartsAreJoinedWithTheFinalJoinerAndNoCommaBeforeIt(WorkbenchLocale locale, int count, string expected)
+    {
+        string[] members = ["\"route\":\"Fast\"", "\"queue\":\"new\"", "\"notify\":true", "\"priority\":2"];
+        var outcome = "{" + string.Join(",", members.Take(count)) + "}";
+        var table = new DecisionTable(HitPolicy.First, [Samples.RowOf("r", outcome)], null);
+        var built = Samples.WithTable(TestFiles.LoadIntake("intake.first.rule.json"), table);
+
+        RuleDescriber.Describe(built, locale).Rows[0].Sentence.Should().Be(expected);
     }
 }

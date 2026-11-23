@@ -1,4 +1,5 @@
-// Captures the panels of the demo host in light and dark (Spanish) and once in English.
+// Captures the panels of the demo host in light and dark (Spanish) and once in English, plus two light pictures of the
+// review line in the test table and of an item that still needs its note.
 // Run the demo first:  dotnet run -c Release --urls http://127.0.0.1:5219
 // Then:                node screenshots.mjs [baseUrl] [outputFolder]
 import { createRequire } from 'node:module';
@@ -17,7 +18,8 @@ const text = {
     channel: 'Canal de contacto', topic: 'Tema', age: 'Antigüedad en días', yes: 'Sí',
     tabs: { read: 'Leer', simulate: 'Simular', tests: 'Casos de prueba', review: 'Revisión' },
     addCase: 'Agregar un caso', saveCase: 'Guardar caso', caseName: 'Nombre del caso', expected: 'Resultado que se espera',
-    reviewer: 'Su nombre', note: 'Nota para quien mantiene la regla',
+    reviewer: 'Su nombre', note: 'Nota para quien mantiene la regla', review: 'Revisar', export: 'Exportar la revisión',
+    noteCase: '¿Debe pasar este caso aunque el canal sea el correo?',
     noteRow: '¿El límite de 7 días es el correcto?', noteQuestion: '¿Debe ganar siempre el teléfono?',
     caseTitle: 'Una llamada urgente de ejemplo', person: 'Revisor de ejemplo',
   },
@@ -26,7 +28,8 @@ const text = {
     channel: 'Contact channel', topic: 'Topic', age: 'Age in days', yes: 'Yes',
     tabs: { read: 'Read', simulate: 'Simulate', tests: 'Test cases', review: 'Review' },
     addCase: 'Add a case', saveCase: 'Save case', caseName: 'Case name', expected: 'Expected result',
-    reviewer: 'Your name', note: "Note for the rule's maintainer",
+    reviewer: 'Your name', note: "Note for the rule's maintainer", review: 'Review', export: 'Export the review',
+    noteCase: 'Should this case pass even when the channel is email?',
     noteRow: 'Is the 7 day limit the right one?', noteQuestion: 'Should the phone always win?',
     caseTitle: 'An urgent call made up for the test', person: 'Example reviewer',
   },
@@ -72,7 +75,7 @@ async function fillIntake(page, t, { channel, topic, urgent, age }) {
 
 async function session(theme, locale, states) {
   const t = text[locale];
-  const context = await browser.newContext({ viewport: { width: 1408, height: 1025 }, deviceScaleFactor: 2 });
+  const context = await browser.newContext({ viewport: { width: 1408, height: 1025 }, deviceScaleFactor: 2, locale: locale === 'es' ? 'es-ES' : 'en-US' });
   const page = await context.newPage();
   await page.goto(`${base}/?theme=${theme}&locale=${locale}`);
   await page.waitForSelector('.wb-root .wb-rule');
@@ -129,6 +132,30 @@ async function session(theme, locale, states) {
     await shot(page, 'tests', theme, locale);
   }
 
+  if (states.includes('tests-review')) {
+    // A case row with its review line open: the third case, marked "fix" with a note typed.
+    await openTab(page, t, 'tests');
+    await page.locator('.wb-table tbody tr').nth(2).getByRole('button', { name: t.review, exact: true }).click();
+    await settle(page);
+    await page.locator('.wb-review-line .wb-rv').getByRole('button', { name: t.fix, exact: true }).click();
+    await settle(page);
+    await setText(page.locator('.wb-review-line').getByLabel(t.note, { exact: true }), t.noteCase, page);
+    await shot(page, 'tests-review', theme, locale);
+  }
+
+  if (states.includes('review-note-missing')) {
+    // A fix and a question with no note: the Review tab marks them and the export is held.
+    await openTab(page, t, 'read');
+    await page.locator('.wb-row .wb-rv').nth(1).getByRole('button', { name: t.fix, exact: true }).click();
+    await settle(page);
+    await page.locator('.wb-row .wb-rv').nth(2).getByRole('button', { name: t.question, exact: true }).click();
+    await settle(page);
+    await openTab(page, t, 'review');
+    await setText(page.getByLabel(t.reviewer, { exact: true }), t.person, page);
+    await press(page, t.export);
+    await shot(page, 'review-note-missing', theme, locale);
+  }
+
   if (states.includes('review')) {
     await openTab(page, t, 'read');
     await page.locator('.wb-row .wb-rv').nth(0).getByRole('button', { name: t.confirm, exact: true }).click();
@@ -148,5 +175,7 @@ for (const theme of ['light', 'dark']) {
   await session(theme, 'es', ['read', 'simulate', 'error', 'refusal', 'tests', 'review']);
 }
 await session('light', 'en', ['simulate']);
+await session('light', 'es', ['tests-review']);
+await session('light', 'es', ['review-note-missing']);
 
 await browser.close();
