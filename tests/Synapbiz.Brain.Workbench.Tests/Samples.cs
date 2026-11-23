@@ -60,12 +60,17 @@ internal static class Samples
     /// test needs (a range with no bound, an outcome with extra members), so the tests build the rule through its internal
     /// constructor and do not need access to the library's internals.
     /// </summary>
-    internal static BrainRule WithTable(BrainRule rule, DecisionTable table, DecisionKindDescriptor? kind = null)
+    internal static BrainRule WithTable(
+        BrainRule rule,
+        DecisionTable table,
+        DecisionKindDescriptor? kind = null,
+        IReadOnlyList<GoldenCase>? goldens = null,
+        long? version = null)
     {
         var constructor = typeof(BrainRule).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
         var rowIds = table.Rows.Concat(table.DefaultRow is null ? [] : [table.DefaultRow])
             .ToDictionary(row => row.Key, row => row.Key, StringComparer.Ordinal);
-        return (BrainRule)constructor.Invoke([rule.Id, rule.Version, kind ?? rule.Kind, table, rule.Goldens, rowIds, new JsonObject()]);
+        return (BrainRule)constructor.Invoke([rule.Id, version ?? rule.Version, kind ?? rule.Kind, table, goldens ?? rule.Goldens, rowIds, new JsonObject()]);
     }
 
     internal static GoldenCase Case(string name, IReadOnlyDictionary<string, DecisionValue> facts, GoldenExpectation expected) =>

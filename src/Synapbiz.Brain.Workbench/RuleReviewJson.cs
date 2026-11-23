@@ -26,6 +26,8 @@ public static class RuleReviewJson
 
     private const string CreatedAtFormat = "yyyy-MM-dd'T'HH:mm:sszzz";
 
+    private static readonly string[] CreatedAtFormats = [CreatedAtFormat, "yyyy-MM-dd'T'HH:mm:ss'Z'"];
+
     private static readonly JsonSerializerOptions CompactOutcome = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary><c>sha256:</c> and the lower-case hexadecimal SHA-256 of the UTF-8 bytes of the text exactly as given.</summary>
@@ -109,6 +111,19 @@ public static class RuleReviewJson
             return Failed(ErrorMalformed, string.Empty, "The document must be a JSON object.");
         }
 
+        try
+        {
+            return Read(document);
+        }
+        catch (ArgumentException)
+        {
+            // System.Text.Json refuses to look a member up in an object that repeats a member name.
+            return Failed(ErrorJsonInvalid, string.Empty, "The document repeats a member name.");
+        }
+    }
+
+    private static RuleReviewParseResult Read(JsonObject document)
+    {
         var spec = document["$spec"];
         if (spec is JsonValue value && value.TryGetValue<string>(out var format) && !string.Equals(format, Format, StringComparison.Ordinal))
         {
@@ -306,7 +321,8 @@ public static class RuleReviewJson
     private static DateTimeOffset? DateOf(JsonObject owner, string name, List<WorkbenchError> errors)
     {
         var text = Text(owner[name]);
-        if (text is not null && DateTimeOffset.TryParseExact(text, "yyyy-MM-dd'T'HH:mm:ssK", CultureInfo.InvariantCulture, DateTimeStyles.None, out var moment))
+        if (text is not null
+            && DateTimeOffset.TryParseExact(text, CreatedAtFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var moment))
         {
             return moment;
         }
@@ -396,9 +412,9 @@ public static class RuleReviewJson
 
     private static (bool NoDecision, string? OutcomeJson, string? RowId)? ReadExpectation(JsonObject expect, string path, List<WorkbenchError> errors)
     {
-        if (expect["noDecision"] is { } flag)
+        if (expect.ContainsKey("noDecision"))
         {
-            if (flag is JsonValue { } value && value.GetValueKind() == JsonValueKind.True)
+            if (expect["noDecision"] is JsonValue flag && flag.GetValueKind() == JsonValueKind.True)
             {
                 return (true, null, null);
             }
