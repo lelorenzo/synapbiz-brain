@@ -575,7 +575,7 @@
                                 }
                                 @if (line.LabelAt is { } labelAt)
                                 {
-                                    @SvgText(labelAt.X, labelAt.Y, "wb-edge-t", line.ShortLabel!, "start")
+                                    @SvgText(labelAt.X, labelAt.Y, "wb-edge-t", line.ShortLabel!, line.LabelEndsAtPoint ? "end" : "start")
                                 }
                             </g>
                         }

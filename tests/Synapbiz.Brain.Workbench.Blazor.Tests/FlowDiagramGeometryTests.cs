@@ -253,12 +253,12 @@ public sealed class FlowDiagramGeometryTests
         "escalate>closed:M 577 616 L 577 642 L 349 642 L 349 704",
         "escalate_final>done:M 805 616 L 805 650 L 167 650 L 167 704",
         "escalate_final>closed:M 867 616 L 867 658 L 411 658 L 411 704");
-        layout.Lines.Where(line => line.LabelAt is not null).Select(line => $"{line.From}>{line.To}:{line.ShortLabel}@{line.LabelAt!.Value.X},{line.LabelAt.Value.Y}").Should().Equal(
-        "assess>send:some@148,362",
-        "assess>done:none@102,362",
+        layout.Lines.Where(line => line.LabelAt is not null).Select(line => $"{line.From}>{line.To}:{line.ShortLabel}@{line.LabelAt!.Value.X},{line.LabelAt.Value.Y}{(line.LabelEndsAtPoint ? " end" : string.Empty)}").Should().Equal(
+        "assess>send:so…@148,362",
+        "assess>done:none@78,362 end",
         "escalate>cycle:Resolved@651,630",
-        "escalate>closed:Unreachable@589,630",
-        "escalate_final>done:Resolved@817,630",
+        "escalate>closed:Unrea…@565,630 end",
+        "escalate_final>done:Resol…@793,630 end",
         "escalate_final>closed:Unreachable@879,630");
         layout.Lines.Where(line => line.Marks.Count > 0).Select(line => $"{line.From}>{line.To}:{string.Join(";", line.Marks.Select(mark => $"{(mark.IsCount ? "count" : "untried")}@{mark.X},{mark.Y}"))}").Should().Equal(
         "assess>escalate:count@182,362",
@@ -269,6 +269,31 @@ public sealed class FlowDiagramGeometryTests
         "escalate_final>closed:count@867,630");
     }
 
+    [Theory]
+    [MemberData(nameof(EveryDocumentInBothLanguages))]
+    public void ALabelEndsBeforeTheNextPortOfItsStepSoNoTwoLabelsOrMarksTouch(string name, WorkbenchLocale locale)
+    {
+        var (layout, _) = Of(name, locale);
+        foreach (var group in layout.Lines.GroupBy(line => line.From))
+        {
+            var ordered = group.OrderBy(line => line.Points[0].X).ToList();
+            var source = layout.Nodes.Single(box => box.Id == group.Key);
+            foreach (var left in ordered.Where(line => line.LabelEndsAtPoint))
+            {
+                (left.LabelAt!.Value.X - (left.ShortLabel!.Length * DiagramLayout.CharWidth)).Should().BeGreaterThanOrEqualTo(source.X, name + " " + left.From + ">" + left.To);
+            }
+
+            for (var position = 0; position < ordered.Count - 1; position++)
+            {
+                var line = ordered[position];
+                if (line.LabelAt is { } at && !line.LabelEndsAtPoint)
+                {
+                    (at.X + (line.ShortLabel!.Length * DiagramLayout.CharWidth)).Should().BeLessThanOrEqualTo(ordered[position + 1].Points[0].X - DiagramLayout.MarkRadius, name + " " + line.From + ">" + line.To);
+                }
+            }
+        }
+    }
+
     [Fact]
     public void TheWidestReferenceFlowFitsInElevenHundredUnitsAndTheViewBoxIsSizedToTheContent()
     {
@@ -276,7 +301,7 @@ public sealed class FlowDiagramGeometryTests
         {
             var (layout, _) = Of(name, WorkbenchLocale.En);
             layout.Width.Should().BeLessThanOrEqualTo(1100, name);
-            var text = layout.Lines.Where(line => line.LabelAt is not null).Select(line => line.LabelAt!.Value.X + (line.ShortLabel!.Length * DiagramLayout.CharWidth)).DefaultIfEmpty(0).Max();
+            var text = layout.Lines.Where(line => line.LabelAt is not null && !line.LabelEndsAtPoint).Select(line => line.LabelAt!.Value.X + (line.ShortLabel!.Length * DiagramLayout.CharWidth)).DefaultIfEmpty(0).Max();
             var right = new[] { layout.Nodes.Max(box => box.X + box.Width), layout.Lines.SelectMany(line => line.Points).Max(spot => spot.X), text }.Max();
             layout.Width.Should().Be(right + DiagramLayout.Padding, name);
         }

@@ -34,7 +34,8 @@ internal sealed record DrawnLine(
     bool IsReturn,
     IReadOnlyList<LineMark> Marks,
     string? ShortLabel,
-    Spot? LabelAt)
+    Spot? LabelAt,
+    bool LabelEndsAtPoint = false)
 {
     /// <summary>The segments of the line, each between two consecutive points.</summary>
     internal IEnumerable<(Spot A, Spot B)> Segments => Points.Zip(Points.Skip(1), (a, b) => (a, b));
@@ -57,7 +58,9 @@ internal sealed record DrawnLine(
 /// lane for each line that uses a stretch of a gutter, and enters the top edge of the other step. Two steps in the same column and
 /// adjacent rows are joined by a straight vertical line. A route that returns, or leads to an earlier band, runs to a lane at the
 /// right of the bands (one lane for each route) and enters the other step from its right side.</item>
-/// <item>The short label of a decision route and the "not tried" sign sit 14 units below the port of the line, on its first segment.</item>
+/// <item>The short label of a decision route and the "not tried" sign sit 14 units below the port of the line, on its first segment.
+/// The leftmost labelled line of a step that has several lines writes its label to the left of its port, the others to the right of theirs;
+/// a label is cut with an ellipsis so that it ends before the next port of the same step (the full text is in the title of the line).</item>
 /// </list>
 /// </summary>
 internal sealed record DiagramLayout(
@@ -183,6 +186,12 @@ internal sealed record DiagramLayout(
         internal int Order { get; set; }
 
         internal int SourceX { get; set; }
+
+        internal int NextPortX { get; set; } = int.MaxValue;
+
+        internal int SourceLeft { get; set; }
+
+        internal bool LabelLeft { get; set; }
 
         internal int TargetX { get; set; }
 
@@ -723,7 +732,7 @@ internal sealed record DiagramLayout(
                 bands.Add(new BandBox(bandStages[position], isLoose, bandTop[position], bandHeight[position], Padding, bandTop[position] + LabelBaseline, labelWidth));
             }
 
-            var textRight = drawn.Select(line => line.LabelAt is { } at ? at.X + (line.ShortLabel!.Length * CharWidth) : 0).DefaultIfEmpty(0).Max();
+            var textRight = drawn.Select(line => line.LabelAt is { } at && !line.LabelEndsAtPoint ? at.X + (line.ShortLabel!.Length * CharWidth) : 0).DefaultIfEmpty(0).Max();
             var contentRight = Math.Max(nodes.Select(box => box.X + box.Width).DefaultIfEmpty(0).Max(), drawn.SelectMany(line => line.Points).Select(spot => spot.X).DefaultIfEmpty(0).Max());
             var width = Math.Max(Math.Max(contentRight, labelRight + Padding), textRight) + Padding;
             return new DiagramLayout(
@@ -750,6 +759,14 @@ internal sealed record DiagramLayout(
                 for (var position = 0; position < leaving.Count; position++)
                 {
                     leaving[position].SourceX = xs[position];
+                }
+
+                var firstLabelled = leaving.Count > 1 ? leaving.Where(pair => pair.Routes.Any(route => route.ShortLabel is not null)).OrderBy(pair => pair.SourceX).FirstOrDefault() : null;
+                foreach (var pair in leaving)
+                {
+                    pair.SourceLeft = box.X;
+                    pair.LabelLeft = ReferenceEquals(pair, firstLabelled);
+                    pair.NextPortX = leaving.Where(other => other.SourceX > pair.SourceX).Select(other => other.SourceX).DefaultIfEmpty(int.MaxValue).Min();
                 }
             }
 
@@ -857,7 +874,17 @@ internal sealed record DiagramLayout(
             }
 
             var shorts = pair.Routes.Select(route => route.ShortLabel).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
-            var label = shorts.Count == 0 ? null : Cut(string.Join(", ", shorts));
+            var room = LabelChars;
+            if (pair.LabelLeft)
+            {
+                room = Math.Clamp((pair.SourceX - MarkRadius - 6 - pair.SourceLeft) / CharWidth, 1, LabelChars);
+            }
+            else if (pair.NextPortX != int.MaxValue)
+            {
+                room = Math.Clamp((pair.NextPortX - MarkRadius - 2 - (pair.SourceX + MarkRadius + 4)) / CharWidth, 1, LabelChars);
+            }
+
+            var label = shorts.Count == 0 ? null : Cut(string.Join(", ", shorts), room);
             return new DrawnLine(
                 pair.From,
                 pair.To,
@@ -868,9 +895,12 @@ internal sealed record DiagramLayout(
                 pair.Returns,
                 marks,
                 label,
-                label is null ? null : new Spot(pair.SourceX + MarkRadius + 4, at));
+                label is null ? null : new Spot(LabelX(pair), at),
+                label is not null && pair.LabelLeft);
         }
 
-        private static string Cut(string text) => text.Length <= LabelChars ? text : text[..(LabelChars - 1)] + "…";
+        private static int LabelX(Pair pair) => pair.LabelLeft ? pair.SourceX - MarkRadius - 4 : pair.SourceX + MarkRadius + 4;
+
+        private static string Cut(string text, int chars) => text.Length <= chars ? text : text[..(chars - 1)] + "…";
     }
 }
