@@ -1,0 +1,42 @@
+{
+  "module": "conf",
+  "schemaVersion": 1,
+  "facts": [
+    { "kind": "conf.flag", "name": "count", "type": "Integer", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "conf.flag", "name": "label", "type": "Code", "nullable": true, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "conf.flag", "name": "mode", "type": "Enum", "nullable": true, "allowedValues": ["a", "b"], "labelSource": null, "catalogFactId": null },
+    { "kind": "conf.flag", "name": "when", "type": "Date", "nullable": true, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "conf.flag", "name": "price", "type": "Money", "nullable": true, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "conf.flag", "name": "owner", "type": "Reference", "nullable": true, "allowedValues": [], "labelSource": { "ownerModule": "conf", "entityType": "conf.owner" }, "catalogFactId": null },
+    { "kind": "conf.flag", "name": "active", "type": "Boolean", "nullable": true, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "conf.flag", "name": "ratio", "type": "Decimal", "nullable": true, "allowedValues": [], "labelSource": null, "catalogFactId": null },
+    { "kind": "conf.list", "name": "count", "type": "Integer", "nullable": false, "allowedValues": [], "labelSource": null, "catalogFactId": null }
+  ],
+  "kinds": [
+    {
+      "id": "conf.flag",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": { "read": "conf.read", "author": "conf.author", "approve": "conf.approve", "readTrace": "conf.trace" },
+      "outcomes": [
+        { "name": "flag", "type": "Boolean", "nullable": false, "labelSource": null },
+        { "name": "note", "type": "Code", "nullable": true, "labelSource": null },
+        { "name": "level", "type": "Enum", "nullable": true, "labelSource": null, "allowedValues": ["low", "high"] },
+        { "name": "total", "type": "Integer", "nullable": true, "labelSource": null },
+        { "name": "when", "type": "Date", "nullable": true, "labelSource": null },
+        { "name": "owner", "type": "Reference", "nullable": true, "labelSource": { "ownerModule": "conf", "entityType": "conf.owner" } },
+        { "name": "ratio", "type": "Decimal", "nullable": true, "labelSource": null },
+        { "name": "price", "type": "Money", "nullable": true, "labelSource": null }
+      ]
+    },
+    {
+      "id": "conf.list",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": { "read": "conf.read", "author": "conf.author", "approve": "conf.approve", "readTrace": "conf.trace" },
+      "outcomes": [
+        { "name": "note", "type": "Code", "nullable": false, "labelSource": null }
+      ]
+    }
+  ]
+}

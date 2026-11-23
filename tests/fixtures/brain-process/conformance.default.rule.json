@@ -1,0 +1,42 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "conf.default_rule",
+  "version": 1,
+  "uses": [],
+  "requires": ["conf@1"],
+  "meta": {},
+  "body": {
+    "kind": "conf.flag",
+    "hitPolicy": "first",
+    "rows": [
+      {
+        "id": "big",
+        "version": 1,
+        "legacyKey": "big",
+        "conditions": [
+          { "fact": "count", "op": "range", "value": { "type": "Integer", "value": "10" } }
+        ],
+        "outcome": { "flag": true, "note": "big", "level": "high" }
+      }
+    ],
+    "defaultRow": {
+      "id": "fallback",
+      "version": 1,
+      "legacyKey": "fallback",
+      "conditions": [],
+      "outcome": { "flag": false, "note": "fallback", "level": "low" }
+    },
+    "goldens": [
+      {
+        "name": "Ten is big",
+        "facts": { "count": { "type": "Integer", "value": "10" } },
+        "expect": { "row": "big", "outcome": { "flag": true, "note": "big", "level": "high" } }
+      },
+      {
+        "name": "Three falls back",
+        "facts": { "count": { "type": "Integer", "value": "3" } },
+        "expect": { "row": "fallback", "outcome": { "flag": false, "note": "fallback", "level": "low" } }
+      }
+    ]
+  }
+}

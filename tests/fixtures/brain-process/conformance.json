@@ -1,0 +1,6514 @@
+[
+  {
+    "name": "valid read",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "read",
+            "port": "p.read",
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid read with mappings, retry and every route",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "case_ref": {
+            "type": "Code",
+            "input": true
+          },
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "read",
+            "stage": "one",
+            "port": "p.read",
+            "input": {
+              "ref": "case_ref"
+            },
+            "output": {
+              "total": "count"
+            },
+            "retry": {
+              "maxAttempts": 3,
+              "backoff": "fixed",
+              "initial": "PT1S"
+            },
+            "next": "e",
+            "onError": "e",
+            "onNotAvailable": "e",
+            "onNotEntitled": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid action at least once",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid action at most once",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atMostOnce",
+            "onUnknown": "e",
+            "retry": {
+              "maxAttempts": 2,
+              "backoff": "exponential",
+              "initial": "PT1M",
+              "max": "PT5M"
+            },
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid ai",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary"
+              ]
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid decide with next",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid decide routed by a boolean",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "flag",
+            "on": {
+              "true": "e",
+              "false": "f"
+            },
+            "onNoDecision": "e",
+            "onError": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "f": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid decide routed by a code",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "note",
+            "on": {
+              "big": "e"
+            },
+            "onNoDecision": "e",
+            "onError": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid decide with a collect rule",
+    "context": {
+      "rules": [
+        "list"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.list_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "listed": {
+            "type": "Json"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.list_rule",
+            "facts": {
+              "count": "count"
+            },
+            "collectInto": "listed",
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid decide with every fact and outcome type",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          },
+          "mode": {
+            "type": "Enum",
+            "allowedValues": [
+              "a",
+              "b"
+            ]
+          },
+          "when": {
+            "type": "Date"
+          },
+          "price": {
+            "type": "Money"
+          },
+          "owner": {
+            "type": "Reference"
+          },
+          "flag": {
+            "type": "Boolean"
+          },
+          "amount": {
+            "type": "Decimal"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count",
+              "label": "label",
+              "mode": "mode",
+              "when": "when",
+              "price": "price",
+              "owner": "owner",
+              "active": "flag",
+              "ratio": "amount"
+            },
+            "output": {
+              "flag": "flag",
+              "note": "label",
+              "level": "mode",
+              "total": "count",
+              "when": "when",
+              "owner": "owner"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid humanTask",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "front_desk",
+            "outcomes": [
+              "done",
+              "stuck"
+            ],
+            "show": [
+              "label"
+            ],
+            "output": {
+              "note": "label"
+            },
+            "on": {
+              "done": "e",
+              "stuck": "e"
+            },
+            "timeout": "P2D",
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid humanTask without timeout",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "front_desk",
+            "outcomes": [
+              "done"
+            ],
+            "on": {
+              "done": "e"
+            }
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid wait",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "case_ref": {
+            "type": "Code",
+            "input": true
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "form_submitted",
+            "correlation": "case_ref",
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "timeout": "PT24H",
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        },
+        "accepts": [
+          "form_submitted"
+        ]
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid wait on a reference correlation",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "owner": {
+            "type": "Reference"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "form_submitted",
+            "correlation": "owner",
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid timer after",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid timer until with offset",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "due": {
+            "type": "Instant",
+            "initial": "2027-01-05T10:00:00+02:00"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "until": "due",
+            "offset": "-PT2H",
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid loop",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 3,
+            "body": "b",
+            "onExhausted": "e"
+          },
+          "b": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid loop over a list",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "items": {
+            "type": "Json"
+          },
+          "item": {
+            "type": "Json"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 3,
+            "forEach": "items",
+            "item": "item",
+            "body": "b",
+            "next": "e",
+            "onExhausted": "e"
+          },
+          "b": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid subprocess with next",
+    "context": {
+      "rules": [],
+      "knownProcessIds": [
+        "child.proc"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "process/child.proc"
+        }
+      ],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "case_ref": {
+            "type": "Code",
+            "input": true
+          },
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "subprocess",
+            "process": "child.proc",
+            "input": {
+              "ref": "case_ref"
+            },
+            "output": {
+              "total": "count"
+            },
+            "next": "e",
+            "onError": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid subprocess routed by result",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "process/child.proc"
+        }
+      ],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "subprocess",
+            "process": "child.proc",
+            "on": {
+              "ok": "e",
+              "bad": "e"
+            }
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid end only",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid with every body member",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {
+        "title": "Every member"
+      },
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "case_ref": {
+            "type": "Code",
+            "input": true
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "stage": "two",
+            "result": "ok"
+          }
+        },
+        "accepts": [
+          "ping"
+        ],
+        "limits": {
+          "maxSteps": 50
+        },
+        "scenarios": [
+          {
+            "name": "ends",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "case_ref": "c-1"
+              }
+            },
+            "events": [],
+            "expect": {
+              "status": "Completed",
+              "result": "ok",
+              "trace": [
+                "s"
+              ],
+              "variables": {
+                "case_ref": "c-1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid variables of every type",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "a": {
+            "type": "Code",
+            "initial": "x"
+          },
+          "b": {
+            "type": "Enum",
+            "allowedValues": [
+              "p",
+              "q"
+            ],
+            "initial": "p"
+          },
+          "c": {
+            "type": "Boolean",
+            "initial": false
+          },
+          "d": {
+            "type": "Integer",
+            "initial": -4
+          },
+          "e": {
+            "type": "Decimal",
+            "initial": "-1.25"
+          },
+          "f": {
+            "type": "Money",
+            "initial": {
+              "amount": "10.50",
+              "currency": "USD"
+            }
+          },
+          "g": {
+            "type": "Date",
+            "initial": "2028-02-29"
+          },
+          "h": {
+            "type": "Reference",
+            "initial": "00000000-0000-0000-0000-000000000009"
+          },
+          "i": {
+            "type": "Instant",
+            "initial": "2027-03-01T08:30:00.123Z"
+          },
+          "j": {
+            "type": "Json",
+            "initial": {
+              "k": [
+                1,
+                2,
+                {
+                  "z": null
+                }
+              ]
+            }
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "not json",
+    "context": {
+      "rules": []
+    },
+    "document": "{ not json",
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.json.invalid",
+          "path": ""
+        }
+      ]
+    }
+  },
+  {
+    "name": "envelope: not an object",
+    "context": {
+      "rules": []
+    },
+    "document": "[]",
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.envelope",
+          "path": ""
+        }
+      ]
+    }
+  },
+  {
+    "name": "envelope: empty object",
+    "context": {
+      "rules": []
+    },
+    "document": {},
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.envelope",
+          "path": ""
+        }
+      ]
+    }
+  },
+  {
+    "name": "envelope: bad id",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "bad id",
+      "version": 1
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.envelope",
+          "path": ""
+        }
+      ]
+    }
+  },
+  {
+    "name": "envelope: bad format text",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process",
+      "id": "x"
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.envelope",
+          "path": ""
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown format: a rule document",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.rule@1",
+      "id": "x"
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.unknown_format",
+          "path": "/$spec"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown format: another major",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@2",
+      "id": "x"
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.unknown_format",
+          "path": "/$spec"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: missing uses",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": ""
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: an unknown envelope member",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      },
+      "extra": 1
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/extra"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: version zero",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 0,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/version"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: requires with a bad address",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "Bad"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/requires/0"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: duplicate uses",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/a"
+        },
+        {
+          "$ref": "rule/a"
+        }
+      ],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/uses"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: an unknown body member",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        },
+        "triggers": []
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/triggers"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: an empty subject",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/subject"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: duplicate stages",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "one"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/stages"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a bad variable type",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "x": {
+            "type": "Float"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/variables/x/type"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a bad variable name",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "bad name": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/variables/bad name"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: maxSteps zero",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        },
+        "limits": {
+          "maxSteps": 0
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/limits/maxSteps"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: no steps",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {}
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: an unknown step kind",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "parallel"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/kind"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a step without a kind",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: an unknown member of a step",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok",
+            "extra": 1
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/extra"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: read without next",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "read",
+            "port": "p"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: action without delivery",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p",
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: at most once without onUnknown",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p",
+            "delivery": "atMostOnce",
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: at least once with onUnknown",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p",
+            "delivery": "atLeastOnce",
+            "onUnknown": "s",
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/onUnknown"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: retry attempts above ten",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "read",
+            "port": "p",
+            "retry": {
+              "maxAttempts": 11,
+              "backoff": "fixed",
+              "initial": "PT1S"
+            },
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/retry/maxAttempts"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a duration that is not ISO 8601",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "soon",
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/after"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: ai attempts above five",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary"
+              ]
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 6,
+            "next": "s",
+            "onInvalid": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/maxAttempts"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: ai without a prompt",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary"
+              ]
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: decide with next and route",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "r",
+            "facts": {},
+            "next": "s",
+            "route": "x",
+            "on": {},
+            "onNoDecision": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/route"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: decide with neither next nor route",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "r",
+            "facts": {},
+            "onNoDecision": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: decide route without on",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "r",
+            "facts": {},
+            "route": "x",
+            "onNoDecision": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: humanTask without outcomes",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [],
+            "on": {}
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/outcomes"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: timeout without onTimeout",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "e",
+            "next": "s",
+            "timeout": "PT1H"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: onTimeout without timeout",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "a"
+            ],
+            "on": {
+              "a": "s"
+            },
+            "onTimeout": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: timer with after and until",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "PT1H",
+            "until": "due",
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/until"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: timer with neither after nor until",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: offset without until",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "PT1H",
+            "offset": "PT1H",
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: loop with forEach and no item",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 2,
+            "forEach": "items",
+            "body": "s",
+            "onExhausted": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: loop above ten thousand iterations",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 10001,
+            "body": "s",
+            "onExhausted": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/maxIterations"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: subprocess with next and on",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "subprocess",
+            "process": "p",
+            "next": "s",
+            "on": {
+              "a": "s"
+            }
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/on"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: subprocess with neither next nor on",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "subprocess",
+            "process": "p"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: end without a result",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a mapping with a non-string value",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "read",
+            "port": "p",
+            "input": {
+              "a": 1
+            },
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/input/a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a scenario without expect",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "n",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04"
+            },
+            "events": []
+          }
+        ]
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/scenarios/0"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a scenario event of no known shape",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "n",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04"
+            },
+            "events": [
+              {
+                "explode": true
+              }
+            ],
+            "expect": {
+              "status": "Completed"
+            }
+          }
+        ]
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/scenarios/0/events/0"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a scenario status that cannot be",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "n",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04"
+            },
+            "events": [],
+            "expect": {
+              "status": "Running"
+            }
+          }
+        ]
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/scenarios/0/expect/status"
+        }
+      ]
+    }
+  },
+  {
+    "name": "schema: a scenario start that is not a date-time",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "n",
+            "start": {
+              "at": "yesterday",
+              "today": "2027-01-04"
+            },
+            "events": [],
+            "expect": {
+              "status": "Completed"
+            }
+          }
+        ]
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/scenarios/0/start/at"
+        }
+      ]
+    }
+  },
+  {
+    "name": "step.unknown: start",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "missing",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.step.unknown",
+          "path": "/body/start"
+        },
+        {
+          "code": "process.step.unreachable",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "step.unknown: next",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "nowhere"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/s/next"
+        }
+      ]
+    }
+  },
+  {
+    "name": "step.unknown: table, error routes and loop references",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "items": {
+            "type": "Json"
+          },
+          "item": {
+            "type": "Json"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "read",
+            "port": "p",
+            "next": "e",
+            "onError": "x1",
+            "onNotAvailable": "x2",
+            "onNotEntitled": "x3"
+          },
+          "h": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "a"
+            ],
+            "on": {
+              "a": "x4"
+            },
+            "timeout": "PT1H",
+            "onTimeout": "x5"
+          },
+          "l": {
+            "kind": "loop",
+            "maxIterations": 2,
+            "body": "x6",
+            "onExhausted": "x7",
+            "forEach": "items",
+            "item": "item",
+            "next": "x8"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.step.unreachable",
+          "path": "/body/steps/h"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/h/on/a"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/h/onTimeout"
+        },
+        {
+          "code": "process.step.unreachable",
+          "path": "/body/steps/l"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/l/body"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/l/next"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/l/onExhausted"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/s/onError"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/s/onNotAvailable"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/s/onNotEntitled"
+        }
+      ]
+    }
+  },
+  {
+    "name": "stage.unknown",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "stage": "three",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.stage.unknown",
+          "path": "/body/steps/s/stage"
+        }
+      ]
+    }
+  },
+  {
+    "name": "variable.unknown: mappings and members",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "read",
+            "port": "p",
+            "input": {
+              "a": "nope1"
+            },
+            "output": {
+              "b": "nope2"
+            },
+            "next": "w"
+          },
+          "w": {
+            "kind": "wait",
+            "event": "e",
+            "correlation": "nope3",
+            "output": {
+              "c": "nope4"
+            },
+            "next": "h"
+          },
+          "h": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "a"
+            ],
+            "show": [
+              "nope5"
+            ],
+            "output": {
+              "d": "nope6"
+            },
+            "on": {
+              "a": "t"
+            }
+          },
+          "t": {
+            "kind": "timer",
+            "until": "nope7",
+            "next": "l"
+          },
+          "l": {
+            "kind": "loop",
+            "maxIterations": 2,
+            "forEach": "nope8",
+            "item": "nope9",
+            "body": "e",
+            "next": "e",
+            "onExhausted": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/h/output/d"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/h/show/0"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/l/forEach"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/l/item"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/s/input/a"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/s/output/b"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/t/until"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/w/correlation"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/w/output/c"
+        }
+      ]
+    }
+  },
+  {
+    "name": "variable.type: wrong types for the members that need one",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "flag": {
+            "type": "Boolean"
+          }
+        },
+        "start": "w",
+        "steps": {
+          "w": {
+            "kind": "wait",
+            "event": "e",
+            "correlation": "flag",
+            "next": "t"
+          },
+          "t": {
+            "kind": "timer",
+            "until": "count",
+            "next": "l"
+          },
+          "l": {
+            "kind": "loop",
+            "maxIterations": 2,
+            "forEach": "count",
+            "item": "flag",
+            "body": "e",
+            "next": "e",
+            "onExhausted": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/l/forEach"
+        },
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/l/item"
+        },
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/t/until"
+        },
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/w/correlation"
+        }
+      ]
+    }
+  },
+  {
+    "name": "variable.type: decide mappings and collectInto",
+    "context": {
+      "rules": [
+        "flag",
+        "list"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        },
+        {
+          "$ref": "rule/conf.list_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "label"
+            },
+            "output": {
+              "flag": "count"
+            },
+            "next": "c",
+            "onNoDecision": "c"
+          },
+          "c": {
+            "kind": "decide",
+            "rule": "conf.list_rule",
+            "facts": {
+              "count": "count"
+            },
+            "collectInto": "count",
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/c/collectInto"
+        },
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/s/facts/count"
+        },
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/s/output/flag"
+        }
+      ]
+    }
+  },
+  {
+    "name": "variable.type: an Instant variable cannot be a fact",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "due": {
+            "type": "Instant",
+            "initial": "2027-01-05T10:00:00+02:00"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "due"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/s/facts/count"
+        }
+      ]
+    }
+  },
+  {
+    "name": "variable.initial: wrong initial values",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "a": {
+            "type": "Integer",
+            "initial": "3"
+          },
+          "b": {
+            "type": "Enum",
+            "allowedValues": [
+              "x"
+            ],
+            "initial": "y"
+          },
+          "c": {
+            "type": "Decimal",
+            "initial": "1.2.3"
+          },
+          "d": {
+            "type": "Money",
+            "initial": {
+              "amount": "1",
+              "currency": "usd"
+            }
+          },
+          "e": {
+            "type": "Date",
+            "initial": "2027-02-30"
+          },
+          "f": {
+            "type": "Reference",
+            "initial": "nope"
+          },
+          "g": {
+            "type": "Instant",
+            "initial": "2027-01-01"
+          },
+          "h": {
+            "type": "Boolean",
+            "initial": "true"
+          },
+          "i": {
+            "type": "Code",
+            "initial": 5
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/a/initial"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/b/initial"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/c/initial"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/d/initial"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/e/initial"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/f/initial"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/g/initial"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/h/initial"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/i/initial"
+        }
+      ]
+    }
+  },
+  {
+    "name": "variable.initial: allowedValues misuse",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "a": {
+            "type": "Code",
+            "allowedValues": [
+              "x"
+            ]
+          },
+          "b": {
+            "type": "Enum"
+          },
+          "c": {
+            "type": "Enum",
+            "allowedValues": []
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/a/allowedValues"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/b"
+        },
+        {
+          "code": "process.variable.initial",
+          "path": "/body/variables/c/allowedValues"
+        }
+      ]
+    }
+  },
+  {
+    "name": "rule.unavailable",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {},
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.rule.unavailable",
+          "path": "/body/steps/s/rule"
+        }
+      ]
+    }
+  },
+  {
+    "name": "rule.fact_unknown",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "nope": "count"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.rule.fact_unknown",
+          "path": "/body/steps/s/facts/nope"
+        }
+      ]
+    }
+  },
+  {
+    "name": "rule.outcome_unknown: output key and route",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "nope": "label"
+            },
+            "route": "nope2",
+            "on": {
+              "x": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.rule.outcome_unknown",
+          "path": "/body/steps/s/output/nope"
+        },
+        {
+          "code": "process.rule.outcome_unknown",
+          "path": "/body/steps/s/route"
+        }
+      ]
+    }
+  },
+  {
+    "name": "rule.outcome_unknown: a route of a type that cannot route",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "total",
+            "on": {
+              "1": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.rule.outcome_unknown",
+          "path": "/body/steps/s/route"
+        }
+      ]
+    }
+  },
+  {
+    "name": "rule.hit_policy: collect rule used as a single outcome",
+    "context": {
+      "rules": [
+        "list"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.list_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.list_rule",
+            "facts": {
+              "count": "count"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.rule.hit_policy",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "rule.hit_policy: collect rule with an output mapping",
+    "context": {
+      "rules": [
+        "list"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.list_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          },
+          "listed": {
+            "type": "Json"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.list_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "collectInto": "listed",
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.rule.hit_policy",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "rule.hit_policy: unique rule with collectInto",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "listed": {
+            "type": "Json"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "collectInto": "listed",
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.rule.hit_policy",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.incomplete: a boolean route without false",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "flag",
+            "on": {
+              "true": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid decide routed by an enum",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "level",
+            "on": {
+              "high": "e",
+              "low": "f"
+            },
+            "onNoDecision": "e",
+            "onError": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "f": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid decide routed by a value that only the default row produces",
+    "context": {
+      "rules": [
+        "default"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.default_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.default_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "note",
+            "on": {
+              "big": "e",
+              "fallback": "f"
+            },
+            "onNoDecision": "e",
+            "onError": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "f": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "route.incomplete: an enum route without a value that a row produces",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "level",
+            "on": {
+              "high": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.incomplete: a code route without the value of the default row",
+    "context": {
+      "rules": [
+        "default"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.default_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.default_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "note",
+            "on": {
+              "big": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.unknown_value: an enum route with a value that no row produces",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "level",
+            "on": {
+              "high": "e",
+              "low": "e",
+              "medium": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/medium"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.unknown_value and incomplete: a code route with another value",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "note",
+            "on": {
+              "huge": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        },
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/huge"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.unknown_value: a boolean route with a key other than true and false",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "flag",
+            "on": {
+              "true": "e",
+              "false": "e",
+              "maybe": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/maybe"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.incomplete and unknown_value: a boolean route with only another key",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "flag",
+            "on": {
+              "yes": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        },
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/yes"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.incomplete: a humanTask that does not route an outcome",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "a",
+              "b"
+            ],
+            "on": {
+              "a": "e"
+            }
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.unknown_value: a humanTask that routes something that is not an outcome",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "a"
+            ],
+            "on": {
+              "a": "e",
+              "z": "e"
+            }
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.schema_invalid: an external reference",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "$ref": "http://example.com/x"
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary"
+              ]
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/inputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.schema_invalid: a reference to a missing definition",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "$ref": "#/$defs/q"
+                }
+              }
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.schema_invalid: a top-level reference to a missing definition",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "$ref": "#/$defs/q"
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai: a schema with a pattern that is not a regular expression",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "pattern": "("
+                }
+              }
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.schema_invalid: an unknown keyword nested in a property",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "typo": 1
+                }
+              }
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid ai with a local definition",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "$ref": "#/$defs/text"
+                }
+              },
+              "required": [
+                "summary"
+              ],
+              "$defs": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "uses.missing: rule and process",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "next": "c",
+            "onNoDecision": "c"
+          },
+          "c": {
+            "kind": "subprocess",
+            "process": "child.proc",
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.uses.missing",
+          "path": "/body/steps/c/process"
+        },
+        {
+          "code": "process.uses.missing",
+          "path": "/body/steps/s/rule"
+        }
+      ]
+    }
+  },
+  {
+    "name": "uses.unused",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        },
+        {
+          "$ref": "other/x"
+        }
+      ],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.uses.unused",
+          "path": "/uses/0"
+        },
+        {
+          "code": "process.uses.unused",
+          "path": "/uses/1"
+        }
+      ]
+    }
+  },
+  {
+    "name": "subprocess.unavailable",
+    "context": {
+      "rules": [],
+      "knownProcessIds": [
+        "another.proc"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "process/child.proc"
+        }
+      ],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "subprocess",
+            "process": "child.proc",
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.subprocess.unavailable",
+          "path": "/body/steps/s/process"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.next_not_decide",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary"
+              ]
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "e",
+            "onInvalid": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.next_not_decide",
+          "path": "/body/steps/s/next"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.schema_invalid",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": 5
+            },
+            "outputSchema": {
+              "type": "nonsense"
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/inputSchema"
+        },
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "cycle.unbounded: a cycle without a loop",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "t"
+          },
+          "t": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "cycle.unbounded: a step that routes to itself and a cycle behind a loop",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 2,
+            "body": "a",
+            "onExhausted": "e"
+          },
+          "a": {
+            "kind": "read",
+            "port": "p",
+            "next": "a"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "cycle.unbounded: the exit of a loop leads back to the loop",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "l",
+        "steps": {
+          "l": {
+            "kind": "loop",
+            "maxIterations": 1,
+            "body": "t1",
+            "onExhausted": "t2"
+          },
+          "t1": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "l"
+          },
+          "t2": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "l"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/l"
+        }
+      ]
+    }
+  },
+  {
+    "name": "cycle.unbounded: the next of a loop over a list leads back to the loop",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "items": {
+            "type": "Json"
+          },
+          "item": {
+            "type": "Json"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 2,
+            "forEach": "items",
+            "item": "item",
+            "body": "b",
+            "next": "c",
+            "onExhausted": "e"
+          },
+          "b": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          },
+          "c": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "cycle.unbounded: two components are reported once each",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "l",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "a"
+          },
+          "a": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "b"
+          },
+          "b": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "a"
+          },
+          "l": {
+            "kind": "loop",
+            "maxIterations": 1,
+            "body": "s",
+            "onExhausted": "m"
+          },
+          "m": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "l"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/a"
+        },
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/l"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid loop whose body leads back to the loop through other steps",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "loop",
+            "maxIterations": 3,
+            "body": "a",
+            "onExhausted": "e"
+          },
+          "a": {
+            "kind": "read",
+            "port": "p",
+            "next": "b"
+          },
+          "b": {
+            "kind": "timer",
+            "after": "PT1H",
+            "next": "s"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "step.unreachable",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "lonely": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.step.unreachable",
+          "path": "/body/steps/lonely"
+        }
+      ]
+    }
+  },
+  {
+    "name": "duration.invalid: empty, zero and too long",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "due": {
+            "type": "Instant",
+            "initial": "2027-01-05T10:00:00+02:00"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "timer",
+            "after": "PT0S",
+            "next": "t"
+          },
+          "t": {
+            "kind": "timer",
+            "after": "P",
+            "next": "u"
+          },
+          "u": {
+            "kind": "timer",
+            "after": "P3661D",
+            "next": "v"
+          },
+          "v": {
+            "kind": "read",
+            "port": "p",
+            "retry": {
+              "maxAttempts": 2,
+              "backoff": "fixed",
+              "initial": "PT0S",
+              "max": "PT"
+            },
+            "next": "w"
+          },
+          "w": {
+            "kind": "timer",
+            "until": "due",
+            "offset": "PT0S",
+            "next": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/steps/s/after"
+        },
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/steps/t/after"
+        },
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/steps/u/after"
+        },
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/steps/v/retry/initial"
+        },
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/steps/v/retry/max"
+        },
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/steps/w/offset"
+        }
+      ]
+    }
+  },
+  {
+    "name": "scenario.invalid: bad references",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "process/x"
+        }
+      ],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "case_ref": {
+            "type": "Code",
+            "input": true
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "read",
+            "port": "p",
+            "next": "e"
+          },
+          "h": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "a"
+            ],
+            "on": {
+              "a": "e"
+            },
+            "timeout": "PT1H",
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "c": {
+            "kind": "subprocess",
+            "process": "x",
+            "next": "e"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "bad",
+            "start": {
+              "at": "2027-13-04T14:00:00Z",
+              "today": "2027-02-30",
+              "input": {
+                "nope": "x"
+              }
+            },
+            "events": [
+              {
+                "complete": "nowhere"
+              },
+              {
+                "complete": "h"
+              },
+              {
+                "fail": "e",
+                "error": "Transient",
+                "code": "x"
+              },
+              {
+                "task": "s",
+                "outcome": "a"
+              },
+              {
+                "task": "h",
+                "outcome": "zzz"
+              },
+              {
+                "child": "s",
+                "result": "ok"
+              },
+              {
+                "childFailed": "s",
+                "code": "x"
+              },
+              {
+                "event": "unknown_event"
+              },
+              {
+                "advance": "P0D"
+              },
+              {
+                "fail": "s",
+                "error": "RateLimited",
+                "code": "x",
+                "retryAfter": "PT0S"
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "trace": [
+                "s",
+                "ghost"
+              ],
+              "variables": {
+                "ghost": 1
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/events/0/complete"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/events/1/complete"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/events/2/fail"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/events/3/task"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/events/4/outcome"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/events/5/child"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/events/6/childFailed"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/events/7/event"
+        },
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/scenarios/0/events/8/advance"
+        },
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/scenarios/0/events/9/retryAfter"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/expect/trace/1"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/expect/variables/ghost"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/start/at"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/start/input/nope"
+        },
+        {
+          "code": "process.scenario.invalid",
+          "path": "/body/scenarios/0/start/today"
+        },
+        {
+          "code": "process.step.unreachable",
+          "path": "/body/steps/c"
+        },
+        {
+          "code": "process.step.unreachable",
+          "path": "/body/steps/h"
+        }
+      ]
+    }
+  }
+]

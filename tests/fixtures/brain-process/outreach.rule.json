@@ -1,0 +1,59 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "previsit.missing_items",
+  "version": 2,
+  "uses": [],
+  "requires": ["outreach@1"],
+  "meta": { "title": "Missing items decide the next outreach action" },
+  "body": {
+    "kind": "outreach.missing_items",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "nothing-missing",
+        "version": 1,
+        "legacyKey": "nothing-missing",
+        "conditions": [
+          {
+            "fact": "missing",
+            "op": "equals",
+            "value": { "type": "Integer", "value": "0" }
+          }
+        ],
+        "outcome": { "action": "none" }
+      },
+      {
+        "id": "something-missing",
+        "version": 1,
+        "legacyKey": "something-missing",
+        "conditions": [
+          {
+            "fact": "missing",
+            "op": "range",
+            "value": { "type": "Integer", "value": "1" },
+            "lowerInclusive": true,
+            "upperInclusive": true
+          }
+        ],
+        "outcome": { "action": "remind" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "Nothing missing needs no reminder",
+        "facts": { "missing": { "type": "Integer", "value": "0" } },
+        "expect": { "row": "nothing-missing", "outcome": { "action": "none" } }
+      },
+      {
+        "name": "Two missing items need a reminder",
+        "facts": { "missing": { "type": "Integer", "value": "2" } },
+        "expect": { "row": "something-missing", "outcome": { "action": "remind" } }
+      },
+      {
+        "name": "A negative count decides nothing",
+        "facts": { "missing": { "type": "Integer", "value": "-1" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

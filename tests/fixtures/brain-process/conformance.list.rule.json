@@ -1,0 +1,39 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "conf.list_rule",
+  "version": 1,
+  "uses": [],
+  "requires": ["conf@1"],
+  "meta": {},
+  "body": {
+    "kind": "conf.list",
+    "hitPolicy": "collect",
+    "rows": [
+      {
+        "id": "any-count",
+        "version": 1,
+        "legacyKey": "any-count",
+        "conditions": [
+          { "fact": "count", "op": "range", "value": { "type": "Integer", "value": "0" } }
+        ],
+        "outcome": { "note": "counted" }
+      },
+      {
+        "id": "many",
+        "version": 1,
+        "legacyKey": "many",
+        "conditions": [
+          { "fact": "count", "op": "range", "value": { "type": "Integer", "value": "5" } }
+        ],
+        "outcome": { "note": "many" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "Seven is counted and many",
+        "facts": { "count": { "type": "Integer", "value": "7" } },
+        "expect": { "row": "any-count", "outcome": [{ "note": "counted" }, { "note": "many" }] }
+      }
+    ]
+  }
+}

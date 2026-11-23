@@ -1,0 +1,37 @@
+{
+  "module": "outreach",
+  "schemaVersion": 1,
+  "facts": [
+    {
+      "kind": "outreach.missing_items",
+      "name": "missing",
+      "type": "Integer",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "outreach.missing_items",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "outreach.decisions.read",
+        "author": "outreach.decisions.author",
+        "approve": "outreach.decisions.approve",
+        "readTrace": "outreach.decisions.read_trace"
+      },
+      "outcomes": [
+        {
+          "name": "action",
+          "type": "Enum",
+          "nullable": false,
+          "labelSource": null,
+          "allowedValues": ["none", "remind"]
+        }
+      ]
+    }
+  ]
+}

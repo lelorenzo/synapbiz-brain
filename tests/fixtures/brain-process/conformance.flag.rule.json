@@ -1,0 +1,65 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "conf.flag_rule",
+  "version": 1,
+  "uses": [],
+  "requires": ["conf@1"],
+  "meta": {},
+  "body": {
+    "kind": "conf.flag",
+    "hitPolicy": "first",
+    "rows": [
+      {
+        "id": "big",
+        "version": 1,
+        "legacyKey": "big",
+        "conditions": [
+          { "fact": "count", "op": "range", "value": { "type": "Integer", "value": "10" } }
+        ],
+        "outcome": {
+          "flag": true,
+          "note": "big",
+          "level": "high",
+          "total": 10,
+          "when": "2027-01-04",
+          "owner": "00000000-0000-0000-0000-000000000001",
+          "ratio": 1.5,
+          "price": { "amount": 2.5, "currency": "USD" }
+        }
+      },
+      {
+        "id": "small",
+        "version": 1,
+        "legacyKey": "small",
+        "conditions": [
+          { "fact": "count", "op": "range", "value": { "type": "Integer", "value": "0" }, "upper": { "type": "Integer", "value": "9" } }
+        ],
+        "outcome": { "flag": false, "note": null, "level": "low" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "Ten is big",
+        "facts": { "count": { "type": "Integer", "value": "10" } },
+        "expect": {
+          "row": "big",
+          "outcome": {
+            "flag": true,
+            "note": "big",
+            "level": "high",
+            "total": 10,
+            "when": "2027-01-04",
+            "owner": "00000000-0000-0000-0000-000000000001",
+            "ratio": 1.5,
+            "price": { "amount": 2.5, "currency": "USD" }
+          }
+        }
+      },
+      {
+        "name": "Three is small",
+        "facts": { "count": { "type": "Integer", "value": "3" } },
+        "expect": { "row": "small", "outcome": { "flag": false, "note": null, "level": "low" } }
+      }
+    ]
+  }
+}
