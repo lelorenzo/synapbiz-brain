@@ -110,6 +110,9 @@ public sealed partial class FlowWorkbench : IDisposable
     /// <summary>How many scenario reports this component has made: one for each flow and language it has shown, however often the flow is drawn.</summary>
     internal int ReportCount => reports.Values.Sum(table => table.Count);
 
+    /// <summary>How many scenarios this component has played to make its reports: with one report for each flow and language, each embedded scenario is played once for each language.</summary>
+    internal int ScenariosPlayedTotal => reports.Values.Sum(table => table.Values.Sum(report => report.ScenariosPlayed));
+
     /// <summary>The scenarios of a flow, played once for the flow and the language and kept.</summary>
     private FlowScenarioReport ReportOf(BrainProcess process)
     {

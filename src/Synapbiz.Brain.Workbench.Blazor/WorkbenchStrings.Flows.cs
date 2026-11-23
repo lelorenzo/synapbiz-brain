@@ -243,7 +243,7 @@ public static partial class WorkbenchStrings
         ("flow.log.clockAdvanced", "Pasó el tiempo", "Time passed"),
         ("flow.log.timerFired", "Venció el plazo de {step}", "The timer of {step} fired"),
         ("flow.log.windowOpened", "Se abrió la franja de {step}", "The window of {step} opened"),
-        ("flow.log.windowFailed", "La franja de {step} no se pudo calcular", "The window of {step} could not be worked out"),
+        ("flow.log.windowFailed", "La franja de {step} no se pudo calcular: {reason}", "The window of {step} could not be worked out: {reason}"),
         ("flow.log.childFinished", "Terminó el flujo hijo de {step}", "The child flow of {step} finished"),
         ("flow.log.childFailed", "Falló el flujo hijo de {step}", "The child flow of {step} failed"),
         ("flow.log.cancelled", "Se canceló el caso", "The case was cancelled"),

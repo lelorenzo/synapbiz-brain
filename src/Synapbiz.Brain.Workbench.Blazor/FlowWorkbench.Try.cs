@@ -530,7 +530,7 @@ public sealed partial class FlowWorkbench
             FlowSimulationEntryKind.Resumed => "flow.log.resumed",
             _ => "flow.log.answerSourceFailed",
         };
-        return Plain(key, ("step", step));
+        return Plain(key, ("step", step), ("reason", Reason("process.window.zone_unknown")));
     }
 
     private string Entered(FlowSimulationEntry entry, FlowWords words)
