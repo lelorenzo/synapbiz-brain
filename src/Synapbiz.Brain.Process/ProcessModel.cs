@@ -98,14 +98,28 @@ internal sealed record ReadStep(
     internal override StepKind Kind => StepKind.Read;
 }
 
+/// <summary>A timeout tied to an instant: the due time is the value of an <c>Instant</c> variable plus a signed offset.</summary>
+internal sealed record TimeoutAt(string Variable, TimeSpan Offset);
+
+/// <summary>The <c>interruptBy</c> of an action that names a window: an event that ends the wait for the window.</summary>
+internal sealed record InterruptDef(string Event, string? Correlation, Mapping Output, string To);
+
 /// <summary>An <c>action</c> step.</summary>
 internal sealed record ActionStep(
     string Id, string? Stage, string Port, Mapping Input, Mapping Output, RetryPolicy Retry, string Next,
     string? OnError, string? OnNotAvailable, string? OnNotEntitled, bool AtMostOnce, string? OnUnknown,
-    bool Contact = false, string? Window = null)
+    bool Contact = false, string? Window = null, InterruptDef? Interrupt = null)
     : EffectStep(Id, Stage, Port, Input, Output, Retry, Next, OnError, OnNotAvailable, OnNotEntitled, OnUnknown)
 {
     internal override StepKind Kind => StepKind.Action;
+
+    internal override IEnumerable<StepRef> References() =>
+        base.References().Concat(Interrupt is null ? [] : [new StepRef(Interrupt.To, "/interruptBy/to")]);
+
+    internal override IEnumerable<(string Variable, string Member)> VariableUses() =>
+        base.VariableUses()
+            .Concat(Interrupt?.Correlation is null ? [] : new[] { (Interrupt.Correlation, "/interruptBy/correlation") })
+            .Concat((Interrupt?.Output.Entries ?? []).Select(entry => (entry.Value, JsonText.Pointer("/interruptBy/output", entry.Key))));
 }
 
 /// <summary>
@@ -199,7 +213,7 @@ internal sealed record DecideStep(
 /// <summary>A <c>humanTask</c> step.</summary>
 internal sealed record HumanTaskStep(
     string Id, string? Stage, string Queue, IReadOnlyList<string> Outcomes, IReadOnlyList<string> Show, Mapping Output,
-    IReadOnlyList<KeyValuePair<string, string>> On, TimeSpan? Timeout, string? OnTimeout)
+    IReadOnlyList<KeyValuePair<string, string>> On, TimeSpan? Timeout, string? OnTimeout, TimeoutAt? TimeoutAt = null)
     : StepDef(Id, Stage)
 {
     internal override StepKind Kind => StepKind.HumanTask;
@@ -208,12 +222,13 @@ internal sealed record HumanTaskStep(
 
     internal override IEnumerable<(string Variable, string Member)> VariableUses() =>
         Show.Select((name, index) => (name, JsonText.Pointer("/show", index)))
-            .Concat(MappedVariables(Output, "output"));
+            .Concat(MappedVariables(Output, "output"))
+            .Concat(TimeoutAt is null ? [] : new[] { (TimeoutAt.Variable, "/timeout/until") });
 }
 
 /// <summary>A <c>wait</c> step.</summary>
 internal sealed record WaitStep(
-    string Id, string? Stage, string Event, string? Correlation, Mapping Output, string Next, TimeSpan? Timeout, string? OnTimeout)
+    string Id, string? Stage, string Event, string? Correlation, Mapping Output, string Next, TimeSpan? Timeout, string? OnTimeout, TimeoutAt? TimeoutAt = null)
     : StepDef(Id, Stage)
 {
     internal override StepKind Kind => StepKind.Wait;
@@ -221,7 +236,9 @@ internal sealed record WaitStep(
     internal override IEnumerable<StepRef> References() => Optional(Next, "next").Concat(Optional(OnTimeout, "onTimeout"));
 
     internal override IEnumerable<(string Variable, string Member)> VariableUses() =>
-        (Correlation is null ? [] : new[] { (Correlation, "/correlation") }).Concat(MappedVariables(Output, "output"));
+        (Correlation is null ? [] : new[] { (Correlation, "/correlation") })
+            .Concat(MappedVariables(Output, "output"))
+            .Concat(TimeoutAt is null ? [] : new[] { (TimeoutAt.Variable, "/timeout/until") });
 }
 
 /// <summary>A <c>timer</c> step.</summary>

@@ -12,7 +12,81 @@
   "requires": ["lifecycle@1"],
   "meta": {
     "title": "Case lifecycle",
-    "description": "One instance per case, started when the case is opened: one child process per stage, from before the visit until the money is collected."
+    "description": "One instance per case, started when the case is opened: one child process per stage, from before the visit until the money is collected.",
+    "display": {
+      "en": {
+        "title": "Case lifecycle",
+        "stages": {
+          "previsit": "Before the visit",
+          "visit": "Visit",
+          "postvisit": "After the visit",
+          "collection": "Collection"
+        },
+        "steps": {
+          "zone_check": "Check the zone of the case",
+          "previsit": "Pre-visit stage",
+          "visit": "Visit stage",
+          "postvisit": "Post-visit stage",
+          "collection": "Collection stage",
+          "ops_zone": "Operations: zone missing",
+          "ops_previsit": "Operations: pre-visit problem",
+          "ops_visit": "Operations: visit problem",
+          "ops_postvisit": "Operations: post-visit problem",
+          "ops_collection": "Operations: collection problem",
+          "collected": "Collected",
+          "written_off": "Written off",
+          "closed_no_visit": "Closed, no visit",
+          "closed_not_billed": "Closed, not billed",
+          "manual_close": "Closed by a person"
+        },
+        "results": {
+          "collected": "Collected",
+          "written_off": "Written off",
+          "closed_no_visit": "Closed, no visit",
+          "closed_not_billed": "Closed, not billed",
+          "manual_close": "Closed by a person"
+        },
+        "queues": { "operations": "Operations" },
+        "outcomes": { "continue": "Continue", "close": "Close the case" },
+        "events": { "case.opened": "Case opened" }
+      },
+      "es": {
+        "title": "Ciclo de vida del caso",
+        "stages": {
+          "previsit": "Antes de la visita",
+          "visit": "Visita",
+          "postvisit": "Despu\u00e9s de la visita",
+          "collection": "Cobro"
+        },
+        "steps": {
+          "zone_check": "Comprobar la zona del caso",
+          "previsit": "Etapa previa a la visita",
+          "visit": "Etapa de la visita",
+          "postvisit": "Etapa posterior a la visita",
+          "collection": "Etapa de cobro",
+          "ops_zone": "Operaciones: falta la zona",
+          "ops_previsit": "Operaciones: problema previo a la visita",
+          "ops_visit": "Operaciones: problema en la visita",
+          "ops_postvisit": "Operaciones: problema posterior a la visita",
+          "ops_collection": "Operaciones: problema de cobro",
+          "collected": "Cobrado",
+          "written_off": "Dado de baja",
+          "closed_no_visit": "Cerrado, sin visita",
+          "closed_not_billed": "Cerrado, sin facturar",
+          "manual_close": "Cerrado por una persona"
+        },
+        "results": {
+          "collected": "Cobrado",
+          "written_off": "Dado de baja",
+          "closed_no_visit": "Cerrado, sin visita",
+          "closed_not_billed": "Cerrado, sin facturar",
+          "manual_close": "Cerrado por una persona"
+        },
+        "queues": { "operations": "Operaciones" },
+        "outcomes": { "continue": "Continuar", "close": "Cerrar el caso" },
+        "events": { "case.opened": "Caso abierto" }
+      }
+    }
   },
   "body": {
     "subject": "case",

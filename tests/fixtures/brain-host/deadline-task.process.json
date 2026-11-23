@@ -1,0 +1,30 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.deadline_task",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "A human task whose timeout is two hours before an instant" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "visit_at": { "type": "Instant", "input": true }
+    },
+    "start": "review",
+    "steps": {
+      "review": {
+        "kind": "humanTask",
+        "queue": "review_q",
+        "outcomes": ["approve"],
+        "show": ["case_ref"],
+        "timeout": { "until": "visit_at", "offset": "-PT2H" },
+        "on": { "approve": "approved" },
+        "onTimeout": "late"
+      },
+      "approved": { "kind": "end", "result": "approved" },
+      "late": { "kind": "end", "result": "late" }
+    }
+  }
+}

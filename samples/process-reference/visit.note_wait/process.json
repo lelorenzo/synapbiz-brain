@@ -6,7 +6,37 @@
   "requires": ["visit@1"],
   "meta": {
     "title": "Visit note wait",
-    "description": "Reads the status of the note of a visit at growing intervals until it is signed; a person chases it when two days pass, or confirms it when the practice has no connector."
+    "description": "Reads the status of the note of a visit at growing intervals until it is signed; a person chases it when two days pass, or confirms it when the practice has no connector.",
+    "display": {
+      "en": {
+        "title": "Visit note wait",
+        "stages": { "visit": "Visit" },
+        "steps": {
+          "await_note": "Wait for the signed note",
+          "chase_note": "Chase the note",
+          "confirm_note": "Confirm the note",
+          "signed": "Note signed",
+          "cancelled": "Visit cancelled"
+        },
+        "results": { "note_signed": "Note signed", "visit_cancelled": "Visit cancelled" },
+        "queues": { "note_followup": "Note follow-up", "note_confirmation": "Note confirmation" },
+        "outcomes": { "signed": "Signed", "no_visit": "No visit" }
+      },
+      "es": {
+        "title": "Espera de la nota de la visita",
+        "stages": { "visit": "Visita" },
+        "steps": {
+          "await_note": "Esperar la nota firmada",
+          "chase_note": "Reclamar la nota",
+          "confirm_note": "Confirmar la nota",
+          "signed": "Nota firmada",
+          "cancelled": "Visita cancelada"
+        },
+        "results": { "note_signed": "Nota firmada", "visit_cancelled": "Visita cancelada" },
+        "queues": { "note_followup": "Seguimiento de notas", "note_confirmation": "Confirmaci\u00f3n de notas" },
+        "outcomes": { "signed": "Firmada", "no_visit": "Sin visita" }
+      }
+    }
   },
   "body": {
     "subject": "case",

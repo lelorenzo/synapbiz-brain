@@ -236,9 +236,18 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         if (status == ProcessStatus.Waiting && pending is { Kind: ProcessPendingKind.Wait }
             && definition.StepsById[currentStep!] is WaitStep wait
             && string.Equals(wait.Event, received.Name, StringComparison.Ordinal)
-            && CorrelationMatches(wait, received.Correlation))
+            && CorrelationMatches(wait.Correlation, received.Correlation))
         {
             RunLoop(ConsumeEvent(wait, payload));
+            return TriggerOutcome.Applied;
+        }
+
+        if (status == ProcessStatus.Waiting && pending is { Kind: ProcessPendingKind.Window, InterruptWaitId: not null }
+            && definition.StepsById[currentStep!] is ActionStep { Interrupt: { } gate } gated
+            && string.Equals(gate.Event, received.Name, StringComparison.Ordinal)
+            && CorrelationMatches(gate.Correlation, received.Correlation))
+        {
+            RunLoop(InterruptGate(gated, gate, payload));
             return TriggerOutcome.Applied;
         }
 
@@ -257,15 +266,15 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         return TriggerOutcome.Applied;
     }
 
-    private bool CorrelationMatches(WaitStep wait, string? correlation) =>
-        wait.Correlation is null
-        || (variables.TryGetValue(wait.Correlation, out var text)
-            && string.Equals(JsonText.Text(JsonNode.Parse(text)), NormalizedCorrelation(wait, correlation), StringComparison.Ordinal));
+    private bool CorrelationMatches(string? variable, string? correlation) =>
+        variable is null
+        || (variables.TryGetValue(variable, out var text)
+            && string.Equals(JsonText.Text(JsonNode.Parse(text)), NormalizedCorrelation(variable, correlation), StringComparison.Ordinal));
 
     // A Reference is stored lower-case, so a correlation that names one compares equal whatever the case it arrives in.
-    private string? NormalizedCorrelation(WaitStep wait, string? correlation) =>
-        wait.Correlation is not null
-        && definition.Variables[wait.Correlation].Type == VariableType.Reference
+    private string? NormalizedCorrelation(string? variable, string? correlation) =>
+        variable is not null
+        && definition.Variables[variable].Type == VariableType.Reference
         && correlation is not null
         && Guid.TryParseExact(correlation, "D", out var guid)
             ? guid.ToString("D", CultureInfo.InvariantCulture)
@@ -325,6 +334,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
 
         if (IsPending(ProcessPendingKind.Window, timerId) && step is ActionStep gated)
         {
+            CancelGateWait();
             Log(ProcessHistoryKind.WindowOpened, null, Data(("timerId", timerId)));
             pending = null;
             return Applied(SendEffect(gated));
@@ -382,6 +392,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         {
             case { Kind: ProcessPendingKind.Timer or ProcessPendingKind.RetryDelay or ProcessPendingKind.Window } timer:
                 requests.Add(new CancelTimerRequest(step, timer.Id));
+                CancelGateWait();
                 break;
             case { Kind: ProcessPendingKind.Wait } wait:
                 requests.Add(new CancelWaitRequest(step, wait.Id));
@@ -451,6 +462,8 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
     private string TimeoutTimerId() => Key("/timeout");
 
     private string WaitId() => Key("/wait");
+
+    private string GateWaitId() => Key("/" + attempt.ToString(CultureInfo.InvariantCulture) + "/wait");
 
     private string TaskId() => Key("/task");
 

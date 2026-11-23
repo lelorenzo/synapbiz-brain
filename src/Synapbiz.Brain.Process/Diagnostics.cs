@@ -29,6 +29,7 @@ internal static class Diagnostics
     internal const string DurationInvalid = "process.duration.invalid";
     internal const string ScenarioInvalid = "process.scenario.invalid";
     internal const string ActionWindowRequired = "process.action.window_required";
+    internal const string ActionInterruptRequiresWindow = "process.action.interrupt_requires_window";
     internal const string WindowInvalid = "process.window.invalid";
     internal const string WindowUnknown = "process.window.unknown";
     internal const string TriggerEventDuplicate = "process.trigger.event_duplicate";
@@ -40,6 +41,9 @@ internal static class Diagnostics
     internal const string TriggerVariableNotInput = "process.trigger.variable_not_input";
     internal const string VariableTypeMismatch = "process.variable.type_mismatch";
     internal const string PollTooManyRounds = "process.poll.too_many_rounds";
+
+    internal const string DisplayInvalid = "process.display.invalid";
+    internal const string DisplayUnknownId = "process.display.unknown_id";
 
     internal const string StructureEnvelope = "spec.structure.envelope";
     internal const string StructureUnknownFormat = "spec.structure.unknown_format";
@@ -150,6 +154,10 @@ internal static class Diagnostics
         "A contact action must name a delivery window.", "Una acción de contacto debe nombrar una ventana de entrega.",
         "Add window with the name of a window declared in body.windows, or remove contact.");
 
+    internal static BrainSpecError InterruptRequiresWindow(string path) => new(ActionInterruptRequiresWindow, path,
+        "interruptBy needs the action to name a delivery window.", "interruptBy requiere que la acción nombre una ventana de entrega.",
+        "Add window with the name of a window declared in body.windows, or remove interruptBy.");
+
     internal static BrainSpecError BadWindow(string path) => new(WindowInvalid, path,
         "The delivery window is not valid.", "La ventana de entrega no es válida.",
         "Use an IANA zone id or { \"variable\": ... }, one or more distinct days (mon to sun), and HH:mm times with from before to (to may be 24:00).");
@@ -193,4 +201,14 @@ internal static class Diagnostics
     internal static BrainSpecError TooManyRounds(string path) => new(PollTooManyRounds, path,
         "More than 10000 rounds fit in maxDuration.", "En maxDuration caben más de 10000 rondas.",
         "Lengthen every, use exponential backoff, or shorten maxDuration.");
+
+    internal static BrainSpecError BadDisplay(string path) => new(DisplayInvalid, path,
+        "The display labels have the wrong shape; this is a warning and the process still loads.",
+        "Las etiquetas de display tienen una forma incorrecta; es una advertencia y el proceso se carga igualmente.",
+        "Use meta.display.<language> with a two-letter lower-case language, the members title and stages, steps, results, queues, outcomes, events or windows, and texts of 1 to 120 characters.");
+
+    internal static BrainSpecError UnknownDisplayId(string path) => new(DisplayUnknownId, path,
+        "The label is for an id the process does not have; this is a warning and the process still loads.",
+        "La etiqueta es de un id que el proceso no tiene; es una advertencia y el proceso se carga igualmente.",
+        "Label an id the process uses, or remove the label.");
 }

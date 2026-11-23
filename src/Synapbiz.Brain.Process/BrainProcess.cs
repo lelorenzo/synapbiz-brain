@@ -112,6 +112,8 @@ public sealed class BrainProcess
     /// <summary>Runs the scenarios embedded in the document on a virtual clock.</summary>
     public ScenarioRunResult RunScenarios() => ScenarioRunner.Run(this, definition);
 
+    internal ProcessDefinition Definition => definition;
+
     internal static AdvanceResult Unchanged(ProcessState state, AdvanceDisposition disposition, string code) =>
         new(state, disposition, code, [], []);
 }

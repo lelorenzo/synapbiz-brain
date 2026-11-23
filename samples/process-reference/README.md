@@ -21,6 +21,10 @@ The processes never submit or change a claim, never write to the record of a vis
 
 Opening the cases is the consumer's job. `practice.daily_refresh` leaves the day's list in its variable `cases` and ends; the consumer reads the finished instance (or its read port does it as the consumer's own side effect) and publishes one `case.opened` event per case. There is no "publish event" step in the format.
 
+## Labels
+
+Every document carries `meta.display`, the words a person reads in a cockpit, in English (`en`) and Spanish (`es`): a title and a label for each stage, step, result, queue, outcome, event and delivery window the document has, read with `ProcessDisplay` (see [the reference](../../docs/reference/brain-process-v1.md#display-labels)). The wording is synthetic product text. `ReferenceLabelTests` fails when a stage or a step of a document has no label in either language, when a label is for something the document does not have, or when `ProcessDisplay.Validate` has a warning. The labels are `meta`: they change no behaviour of a process, only its content hash, and a consumer that copies a folder changes them with the names.
+
 ## Ports
 
 A port is named by the `port` member of a `read`, `action`, `ai` or `poll` step. The input is the object the step builds from its `input` mapping; the output members are the ones the step maps into variables with `output` (other members are ignored). A port answers with an output object or a failure kind (`Transient`, `RateLimited`, `NotAvailable`, `NotEntitled`, `Permanent`, `Unknown`); every step says where each kind goes.

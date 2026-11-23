@@ -6,7 +6,33 @@
   "requires": [],
   "meta": {
     "title": "Practice daily refresh",
-    "description": "Started by a schedule every morning: reads the day's case list into a variable and ends. Opening the cases is the consumer's job."
+    "description": "Started by a schedule every morning: reads the day's case list into a variable and ends. Opening the cases is the consumer's job.",
+    "display": {
+      "en": {
+        "title": "Practice daily refresh",
+        "steps": {
+          "list_cases": "Read the case list of the day",
+          "refresh_attention": "Operations: refresh failed",
+          "refreshed": "Refreshed",
+          "failed": "Refresh failed"
+        },
+        "results": { "refreshed": "Refreshed", "refresh_failed": "Refresh failed" },
+        "queues": { "operations": "Operations" },
+        "outcomes": { "handled": "Handled" }
+      },
+      "es": {
+        "title": "Actualizaci\u00f3n diaria de la pr\u00e1ctica",
+        "steps": {
+          "list_cases": "Leer la lista de casos del d\u00eda",
+          "refresh_attention": "Operaciones: fall\u00f3 la actualizaci\u00f3n",
+          "refreshed": "Actualizado",
+          "failed": "Actualizaci\u00f3n fallida"
+        },
+        "results": { "refreshed": "Actualizado", "refresh_failed": "Actualizaci\u00f3n fallida" },
+        "queues": { "operations": "Operaciones" },
+        "outcomes": { "handled": "Atendido" }
+      }
+    }
   },
   "body": {
     "subject": "practice",

@@ -10,7 +10,51 @@
   "requires": ["coding@1"],
   "meta": {
     "title": "Post-visit coding review",
-    "description": "Lists coding opportunities from the facts of a signed note, may ask an assistant for a suggestion under a contract, and always ends at a physician review: nothing reaches billing without it."
+    "description": "Lists coding opportunities from the facts of a signed note, may ask an assistant for a suggestion under a contract, and always ends at a physician review: nothing reaches billing without it.",
+    "display": {
+      "en": {
+        "title": "Post-visit coding review",
+        "stages": { "postvisit": "After the visit" },
+        "steps": {
+          "read_note": "Read the note facts",
+          "find_opportunities": "Find coding opportunities",
+          "assist_gate": "Decide whether to ask the assistant",
+          "suggest": "Ask the assistant",
+          "check_suggestion": "Check the suggestion",
+          "physician_review": "Physician review",
+          "approved": "Coding approved",
+          "rejected": "Coding rejected"
+        },
+        "results": { "coding_approved": "Coding approved", "coding_rejected": "Coding rejected" },
+        "queues": { "physician_review": "Physician review" },
+        "outcomes": {
+          "approved": "Approved",
+          "changed": "Changed",
+          "rejected": "Rejected"
+        }
+      },
+      "es": {
+        "title": "Revisi\u00f3n de codificaci\u00f3n posterior a la visita",
+        "stages": { "postvisit": "Despu\u00e9s de la visita" },
+        "steps": {
+          "read_note": "Leer los datos de la nota",
+          "find_opportunities": "Buscar oportunidades de codificaci\u00f3n",
+          "assist_gate": "Decidir si se consulta al asistente",
+          "suggest": "Consultar al asistente",
+          "check_suggestion": "Comprobar la sugerencia",
+          "physician_review": "Revisi\u00f3n del m\u00e9dico",
+          "approved": "Codificaci\u00f3n aprobada",
+          "rejected": "Codificaci\u00f3n rechazada"
+        },
+        "results": { "coding_approved": "Codificaci\u00f3n aprobada", "coding_rejected": "Codificaci\u00f3n rechazada" },
+        "queues": { "physician_review": "Revisi\u00f3n m\u00e9dica" },
+        "outcomes": {
+          "approved": "Aprobada",
+          "changed": "Modificada",
+          "rejected": "Rechazada"
+        }
+      }
+    }
   },
   "body": {
     "subject": "case",

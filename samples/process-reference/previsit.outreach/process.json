@@ -6,7 +6,49 @@
   "requires": ["previsit@1"],
   "meta": {
     "title": "Pre-visit outreach",
-    "description": "Reads what a case is missing and sends at most three reminders inside the contact hours, then hands the case to the front desk."
+    "description": "Reads what a case is missing and sends at most three reminders inside the contact hours, then hands the case to the front desk.",
+    "display": {
+      "en": {
+        "title": "Pre-visit outreach",
+        "stages": { "previsit": "Before the visit" },
+        "steps": {
+          "cycle": "Reminder round",
+          "check": "Check what is missing",
+          "assess": "Decide on a reminder",
+          "send": "Send reminder",
+          "reply": "Wait for the reply",
+          "escalate": "Front desk follow-up",
+          "escalate_final": "Final front desk follow-up",
+          "done": "Ready for the visit",
+          "closed": "Case unreachable"
+        },
+        "results": { "previsit_closed": "Ready", "previsit_unreachable": "Unreachable" },
+        "queues": { "front_desk": "Front desk" },
+        "outcomes": { "resolved": "Resolved", "unreachable": "Unreachable" },
+        "events": { "case.reply_received": "Reply received" },
+        "windows": { "contact_hours": "Contact hours" }
+      },
+      "es": {
+        "title": "Contacto previo a la visita",
+        "stages": { "previsit": "Antes de la visita" },
+        "steps": {
+          "cycle": "Ronda de recordatorios",
+          "check": "Revisar lo que falta",
+          "assess": "Decidir si se recuerda",
+          "send": "Enviar recordatorio",
+          "reply": "Esperar la respuesta",
+          "escalate": "Seguimiento de recepci\u00f3n",
+          "escalate_final": "Seguimiento final de recepci\u00f3n",
+          "done": "Listo para la visita",
+          "closed": "Caso sin contacto"
+        },
+        "results": { "previsit_closed": "Listo", "previsit_unreachable": "Sin contacto" },
+        "queues": { "front_desk": "Recepci\u00f3n" },
+        "outcomes": { "resolved": "Resuelto", "unreachable": "Sin contacto" },
+        "events": { "case.reply_received": "Respuesta recibida" },
+        "windows": { "contact_hours": "Horario de contacto" }
+      }
+    }
   },
   "body": {
     "subject": "case",

@@ -6510,5 +6510,1719 @@
         }
       ]
     }
+  },
+  {
+    "name": "valid wait whose timeout is tied to an instant",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "visit_at": {
+            "type": "Instant",
+            "input": true
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "ok",
+            "timeout": {
+              "until": "visit_at",
+              "offset": "-PT2H"
+            },
+            "onTimeout": "late"
+          },
+          "ok": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "late": {
+            "kind": "end",
+            "result": "late"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "the deadline passes",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "visit_at": "2027-01-04T20:00:00Z"
+              }
+            },
+            "events": [
+              {
+                "advance": "PT4H"
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "result": "late",
+              "trace": [
+                "s",
+                "late"
+              ]
+            }
+          },
+          {
+            "name": "the event comes first",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "visit_at": "2027-01-04T20:00:00Z"
+              }
+            },
+            "events": [
+              {
+                "event": "case.ready"
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "result": "ok",
+              "trace": [
+                "s",
+                "ok"
+              ]
+            }
+          },
+          {
+            "name": "a deadline already past leaves at once",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "visit_at": "2027-01-04T15:00:00Z"
+              }
+            },
+            "events": [],
+            "expect": {
+              "status": "Completed",
+              "result": "late",
+              "trace": [
+                "s",
+                "late"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid humanTask whose timeout is tied to an instant without an offset",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "visit_at": {
+            "type": "Instant",
+            "input": true
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "front_desk",
+            "outcomes": [
+              "done"
+            ],
+            "on": {
+              "done": "ok"
+            },
+            "timeout": {
+              "until": "visit_at"
+            },
+            "onTimeout": "late"
+          },
+          "ok": {
+            "kind": "end",
+            "result": "ok"
+          },
+          "late": {
+            "kind": "end",
+            "result": "late"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "the task is done in time",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "visit_at": "2027-01-04T20:00:00Z"
+              }
+            },
+            "events": [
+              {
+                "task": "s",
+                "outcome": "done"
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "result": "ok"
+            }
+          },
+          {
+            "name": "the instant arrives",
+            "start": {
+              "at": "2027-01-04T14:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "visit_at": "2027-01-04T20:00:00Z"
+              }
+            },
+            "events": [
+              {
+                "advance": "PT6H"
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "result": "late"
+            }
+          }
+        ]
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "timeout.until: a variable that is not an Instant and a variable that is not declared",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "t",
+            "timeout": {
+              "until": "count"
+            },
+            "onTimeout": "e"
+          },
+          "t": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "done"
+            ],
+            "on": {
+              "done": "e"
+            },
+            "timeout": {
+              "until": "ghost",
+              "offset": "PT1H"
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/s/timeout/until"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/t/timeout/until"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout.offset: zero and longer than 3660 days",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "t",
+            "timeout": {
+              "until": "at",
+              "offset": "PT0S"
+            },
+            "onTimeout": "e"
+          },
+          "t": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "done"
+            ],
+            "on": {
+              "done": "e"
+            },
+            "timeout": {
+              "until": "at",
+              "offset": "-P4000D"
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/steps/s/timeout/offset"
+        },
+        {
+          "code": "process.duration.invalid",
+          "path": "/body/steps/t/timeout/offset"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout object with a member of its own",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "e",
+            "timeout": {
+              "until": "at",
+              "after": "PT1H"
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/timeout/after"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout object without until",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "e",
+            "timeout": {
+              "offset": "PT1H"
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/timeout"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout that is a number",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "e",
+            "timeout": 5,
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/timeout"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout object with an unsigned-pattern offset that is not a duration",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "e",
+            "timeout": {
+              "until": "at",
+              "offset": "2h"
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/timeout/offset"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout object on a humanTask with an empty until",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "done"
+            ],
+            "on": {
+              "done": "e"
+            },
+            "timeout": {
+              "until": ""
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/timeout/until"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout that is an array",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "e",
+            "timeout": [
+              "at"
+            ],
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/timeout"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout object without onTimeout",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "wait",
+            "event": "case.ready",
+            "next": "e",
+            "timeout": {
+              "until": "at"
+            }
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "onTimeout without a timeout object or a duration",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "at": {
+            "type": "Instant"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "done"
+            ],
+            "on": {
+              "done": "e"
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid action whose delivery window an event can interrupt",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "case_ref": {
+            "type": "Code",
+            "input": true
+          },
+          "kind": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "contact": true,
+            "interruptBy": {
+              "event": "case.reply_received",
+              "correlation": "case_ref",
+              "output": {
+                "reply_kind": "kind"
+              },
+              "to": "reply"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        },
+        "accepts": [
+          "case.reply_received"
+        ],
+        "scenarios": [
+          {
+            "name": "an event interrupts the closed window",
+            "start": {
+              "at": "2027-01-04T23:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "case_ref": "c-1"
+              }
+            },
+            "zones": {
+              "America/New_York": "-05:00"
+            },
+            "events": [
+              {
+                "event": "case.reply_received",
+                "correlation": "c-1",
+                "payload": {
+                  "reply_kind": "call"
+                }
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "result": "replied",
+              "trace": [
+                "s",
+                "reply"
+              ],
+              "variables": {
+                "kind": "call"
+              }
+            }
+          },
+          {
+            "name": "the window opens first",
+            "start": {
+              "at": "2027-01-04T23:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "case_ref": "c-1"
+              }
+            },
+            "zones": {
+              "America/New_York": "-05:00"
+            },
+            "events": [
+              {
+                "advance": "PT15H"
+              },
+              {
+                "complete": "s"
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "result": "sent",
+              "trace": [
+                "s",
+                "ok"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "valid interruptBy with the event only",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": {
+              "event": "case.reply_received",
+              "to": "reply"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": "valid"
+  },
+  {
+    "name": "action.interrupt_requires_window: interruptBy on an action without a window",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "next": "ok",
+            "interruptBy": {
+              "event": "case.reply_received",
+              "to": "ok"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.action.interrupt_requires_window",
+          "path": "/body/steps/s/interruptBy"
+        }
+      ]
+    }
+  },
+  {
+    "name": "interruptBy: unknown step, unknown and mistyped variables",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "n": {
+            "type": "Integer"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": {
+              "event": "case.reply_received",
+              "correlation": "n",
+              "output": {
+                "reply_kind": "ghost"
+              },
+              "to": "nowhere"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          },
+          "x": {
+            "kind": "end",
+            "result": "x"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.step.unreachable",
+          "path": "/body/steps/reply"
+        },
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/s/interruptBy/correlation"
+        },
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/s/interruptBy/output/reply_kind"
+        },
+        {
+          "code": "process.step.unknown",
+          "path": "/body/steps/s/interruptBy/to"
+        },
+        {
+          "code": "process.step.unreachable",
+          "path": "/body/steps/x"
+        }
+      ]
+    }
+  },
+  {
+    "name": "interruptBy: a correlation variable that is not declared",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": {
+              "event": "case.reply_received",
+              "correlation": "ghost",
+              "to": "reply"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.unknown",
+          "path": "/body/steps/s/interruptBy/correlation"
+        }
+      ]
+    }
+  },
+  {
+    "name": "interruptBy: a cycle through the interrupt edge is unbounded",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": {
+              "event": "case.reply_received",
+              "to": "s"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.cycle.unbounded",
+          "path": "/body/steps/s"
+        }
+      ]
+    }
+  },
+  {
+    "name": "interruptBy without to",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": {
+              "event": "case.reply_received"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/interruptBy"
+        }
+      ]
+    }
+  },
+  {
+    "name": "interruptBy without event",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": {
+              "to": "reply"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/interruptBy"
+        }
+      ]
+    }
+  },
+  {
+    "name": "interruptBy with a member of its own",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": {
+              "event": "case.reply_received",
+              "to": "reply",
+              "timeout": "PT1H"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/interruptBy/timeout"
+        }
+      ]
+    }
+  },
+  {
+    "name": "interruptBy that is a text",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": "case.reply_received"
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/interruptBy"
+        }
+      ]
+    }
+  },
+  {
+    "name": "interruptBy output that is not a mapping",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {},
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "interruptBy": {
+              "event": "case.reply_received",
+              "to": "reply",
+              "output": [
+                "a"
+              ]
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "spec.structure.schema",
+          "path": "/body/steps/s/interruptBy/output"
+        }
+      ]
+    }
+  },
+  {
+    "name": "timeout.until on a humanTask: a variable that is not an Instant",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer"
+          }
+        },
+        "start": "t",
+        "steps": {
+          "t": {
+            "kind": "humanTask",
+            "queue": "q",
+            "outcomes": [
+              "done"
+            ],
+            "on": {
+              "done": "e"
+            },
+            "timeout": {
+              "until": "count"
+            },
+            "onTimeout": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.variable.type",
+          "path": "/body/steps/t/timeout/until"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid scenario that sends an interruptBy event the document does not list under accepts",
+    "context": {
+      "rules": []
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [],
+      "requires": [],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "case_ref": {
+            "type": "Code",
+            "input": true
+          },
+          "kind": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "action",
+            "port": "p.send",
+            "delivery": "atLeastOnce",
+            "window": "hours",
+            "next": "ok",
+            "contact": true,
+            "interruptBy": {
+              "event": "case.reply_received",
+              "correlation": "case_ref",
+              "output": {
+                "reply_kind": "kind"
+              },
+              "to": "reply"
+            }
+          },
+          "ok": {
+            "kind": "end",
+            "result": "sent"
+          },
+          "reply": {
+            "kind": "end",
+            "result": "replied"
+          }
+        },
+        "windows": {
+          "hours": {
+            "zone": "America/New_York",
+            "days": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri"
+            ],
+            "from": "09:00",
+            "to": "18:00"
+          }
+        },
+        "scenarios": [
+          {
+            "name": "an event interrupts the closed window",
+            "start": {
+              "at": "2027-01-04T23:00:00Z",
+              "today": "2027-01-04",
+              "input": {
+                "case_ref": "c-1"
+              }
+            },
+            "zones": {
+              "America/New_York": "-05:00"
+            },
+            "events": [
+              {
+                "event": "case.reply_received",
+                "correlation": "c-1",
+                "payload": {
+                  "reply_kind": "call"
+                }
+              }
+            ],
+            "expect": {
+              "status": "Completed",
+              "result": "replied",
+              "trace": [
+                "s",
+                "reply"
+              ],
+              "variables": {
+                "kind": "call"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "expect": "valid"
   }
 ]

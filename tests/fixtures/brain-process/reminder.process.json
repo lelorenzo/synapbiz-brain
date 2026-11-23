@@ -1,0 +1,204 @@
+{
+  "$spec": "brain.process@1",
+  "id": "visit.reminder",
+  "version": 1,
+  "uses": [],
+  "requires": ["reminder@1"],
+  "meta": {
+    "title": "Visit reminder with a deadline",
+    "display": {
+      "en": {
+        "title": "Visit reminder",
+        "stages": { "reminder": "Reminder" },
+        "steps": {
+          "remind": "Send the reminder",
+          "await_confirmation": "Wait for the confirmation",
+          "handle_reply": "Handle the reply",
+          "call_patient": "Call the patient",
+          "confirmed": "Confirmed",
+          "unreachable": "Unreachable",
+          "lapsed": "Lapsed"
+        },
+        "results": { "confirmed": "Confirmed", "unreachable": "Unreachable", "lapsed": "Lapsed" },
+        "queues": { "front_desk": "Front desk" },
+        "outcomes": { "handled": "Handled", "reached": "Reached", "unreachable": "Unreachable" },
+        "events": { "case.reply_received": "Reply received", "visit.confirmed": "Visit confirmed" },
+        "windows": { "contact_hours": "Contact hours" }
+      },
+      "es": {
+        "title": "Recordatorio de visita",
+        "stages": { "reminder": "Recordatorio" },
+        "steps": {
+          "remind": "Enviar el recordatorio",
+          "await_confirmation": "Esperar la confirmación",
+          "handle_reply": "Atender la respuesta",
+          "call_patient": "Llamar al paciente",
+          "confirmed": "Confirmada",
+          "unreachable": "Sin contacto",
+          "lapsed": "Vencida"
+        },
+        "results": { "confirmed": "Confirmada", "unreachable": "Sin contacto", "lapsed": "Vencida" },
+        "queues": { "front_desk": "Recepción" },
+        "outcomes": { "handled": "Atendida", "reached": "Localizado", "unreachable": "Sin contacto" },
+        "events": { "case.reply_received": "Respuesta recibida", "visit.confirmed": "Visita confirmada" },
+        "windows": { "contact_hours": "Horario de contacto" }
+      }
+    }
+  },
+  "body": {
+    "subject": "case",
+    "stages": ["reminder"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "visit_at": { "type": "Instant", "input": true },
+      "reply_kind": { "type": "Code" }
+    },
+    "accepts": ["case.reply_received", "visit.confirmed"],
+    "windows": {
+      "contact_hours": { "zone": "America/New_York", "days": ["mon", "tue", "wed", "thu", "fri"], "from": "09:00", "to": "18:00" }
+    },
+    "start": "remind",
+    "steps": {
+      "remind": {
+        "kind": "action",
+        "stage": "reminder",
+        "port": "messaging.reminder",
+        "delivery": "atMostOnce",
+        "contact": true,
+        "window": "contact_hours",
+        "input": { "case": "case_ref" },
+        "interruptBy": {
+          "event": "case.reply_received",
+          "correlation": "case_ref",
+          "output": { "reply_kind": "reply_kind" },
+          "to": "handle_reply"
+        },
+        "next": "await_confirmation",
+        "onUnknown": "call_patient",
+        "onError": "call_patient"
+      },
+      "await_confirmation": {
+        "kind": "wait",
+        "stage": "reminder",
+        "event": "visit.confirmed",
+        "correlation": "case_ref",
+        "timeout": { "until": "visit_at", "offset": "-PT2H" },
+        "next": "confirmed",
+        "onTimeout": "call_patient"
+      },
+      "handle_reply": {
+        "kind": "humanTask",
+        "stage": "reminder",
+        "queue": "front_desk",
+        "outcomes": ["handled"],
+        "show": ["case_ref", "reply_kind"],
+        "timeout": { "until": "visit_at", "offset": "-PT1H" },
+        "on": { "handled": "confirmed" },
+        "onTimeout": "lapsed"
+      },
+      "call_patient": {
+        "kind": "humanTask",
+        "stage": "reminder",
+        "queue": "front_desk",
+        "outcomes": ["reached", "unreachable"],
+        "show": ["case_ref"],
+        "timeout": { "until": "visit_at" },
+        "on": { "reached": "confirmed", "unreachable": "unreachable" },
+        "onTimeout": "lapsed"
+      },
+      "confirmed": { "kind": "end", "stage": "reminder", "result": "confirmed" },
+      "unreachable": { "kind": "end", "stage": "reminder", "result": "unreachable" },
+      "lapsed": { "kind": "end", "stage": "reminder", "result": "lapsed" }
+    },
+    "scenarios": [
+      {
+        "name": "a reply interrupts the wait for the contact hours",
+        "start": { "at": "2027-01-04T23:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-05T20:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "event": "case.reply_received", "correlation": "c-1", "payload": { "reply_kind": "reschedule" } },
+          { "task": "handle_reply", "outcome": "handled" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "confirmed",
+          "trace": ["remind", "handle_reply", "confirmed"],
+          "variables": { "reply_kind": "reschedule" }
+        }
+      },
+      {
+        "name": "the window opens first and the reminder goes out",
+        "start": { "at": "2027-01-04T23:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-05T20:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "advance": "PT15H" },
+          { "complete": "remind" },
+          { "event": "visit.confirmed", "correlation": "c-1" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "confirmed",
+          "trace": ["remind", "await_confirmation", "confirmed"]
+        }
+      },
+      {
+        "name": "a reply while the reminder is being sent is kept and does not interrupt",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-04T20:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "event": "case.reply_received", "correlation": "c-1", "payload": { "reply_kind": "question" } },
+          { "complete": "remind" },
+          { "event": "visit.confirmed", "correlation": "c-1" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "confirmed",
+          "trace": ["remind", "await_confirmation", "confirmed"]
+        }
+      },
+      {
+        "name": "no confirmation two hours before the visit goes to a person",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-04T20:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "remind" },
+          { "advance": "PT4H" },
+          { "task": "call_patient", "outcome": "unreachable" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "unreachable",
+          "trace": ["remind", "await_confirmation", "call_patient", "unreachable"]
+        }
+      },
+      {
+        "name": "a visit that is too close for the wait goes to a person at once",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-04T15:30:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "remind" },
+          { "task": "call_patient", "outcome": "reached" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "confirmed",
+          "trace": ["remind", "await_confirmation", "call_patient", "confirmed"]
+        }
+      },
+      {
+        "name": "a call still open when the visit starts lapses",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1", "visit_at": "2027-01-04T16:00:00Z" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "remind" },
+          { "advance": "PT2H" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "lapsed",
+          "trace": ["remind", "await_confirmation", "call_patient", "lapsed"]
+        }
+      }
+    ]
+  }
+}
