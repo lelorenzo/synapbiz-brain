@@ -1,0 +1,25 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.trigger_event",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Started by the event case.opened; keeps the input it was started with" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "visit_date": { "type": "Date", "input": true },
+      "site": { "type": "Code", "input": true }
+    },
+    "triggers": [
+      { "kind": "event", "event": "case.opened", "businessKey": "case_ref", "input": { "case_ref": "case_ref", "visit_date": "visit_date" } }
+    ],
+    "start": "hold",
+    "steps": {
+      "hold": { "kind": "wait", "event": "case.opened", "correlation": "case_ref", "next": "done" },
+      "done": { "kind": "end", "result": "reopened" }
+    }
+  }
+}

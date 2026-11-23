@@ -45,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<ProcessHostOptions>>(new ProcessHostOptionsValidator());
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IProcessCalendar>(new UtcProcessCalendar());
+        services.TryAddSingleton<IZoneResolver>(new SystemZoneResolver());
 
         services.AddSingleton(provider => new PostgresProcessStore(provider.GetRequiredService<IOptions<PostgresProcessStoreOptions>>().Value));
         services.AddSingleton<IProcessStore>(provider => provider.GetRequiredService<PostgresProcessStore>());
@@ -56,6 +57,7 @@ public static class ServiceCollectionExtensions
             provider.GetService<IPayloadProtector>() ?? throw new InvalidOperationException(
                 "No IPayloadProtector is registered. Register your own implementation, or call AddPlaintextProcessPayloads() to store payloads as they are."),
             provider.GetRequiredService<IProcessCalendar>(),
+            provider.GetRequiredService<IZoneResolver>(),
             provider.GetRequiredService<TimeProvider>(),
             provider.GetRequiredService<ILogger<ProcessRuntime>>()));
         services.AddSingleton<IProcessEngine>(provider => new ProcessEngine(provider.GetRequiredService<IProcessStore>(), provider.GetRequiredService<ProcessRuntime>()));

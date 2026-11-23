@@ -17,6 +17,9 @@ internal static class InboxPayloads
     internal static string ChildFailed(string childKey, string code) =>
         new JsonObject { ["childKey"] = childKey, ["code"] = code }.ToJsonString();
 
+    internal static string WindowFailed(string timerId, string code) =>
+        new JsonObject { ["timerId"] = timerId, ["code"] = code }.ToJsonString();
+
     internal static string Cancel(string reason) => new JsonObject { ["reason"] = reason }.ToJsonString();
 
     internal static string StartInput(string payload) => Text(Parse(payload), "input");
@@ -31,6 +34,7 @@ internal static class InboxPayloads
             InboxKind.ChildCompleted => new ChildCompleted(Text(node, "childKey"), Text(node, "result"), Text(node, "output")),
             InboxKind.ChildFailed => new ChildFailed(Text(node, "childKey"), Text(node, "code")),
             InboxKind.Cancel => new CancelRequested(Text(node, "reason")),
+            InboxKind.WindowFailed => new WindowFailed(Text(node, "timerId"), Text(node, "code")),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "An inbox row of this kind has no trigger."),
         };
     }

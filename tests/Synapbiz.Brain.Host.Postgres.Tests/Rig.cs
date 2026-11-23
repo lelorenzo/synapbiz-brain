@@ -41,6 +41,8 @@ internal sealed class Rig : IAsyncDisposable
 
     internal TestCatalog Catalog { get; } = new();
 
+    internal TestZoneResolver Zones { get; } = new();
+
     internal List<FakePort> Ports { get; } = [];
 
     internal CapturingLoggerProvider Logs { get; } = new();
@@ -210,6 +212,7 @@ internal sealed class Rig : IAsyncDisposable
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(Time);
         services.AddSingleton<IProcessCatalog>(Catalog);
+        services.AddSingleton<IZoneResolver>(Zones);
         services.AddLogging(logging => logging.SetMinimumLevel(LogLevel.Trace).AddProvider(Logs));
         services.AddSingleton<IEnumerable<IProcessPort>>(_ => Ports);
         if (protector is null)

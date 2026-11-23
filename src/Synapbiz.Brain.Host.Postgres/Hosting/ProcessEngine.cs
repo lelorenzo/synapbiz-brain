@@ -74,6 +74,10 @@ internal sealed class ProcessEngine : IProcessEngine
                 return new PublishResult(PublishStatus.Duplicate, 0);
             }
 
+            // New instances come first and the waiting instances are locked afterwards, in every publisher, so that a publisher that
+            // holds a lock on an instance never waits for the business key another publisher is inserting.
+            var started = await QueueTriggerStartsAsync(session, processEvent, now, cancellationToken).ConfigureAwait(false);
+
             IReadOnlyList<WaitCandidate> targets = processEvent.InstanceId is not null
                 ? [new WaitCandidate(processEvent.InstanceId, true)]
                 : await session.FindWaitingInstancesAsync(tenant, processEvent.Name, processEvent.Correlation, cancellationToken).ConfigureAwait(false);
@@ -96,8 +100,165 @@ internal sealed class ProcessEngine : IProcessEngine
             }
 
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return queued == 0 ? new PublishResult(PublishStatus.NoTarget, 0) : new PublishResult(PublishStatus.Queued, queued);
+            return queued + started == 0 ? new PublishResult(PublishStatus.NoTarget, 0) : new PublishResult(PublishStatus.Queued, queued + started);
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<ActivationResult> ActivateAsync(ProcessActivation activation, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(activation);
+        Guard.Id(activation.TenantId, nameof(activation.TenantId));
+        Guard.Id(activation.ProcessId, nameof(activation.ProcessId));
+        if (activation.Zone is not null)
+        {
+            Guard.Id(activation.Zone, nameof(activation.Zone));
+        }
+
+        Guard.JsonObject(activation.InputJson, nameof(activation.InputJson));
+        var process = runtime.Latest(activation.ProcessId) ?? throw new InvalidOperationException(Unavailable);
+        var input = ParseInput(activation.InputJson);
+
+        // The interpreter's own rules for an input decide whether it is valid: Start is pure, and a rejected start names the code.
+        var check = process.Start("activation-check", (JsonObject)input.DeepClone(), runtime.Clock(activation.TenantId));
+        if (check.Disposition != AdvanceDisposition.Applied)
+        {
+            throw new ArgumentException("The activation input is not valid: " + check.Code, nameof(activation));
+        }
+
+        var now = runtime.Time.GetUtcNow();
+        var schedules = ResolveSchedules(process, activation, now);
+        var events = process.Triggers.OfType<EventTriggerDeclaration>()
+            .Select(trigger => new EventTriggerRow(activation.TenantId, trigger.Event, process.Id, trigger.BusinessKeyMember, MapJson(trigger.Input)))
+            .ToList();
+
+        var key = new ActivationKey(activation.TenantId, process.Id);
+        var session = await store.BeginAsync(cancellationToken).ConfigureAwait(false);
+        await using (session.ConfigureAwait(false))
+        {
+            await session.LockActivationAsync(key, cancellationToken).ConfigureAwait(false);
+            var existing = await session.GetActivationAsync(key, cancellationToken).ConfigureAwait(false);
+            if (existing is not null && SameActivation(existing, process, activation, input))
+            {
+                HostLog.ActivationSaved(runtime.Logger, activation.TenantId, process.Id, process.Version, false);
+                return new ActivationResult(process.Version, false);
+            }
+
+            // Reading the schedules locks them: a pump that is handling one finishes first, so the fire time that is kept is the one it left.
+            var current = (await session.GetSchedulesForUpdateAsync(key, cancellationToken).ConfigureAwait(false)).ToDictionary(row => row.ScheduleId, StringComparer.Ordinal);
+            await session.SaveActivationAsync(
+                key,
+                new ActivationRecord(activation.TenantId, process.Id, process.Version, process.ContentHash, activation.Zone, runtime.Protect(activation.TenantId, input.ToJsonString()), now),
+                cancellationToken).ConfigureAwait(false);
+            await session.ReplaceEventTriggersAsync(key, events, cancellationToken).ConfigureAwait(false);
+            foreach (var schedule in schedules)
+            {
+                var keep = current.TryGetValue(schedule.ScheduleId, out var old) && old.Cron == schedule.Cron && old.Zone == schedule.Zone;
+                await session.UpsertScheduleAsync(key, keep ? schedule with { NextFireAt = old!.NextFireAt } : schedule, cancellationToken).ConfigureAwait(false);
+            }
+
+            await session.DeleteSchedulesExceptAsync(key, [.. schedules.Select(schedule => schedule.ScheduleId)], cancellationToken).ConfigureAwait(false);
+            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        HostLog.ActivationSaved(runtime.Logger, activation.TenantId, process.Id, process.Version, true);
+        return new ActivationResult(process.Version, true);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> DeactivateAsync(string tenantId, string processId, CancellationToken cancellationToken = default)
+    {
+        Guard.Id(tenantId, nameof(tenantId));
+        Guard.Id(processId, nameof(processId));
+        var key = new ActivationKey(tenantId, processId);
+        var session = await store.BeginAsync(cancellationToken).ConfigureAwait(false);
+        bool removed;
+        await using (session.ConfigureAwait(false))
+        {
+            await session.LockActivationAsync(key, cancellationToken).ConfigureAwait(false);
+            await session.GetSchedulesForUpdateAsync(key, cancellationToken).ConfigureAwait(false);
+            await session.DeleteSchedulesExceptAsync(key, [], cancellationToken).ConfigureAwait(false);
+            await session.ReplaceEventTriggersAsync(key, [], cancellationToken).ConfigureAwait(false);
+            removed = await session.DeleteActivationAsync(key, cancellationToken).ConfigureAwait(false);
+            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        HostLog.ActivationRemoved(runtime.Logger, tenantId, processId, removed);
+        return removed;
+    }
+
+    /// <summary>
+    /// Queues the start of one instance for every event trigger of the tenant that names the event: the business key is read from
+    /// the payload (a trigger whose key is missing or not a non-empty string starts nothing and is logged with ids only) and the
+    /// input is the input of the activation with the mapped payload members laid over it. Returns the number of instances created.
+    /// </summary>
+    private async Task<int> QueueTriggerStartsAsync(IProcessSession session, ProcessEvent processEvent, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var tenant = processEvent.TenantId;
+        var triggers = await session.FindEventTriggersAsync(tenant, processEvent.Name, cancellationToken).ConfigureAwait(false);
+        if (triggers.Count == 0)
+        {
+            return 0;
+        }
+
+        var payload = TriggerInputs.ParsePayload(processEvent.PayloadJson);
+        var started = 0;
+        foreach (var trigger in triggers)
+        {
+            var businessKey = payload is null ? null : TriggerInputs.BusinessKey(payload, trigger.BusinessKeyMember);
+            if (businessKey is null)
+            {
+                HostLog.NoBusinessKey(runtime.Logger, tenant, processEvent.EventId, processEvent.Name, trigger.ProcessId);
+                continue;
+            }
+
+            var input = TriggerInputs.EventInput(runtime.Unprotect(tenant, trigger.ProtectedInput), trigger.InputMapJson, payload!);
+            var row = new NewInstance(tenant, Guid.NewGuid().ToString("N"), trigger.ProcessId, trigger.ProcessVersion, trigger.ProcessHash, businessKey, null, null, now);
+            if (await runtime.QueueStartAsync(session, row, input.ToJsonString(), cancellationToken).ConfigureAwait(false))
+            {
+                started++;
+            }
+        }
+
+        return started;
+    }
+
+    /// <summary>The schedule rows an activation needs: the zone of each schedule (its own, else the one of the activation) resolved, and its first occurrence after now.</summary>
+    private List<ScheduleRow> ResolveSchedules(BrainProcess process, ProcessActivation activation, DateTimeOffset now)
+    {
+        var rows = new List<ScheduleRow>();
+        foreach (var trigger in process.Triggers.OfType<ScheduleTriggerDeclaration>())
+        {
+            var zoneId = trigger.Zone ?? activation.Zone
+                ?? throw new ArgumentException("The schedule '" + trigger.Id + "' declares no time zone and the activation supplies none.", nameof(activation));
+            var zone = runtime.FindZone(zoneId)
+                ?? throw new ArgumentException("The time zone of the schedule '" + trigger.Id + "' is not known to the host.", nameof(activation));
+            if (!CronSchedule.TryParse(trigger.Cron, out var cron))
+            {
+                throw new InvalidOperationException("The cron expression of the schedule '" + trigger.Id + "' is not valid.");
+            }
+
+            rows.Add(new ScheduleRow(activation.TenantId, process.Id, trigger.Id, trigger.Cron, zoneId, trigger.Misfire, cron.Next(now, zone)));
+        }
+
+        return rows;
+    }
+
+    private bool SameActivation(ActivationRecord existing, BrainProcess process, ProcessActivation activation, JsonObject input) =>
+        existing.ProcessVersion == process.Version
+        && existing.ProcessHash == process.ContentHash
+        && existing.Zone == activation.Zone
+        && JsonNode.DeepEquals(JsonNode.Parse(runtime.Unprotect(existing.TenantId, existing.ProtectedInput)), input);
+
+    private static string MapJson(IReadOnlyDictionary<string, string> map)
+    {
+        var json = new JsonObject();
+        foreach (var (variable, member) in map.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            json[variable] = member;
+        }
+
+        return json.ToJsonString();
     }
 
     /// <inheritdoc />

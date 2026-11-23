@@ -19,6 +19,13 @@ public sealed class ProcessHostOptions
 
     /// <summary>How long a claimed effect stays claimed; must be longer than <see cref="PortTimeout"/>.</summary>
     public TimeSpan EffectLease { get; set; } = TimeSpan.FromSeconds(120);
+
+    /// <summary>
+    /// How late a schedule occurrence may be handled and still count as on time, from zero. An occurrence handled later than this
+    /// has been missed (the host was down or late), and the misfire policy of its schedule decides what happens. At the boundary
+    /// (exactly this late) the occurrence is on time.
+    /// </summary>
+    public TimeSpan ScheduleMisfireGrace { get; set; } = TimeSpan.FromMinutes(5);
 }
 
 /// <summary>Validates <see cref="ProcessHostOptions"/> when they are first resolved.</summary>
@@ -51,6 +58,11 @@ internal sealed class ProcessHostOptionsValidator : IValidateOptions<ProcessHost
         if (options.EffectLease <= options.PortTimeout)
         {
             failures.Add("ProcessHostOptions.EffectLease must be greater than PortTimeout.");
+        }
+
+        if (options.ScheduleMisfireGrace < TimeSpan.Zero)
+        {
+            failures.Add("ProcessHostOptions.ScheduleMisfireGrace must not be negative.");
         }
 
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);

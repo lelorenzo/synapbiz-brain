@@ -21,6 +21,8 @@ internal sealed partial class PostgresProcessStore : IProcessStore, IAsyncDispos
     private const string EffectColumns =
         "tenant_id, effect_id, instance_id, step, idempotency_key, kind, port, input, attempt, delivery, model, prompt_id, prompt_version, status, due_at, lease_until, lease_owner";
 
+    private const string ScheduleColumns = "s.tenant_id, s.process_id, s.schedule_id, s.cron, s.zone, s.misfire, s.next_fire_at";
+
     private const string TaskColumns = "tenant_id, task_id, instance_id, step, queue, outcomes, show, status, created_at";
 
     private readonly NpgsqlDataSource dataSource;
@@ -76,6 +78,7 @@ internal sealed partial class PostgresProcessStore : IProcessStore, IAsyncDispos
             WorkKind.Inbox => "select i.tenant_id, i.instance_id, i.inbox_id::text, null::timestamptz from {inbox} i where i.status = 1 and i.inbox_id > @after and not exists (select 1 from {inbox} e where e.tenant_id = i.tenant_id and e.instance_id = i.instance_id and e.status = 1 and e.inbox_id < i.inbox_id) order by i.inbox_id limit @n",
             WorkKind.DueTimer => "select tenant_id, instance_id, timer_id, due_at from {timer} where due_at <= @now and (@at is null or (due_at, tenant_id, timer_id) > (@at, @t, @id)) order by due_at, tenant_id, timer_id limit @n",
             WorkKind.DueEffect => "select tenant_id, instance_id, effect_id, due_at from {effect} where status = 1 and due_at <= @now and (@at is null or (due_at, tenant_id, effect_id) > (@at, @t, @id)) order by due_at, tenant_id, effect_id limit @n",
+            WorkKind.DueSchedule => "select tenant_id, '', schedule_id, next_fire_at, process_id from {schedule} where next_fire_at <= @now and (@at is null or (next_fire_at, tenant_id, process_id, schedule_id) > (@at, @t, @p, @id)) order by next_fire_at, tenant_id, process_id, schedule_id limit @n",
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown kind of work."),
         };
         NpgsqlParameter[] parameters;
@@ -87,6 +90,10 @@ internal sealed partial class PostgresProcessStore : IProcessStore, IAsyncDispos
         else
         {
             parameters = [Time("now", now), Time("at", after?.SortAt), Text("t", after?.TenantId), Text("id", after?.ItemId), Big("n", limit)];
+            if (kind == WorkKind.DueSchedule)
+            {
+                parameters = [.. parameters, Text("p", after?.ProcessId)];
+            }
         }
 
         var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
@@ -97,7 +104,7 @@ internal sealed partial class PostgresProcessStore : IProcessStore, IAsyncDispos
                 null,
                 Bake(sql),
                 parameters,
-                reader => new WorkRef(reader.GetString(0), reader.GetString(1), reader.GetString(2), Moment(reader, 3)),
+                reader => new WorkRef(reader.GetString(0), reader.GetString(1), reader.GetString(2), Moment(reader, 3), reader.FieldCount > 4 ? reader.GetString(4) : null),
                 cancellationToken).ConfigureAwait(false);
         }
     }
@@ -204,7 +211,10 @@ internal sealed partial class PostgresProcessStore : IProcessStore, IAsyncDispos
             .Replace("{task}", schema + ".process_task", StringComparison.Ordinal)
             .Replace("{effect}", schema + ".process_effect", StringComparison.Ordinal)
             .Replace("{event}", schema + ".process_event", StringComparison.Ordinal)
-            .Replace("{inbox}", schema + ".process_inbox", StringComparison.Ordinal));
+            .Replace("{inbox}", schema + ".process_inbox", StringComparison.Ordinal)
+            .Replace("{activation}", schema + ".process_activation", StringComparison.Ordinal)
+            .Replace("{eventtrigger}", schema + ".process_event_trigger", StringComparison.Ordinal)
+            .Replace("{schedule}", schema + ".process_schedule", StringComparison.Ordinal));
 
     private static NpgsqlBatch NewBatch(NpgsqlConnection connection, NpgsqlTransaction? transaction, string sql, NpgsqlParameter[] parameters)
     {
@@ -284,6 +294,15 @@ internal sealed partial class PostgresProcessStore : IProcessStore, IAsyncDispos
         Str(reader, 14),
         reader.GetFieldValue<DateTimeOffset>(15),
         reader.GetFieldValue<DateTimeOffset>(16));
+
+    private static ScheduleRow ReadSchedule(NpgsqlDataReader reader) => new(
+        reader.GetString(0),
+        reader.GetString(1),
+        reader.GetString(2),
+        reader.GetString(3),
+        reader.GetString(4),
+        (ProcessMisfire)reader.GetInt16(5),
+        reader.GetFieldValue<DateTimeOffset>(6));
 
     private static TaskRecord ReadTask(NpgsqlDataReader reader) => new(
         reader.GetString(0),
