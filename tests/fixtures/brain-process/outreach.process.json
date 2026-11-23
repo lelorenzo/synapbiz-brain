@@ -1,0 +1,154 @@
+{
+  "$spec": "brain.process@1",
+  "id": "previsit.outreach",
+  "version": 1,
+  "uses": [{ "$ref": "rule/previsit.missing_items" }],
+  "requires": ["outreach@1"],
+  "meta": { "title": "Pre-visit outreach" },
+  "body": {
+    "subject": "case",
+    "stages": ["previsit"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "missing": { "type": "Integer" }
+    },
+    "start": "cycle",
+    "steps": {
+      "cycle": {
+        "kind": "loop",
+        "stage": "previsit",
+        "maxIterations": 2,
+        "body": "check",
+        "onExhausted": "escalate"
+      },
+      "check": {
+        "kind": "read",
+        "port": "intake.status",
+        "input": { "case": "case_ref" },
+        "output": { "missing_count": "missing" },
+        "next": "assess",
+        "onError": "escalate"
+      },
+      "assess": {
+        "kind": "decide",
+        "rule": "previsit.missing_items",
+        "facts": { "missing": "missing" },
+        "route": "action",
+        "on": { "none": "done", "remind": "send" },
+        "onNoDecision": "escalate",
+        "onError": "escalate"
+      },
+      "send": {
+        "kind": "action",
+        "port": "messaging.notice",
+        "delivery": "atMostOnce",
+        "input": { "case": "case_ref", "missing": "missing" },
+        "retry": { "maxAttempts": 3, "backoff": "exponential", "initial": "PT1M", "max": "PT10M" },
+        "next": "reply",
+        "onUnknown": "escalate",
+        "onError": "escalate"
+      },
+      "reply": {
+        "kind": "wait",
+        "event": "form_submitted",
+        "correlation": "case_ref",
+        "timeout": "PT24H",
+        "next": "cycle",
+        "onTimeout": "cycle"
+      },
+      "escalate": {
+        "kind": "humanTask",
+        "queue": "front_desk",
+        "outcomes": ["resolved", "unreachable"],
+        "show": ["case_ref", "missing"],
+        "timeout": "P3D",
+        "on": { "resolved": "cycle", "unreachable": "closed" },
+        "onTimeout": "closed"
+      },
+      "done": { "kind": "end", "result": "ready" },
+      "closed": { "kind": "end", "result": "unreachable" }
+    },
+    "scenarios": [
+      {
+        "name": "nothing missing",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "ready",
+          "trace": ["cycle", "check", "assess", "done"],
+          "variables": { "missing": 0 }
+        }
+      },
+      {
+        "name": "reply after the first reminder",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "complete": "send" },
+          { "event": "form_submitted", "correlation": "c-1", "payload": { } },
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "ready",
+          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "done"],
+          "variables": { "missing": 0 }
+        }
+      },
+      {
+        "name": "two reminders then escalate",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "complete": "send" },
+          { "advance": "PT24H" },
+          { "complete": "check", "output": { "missing_count": 2 } },
+          { "complete": "send" },
+          { "advance": "PT24H" },
+          { "task": "escalate", "outcome": "unreachable" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "unreachable",
+          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "send", "reply", "cycle", "escalate", "closed"],
+          "variables": { "missing": 2 }
+        }
+      },
+      {
+        "name": "unknown delivery goes to a task",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 3 } },
+          { "fail": "send", "error": "Unknown", "code": "send.lost" },
+          { "task": "escalate", "outcome": "resolved" },
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "ready",
+          "trace": ["cycle", "check", "assess", "send", "escalate", "cycle", "check", "assess", "done"]
+        }
+      },
+      {
+        "name": "transient failure is retried",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "events": [
+          { "complete": "check", "output": { "missing_count": 1 } },
+          { "fail": "send", "error": "Transient", "code": "send.busy", "retryAfter": "PT30S" },
+          { "advance": "PT1M" },
+          { "complete": "send" },
+          { "event": "form_submitted", "correlation": "c-1", "payload": { } },
+          { "complete": "check", "output": { "missing_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "ready",
+          "trace": ["cycle", "check", "assess", "send", "reply", "cycle", "check", "assess", "done"]
+        }
+      }
+    ]
+  }
+}

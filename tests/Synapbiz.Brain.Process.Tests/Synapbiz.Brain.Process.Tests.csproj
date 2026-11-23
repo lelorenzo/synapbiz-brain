@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
+  </ItemGroup>
+
+</Project>

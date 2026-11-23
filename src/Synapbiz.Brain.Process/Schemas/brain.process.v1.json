@@ -1,0 +1,643 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.synapbiz.example/brain.process/1",
+  "type": "object",
+  "properties": {
+    "$spec": {
+      "const": "brain.process@1"
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "uses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*/[A-Za-z0-9_][A-Za-z0-9_.-]*$"
+          }
+        },
+        "required": [
+          "$ref"
+        ],
+        "additionalProperties": false
+      },
+      "uniqueItems": true
+    },
+    "requires": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*@[1-9][0-9]*$"
+      },
+      "uniqueItems": true
+    },
+    "meta": {
+      "type": "object"
+    },
+    "body": {
+      "$ref": "#/$defs/body"
+    }
+  },
+  "required": [
+    "$spec",
+    "id",
+    "version",
+    "uses",
+    "requires",
+    "meta",
+    "body"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^P(?:([0-9]+)D)?(?:T(?:([0-9]+)H)?(?:([0-9]+)M)?(?:([0-9]+)S)?)?$"
+    },
+    "signedDuration": {
+      "type": "string",
+      "pattern": "^-?P(?:([0-9]+)D)?(?:T(?:([0-9]+)H)?(?:([0-9]+)M)?(?:([0-9]+)S)?)?$"
+    },
+    "mapping": {
+      "type": "object",
+      "propertyNames": {
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "stepMap": {
+      "type": "object",
+      "propertyNames": {
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "retry": {
+      "type": "object",
+      "properties": {
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "backoff": {
+          "enum": [
+            "fixed",
+            "exponential"
+          ]
+        },
+        "initial": {
+          "$ref": "#/$defs/duration"
+        },
+        "max": {
+          "$ref": "#/$defs/duration"
+        }
+      },
+      "required": [
+        "maxAttempts",
+        "backoff",
+        "initial"
+      ],
+      "additionalProperties": false
+    },
+    "variable": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "Code",
+            "Enum",
+            "Boolean",
+            "Integer",
+            "Decimal",
+            "Money",
+            "Date",
+            "Reference",
+            "Instant",
+            "Json"
+          ]
+        },
+        "allowedValues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "input": {
+          "type": "boolean"
+        },
+        "initial": {}
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "body": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "$ref": "#/$defs/text"
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "uniqueItems": true
+        },
+        "variables": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/variable"
+          }
+        },
+        "accepts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "uniqueItems": true
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "maxSteps": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            }
+          },
+          "additionalProperties": false
+        },
+        "start": {
+          "$ref": "#/$defs/id"
+        },
+        "steps": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scenario"
+          }
+        }
+      },
+      "required": [
+        "subject",
+        "stages",
+        "variables",
+        "start",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "read",
+            "action",
+            "ai",
+            "decide",
+            "humanTask",
+            "wait",
+            "timer",
+            "loop",
+            "subprocess",
+            "end"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "read" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/read" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "action" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/action" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "ai" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/ai" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "decide" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/decide" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "humanTask" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/humanTask" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "wait" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/wait" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "timer" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/timer" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "loop" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/loop" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "subprocess" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/subprocess" }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "end" } }, "required": [ "kind" ] },
+          "then": { "$ref": "#/$defs/end" }
+        }
+      ]
+    },
+    "read": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "read" },
+        "stage": { "$ref": "#/$defs/text" },
+        "port": { "$ref": "#/$defs/text" },
+        "input": { "$ref": "#/$defs/mapping" },
+        "output": { "$ref": "#/$defs/mapping" },
+        "retry": { "$ref": "#/$defs/retry" },
+        "next": { "$ref": "#/$defs/id" },
+        "onError": { "$ref": "#/$defs/id" },
+        "onNotAvailable": { "$ref": "#/$defs/id" },
+        "onNotEntitled": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "port", "next" ],
+      "additionalProperties": false
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "action" },
+        "stage": { "$ref": "#/$defs/text" },
+        "port": { "$ref": "#/$defs/text" },
+        "input": { "$ref": "#/$defs/mapping" },
+        "output": { "$ref": "#/$defs/mapping" },
+        "retry": { "$ref": "#/$defs/retry" },
+        "next": { "$ref": "#/$defs/id" },
+        "onError": { "$ref": "#/$defs/id" },
+        "onNotAvailable": { "$ref": "#/$defs/id" },
+        "onNotEntitled": { "$ref": "#/$defs/id" },
+        "delivery": { "enum": [ "atLeastOnce", "atMostOnce" ] },
+        "onUnknown": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "port", "next", "delivery" ],
+      "additionalProperties": false,
+      "if": {
+        "properties": { "delivery": { "const": "atMostOnce" } },
+        "required": [ "delivery" ]
+      },
+      "then": {
+        "required": [ "onUnknown" ]
+      },
+      "else": {
+        "not": { "required": [ "onUnknown" ] }
+      }
+    },
+    "ai": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "ai" },
+        "stage": { "$ref": "#/$defs/text" },
+        "port": { "$ref": "#/$defs/text" },
+        "model": { "$ref": "#/$defs/text" },
+        "prompt": {
+          "type": "object",
+          "properties": {
+            "id": { "$ref": "#/$defs/text" },
+            "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+          },
+          "required": [ "id", "version" ],
+          "additionalProperties": false
+        },
+        "input": { "$ref": "#/$defs/mapping" },
+        "inputSchema": { "type": "object" },
+        "outputSchema": { "type": "object" },
+        "output": { "$ref": "#/$defs/mapping" },
+        "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "retry": { "$ref": "#/$defs/retry" },
+        "next": { "$ref": "#/$defs/id" },
+        "onInvalid": { "$ref": "#/$defs/id" },
+        "onError": { "$ref": "#/$defs/id" },
+        "onNotAvailable": { "$ref": "#/$defs/id" },
+        "onNotEntitled": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "port", "model", "prompt", "inputSchema", "outputSchema", "next", "onInvalid" ],
+      "additionalProperties": false
+    },
+    "decide": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "decide" },
+        "stage": { "$ref": "#/$defs/text" },
+        "rule": { "$ref": "#/$defs/id" },
+        "facts": { "$ref": "#/$defs/mapping" },
+        "output": { "$ref": "#/$defs/mapping" },
+        "route": { "$ref": "#/$defs/text" },
+        "on": { "$ref": "#/$defs/stepMap" },
+        "next": { "$ref": "#/$defs/id" },
+        "collectInto": { "$ref": "#/$defs/text" },
+        "onNoDecision": { "$ref": "#/$defs/id" },
+        "onError": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "rule", "facts", "onNoDecision" ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "route": [ "on" ],
+        "on": [ "route" ]
+      },
+      "oneOf": [
+        { "required": [ "next" ], "not": { "required": [ "route" ] } },
+        { "required": [ "route" ], "not": { "required": [ "next" ] } }
+      ]
+    },
+    "humanTask": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "humanTask" },
+        "stage": { "$ref": "#/$defs/text" },
+        "queue": { "$ref": "#/$defs/text" },
+        "outcomes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "show": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "output": { "$ref": "#/$defs/mapping" },
+        "on": { "$ref": "#/$defs/stepMap" },
+        "timeout": { "$ref": "#/$defs/duration" },
+        "onTimeout": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "queue", "outcomes", "on" ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "timeout": [ "onTimeout" ],
+        "onTimeout": [ "timeout" ]
+      }
+    },
+    "wait": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "wait" },
+        "stage": { "$ref": "#/$defs/text" },
+        "event": { "$ref": "#/$defs/text" },
+        "correlation": { "$ref": "#/$defs/text" },
+        "output": { "$ref": "#/$defs/mapping" },
+        "next": { "$ref": "#/$defs/id" },
+        "timeout": { "$ref": "#/$defs/duration" },
+        "onTimeout": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "event", "next" ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "timeout": [ "onTimeout" ],
+        "onTimeout": [ "timeout" ]
+      }
+    },
+    "timer": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "timer" },
+        "stage": { "$ref": "#/$defs/text" },
+        "after": { "$ref": "#/$defs/duration" },
+        "until": { "$ref": "#/$defs/text" },
+        "offset": { "$ref": "#/$defs/signedDuration" },
+        "next": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "next" ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "offset": [ "until" ]
+      },
+      "oneOf": [
+        { "required": [ "after" ] },
+        { "required": [ "until" ] }
+      ]
+    },
+    "loop": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "loop" },
+        "stage": { "$ref": "#/$defs/text" },
+        "maxIterations": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "body": { "$ref": "#/$defs/id" },
+        "onExhausted": { "$ref": "#/$defs/id" },
+        "forEach": { "$ref": "#/$defs/text" },
+        "item": { "$ref": "#/$defs/text" },
+        "next": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "maxIterations", "body", "onExhausted" ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "forEach": [ "item", "next" ],
+        "item": [ "forEach", "next" ],
+        "next": [ "forEach", "item" ]
+      }
+    },
+    "subprocess": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "subprocess" },
+        "stage": { "$ref": "#/$defs/text" },
+        "process": { "$ref": "#/$defs/id" },
+        "input": { "$ref": "#/$defs/mapping" },
+        "output": { "$ref": "#/$defs/mapping" },
+        "next": { "$ref": "#/$defs/id" },
+        "on": { "$ref": "#/$defs/stepMap" },
+        "onError": { "$ref": "#/$defs/id" }
+      },
+      "required": [ "kind", "process" ],
+      "additionalProperties": false,
+      "oneOf": [
+        { "required": [ "next" ], "not": { "required": [ "on" ] } },
+        { "required": [ "on" ], "not": { "required": [ "next" ] } }
+      ]
+    },
+    "end": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "end" },
+        "stage": { "$ref": "#/$defs/text" },
+        "result": { "$ref": "#/$defs/text" }
+      },
+      "required": [ "kind", "result" ],
+      "additionalProperties": false
+    },
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/text" },
+        "start": {
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+            },
+            "today": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "input": {
+              "type": "object"
+            }
+          },
+          "required": [ "at", "today" ],
+          "additionalProperties": false
+        },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/scenarioEvent" }
+        },
+        "expect": {
+          "type": "object",
+          "properties": {
+            "status": { "enum": [ "Waiting", "Suspended", "Completed", "Cancelled" ] },
+            "result": { "type": "string" },
+            "trace": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "variables": {
+              "type": "object"
+            }
+          },
+          "required": [ "status" ],
+          "additionalProperties": false
+        }
+      },
+      "required": [ "name", "start", "events", "expect" ],
+      "additionalProperties": false
+    },
+    "scenarioEvent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "complete": { "type": "string" },
+            "output": { "type": "object" }
+          },
+          "required": [ "complete" ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fail": { "type": "string" },
+            "error": { "enum": [ "Transient", "RateLimited", "NotAvailable", "NotEntitled", "Permanent", "Unknown" ] },
+            "code": { "type": "string" },
+            "retryAfter": { "$ref": "#/$defs/duration" }
+          },
+          "required": [ "fail", "error", "code" ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "advance": { "$ref": "#/$defs/duration" }
+          },
+          "required": [ "advance" ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": { "type": "string" },
+            "correlation": { "type": "string" },
+            "payload": { "type": "object" }
+          },
+          "required": [ "event" ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "task": { "type": "string" },
+            "outcome": { "type": "string" },
+            "data": { "type": "object" }
+          },
+          "required": [ "task", "outcome" ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "child": { "type": "string" },
+            "result": { "type": "string" },
+            "output": { "type": "object" }
+          },
+          "required": [ "child", "result" ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "childFailed": { "type": "string" },
+            "code": { "type": "string" }
+          },
+          "required": [ "childFailed", "code" ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cancel": { "type": "string" }
+          },
+          "required": [ "cancel" ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "resume": { "const": true }
+          },
+          "required": [ "resume" ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}
