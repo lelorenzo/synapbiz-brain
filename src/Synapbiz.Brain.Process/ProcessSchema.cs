@@ -24,11 +24,18 @@ internal static class ProcessSchema
         }
 
         return [.. (result.Details ?? []).Append(result)
-            .Where(detail => !detail.IsValid && detail.Errors?.Count > 0)
+            .Where(detail => !detail.IsValid && detail.Errors?.Count > 0 && !IsCondition(detail))
             .Select(detail => detail.InstanceLocation.ToString())
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)];
     }
+
+    /// <summary>
+    /// True for a result produced while evaluating the <c>if</c> of a conditional: its failures only select a branch and are
+    /// not violations of the document.
+    /// </summary>
+    private static bool IsCondition(EvaluationResults detail) =>
+        detail.EvaluationPath.ToString().Contains("/if/", StringComparison.Ordinal);
 
     private static JsonSchema Build()
     {
