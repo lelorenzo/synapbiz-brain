@@ -40,8 +40,14 @@ internal sealed class FlowWork
     /// <summary>The try-outs, the first one for this flow and each next one for a child opened from the one before it.</summary>
     internal List<TryFrame> Frames { get; } = [];
 
-    /// <summary>The name of the embedded scenario the first try-out replays; null for a try-out made by hand.</summary>
-    internal string? ReplayName { get; set; }
+    /// <summary>The scenario the first try-out replays, command by command; null for a try-out made by hand. Once it is finished the reader goes on by hand.</summary>
+    internal FlowReplay? Replay { get; set; }
+
+    /// <summary>What each proposed scenario does to the flow, by name (null when it is not valid), kept so that it is played once.</summary>
+    internal Dictionary<string, FlowScenarioResult?> ProposedResults { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>True while a replay still has commands to play: the cards of the try-out are then read only.</summary>
+    internal bool IsReplaying => Replay is { IsFinished: false };
 
     /// <summary>The texts of the start form.</summary>
     internal Dictionary<string, string> StartValues { get; } = new(StringComparer.Ordinal);

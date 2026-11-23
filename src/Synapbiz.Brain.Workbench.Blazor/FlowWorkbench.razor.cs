@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using Synapbiz.Brain.Process;
 using Synapbiz.Brain.Workbench.Flows;
 
@@ -26,6 +27,8 @@ public sealed partial class FlowWorkbench : IDisposable
     private readonly Dictionary<string, ElementReference> refs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> noteIds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FlowData> data = new(StringComparer.Ordinal);
+    private readonly HashSet<string> seen = new(StringComparer.Ordinal);
+    private readonly Dictionary<WorkbenchLocale, Dictionary<BrainProcess, FlowScenarioReport>> reports = [];
 
     private FlowWorkbenchSession? subscribedTo;
     private UiText text = new(WorkbenchLocale.En, null);
@@ -98,22 +101,62 @@ public sealed partial class FlowWorkbench : IDisposable
             data.Clear();
             frameInfo.Clear();
             known = [.. (Flows ?? []).Where(flow => flow.IsReadable).Select(flow => flow.Process!)];
-            library = FlowLibrary.From(known, Locale);
+            library = FlowLibrary.From(known, Locale, ReportOf);
             builtFor = Flows;
             builtLocale = Locale;
         }
     }
 
+    /// <summary>How many scenario reports this component has made: one for each flow and language it has shown, however often the flow is drawn.</summary>
+    internal int ReportCount => reports.Values.Sum(table => table.Count);
+
+    /// <summary>The scenarios of a flow, played once for the flow and the language and kept.</summary>
+    private FlowScenarioReport ReportOf(BrainProcess process)
+    {
+        if (!reports.TryGetValue(Locale, out var table))
+        {
+            reports[Locale] = table = new Dictionary<BrainProcess, FlowScenarioReport>(ReferenceEqualityComparer.Instance);
+        }
+
+        if (!table.TryGetValue(process, out var report))
+        {
+            table[process] = report = FlowScenarioReport.Of(process, Locale);
+        }
+
+        return report;
+    }
+
+    /// <summary>Notes that the element with this key is drawn in the render that is being made, so that focus is only given to an element that exists.</summary>
+    private void Seen(string key) => seen.Add(key);
+
+    /// <inheritdoc />
+    protected override bool ShouldRender()
+    {
+        seen.Clear();
+        return true;
+    }
+
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (pendingFocus is { } key)
+        if (pendingFocus is not { } key)
         {
-            pendingFocus = null;
-            if (refs.TryGetValue(key, out var element))
-            {
-                await element.FocusAsync().ConfigureAwait(true);
-            }
+            return;
+        }
+
+        pendingFocus = null;
+        if (!seen.Contains(key) || !refs.TryGetValue(key, out var element))
+        {
+            return;
+        }
+
+        try
+        {
+            await element.FocusAsync().ConfigureAwait(true);
+        }
+        catch (Exception error) when (error is JSException or InvalidOperationException)
+        {
+            // Focus is a courtesy: an element that cannot take it must never end the session of the reader.
         }
     }
 
@@ -143,17 +186,11 @@ public sealed partial class FlowWorkbench : IDisposable
     private string PluralText(string key, long count, params (string Name, string Value)[] values) =>
         text.Plain(UiText.Plural(key, count), [.. values, ("n", Number(count))]);
 
-    /// <summary>The name of a variable or a member as a label: words, the first one capitalised.</summary>
-    private static string Labelled(string name)
-    {
-        var words = WorkbenchText.Humanize(name);
-        return words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
-    }
-
     private static string Number(long value) => value.ToString(CultureInfo.InvariantCulture);
 
+    /// <summary>A moment as the language writes it, always followed by UTC.</summary>
     private string TimeText(DateTimeOffset moment) =>
-        Plain("flow.time", ("time", moment.UtcDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)));
+        Plain("flow.time", ("time", moment.UtcDateTime.ToString(Locale == WorkbenchLocale.Es ? "dd/MM/yyyy HH:mm" : "MM/dd/yyyy h:mm tt", CultureInfo.InvariantCulture)));
 
     /// <summary>A sentence of the library: the ids it writes between backticks are drawn as code.</summary>
     private static RenderFragment Sentence(string value) => builder =>
@@ -177,6 +214,40 @@ public sealed partial class FlowWorkbench : IDisposable
         }
     };
 
+    /// <summary>
+    /// A fixed string whose placeholders are filled, some with text and some with data of the document (a port, a variable) that is
+    /// written as code and never reworded.
+    /// </summary>
+    private RenderFragment Weave(string key, (string Name, string Value)[] texts, params (string Name, string Value)[] codes) => builder =>
+    {
+        var template = text.Template(key);
+        foreach (var (name, value) in texts)
+        {
+            template = template.Replace("{" + name + "}", value, StringComparison.Ordinal);
+        }
+
+        var at = 0;
+        while (at < template.Length)
+        {
+            var next = codes.Select(code => (code, index: template.IndexOf("{" + code.Name + "}", at, StringComparison.Ordinal))).Where(item => item.index >= 0).OrderBy(item => item.index).FirstOrDefault();
+            if (next.code.Name is null)
+            {
+                builder.AddContent(0, template[at..]);
+                break;
+            }
+
+            builder.AddContent(1, template[at..next.index]);
+            builder.OpenElement(2, "code");
+            builder.AddAttribute(3, "class", "wb-code");
+            builder.AddContent(4, next.code.Value);
+            builder.CloseElement();
+            at = next.index + next.code.Name.Length + 2;
+        }
+    };
+
+    /// <summary>The name of a variable of the document, as the document writes it: code.</summary>
+    private static RenderFragment VarName(string name) => Code(name);
+
     /// <summary>An id or a value written as code.</summary>
     private static RenderFragment Code(string value) => builder =>
     {
@@ -185,6 +256,18 @@ public sealed partial class FlowWorkbench : IDisposable
         builder.AddContent(2, value);
         builder.CloseElement();
     };
+
+    private static ChangeEventArgs CheckedArgs(ChangeEventArgs args) => new() { Value = args.Value is true ? "true" : "false" };
+
+    private static (string Tone, string Mark, string WordKey) ScenarioLook(bool valid, bool passed)
+    {
+        if (!valid)
+        {
+            return ("warn", "!", "flow.tests.invalid");
+        }
+
+        return passed ? ("ok", "✓", "flow.tests.pass") : ("bad", "✗", "flow.tests.fail");
+    }
 
     private static string PillClass(string tone) => tone switch
     {
@@ -239,7 +322,7 @@ public sealed partial class FlowWorkbench : IDisposable
         {
             var process = flow.Process!;
             var entry = library.First(item => item.Id == process.Id && item.Version == process.Version && item.ContentHash == process.ContentHash);
-            built = FlowData.Build(process, Locale, known, entry);
+            built = FlowData.Build(process, Locale, known, entry, ReportOf(process));
             data[flow.Key] = built;
         }
 
@@ -324,23 +407,42 @@ public sealed partial class FlowWorkbench : IDisposable
             return Plain("flow.list.noTests");
         }
 
-        return failed == 0
-            ? PluralText("flow.list.testsPass", d.Entry.ScenarioCount)
+        if (failed == 0)
+        {
+            return PluralText("flow.list.testsPass", d.Entry.ScenarioCount);
+        }
+
+        return d.Entry.ScenarioCount == 1
+            ? Plain("flow.list.testFails")
             : PluralText("flow.list.testsFail", failed, ("t", Number(d.Entry.ScenarioCount)));
     }
 
     private string ReviewLine(WorkbenchFlow flow, FlowData d)
     {
         var work = Session.Work(flow.Key);
-        var marked = d.Targets.Count(target => work.Review(target).State != ReviewState.Unreviewed);
+        var targets = TargetsOf(d, work);
+        var marked = targets.Count(target => work.Review(target).State != ReviewState.Unreviewed);
         if (marked == 0)
         {
             return Plain("flow.list.review.none");
         }
 
-        return marked == d.Targets.Count
+        return marked == targets.Count
             ? Plain("flow.list.review.done")
-            : Plain("flow.list.review.partial", ("n", Number(marked)), ("t", Number(d.Targets.Count)));
+            : Plain("flow.list.review.partial", ("n", Number(marked)), ("t", Number(targets.Count)));
+    }
+
+    /// <summary>The line that tells two versions of one flow apart: their number, when another listed flow has the same title.</summary>
+    private string? VersionLine(WorkbenchFlow flow, FlowData d) =>
+        (Flows ?? []).Any(other => !ReferenceEquals(other, flow) && other.IsReadable && string.Equals(TitleOf(other), d.Entry.Title, StringComparison.Ordinal))
+            ? Plain("flow.list.version", ("n", Number(d.Outline.Version)))
+            : null;
+
+    /// <summary>True when a fix or a question of the flow still has no note.</summary>
+    private bool NeedsNote(WorkbenchFlow flow, FlowData d)
+    {
+        var work = Session.Work(flow.Key);
+        return TargetsOf(d, work).Any(target => work.Review(target).NeedsNote);
     }
 
     // ----- tabs -------------------------------------------------------------------------------------------------------

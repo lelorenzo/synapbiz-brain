@@ -16,7 +16,7 @@ public sealed class FlowTryKeepTests
         var harness = new FlowHarness();
         harness.Render(FlowHarness.Reference());
         harness.Start("previsit.outreach", Done);
-        harness.FindAll("section.wb-wait")[0].QuerySelectorAll("button").First(button => button.TextContent.Contains("Answer like the test nothing is missing", StringComparison.Ordinal)).Click();
+        harness.UseAnswer("nothing is missing");
         return harness;
     }
 
@@ -31,7 +31,7 @@ public sealed class FlowTryKeepTests
         harness.Input("Name of the proposed test").GetAttribute("value").Should().BeEmpty();
 
         harness.Open(FlowWorkbenchTab.Tests);
-        var proposed = harness.FindAll("ul.wb-plain-list li").First(item => item.TextContent.Contains("my first try", StringComparison.Ordinal));
+        var proposed = harness.FindAll("li.wb-scenario").First(item => item.TextContent.Contains("my first try", StringComparison.Ordinal));
         proposed.TextContent.Should().Contain("Proposed").And.Contain("Passes");
         harness.Session.UnexportedFlowCount.Should().Be(1);
     }
@@ -87,29 +87,71 @@ public sealed class FlowTryKeepTests
         harness.Type("Name of the proposed test", "to remove");
         harness.Press("Save as a proposed test");
         harness.Open(FlowWorkbenchTab.Tests);
-        harness.Press("Remove to remove");
-        harness.FindAll("ul.wb-plain-list li").Should().NotContain(item => item.TextContent.Contains("to remove", StringComparison.Ordinal));
+        harness.Press("Remove \u201Cto remove\u201D");
+        harness.FindAll("li.wb-scenario").Should().NotContain(item => item.TextContent.Contains("to remove", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void ReplayPlaysATestToItsEndInTheTryTabAndTheReaderMayContinueByHand()
+    public void ReplayStartsATestStepByStepInTheSimulateTabAndTheReaderMayPlayToTheEndAndContinueByHand()
     {
         using var harness = new FlowHarness();
         harness.Render(FlowHarness.Reference());
         harness.Select("previsit.outreach");
         harness.Open(FlowWorkbenchTab.Tests);
-        harness.Press("Replay nothing is missing");
+        harness.Press("Replay \u201Cnothing is missing\u201D");
         harness.Session.SelectedTab.Should().Be(FlowWorkbenchTab.Try);
-        harness.PanelText.Should().Contain("Replaying the test nothing is missing.").And.Contain("The case has finished.");
-        harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().Be("The test nothing is missing was replayed");
+        harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().Be("The test \u201Cnothing is missing\u201D was replayed");
+        harness.PanelText.Should().Contain("Replaying the test \u201Cnothing is missing\u201D.").And.Contain("0 of 1 actions of the test done.");
+        harness.PanelText.Should().NotContain("The case has finished.");
+        harness.HasButton("Next step").Should().BeTrue();
+        harness.HasButton("Play to the end").Should().BeTrue();
+
+        harness.Press("Next step");
+        harness.PanelText.Should().Contain("The case has finished.");
+        harness.HasButton("Next step").Should().BeFalse();
+        harness.PanelText.Should().NotContain("Replaying the test");
         var process = FlowDocs.Process("previsit.outreach");
         var replay = FlowSimulation.Replay(process, "nothing is missing");
         harness.PanelText.Should().Contain(FlowWords.For(process, WorkbenchLocale.En).Result(replay.State.Result!));
+    }
 
-        // A replay that stops mid-way lets the reader go on by hand.
+    [Fact]
+    public void PlayToTheEndPlaysEveryCommandAtOnceAndAReplayThatStopsMidWayLetsTheReaderGoOnByHand()
+    {
+        using var harness = new FlowHarness();
+        harness.Render(FlowHarness.Reference());
+        harness.Select("previsit.outreach");
         harness.Open(FlowWorkbenchTab.Tests);
-        harness.Press("Replay a reply after the first reminder closes the stage");
-        harness.PanelText.Should().Contain("Replaying the test a reply after the first reminder closes the stage.");
+        var hands = "a case that came without its zone is suspended at the reminder, never failed and never routed";
+        harness.Press("Replay \u201C" + hands + "\u201D");
+        harness.Press("Play to the end");
+        harness.HasButton("Next step").Should().BeFalse();
+        harness.PanelText.Should().Contain("The case is suspended.");
+        harness.HasButton("Resume").Should().BeTrue();
+    }
+
+    [Fact]
+    public void WhileAReplayHasCommandsLeftTheCardsAreReadOnly()
+    {
+        using var harness = new FlowHarness();
+        harness.Render(FlowHarness.Reference());
+        harness.Select("previsit.outreach");
+        harness.Open(FlowWorkbenchTab.Tests);
+        harness.Press("Replay \u201Ca reply after the first reminder closes the stage\u201D");
+        var cards = harness.FindAll("section.wb-wait");
+        cards.Should().NotBeEmpty();
+        foreach (var control in cards.SelectMany(card => card.QuerySelectorAll("button, select, textarea, input")))
+        {
+            control.HasAttribute("disabled").Should().BeTrue(control.OuterHtml);
+        }
+
+        harness.FindAll("section.wb-card button, .wb-card button").Where(button => button.TextContent.Contains("1 day", StringComparison.Ordinal)).Should().OnlyContain(button => button.HasAttribute("disabled"));
+        while (harness.HasButton("Next step"))
+        {
+            harness.Press("Next step");
+        }
+
+        harness.PanelText.Should().NotContain("Replaying the test");
     }
 
     [Fact]
@@ -143,7 +185,7 @@ public sealed class FlowTryKeepTests
         }
 
         harness.Press("Open the child flow");
-        harness.PanelText.Should().Contain("You are trying the child flow");
+        harness.PanelText.Should().Contain("You are simulating the child flow");
         harness.HasButton("Back to the parent flow").Should().BeTrue();
         harness.HasButton("Bring its result to the parent flow").Should().BeFalse();
 
@@ -154,7 +196,7 @@ public sealed class FlowTryKeepTests
 
         harness.PanelText.Should().Contain("The case has finished.");
         harness.Press("Bring its result to the parent flow");
-        harness.PanelText.Should().NotContain("You are trying the child flow").And.Contain("The child flow of");
+        harness.PanelText.Should().NotContain("You are simulating the child flow").And.Contain("The child flow of");
     }
 
     [Fact]
@@ -170,7 +212,7 @@ public sealed class FlowTryKeepTests
 
         harness.Press("Open the child flow");
         harness.Press("Back to the parent flow");
-        harness.PanelText.Should().NotContain("You are trying the child flow").And.Contain("Waiting for another flow");
+        harness.PanelText.Should().NotContain("You are simulating the child flow").And.Contain("Waiting for another flow");
     }
 
     [Fact]
@@ -195,9 +237,14 @@ public sealed class FlowTryKeepTests
         {
             var heading = FlowHarness.Normalise(card.QuerySelector("h3")!.TextContent);
             IElement? Find(string start) => card.QuerySelectorAll("button").FirstOrDefault(button => FlowHarness.Normalise(button.TextContent).StartsWith(start, StringComparison.Ordinal));
+            if (heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) && harness.UseAnswer(scenario))
+            {
+                return;
+            }
+
             var button = heading switch
             {
-                _ when heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) => (scenario is null ? null : Find("Answer like the test " + scenario) ?? Find("Fail like the test " + scenario)) ?? Find("Answer like the test") ?? Find("It fails for good"),
+                _ when heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) => Find("It fails for good"),
                 _ when heading.StartsWith("A person must act", StringComparison.Ordinal) => card.QuerySelectorAll(".wb-actions button").FirstOrDefault(),
                 _ when heading.StartsWith("Waiting for an event", StringComparison.Ordinal) => Find("The event arrives"),
                 _ when heading.StartsWith("Waiting for another flow", StringComparison.Ordinal) => Find("Finish the child flow"),

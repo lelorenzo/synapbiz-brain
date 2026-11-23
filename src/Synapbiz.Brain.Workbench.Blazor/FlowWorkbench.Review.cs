@@ -31,20 +31,11 @@ public sealed partial class FlowWorkbench
         Session.Touch();
     }
 
-    /// <summary>Opens the note field of an item that needs its note, in the tab where its control is, and focuses it.</summary>
-    private void WriteNote(FlowWork work, string target)
-    {
-        work.OpenNotes.Add(target);
-        Session.SelectedTab = target switch
-        {
-            "process" => FlowWorkbenchTab.Review,
-            _ when target.StartsWith("scenario:", StringComparison.Ordinal) => FlowWorkbenchTab.Tests,
-            _ => FlowWorkbenchTab.Read,
-        };
-        pendingFocus = NoteRef(target);
-        Session.Touch();
-    }
+    /// <summary>The targets of a flow's review: those the document has and the proposed scenarios of this review.</summary>
+    private static List<string> TargetsOf(FlowData d, FlowWork work) =>
+        [.. d.Targets, .. work.Proposed.Select(item => "scenario:" + item.Name)];
 
+    /// <summary>Opens the note field of an item and moves focus to it. The Review tab has a note field for every item it lists, so the reader stays there.</summary>
     private void OpenNote(FlowWork work, string target)
     {
         work.OpenNotes.Add(target);
@@ -110,11 +101,18 @@ public sealed partial class FlowWorkbench
         var name = target[(colon + 1)..];
         return kind switch
         {
+            "trigger" => Plain("flow.review.triggerTarget", ("name", TriggerSentence(d, name))),
             "stage" => Plain("flow.review.stageTarget", ("name", d.Words.Stage(name))),
             "step" => Plain("flow.review.stepTarget", ("name", d.Words.Step(name))),
             "route" => Plain("flow.review.routeTarget", ("name", RouteName(d, name))),
             _ => Plain("flow.review.scenarioTarget", ("name", name)),
         };
+    }
+
+    private static string TriggerSentence(FlowData d, string id)
+    {
+        var at = d.TriggerIds.ToList().IndexOf(id);
+        return at >= 0 && at < d.Entry.Triggers.Count ? WithoutCode(d.Entry.Triggers[at]) : id;
     }
 
     private string RouteName(FlowData d, string name)
@@ -123,7 +121,7 @@ public sealed partial class FlowWorkbench
         var step = name[..slash];
         var label = name[(slash + 1)..];
         var route = d.View.Steps.First(item => item.Id == step).Routes.FirstOrDefault(item => item.Label == label);
-        return Plain("flow.review.routeOf", ("step", d.Words.Step(step)), ("route", route?.Phrase.Replace("`", string.Empty, StringComparison.Ordinal) ?? label));
+        return Plain("flow.review.routeOf", ("step", d.Words.Step(step)), ("route", WithoutCode(route?.Phrase ?? label)));
     }
 
     private FlowReview BuildReview(FlowData d, FlowWork work) => new()
@@ -134,28 +132,49 @@ public sealed partial class FlowWorkbench
         Reviewer = Session.Reviewer.Trim(),
         CreatedAt = Now(),
         Language = Locale,
-        Items = [.. d.Targets.Where(target => work.Review(target).IsExported).Select(target => new ReviewItem(target, work.Review(target).State, work.Review(target).Note))],
+        Items = [.. TargetsOf(d, work).Where(target => work.Review(target).IsExported).Select(target => new ReviewItem(target, work.Review(target).State, work.Review(target).Note))],
         ProposedScenarios = [.. work.Proposed],
     };
 
     /// <summary>How many items, in every readable flow of the session, are a fix or a question with no note.</summary>
-    private int MissingNoteCount()
+    private int MissingNoteCount() => FlowsMissingNotes().Sum(pair => pair.Count);
+
+    /// <summary>The flows, named for the reader, that still have a fix or a question with no note, with how many. A flow whose title is another flow's too is named with its version.</summary>
+    private List<(string Label, int Count)> FlowsMissingNotes()
     {
-        var count = 0;
+        var found = new List<(string, int)>();
         foreach (var flow in (Flows ?? []).Where(flow => flow.IsReadable))
         {
+            var d = Data(flow)!;
             var work = Session.Work(flow.Key);
-            count += Data(flow)!.Targets.Count(target => work.Review(target).NeedsNote);
+            var count = TargetsOf(d, work).Count(target => work.Review(target).NeedsNote);
+            if (count > 0)
+            {
+                found.Add((Quoted(TitleOf(flow)) + (VersionLine(flow, d) is { } version ? Plain("flow.join") + version : string.Empty), count));
+            }
         }
 
-        return count;
+        return found;
     }
+
+    /// <summary>True when the target is a scenario the reader proposed in this review.</summary>
+    private static bool IsProposed(FlowWork work, string target) =>
+        target.StartsWith("scenario:", StringComparison.Ordinal) && work.Proposed.Any(item => string.Equals("scenario:" + item.Name, target, StringComparison.Ordinal));
+
+    private bool IsListed(string key) => (Flows ?? []).Any(flow => flow.IsReadable && string.Equals(flow.Key, key, StringComparison.Ordinal));
+
+    /// <summary>How many flows with work that was not exported are no longer in the list: nothing can export them.</summary>
+    private int OrphanCount() => Session.UnexportedFlowKeys.Count(key => !IsListed(key));
+
+    /// <summary>How many flows of the list have work that was not exported.</summary>
+    private int ListedUnexportedCount() => Session.UnexportedFlowKeys.Count(IsListed);
 
     private int ExportableFlowCount() =>
         Flows?.Count(flow => flow.IsReadable && Session.Work(flow.Key).HasExportable) ?? 0;
 
-    private FlowWorkbenchExport BuildExport()
+    private FlowWorkbenchExport BuildExport(out List<string> keys)
     {
+        keys = [];
         var files = new List<FlowWorkbenchExportFile>();
         foreach (var flow in (Flows ?? []).Where(flow => flow.IsReadable))
         {
@@ -167,6 +186,7 @@ public sealed partial class FlowWorkbench
 
             var d = Data(flow)!;
             var review = BuildReview(d, work);
+            keys.Add(flow.Key);
             files.Add(new FlowWorkbenchExportFile(
                 "review-" + d.Outline.Id + "-v" + d.Outline.Version.ToString(CultureInfo.InvariantCulture) + ".json",
                 FlowReviewJson.Serialize(review),
@@ -197,16 +217,17 @@ public sealed partial class FlowWorkbench
             return;
         }
 
-        var export = BuildExport();
+        var export = BuildExport(out var keys);
         if (export.Files.Count == 0)
         {
             return;
         }
 
+        // An exception of the host's save is not caught (as in RuleWorkbench): nothing is marked as exported then.
         var place = await OnExport(export).ConfigureAwait(true);
         exportDone = true;
         exportPlace = string.IsNullOrWhiteSpace(place) ? null : place.Trim();
-        Session.MarkExported();
+        Session.MarkExported(keys);
     }
 
     private const string ReviewerRef = "reviewer";

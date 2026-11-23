@@ -402,7 +402,7 @@ public static class FlowReviewCheck
 
         for (var index = 0; index < review.Items.Count; index++)
         {
-            if (!TargetExists(outline, review.Items[index].Target))
+            if (!TargetExists(outline, review.Items[index].Target) && !IsOwnProposal(review, review.Items[index].Target))
             {
                 findings.Add(new WorkbenchError(
                     ErrorTargetUnknown,
@@ -454,6 +454,10 @@ public static class FlowReviewCheck
         var run = FlowSimulation.Play(process, scenario);
         return new FlowProposedScenarioResult(index, proposed.Name, true, [], run.Failure is null, run.Failure);
     }
+
+    // A mark on one of the review's own proposed scenarios names something the review carries, so it is not an unknown target.
+    private static bool IsOwnProposal(FlowReview review, string target) =>
+        target.StartsWith("scenario:", StringComparison.Ordinal) && review.ProposedScenarios.Any(proposed => string.Equals(proposed.Name, target["scenario:".Length..], StringComparison.Ordinal));
 
     private static bool TargetExists(ProcessOutline outline, string target)
     {

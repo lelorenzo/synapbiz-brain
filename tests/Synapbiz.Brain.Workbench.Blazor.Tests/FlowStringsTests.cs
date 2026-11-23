@@ -35,7 +35,7 @@ public sealed class FlowStringsTests
     [Fact]
     public void TheSpanishTextsAreNotTheEnglishOnesExceptForPunctuationAndNamesAndTheyKeepTheirPlaceholders()
     {
-        var same = new[] { "flow.join", "flow.join.label", "flow.who.source", "flow.field.no", "flow.coverage.untriedRoute", "flow.review.routeOf", "flow.ai.field" };
+        var same = new[] { "flow.join", "flow.join.label", "flow.who.source", "flow.log.who", "flow.time", "flow.coverage.untriedRoute", "flow.review.routeOf", "flow.ai.field" };
         foreach (var key in FlowKeys.Where(key => !same.Contains(key, StringComparer.Ordinal)))
         {
             WorkbenchStrings.Default(key, WorkbenchLocale.Es).Should().NotBe(WorkbenchStrings.Default(key, WorkbenchLocale.En), key);

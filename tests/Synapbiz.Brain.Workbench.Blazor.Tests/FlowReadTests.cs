@@ -139,7 +139,7 @@ public sealed class FlowReadTests
     {
         using var harness = new FlowHarness();
         var process = FlowDocs.Process("flow.bare");
-        harness.Render([new WorkbenchFlow { Key = "bare", Process = process, ProcessText = "{}" }]);
+        harness.Render([new WorkbenchFlow { Key = "bare", Process = process }]);
         harness.PanelText.Should().Contain("Steps with no stage");
         harness.FindAll("section.wb-step").Should().HaveCount(ProcessOutline.From(process).Steps.Count);
     }
@@ -149,7 +149,7 @@ public sealed class FlowReadTests
     {
         using var harness = new FlowHarness();
         var flow = FlowHarness.One("previsit.outreach");
-        harness.Render([new WorkbenchFlow { Key = flow.Key, Process = flow.Process, ProcessText = flow.ProcessText, StateLine = "Approved by the practice.", SourceLine = "From the demo folder." }]);
+        harness.Render([new WorkbenchFlow { Key = flow.Key, Process = flow.Process, StateLine = "Approved by the practice.", SourceLine = "From the demo folder." }]);
         harness.Find(".wb-detail .wb-ph").TextContent.Should().Contain("Approved by the practice.").And.Contain("From the demo folder.");
     }
 

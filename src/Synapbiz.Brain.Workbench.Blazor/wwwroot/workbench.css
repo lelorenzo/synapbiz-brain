@@ -47,6 +47,10 @@
   overflow: hidden;
 }
 
+.wb-detail {
+  min-width: 0;
+}
+
 .wb-ph {
   padding: 14px 18px;
   background: var(--wb-surface-head);
@@ -491,6 +495,8 @@
 
 .wb-rv {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   border: 1px solid var(--wb-control-edge);
   border-radius: var(--wb-radius-sm);
   overflow: hidden;
@@ -559,7 +565,8 @@
 .wb-card-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
   margin-bottom: 8px;
 }
 
@@ -1310,6 +1317,10 @@
   margin-bottom: 12px;
 }
 
+.wb-diagram-wrap {
+  container-type: inline-size;
+}
+
 .wb-diagram-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1318,6 +1329,8 @@
 }
 
 .wb-diagram-scroll {
+  width: fit-content;
+  max-width: 100%;
   overflow: auto;
   border: 1px solid var(--wb-line);
   border-radius: var(--wb-radius-sm);
@@ -1351,6 +1364,23 @@
 .wb-edge-side {
   stroke-width: 1.5;
   stroke-dasharray: 6 4;
+}
+
+.wb-edge-return {
+  stroke-dasharray: 2 4;
+}
+
+.wb-count {
+  fill: var(--wb-surface);
+  stroke: var(--wb-ink-2);
+  stroke-width: 1.5;
+}
+
+.wb-count-t {
+  fill: var(--wb-ink);
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  pointer-events: none;
 }
 
 .wb-arrow {
@@ -1413,6 +1443,11 @@
   stroke-width: 2;
 }
 
+.wb-node-now-sample {
+  stroke: var(--wb-accent);
+  stroke-width: 3;
+}
+
 .wb-node-here {
   fill: var(--wb-accent);
 }
@@ -1465,8 +1500,51 @@
   flex: none;
 }
 
-@media (min-width: 1280px) {
+.wb-legend-note {
+  grid-column: 1 / -1;
+}
+
+/* The card of a step goes beside the diagram only when the diagram keeps 640 px and the card 320 px (and 12 px between them). */
+@container (min-width: 972px) {
   .wb-diagram-layout:has(.wb-diagram-card) {
     grid-template-columns: minmax(0, 1fr) 320px;
   }
+}
+
+/* ----- simulate: typed controls, the picker and the replay --------------------------------------------------------------- */
+
+.wb-field-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-field-check .wb-label {
+  margin: 0;
+}
+
+.wb-check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--wb-accent);
+}
+
+.wb-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-pick .wb-in {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.wb-replay {
+  border-color: var(--wb-selected-edge);
+  background: var(--wb-selected);
 }

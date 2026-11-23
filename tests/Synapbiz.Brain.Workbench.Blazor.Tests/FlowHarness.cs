@@ -46,7 +46,6 @@ internal sealed class FlowHarness : IDisposable
         Key = id,
         Group = "Reference flows",
         Process = FlowDocs.Process(id),
-        ProcessText = FlowDocs.ReferenceText(id),
     })];
 
     internal static WorkbenchFlow One(string id) => Reference().First(flow => flow.Key == id);
@@ -113,13 +112,33 @@ internal sealed class FlowHarness : IDisposable
 
     private static string WithoutReference(string html) => System.Text.RegularExpressions.Regex.Replace(html, " blazor:elementreference=\"[^\"]*\"", string.Empty);
 
+    /// <summary>When set, the focus call throws as the browser does when its element is gone or cannot take focus; the panel must go on.</summary>
+    internal Exception? FocusThrows { get; set; }
+
+    /// <summary>The ids of the element references the panel asked the browser to focus, in order.</summary>
+    internal List<string> FocusIds { get; } = [];
+
     private bool NoteFocus(Bunit.JSRuntimeInvocation call)
     {
         var id = ((ElementReference)call.Arguments[0]!).Id;
+        FocusIds.Add(id);
         var found = Cut?.FindAll("[blazor\\:elementreference=\"" + id + "\"]");
         focusedHtml = found is { Count: > 0 } ? WithoutReference(found[0].OuterHtml) : null;
+        if (FocusThrows is not null)
+        {
+            throw FocusThrows;
+        }
+
         return true;
     }
+
+    /// <summary>The element reference the panel itself holds for a key such as <c>note:process</c>: what it asks the browser to focus.</summary>
+    internal ElementReference RefOf(string key) =>
+        ((Dictionary<string, ElementReference>)typeof(FlowWorkbench).GetField("refs", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(Cut.Instance)!)[key];
+
+    /// <summary>Sets what the panel will focus after its next render, as a click that asks for focus does.</summary>
+    internal void AskFocus(string key) =>
+        typeof(FlowWorkbench).GetField("pendingFocus", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(Cut.Instance, key);
 
     internal static string Normalise(string text) => System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
 
@@ -131,6 +150,35 @@ internal sealed class FlowHarness : IDisposable
     }
 
     internal void Type(string label, string value) => Input(label).Change(value);
+
+    private IElement? AnswerCard() =>
+        FindAll("section.wb-wait").FirstOrDefault(card => card.QuerySelectorAll("button").Any(button => Normalise(button.TextContent) == "Use this answer"));
+
+    /// <summary>
+    /// Answers the waiting effect from a test: picks the scenario in the select of its card (the first one that does not fail when none
+    /// is named) and presses "Use this answer". False when no card offers an answer from a test.
+    /// </summary>
+    internal bool UseAnswer(string? scenario = null)
+    {
+        var card = AnswerCard();
+        if (card is null)
+        {
+            return false;
+        }
+
+        var options = card.QuerySelectorAll("select option").ToList();
+        var option = scenario is not null
+            ? options.FirstOrDefault(item => item.GetAttribute("value") == scenario)
+            : options.FirstOrDefault(item => !item.TextContent.Contains("(fails)", StringComparison.Ordinal));
+        if (option is null)
+        {
+            return false;
+        }
+
+        card.QuerySelector("select")!.Change(option.GetAttribute("value")!);
+        AnswerCard()!.QuerySelectorAll("button").First(button => Normalise(button.TextContent) == "Use this answer").Click();
+        return true;
+    }
 
     internal void Select(string key) => Session.SelectedFlowKey = key;
 

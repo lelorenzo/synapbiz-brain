@@ -104,7 +104,7 @@ public sealed class FlowAccessibilityTests
 
         var untried = Synapbiz.Brain.Workbench.Tests.FlowDocs.All.First(item => FlowCoverage.Of(item.Process).NeverTaken.Count > 0);
         using var diagram = new FlowHarness();
-        diagram.Render([new WorkbenchFlow { Key = untried.Name, Process = untried.Process, ProcessText = "{}" }]);
+        diagram.Render([new WorkbenchFlow { Key = untried.Name, Process = untried.Process }]);
         diagram.Open(FlowWorkbenchTab.Diagram);
         diagram.FindAll("svg.wb-diagram-svg circle.wb-untried").Should().NotBeEmpty();
         diagram.FindAll("svg.wb-diagram-svg circle.wb-untried").Should().OnlyContain(circle => circle.QuerySelector("title") != null);

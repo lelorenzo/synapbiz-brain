@@ -3,6 +3,31 @@ using Synapbiz.Brain.Process;
 
 namespace Synapbiz.Brain.Workbench.Flows;
 
+/// <summary>The shape family of a step in a diagram: the kinds of step a reader tells apart at a glance.</summary>
+public enum FlowFamily
+{
+    /// <summary>A read, an action or a repeated read: the flow does something.</summary>
+    Action = 0,
+
+    /// <summary>A decision or a repetition: the flow goes one way or another.</summary>
+    Decision = 1,
+
+    /// <summary>A task for a person.</summary>
+    Person = 2,
+
+    /// <summary>A step that asks an AI model.</summary>
+    Ai = 3,
+
+    /// <summary>A wait for an event or a timer.</summary>
+    Wait = 4,
+
+    /// <summary>A child process: another flow.</summary>
+    Flow = 5,
+
+    /// <summary>An end step.</summary>
+    End = 6,
+}
+
 /// <summary>A step as a node of a diagram.</summary>
 /// <param name="Id">The step id.</param>
 /// <param name="Label">The label of the step.</param>
@@ -12,7 +37,20 @@ namespace Synapbiz.Brain.Workbench.Flows;
 /// <param name="Depth">The number of routes on the shortest path from the start step (0 for the start step).</param>
 /// <param name="IsStart">True for the start step.</param>
 /// <param name="IsEnd">True for an <c>end</c> step.</param>
-public sealed record FlowNode(string Id, string Label, OutlineStepKind Kind, string? Stage, int StageIndex, int Depth, bool IsStart, bool IsEnd);
+public sealed record FlowNode(string Id, string Label, OutlineStepKind Kind, string? Stage, int StageIndex, int Depth, bool IsStart, bool IsEnd)
+{
+    /// <summary>The shape family of the step: end, wait (a wait or a timer), person, AI, decision (a decision or a repetition), flow (a child process) or action (any other).</summary>
+    public FlowFamily Family => Kind switch
+    {
+        OutlineStepKind.End => FlowFamily.End,
+        OutlineStepKind.Wait or OutlineStepKind.Timer => FlowFamily.Wait,
+        OutlineStepKind.HumanTask => FlowFamily.Person,
+        OutlineStepKind.Ai => FlowFamily.Ai,
+        OutlineStepKind.Decide or OutlineStepKind.Loop => FlowFamily.Decision,
+        OutlineStepKind.Subprocess => FlowFamily.Flow,
+        _ => FlowFamily.Action,
+    };
+}
 
 /// <summary>A route as an edge of a diagram.</summary>
 /// <param name="From">The id of the step the route leaves.</param>
@@ -21,7 +59,15 @@ public sealed record FlowNode(string Id, string Label, OutlineStepKind Kind, str
 /// <param name="Phrase">The route in words.</param>
 /// <param name="IsHappyPath">True for <c>next</c>, <c>body</c> and the <c>on:</c> entries; false for the <c>on...</c> members and <c>interrupt</c>.</param>
 /// <param name="IsBackEdge">True when the edge closes a cycle: its target can reach its source by following routes (a route from a step to itself included). An edge that only leads to a node of the same or a lower depth, such as an error exit to an end node, is not one.</param>
-public sealed record FlowEdge(string From, string To, string Label, string Phrase, bool IsHappyPath, bool IsBackEdge);
+public sealed record FlowEdge(string From, string To, string Label, string Phrase, bool IsHappyPath, bool IsBackEdge)
+{
+    /// <summary>
+    /// The value a route carries when it leaves a decision, a task for a person or a child process through an <c>on:</c> label, as a
+    /// reader words it (the decision's value as written, the outcome's label, the child result's label); null for any other route.
+    /// A diagram writes it next to the line.
+    /// </summary>
+    public string? ShortLabel { get; init; }
+}
 
 /// <summary>
 /// The nodes and edges of a flow with a layering, so that a screen can draw it without a layout engine: the stage index of each node
@@ -60,9 +106,29 @@ public sealed record FlowGraph(IReadOnlyList<FlowNode> Nodes, IReadOnlyList<Flow
                 route.Label,
                 FlowDescriber.RouteView(step, route, labels, locale).Phrase,
                 route.Label is "next" or "body" || route.Label.StartsWith("on:", StringComparison.Ordinal),
-                reach[route.Target].Contains(step.Id))))
+                reach[route.Target].Contains(step.Id))
+            {
+                ShortLabel = ShortLabel(step, route, labels),
+            }))
             .ToList();
         return new FlowGraph(new ReadOnlyCollection<FlowNode>(nodes), new ReadOnlyCollection<FlowEdge>(edges));
+    }
+
+    private static string? ShortLabel(OutlineStep step, OutlineRoute route, FlowLabels labels)
+    {
+        if (!route.Label.StartsWith("on:", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var value = route.Label[3..];
+        return step.Kind switch
+        {
+            OutlineStepKind.Decide => value,
+            OutlineStepKind.HumanTask => labels.Outcome(value),
+            OutlineStepKind.Subprocess => labels.ChildResult(step.Process, value) ?? value,
+            _ => null,
+        };
     }
 
     // For each step, the steps it can reach by following routes, itself included (an edge closes a cycle when its target reaches its source).

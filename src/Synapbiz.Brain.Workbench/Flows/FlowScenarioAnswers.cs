@@ -48,6 +48,19 @@ public static class FlowScenarioAnswers
         return new ReadOnlyCollection<FlowScenarioAnswer>(answers);
     }
 
+    /// <summary>
+    /// What the embedded scenarios answer to a step the next time a session is asked about it: <see cref="For(BrainProcess, string, int)"/> with
+    /// the number of answers the session has already applied to the step.
+    /// </summary>
+    /// <param name="simulation">The session.</param>
+    /// <param name="step">The id of the step.</param>
+    public static IReadOnlyList<FlowScenarioAnswer> For(FlowSimulation simulation, string step)
+    {
+        ArgumentNullException.ThrowIfNull(simulation);
+        ArgumentNullException.ThrowIfNull(step);
+        return For(simulation.Process, step, simulation.AnsweredCount(step));
+    }
+
     private static string? StepOf(JsonObject item) =>
         (item["complete"] ?? item["fail"]) is JsonValue value && value.TryGetValue<string>(out var step) ? step : null;
 

@@ -34,9 +34,6 @@ public sealed record WorkbenchFlow
     /// <summary>The loaded flow; null when the host could not load it.</summary>
     public BrainProcess? Process { get; init; }
 
-    /// <summary>The exact text of the flow document. A flow with no text counts as unreadable.</summary>
-    public string? ProcessText { get; init; }
-
     /// <summary>The title to show when <see cref="Process"/> is null.</summary>
     public string? FallbackTitle { get; init; }
 
@@ -46,8 +43,8 @@ public sealed record WorkbenchFlow
     /// <summary>A text the host writes after the state line, for example where the flow comes from; null draws nothing.</summary>
     public string? SourceLine { get; init; }
 
-    /// <summary>True when the panels can show the flow: it is loaded and its text is known.</summary>
-    internal bool IsReadable => Process is not null && ProcessText is not null;
+    /// <summary>True when the panels can show the flow: it is loaded.</summary>
+    internal bool IsReadable => Process is not null;
 }
 
 /// <summary>One file of an export: the review of one flow.</summary>

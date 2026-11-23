@@ -13,7 +13,11 @@ public sealed record FlowStageView(string Id, string Label);
 /// <param name="Phrase">The whole phrase: the condition, a colon and where it goes, for example <c>If no answer arrives 2 hours before `visit_at`: go to Call the patient</c>.</param>
 /// <param name="Target">The id of the step it leads to.</param>
 /// <param name="TargetLabel">The label of that step.</param>
-public sealed record FlowRouteView(string Label, string Phrase, string Target, string TargetLabel);
+public sealed record FlowRouteView(string Label, string Phrase, string Target, string TargetLabel)
+{
+    /// <summary>The phrase up to the place where the target label goes, so that a screen can write the label as a link: <c>Stem + TargetLabel</c> is <see cref="Phrase"/>.</summary>
+    public string Stem { get; init; } = string.Empty;
+}
 
 /// <summary>What a reviewer must see about an <c>ai</c> step: what is asked of whom, what goes in, what must come out, and where the flow goes when it does not work.</summary>
 public sealed record FlowAiView
@@ -156,6 +160,8 @@ public static class FlowDescriber
 
     internal static string KindKey(OutlineStepKind kind) => char.ToLowerInvariant(kind.ToString()[0]) + kind.ToString()[1..];
 
+    private const string TargetProbe = "\u0001";
+
     /// <summary>The whole phrase of one route of a step.</summary>
     internal static FlowRouteView RouteView(OutlineStep step, OutlineRoute route, FlowLabels labels, WorkbenchLocale locale)
     {
@@ -185,7 +191,11 @@ public static class FlowDescriber
             }
         }
 
-        return new FlowRouteView(route.Label, FlowTemplates.Text(locale, RouteKey(step, route, locale), [.. parameters]), route.Target, target);
+        var key = RouteKey(step, route, locale);
+        var phrase = FlowTemplates.Text(locale, key, [.. parameters]);
+        var probe = FlowTemplates.Text(locale, key, [.. parameters.Select(parameter => parameter.Item1 == "target" ? ("target", TargetProbe) : parameter)]);
+        var at = probe.IndexOf(TargetProbe, StringComparison.Ordinal);
+        return new FlowRouteView(route.Label, phrase, route.Target, target) { Stem = at < 0 ? phrase + " " : probe[..at] };
     }
 
     /// <summary>The key of the template that words a route: the one for the label and the kind of step when there is one, else the one for the label.</summary>

@@ -38,11 +38,12 @@ public sealed class FlowMountingTests
     }
 
     [Fact]
-    public void AFlowWithAProcessButNoTextCountsAsUnreadable()
+    public void AFlowTheHostCouldNotLoadIsListedAsUnreadableWithItsFallbackTitle()
     {
         using var harness = new FlowHarness();
-        harness.Render([new WorkbenchFlow { Key = "a", Process = FlowDocs.Process("previsit.outreach"), FallbackTitle = "No text" }]);
-        harness.ListText.Should().Contain("Could not be read");
+        harness.Render([new WorkbenchFlow { Key = "a", Process = null, FallbackTitle = "Not loaded" }]);
+        harness.ListText.Should().Contain("Not loaded").And.Contain("Could not be read");
+        harness.DetailText.Should().Contain("This flow could not be read on this computer.");
     }
 
     [Fact]
@@ -54,7 +55,7 @@ public sealed class FlowMountingTests
         harness.FindAll("[role=tab]").Select(tab => FlowHarness.Normalise(tab.TextContent)).Should().SatisfyRespectively(
             tab => tab.Should().Be("Read"),
             tab => tab.Should().Be("Diagram"),
-            tab => tab.Should().Be("Try it"),
+            tab => tab.Should().Be("Simulate"),
             tab => tab.Should().StartWith("Tests"),
             tab => tab.Should().Be("Review"));
         harness.Tab(FlowWorkbenchTab.Read).GetAttribute("aria-selected").Should().Be("true");
@@ -66,7 +67,7 @@ public sealed class FlowMountingTests
     {
         using var harness = new FlowHarness();
         var flows = FlowHarness.Reference();
-        harness.Render([.. flows.Take(2), new WorkbenchFlow { Key = "x", Group = "Other group", Process = flows[2].Process, ProcessText = flows[2].ProcessText }]);
+        harness.Render([.. flows.Take(2), new WorkbenchFlow { Key = "x", Group = "Other group", Process = flows[2].Process }]);
         harness.FindAll("h3.wb-group").Select(heading => heading.TextContent).Should().Equal("Reference flows", "Other group");
         harness.FindAll("button.wb-rule").Should().HaveCount(3);
         harness.Find("button.wb-rule[aria-current=true]").Should().NotBeNull();

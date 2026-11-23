@@ -79,6 +79,9 @@ public sealed class FlowWorkbenchSession
     /// <summary>The number of flows whose review marks, notes or proposed scenarios changed since the last export.</summary>
     public int UnexportedFlowCount => work.Values.Count(entry => entry.HasUnexportedChanges);
 
+    /// <summary>The keys of the flows whose work changed since the last export, whether or not the flow is still in the list.</summary>
+    internal IReadOnlyList<string> UnexportedFlowKeys => [.. work.Where(pair => pair.Value.HasUnexportedChanges).Select(pair => pair.Key)];
+
     /// <summary>Forgets everything: the selection, the reviewer's name, the try-outs and the work on every flow.</summary>
     public void Clear()
     {
@@ -101,12 +104,16 @@ public sealed class FlowWorkbenchSession
         return entry;
     }
 
-    /// <summary>Records that everything now in the session has been exported.</summary>
-    internal void MarkExported()
+    /// <summary>Records that the work on the flows with these keys has been exported; the work on any other flow stays unexported.</summary>
+    /// <param name="keys">The keys of the flows whose files were written.</param>
+    internal void MarkExported(IEnumerable<string> keys)
     {
-        foreach (var entry in work.Values)
+        foreach (var key in keys)
         {
-            entry.ExportedSignature = entry.Signature();
+            if (work.TryGetValue(key, out var entry))
+            {
+                entry.ExportedSignature = entry.Signature();
+            }
         }
 
         Touch();

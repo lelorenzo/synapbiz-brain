@@ -21,7 +21,6 @@ internal sealed class DemoFlows
 
     private readonly Dictionary<WorkbenchLocale, IReadOnlyList<WorkbenchFlow>> byLocale = [];
     private readonly Dictionary<string, BrainProcess> processes = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> texts = new(StringComparer.Ordinal);
 
     public DemoFlows()
     {
@@ -36,7 +35,6 @@ internal sealed class DemoFlows
                 .ToList();
             var loaded = BrainProcessLoader.Load(text, new ProcessLoadContext(rules, Ids));
             processes[id] = loaded.Process ?? throw new InvalidOperationException("The reference flow " + id + " does not load.");
-            texts[id] = text;
         }
 
         Answers = new DemoAnswers(processes);
@@ -69,7 +67,6 @@ internal sealed class DemoFlows
                         Key = id,
                         Group = es ? "Flujos de referencia" : "Reference flows",
                         Process = processes[id],
-                        ProcessText = texts[id],
                         FallbackTitle = id,
                         SourceLine = es ? "Fuente: documento de ejemplo " + id + "." : "Source: example document " + id + ".",
                     }),

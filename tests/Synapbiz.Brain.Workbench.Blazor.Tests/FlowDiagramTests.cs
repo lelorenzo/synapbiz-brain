@@ -20,112 +20,49 @@ public sealed class FlowDiagramTests
         return data;
     }
 
-    private static DiagramLayout LayoutOf(string name)
-    {
-        var process = FlowDocs.Process(name);
-        return DiagramLayout.Of(FlowGraph.From(process, WorkbenchLocale.En), ProcessOutline.From(process).Stages.Count);
-    }
-
     [Theory]
     [MemberData(nameof(EveryDocument))]
-    public void NoTwoNodesOverlapAndEveryNodeIsInsideItsBand(string name)
-    {
-        var layout = LayoutOf(name);
-        foreach (var box in layout.Nodes)
-        {
-            var band = layout.Bands[box.Band];
-            box.X.Should().BeGreaterThanOrEqualTo(band.X);
-            (box.X + box.Width).Should().BeLessThanOrEqualTo(band.X + band.Width);
-            box.Y.Should().BeGreaterThanOrEqualTo(DiagramLayout.HeaderHeight);
-            (box.Y + box.Height).Should().BeLessThanOrEqualTo(layout.Height);
-        }
-
-        for (var left = 0; left < layout.Nodes.Count; left++)
-        {
-            for (var right = left + 1; right < layout.Nodes.Count; right++)
-            {
-                var a = layout.Nodes[left];
-                var b = layout.Nodes[right];
-                var apart = a.X + a.Width <= b.X || b.X + b.Width <= a.X || a.Y + a.Height <= b.Y || b.Y + b.Height <= a.Y;
-                apart.Should().BeTrue(a.Id + " and " + b.Id);
-            }
-        }
-    }
-
-    [Theory]
-    [MemberData(nameof(EveryDocument))]
-    public void TheLayoutIsDeterministic(string name)
-    {
-        LayoutOf(name).Should().BeEquivalentTo(LayoutOf(name));
-    }
-
-    [Fact]
-    public void ThePrevisitOutreachCoordinatesArePinned()
-    {
-        var layout = LayoutOf("previsit.outreach");
-        layout.Width.Should().Be(816);
-        layout.Height.Should().Be(474);
-        layout.Nodes.Select(box => $"{box.Id}:{box.X},{box.Y}").Should().Equal(
-        "cycle:18,52",
-        "check:18,140",
-        "assess:18,228",
-        "send:18,316",
-        "reply:18,404",
-        "escalate:206,228",
-        "escalate_final:206,140",
-        "done:394,228",
-        "closed:582,228");
-        layout.Edges.Select(edge => $"{edge.Edge.From}>{edge.Edge.To}:{edge.Path}").Should().Equal(
-        "cycle>check:M 102 104 L 102 140",
-        "cycle>escalate_final:M 102 104 L 290 140",
-        "check>assess:M 102 192 L 102 228",
-        "check>escalate:M 102 192 L 290 228",
-        "check>escalate_final:M 186 166 L 206 166",
-        "assess>done:M 186 254 L 394 254",
-        "assess>send:M 102 280 L 102 316",
-        "assess>escalate:M 186 254 L 206 254",
-        "assess>escalate:M 186 254 L 206 254",
-        "send>reply:M 102 368 L 102 404",
-        "send>escalate:M 186 342 C 414 342 414 254 374 254",
-        "send>escalate_final:M 102 316 L 290 192",
-        "send>escalate_final:M 102 316 L 290 192",
-        "send>escalate:M 186 342 C 414 342 414 254 374 254",
-        "reply>cycle:M 186 430 C 226 430 226 78 186 78",
-        "reply>cycle:M 186 430 C 226 430 226 78 186 78",
-        "escalate>cycle:M 374 254 C 414 254 414 78 186 78",
-        "escalate>closed:M 374 254 L 582 254",
-        "escalate>closed:M 374 254 L 582 254",
-        "escalate_final>done:M 290 192 L 478 228",
-        "escalate_final>closed:M 290 192 L 666 228",
-        "escalate_final>closed:M 290 192 L 666 228");
-    }
-
-    [Theory]
-    [MemberData(nameof(EveryDocument))]
-    public void ThereIsOneNodePerStepAndOneLinePerEdgeOfTheGraph(string name)
+    public void ThereIsOneNodePerStepAndOneLinePerOrderedPairOfStepsAndTheTitlesNameEveryRoute(string name)
     {
         using var harness = new FlowHarness();
         var process = FlowDocs.Process(name);
-        harness.Render([new WorkbenchFlow { Key = name, Process = process, ProcessText = "{}" }]);
+        harness.Render([new WorkbenchFlow { Key = name, Process = process }]);
         harness.Open(FlowWorkbenchTab.Diagram);
         var graph = FlowGraph.From(process, WorkbenchLocale.En);
+        var pairs = graph.Edges.Select(edge => (edge.From, edge.To)).Distinct().Count();
         harness.FindAll("g.wb-node").Should().HaveCount(ProcessOutline.From(process).Steps.Count);
-        harness.FindAll("g.wb-edge-g").Should().HaveCount(graph.Edges.Count);
-        harness.FindAll("svg.wb-diagram-svg path.wb-edge").Should().HaveCount(graph.Edges.Count);
+        harness.FindAll("g.wb-edge-g").Should().HaveCount(pairs);
+        harness.FindAll("svg.wb-diagram-svg path.wb-edge").Should().HaveCount(pairs);
         graph.Edges.Count.Should().Be(ProcessOutline.From(process).Steps.Sum(step => step.Routes.Count));
+        harness.FindAll("svg.wb-diagram-svg path.wb-edge > title").Sum(title => title.TextContent.Split('\n').Length).Should().Be(graph.Edges.Count);
     }
 
     [Fact]
-    public void TheHappyPathIsSolidAndTheOtherRoutesAreDashedAndTheUntriedOnesAreMarked()
+    public void TheMainPathIsSolidTheOtherRoutesAndTheReturnsAreDashedAndTheUntriedOnesAreMarked()
     {
         using var harness = new FlowHarness();
-        var process = FlowDocs.Process("previsit.outreach");
         harness.Render([FlowHarness.One("previsit.outreach")]);
         harness.Open(FlowWorkbenchTab.Diagram);
-        var graph = FlowGraph.From(process, WorkbenchLocale.En);
-        harness.FindAll("svg.wb-diagram-svg path.wb-edge:not(.wb-edge-side)").Should().HaveCount(graph.Edges.Count(edge => edge.IsHappyPath));
-        harness.FindAll("svg.wb-diagram-svg path.wb-edge-side").Should().HaveCount(graph.Edges.Count(edge => !edge.IsHappyPath));
-        harness.FindAll("svg.wb-diagram-svg circle.wb-untried").Should().HaveCount(FlowCoverage.Of(process).NeverTaken.Count);
+        var (layout, _) = FlowDiagramGeometryTests.Of("previsit.outreach", WorkbenchLocale.En);
+        harness.FindAll("svg.wb-diagram-svg path.wb-edge:not(.wb-edge-side)").Should().HaveCount(layout.Lines.Count(line => line.IsHappyPath && !line.IsReturn));
+        harness.FindAll("svg.wb-diagram-svg path.wb-edge-side").Should().HaveCount(layout.Lines.Count(line => !line.IsHappyPath || line.IsReturn));
+        harness.FindAll("svg.wb-diagram-svg path.wb-edge-return").Should().HaveCount(layout.Lines.Count(line => line.IsReturn));
+        harness.FindAll("svg.wb-diagram-svg circle.wb-untried").Should().BeEmpty("the scenarios of this flow take every route");
+        harness.FindAll("svg.wb-diagram-svg circle.wb-count").Should().HaveCount(layout.Lines.Count(line => line.Routes.Count > 1));
+        harness.FindAll("svg.wb-diagram-svg circle.wb-count + text.wb-count-t").Select(text => text.TextContent).Should().Equal(layout.Lines.Where(line => line.Routes.Count > 1).Select(line => line.Routes.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    [Fact]
+    public void ARouteNoTestTakesGetsTheQuestionMarkAndTheLegendCountsThem()
+    {
+        using var harness = new FlowHarness();
+        var process = FlowDocs.Process("flow.clock");
+        var untried = FlowCoverage.Of(process).NeverTaken.Count;
+        untried.Should().BeGreaterThan(0);
+        harness.Render([new WorkbenchFlow { Key = "clock", Process = process }]);
+        harness.Open(FlowWorkbenchTab.Diagram);
+        harness.FindAll("svg.wb-diagram-svg circle.wb-untried").Should().NotBeEmpty();
+        harness.Find("section.wb-legend").TextContent.Should().Contain(untried == 1 ? "marks 1 route that no test takes" : "routes that no test takes");
     }
 
     [Fact]
@@ -197,7 +134,7 @@ public sealed class FlowDiagramTests
         var legend = FlowHarness.Normalise(harness.Find("section.wb-legend").TextContent);
         legend.Should().Contain("Action").And.Contain("Decision").And.Contain("Task for a person").And.Contain("Wait").And.Contain("Another flow").And.Contain("End")
             .And.Contain("Main path").And.Contain("Other route").And.Contain("Goes back to an earlier step").And.Contain("Marks the first step");
-        legend.Should().Contain(FlowCoverage.Of(FlowDocs.Process("previsit.outreach")).NeverTaken.Count == 1 ? "marks 1 route" : "routes that no test takes");
+        legend.Should().Contain("The step the simulation is at").And.Contain("The number tells how many routes share this line").And.Contain("Every route is taken by some test");
         harness.FindAll("section.wb-legend svg").Should().OnlyContain(svg => svg.GetAttribute("aria-hidden") == "true");
     }
 
@@ -205,7 +142,7 @@ public sealed class FlowDiagramTests
     public void AStepWithNoStageGetsALastBandAndTheLegendSaysSo()
     {
         using var harness = new FlowHarness();
-        harness.Render([new WorkbenchFlow { Key = "bare", Process = FlowDocs.Process("flow.bare"), ProcessText = "{}" }]);
+        harness.Render([new WorkbenchFlow { Key = "bare", Process = FlowDocs.Process("flow.bare") }]);
         harness.Open(FlowWorkbenchTab.Diagram);
         harness.FindAll("g.wb-band-g").Should().HaveCount(1);
         harness.Find("section.wb-legend").TextContent.Should().Contain("Steps with no stage are in the last row.");
@@ -219,7 +156,7 @@ public sealed class FlowDiagramTests
         harness.Start("previsit.outreach");
         harness.Open(FlowWorkbenchTab.Diagram);
         harness.FindAll("g.wb-node-now").Should().HaveCount(1);
-        harness.Find("g.wb-node-now").GetAttribute("aria-label").Should().Contain("the try-out is here");
-        harness.Find(".wb-diagram-top").TextContent.Should().Contain("Simulation").And.Contain("The try-out is at:");
+        harness.Find("g.wb-node-now").GetAttribute("aria-label").Should().Contain("the simulation is here");
+        harness.Find(".wb-diagram-top").TextContent.Should().Contain("Simulation").And.Contain("The simulation is at:");
     }
 }

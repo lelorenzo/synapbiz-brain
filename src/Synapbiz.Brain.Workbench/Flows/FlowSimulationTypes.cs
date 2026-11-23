@@ -68,7 +68,17 @@ public sealed record FlowSimulationEntry(
     string? Subject,
     AdvanceDisposition Disposition,
     string? Code,
-    IReadOnlyList<ProcessHistoryEntry> History);
+    IReadOnlyList<ProcessHistoryEntry> History)
+{
+    /// <summary>The ids of the steps the interpreter entered because of this entry, in order.</summary>
+    public IReadOnlyList<string> EnteredSteps => [.. History.Where(item => item.Kind == ProcessHistoryKind.StepEntered && item.Step is not null).Select(item => item.Step!)];
+
+    /// <summary>True for an entry the flow made by itself and nobody asked for: a timer that came due, a delivery window that opened or one that could not be worked out.</summary>
+    public bool IsAutomatic => Kind is FlowSimulationEntryKind.TimerFired or FlowSimulationEntryKind.WindowOpened or FlowSimulationEntryKind.WindowFailed;
+
+    /// <summary>True when the interpreter ended the case because of this entry.</summary>
+    public bool EndedCase => History.Any(item => item.Kind == ProcessHistoryKind.Completed);
+}
 
 /// <summary>What a case waits for right now.</summary>
 /// <param name="Id">The id of the thing: an effect id, task id, wait id, timer id or child key.</param>
@@ -142,6 +152,10 @@ public sealed record FlowSimulationSetup
 
     /// <summary>Child documents for <c>subprocess</c> steps, or null: <see cref="FlowSimulation.OpenChild"/> starts one.</summary>
     public IReadOnlyCollection<BrainProcess>? ChildProcesses { get; init; }
+
+    /// <summary>The calendar date of an instant as the setup counts it: the UTC date. A start form that has only the instant takes its <see cref="Today"/> from here.</summary>
+    /// <param name="at">The instant.</param>
+    public static DateOnly TodayOf(DateTimeOffset at) => DateOnly.FromDateTime(at.UtcDateTime);
 }
 
 /// <summary>What an answer source is asked: one effect the case waits for.</summary>

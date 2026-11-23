@@ -52,11 +52,16 @@
                                     var d = Data(flow);
                                     <li>
                                         <button type="button" class="wb-rule" aria-current="@(selected ? "true" : null)" @onclick="() => SelectFlow(flow.Key)" @onkeydown="OnListKeyDown" @ref="refs[FlowRef(index)]">
+                                            @{ Seen(FlowRef(index)); }
                                             <span class="wb-rule-t">
                                                 <span class="wb-rule-name">@TitleOf(flow)</span>
                                                 @if (d is null)
                                                 {
                                                     <span class="@PillClass("neutral")">@Rich("flow.list.unreadable")</span>
+                                                }
+                                                else if (VersionLine(flow, d) is { } versionLine)
+                                                {
+                                                    <span class="wb-sub">@versionLine</span>
                                                 }
                                             </span>
                                             @if (d is not null)
@@ -65,7 +70,7 @@
                                                     <span class="wb-flow-l">@Sentence(StartsLine(d))</span>
                                                     <span class="wb-flow-l">@PluralText("flow.list.steps", d.Outline.Steps.Count) · @PluralText("flow.list.scenarios", d.Entry.ScenarioCount)</span>
                                                     <span class="wb-flow-l">@TestsLine(d) · @Plain("flow.list.routes", ("n", Number(d.Coverage.CoveredRoutes)), ("t", Number(d.Coverage.TotalRoutes)))</span>
-                                                    <span class="wb-flow-l">@ReviewLine(flow, d)</span>
+                                                    <span class="wb-flow-l">@ReviewLine(flow, d)@NeedsNotePill(flow, d)</span>
                                                 </span>
                                             }
                                         </button>
@@ -115,7 +120,7 @@
 
         var work = Session.Work(flow.Key);
         var current = Session.SelectedTab;
-        var marked = d.Targets.Count(target => work.Review(target).State != ReviewState.Unreviewed);
+        var marked = TargetsOf(d, work).Count(target => work.Review(target).State != ReviewState.Unreviewed);
         var failing = d.Scenarios.Count(line => !line.Passed);
 
         return @<text>
@@ -135,6 +140,7 @@
                     var index = number;
                     var on = tab == current;
                     <button type="button" role="tab" id="@(idp + "-tab-" + number)" class="wb-tab" aria-selected="@(on ? "true" : "false")" aria-controls="@(idp + "-panel")" tabindex="@(on ? 0 : -1)" @onclick="() => SelectTab(tab)" @onkeydown="OnTabKeyDown" @ref="refs[TabRef(index)]">
+                        @{ Seen(TabRef(index)); }
                         @Rich(TabKeys[number])
                         @if (tab == FlowWorkbenchTab.Tests && failing > 0)
                         {
@@ -185,12 +191,16 @@
         }
     </div>;
 
-    private RenderFragment MissingNote(FlowWork work, string target) => @<span class="wb-missing-note"><span class="wb-missing">@Rich("flow.review.noteMissing")</span> <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => WriteNote(work, target)">@Rich("flow.review.writeNote")</button></span>;
+    /// <summary>The word "needs a note" for a flow that has a fix or a question with no note, after the review line of the list.</summary>
+    private RenderFragment NeedsNotePill(WorkbenchFlow flow, FlowData d) =>
+        NeedsNote(flow, d) ? @<text>@(" ")<span class="@PillClass("warn")">@Rich("flow.list.needsNote")</span></text> : @<text></text>;
 
-    private RenderFragment NoteEditor(FlowWork work, string target)
+    private RenderFragment MissingNote(FlowWork work, string target) => @<span class="wb-missing-note"><span class="wb-missing">@Rich("flow.review.noteMissing")</span> <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenNote(work, target)">@Rich("flow.review.writeNote")</button></span>;
+
+    private RenderFragment NoteEditor(FlowWork work, string target, string? aboutName = null)
     {
         var entry = work.Review(target);
-        if (!NoteVisible(work, target))
+        if (aboutName is null && !NoteVisible(work, target))
         {
             return entry.State == ReviewState.Confirmed
                 ? @<button type="button" class="wb-link" @onclick="() => OpenNote(work, target)">@Rich("flow.review.addNote")</button>
@@ -199,7 +209,8 @@
 
         var id = NoteId(target);
         return @<div class="wb-card wb-note">
-            <label class="wb-label" for="@id">@Rich("flow.review.noteLabel")</label>
+            <label class="@(aboutName is null ? "wb-label" : "wb-sr")" for="@id">@(aboutName is null ? Plain("flow.review.noteLabel") : Plain("flow.review.noteFor", ("name", aboutName)))</label>
+            @{ Seen(NoteRef(target)); }
             <textarea id="@id" class="wb-in" rows="2" maxlength="@NoteMax" value="@entry.Note" @onchange="args => SetNote(work, target, args.Value?.ToString())" @ref="refs[NoteRef(target)]"></textarea>
             @if (entry.Note.Length >= NoteCounterFrom)
             {
@@ -223,10 +234,19 @@
                 </div>
                 @if (entry.Triggers.Count > 0)
                 {
-                    <ul class="wb-flow-list">
-                        @foreach (var trigger in entry.Triggers)
+                    <ul class="wb-routes">
+                        @for (var position = 0; position < entry.Triggers.Count; position++)
                         {
-                            <li>@Sentence(trigger)</li>
+                            var trigger = entry.Triggers[position];
+                            var triggerTarget = position < d.TriggerIds.Count ? FlowReviewTargets.Trigger(d.TriggerIds[position]) : null;
+                            <li class="wb-route">
+                                <span class="wb-route-t">@Sentence(trigger)</span>
+                                @if (triggerTarget is not null)
+                                {
+                                    @ReviewControl(work, triggerTarget, Plain("flow.review.groupTrigger", ("name", WithoutCode(trigger))))
+                                    @NoteEditor(work, triggerTarget)
+                                }
+                            </li>
                         }
                     </ul>
                 }
@@ -241,7 +261,7 @@
                 @NoteEditor(work, "process")
                 <dl class="wb-kv">
                     <dt>@Rich("flow.read.rules")</dt>
-                    <dd>@if (entry.Rules.Count == 0){@Rich("flow.read.none")}else{@foreach (var rule in entry.Rules){@Code(rule)@(" ")}}</dd>
+                    <dd>@if (entry.Rules.Count == 0){@Rich("flow.read.noRules")}else{@foreach (var rule in entry.Rules){@Code(rule)@(" ")}}</dd>
                     <dt>@Rich("flow.read.children")</dt>
                     <dd>
                         @if (entry.Children.Count == 0)
@@ -304,6 +324,7 @@
         var target = "step:" + step.Id;
         var start = d.Outline.Start == step.Id;
         return @<section class="wb-step" id="@(idp + "-step-" + step.Id)" tabindex="-1" aria-labelledby="@(idp + "-step-t-" + step.Id)" @ref="refs[StepRef(step.Id)]">
+            @{ Seen(StepRef(step.Id)); }
             <div class="wb-card-head">
                 <h3 class="wb-step-t" id="@(idp + "-step-t-" + step.Id)">@step.Label</h3>
                 <span class="@PillClass("neutral")">@step.KindName</span>
@@ -323,10 +344,9 @@
                     {
                         var routeTarget = FlowData.RouteTarget(step.Id, route.Label);
                         var untried = d.Untried.Contains(step.Id + "/" + route.Label);
-                        var stem = route.Phrase.EndsWith(route.TargetLabel, StringComparison.Ordinal) ? route.Phrase[..^route.TargetLabel.Length] : route.Phrase + " ";
                         var go = route.Target;
                         <li class="wb-route">
-                            <span class="wb-route-t">@Sentence(stem)<button type="button" class="wb-link wb-route-go" @onclick="() => FollowRoute(inCard, go)">@route.TargetLabel</button>
+                            <span class="wb-route-t">@Sentence(route.Stem)<button type="button" class="wb-link wb-route-go" @onclick="() => FollowRoute(inCard, go)">@route.TargetLabel</button>
                                 @if (untried)
                                 {
                                     <span class="@PillClass("warn")">@Rich("flow.read.untried")</span>
@@ -420,24 +440,17 @@
 
     // ----- Diagram ----------------------------------------------------------------------------------------------------
 
-    private static string Family(FlowNode node) => node.Kind switch
-    {
-        OutlineStepKind.End => "end",
-        OutlineStepKind.Wait or OutlineStepKind.Timer => "wait",
-        OutlineStepKind.HumanTask => "person",
-        OutlineStepKind.Ai => "ai",
-        OutlineStepKind.Decide or OutlineStepKind.Loop => "decision",
-        OutlineStepKind.Subprocess => "flow",
-        _ => "action",
-    };
+    private static string FamilyKey(FlowFamily family) => family.ToString().ToLowerInvariant();
 
-    private static string Truncate(string label, int max) => label.Length <= max ? label : label[..(max - 1)] + "…";
+    private static readonly FlowFamily[] LegendFamilies = [FlowFamily.Action, FlowFamily.Decision, FlowFamily.Person, FlowFamily.Ai, FlowFamily.Wait, FlowFamily.Flow, FlowFamily.End];
+
+    private static string Px(int value) => value.ToString(CultureInfo.InvariantCulture);
 
     private static RenderFragment SvgText(int x, int y, string cssClass, string content, string anchor = "middle") => builder =>
     {
         builder.OpenElement(0, "text");
-        builder.AddAttribute(1, "x", x.ToString(CultureInfo.InvariantCulture));
-        builder.AddAttribute(2, "y", y.ToString(CultureInfo.InvariantCulture));
+        builder.AddAttribute(1, "x", Px(x));
+        builder.AddAttribute(2, "y", Px(y));
         builder.AddAttribute(3, "class", cssClass);
         builder.AddAttribute(4, "text-anchor", anchor);
         builder.AddAttribute(5, "dominant-baseline", "central");
@@ -446,33 +459,57 @@
     };
 
     private static string Points(params int[] numbers) =>
-        string.Join(' ', Enumerable.Range(0, numbers.Length / 2).Select(index => numbers[2 * index].ToString(CultureInfo.InvariantCulture) + "," + numbers[(2 * index) + 1].ToString(CultureInfo.InvariantCulture)));
+        string.Join(' ', Enumerable.Range(0, numbers.Length / 2).Select(index => Px(numbers[2 * index]) + "," + Px(numbers[(2 * index) + 1])));
 
-    private static RenderFragment NodeShape(string family, int x, int y, int w, int h)
+    private static RenderFragment NodeShape(FlowFamily family, int x, int y, int w, int h)
     {
         var right = x + w;
         var bottom = y + h;
         var middle = y + (h / 2);
         return family switch
         {
-            "ai" => @<polygon class="wb-node-shape" points="@Points(x + 12, y, right - 12, y, right, y + 12, right, bottom - 12, right - 12, bottom, x + 12, bottom, x, bottom - 12, x, y + 12)"></polygon>,
-            "decision" => @<polygon class="wb-node-shape" points="@Points(x + 18, y, right - 18, y, right, middle, right - 18, bottom, x + 18, bottom, x, middle)"></polygon>,
-            "person" => @<g>
+            FlowFamily.Ai => @<g>
+                <rect class="wb-node-shape" x="@Px(x)" y="@Px(y)" width="@Px(w)" height="@Px(h)" rx="2"></rect>
+                <rect class="wb-node-fold" x="@Px(x + 4)" y="@Px(y + 4)" width="@Px(w - 8)" height="@Px(h - 8)" rx="1"></rect>
+            </g>,
+            FlowFamily.Decision => @<polygon class="wb-node-shape" points="@Points(x + 22, y, right - 22, y, right, middle, right - 22, bottom, x + 22, bottom, x, middle)"></polygon>,
+            FlowFamily.Person => @<g>
                 <polygon class="wb-node-shape" points="@Points(x, y, right - 14, y, right, y + 14, right, bottom, x, bottom)"></polygon>
                 <polyline class="wb-node-fold" points="@Points(right - 14, y, right - 14, y + 14, right, y + 14)"></polyline>
             </g>,
-            "wait" => @<ellipse class="wb-node-shape" cx="@((x + (w / 2)).ToString(CultureInfo.InvariantCulture))" cy="@middle.ToString(CultureInfo.InvariantCulture)" rx="@((w / 2).ToString(CultureInfo.InvariantCulture))" ry="@((h / 2).ToString(CultureInfo.InvariantCulture))"></ellipse>,
-            "flow" => @<g>
-                <rect class="wb-node-shape" x="@x.ToString(CultureInfo.InvariantCulture)" y="@y.ToString(CultureInfo.InvariantCulture)" width="@w.ToString(CultureInfo.InvariantCulture)" height="@h.ToString(CultureInfo.InvariantCulture)" rx="6"></rect>
-                <line class="wb-node-fold" x1="@((x + 9).ToString(CultureInfo.InvariantCulture))" y1="@y.ToString(CultureInfo.InvariantCulture)" x2="@((x + 9).ToString(CultureInfo.InvariantCulture))" y2="@bottom.ToString(CultureInfo.InvariantCulture)"></line>
-                <line class="wb-node-fold" x1="@((right - 9).ToString(CultureInfo.InvariantCulture))" y1="@y.ToString(CultureInfo.InvariantCulture)" x2="@((right - 9).ToString(CultureInfo.InvariantCulture))" y2="@bottom.ToString(CultureInfo.InvariantCulture)"></line>
+            FlowFamily.Wait => @<ellipse class="wb-node-shape" cx="@Px(x + (w / 2))" cy="@Px(middle)" rx="@Px(w / 2)" ry="@Px(h / 2)"></ellipse>,
+            FlowFamily.Flow => @<g>
+                <rect class="wb-node-shape" x="@Px(x)" y="@Px(y)" width="@Px(w)" height="@Px(h)" rx="6"></rect>
+                <line class="wb-node-fold" x1="@Px(x + 9)" y1="@Px(y)" x2="@Px(x + 9)" y2="@Px(bottom)"></line>
+                <line class="wb-node-fold" x1="@Px(right - 9)" y1="@Px(y)" x2="@Px(right - 9)" y2="@Px(bottom)"></line>
             </g>,
-            "end" => @<rect class="wb-node-shape wb-node-end" x="@x.ToString(CultureInfo.InvariantCulture)" y="@y.ToString(CultureInfo.InvariantCulture)" width="@w.ToString(CultureInfo.InvariantCulture)" height="@h.ToString(CultureInfo.InvariantCulture)" rx="@((h / 2).ToString(CultureInfo.InvariantCulture))"></rect>,
-            _ => @<rect class="wb-node-shape" x="@x.ToString(CultureInfo.InvariantCulture)" y="@y.ToString(CultureInfo.InvariantCulture)" width="@w.ToString(CultureInfo.InvariantCulture)" height="@h.ToString(CultureInfo.InvariantCulture)" rx="6"></rect>,
+            FlowFamily.End => @<rect class="wb-node-shape wb-node-end" x="@Px(x)" y="@Px(y)" width="@Px(w)" height="@Px(h)" rx="@Px(h / 2)"></rect>,
+            _ => @<rect class="wb-node-shape" x="@Px(x)" y="@Px(y)" width="@Px(w)" height="@Px(h)" rx="6"></rect>,
         };
     }
 
-    private string FamilyWord(string family) => Plain("flow.family." + family);
+    private static string EdgeClass(DrawnLine line)
+    {
+        if (line.IsReturn)
+        {
+            return "wb-edge wb-edge-side wb-edge-return";
+        }
+
+        return line.IsHappyPath ? "wb-edge" : "wb-edge wb-edge-side";
+    }
+
+    /// <summary>How far, in pixels, a line of a node's label is from the middle of the node: none for a lone line, above and below for two.</summary>
+    private static int LineOffset(int lines, int position)
+    {
+        if (lines == 1)
+        {
+            return 0;
+        }
+
+        return position == 0 ? -8 : 8;
+    }
+
+    private string FamilyWord(FlowFamily family) => Plain("flow.family." + FamilyKey(family));
 
     private static string? TryStepId(FlowWork work) =>
         work.Frames.Count > 0 && work.Frames[0].Simulation.Status is ProcessStatus.Waiting or ProcessStatus.Suspended or ProcessStatus.Running
@@ -481,14 +518,13 @@
 
     private RenderFragment DiagramPanel(FlowData d, FlowWork work)
     {
-        var layout = d.Layout;
+        var layout = d.LayoutFor(Plain("flow.read.noStage"));
         var here = TryStepId(work);
         var selected = Session.SelectedStepId is { } id ? d.View.Steps.FirstOrDefault(step => step.Id == id) : null;
         var boxes = layout.Nodes.ToDictionary(box => box.Id, StringComparer.Ordinal);
-        var kinds = d.Graph.Nodes.ToDictionary(node => node.Id, node => node, StringComparer.Ordinal);
         var arrow = idp + "-arrow";
-        var width = layout.Width.ToString(CultureInfo.InvariantCulture);
-        var height = layout.Height.ToString(CultureInfo.InvariantCulture);
+        var width = Px(layout.Width);
+        var height = Px(layout.Height);
         var untriedCount = d.Coverage.NeverTaken.Count;
         var hasLoose = layout.Bands.Any(band => band.IsLoose);
 
@@ -502,6 +538,7 @@
                     <span class="wb-sub wb-sub-flush">@Plain("flow.diagram.tryAt", ("step", d.Words.Step(here)))</span>
                 }
             </div>
+            <div class="wb-diagram-wrap">
             <div class="wb-diagram-layout">
                 <div class="wb-diagram-scroll" role="region" aria-label="@Plain("flow.diagram.scroll")" tabindex="0">
                     <svg class="wb-diagram-svg" width="@width" height="@height" viewBox="0 0 @width @height" role="group" aria-label="@Plain("flow.diagram.label", ("title", d.Entry.Title))">
@@ -513,47 +550,58 @@
                         @foreach (var band in layout.Bands)
                         {
                             <g class="wb-band-g">
-                                <rect class="wb-band-bg" x="@band.X.ToString(CultureInfo.InvariantCulture)" y="0" width="@band.Width.ToString(CultureInfo.InvariantCulture)" height="@height"></rect>
-                                @SvgText(band.X + DiagramLayout.Padding, 18, "wb-band-t", band.IsLoose ? Plain("flow.read.noStage") : d.View.Stages[band.Index].Label, "start")
+                                <rect class="wb-band-bg" x="0" y="@Px(band.Y)" width="@width" height="@Px(band.Height)"></rect>
+                                @SvgText(band.LabelX, band.LabelY, "wb-band-t", band.IsLoose ? Plain("flow.read.noStage") : d.View.Stages[band.Index].Label, "start")
                             </g>
                         }
-                        @foreach (var path in layout.Edges)
+                        @foreach (var line in layout.Lines)
                         {
-                            var edge = path.Edge;
-                            var untried = d.Untried.Contains(edge.From + "/" + edge.Label);
-                            var decision = kinds[edge.From].Kind == OutlineStepKind.Decide && edge.Label.StartsWith("on:", StringComparison.Ordinal);
+                            var lineClass = EdgeClass(line);
+                            var phrases = string.Join("\n", line.Routes.Select(route => WithoutCode(route.Phrase)));
                             <g class="wb-edge-g">
-                                <path class="@(edge.IsHappyPath ? "wb-edge" : "wb-edge wb-edge-side")" d="@path.Path" marker-end="@("url(#" + arrow + ")")"><title>@WithoutCode(edge.Phrase)</title></path>
-                                @if (decision)
+                                <path class="@lineClass" d="@line.Path" marker-end="@("url(#" + arrow + ")")"><title>@phrases</title></path>
+                                @foreach (var mark in line.Marks)
                                 {
-                                    @SvgText(path.MidX + 8, path.MidY - 8, "wb-edge-t", Truncate(edge.Label[3..], 14), "start")
+                                    if (mark.IsCount)
+                                    {
+                                        <circle class="wb-count" cx="@Px(mark.X)" cy="@Px(mark.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@phrases</title></circle>
+                                        @SvgText(mark.X, mark.Y, "wb-count-t", Number(line.Routes.Count))
+                                    }
+                                    else
+                                    {
+                                        <circle class="wb-untried" cx="@Px(mark.X)" cy="@Px(mark.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@Plain("flow.read.untried")</title></circle>
+                                        @SvgText(mark.X, mark.Y, "wb-untried-t", "?")
+                                    }
                                 }
-                                @if (untried)
+                                @if (line.LabelAt is { } labelAt)
                                 {
-                                    <circle class="wb-untried" cx="@path.MidX.ToString(CultureInfo.InvariantCulture)" cy="@path.MidY.ToString(CultureInfo.InvariantCulture)" r="8"><title>@Plain("flow.read.untried")</title></circle>
-                                    @SvgText(path.MidX, path.MidY, "wb-untried-t", "?")
+                                    @SvgText(labelAt.X, labelAt.Y, "wb-edge-t", line.ShortLabel!, "start")
                                 }
                             </g>
                         }
                         @foreach (var node in d.Graph.Nodes)
                         {
                             var box = boxes[node.Id];
-                            var family = Family(node);
+                            var family = node.Family;
                             var step = node.Id;
                             var open = string.Equals(Session.SelectedStepId, step, StringComparison.Ordinal);
                             var now = here == step;
-                            <g class="@("wb-node wb-node-" + family + (now ? " wb-node-now" : string.Empty))" role="button" tabindex="0" aria-pressed="@(open ? "true" : "false")" aria-label="@NodeLabel(node, family, now)" @onclick="() => ToggleCard(step)" @onkeydown="args => OnNodeKeyDown(args, step)" @ref="refs[NodeRef(step)]">
+                            <g class="@("wb-node wb-node-" + FamilyKey(family) + (now ? " wb-node-now" : string.Empty))" role="button" tabindex="0" aria-pressed="@(open ? "true" : "false")" aria-label="@NodeLabel(node, family, now)" @onclick="() => ToggleCard(step)" @onkeydown="args => OnNodeKeyDown(args, step)" @ref="refs[NodeRef(step)]">
+                                @{ Seen(NodeRef(step)); }
                                 <title>@node.Label</title>
                                 @NodeShape(family, box.X, box.Y, box.Width, box.Height)
-                                @SvgText(box.X + (box.Width / 2), box.Y + (box.Height / 2), "wb-node-t", Truncate(node.Label, family == "wait" ? 16 : 19))
+                                @for (var position = 0; position < box.Lines.Count; position++)
+                                {
+                                    @SvgText(box.X + (box.Width / 2), box.Y + (box.Height / 2) + LineOffset(box.Lines.Count, position), "wb-node-t", box.Lines[position])
+                                }
                                 @if (node.IsStart)
                                 {
-                                    <circle class="wb-node-start" cx="@box.X.ToString(CultureInfo.InvariantCulture)" cy="@box.Y.ToString(CultureInfo.InvariantCulture)" r="8"></circle>
+                                    <circle class="wb-node-start" cx="@Px(box.X + 12)" cy="@Px(box.Y + 12)" r="5"></circle>
                                 }
                                 @if (now)
                                 {
-                                    <circle class="wb-node-here" cx="@((box.X + box.Width).ToString(CultureInfo.InvariantCulture))" cy="@box.Y.ToString(CultureInfo.InvariantCulture)" r="9"></circle>
-                                    @SvgText(box.X + box.Width, box.Y, "wb-node-here-t", "▶")
+                                    <circle class="wb-node-here" cx="@Px(box.X + box.Width - 14)" cy="@Px(box.Y + 12)" r="8"></circle>
+                                    @SvgText(box.X + box.Width - 14, box.Y + 12, "wb-node-here-t", "▶")
                                 }
                             </g>
                         }
@@ -571,19 +619,24 @@
                     </aside>
                 }
             </div>
+            </div>
             <section class="wb-card wb-legend" aria-labelledby="@(idp + "-legend")">
                 <h2 class="wb-h2" id="@(idp + "-legend")">@Rich("flow.diagram.legend")</h2>
                 <ul class="wb-legend-list">
-                    @foreach (var family in new[] { "action", "decision", "person", "ai", "wait", "flow", "end" })
+                    @foreach (var family in LegendFamilies)
                     {
                         <li>
                             <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true">@NodeShape(family, 2, 2, 48, 24)</svg>
-                            <span>@Rich("flow.legend." + family)</span>
+                            <span>@Rich("flow.legend." + FamilyKey(family))</span>
                         </li>
                     }
                     <li>
-                        <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><circle class="wb-node-start" cx="26" cy="14" r="8"></circle></svg>
+                        <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><rect class="wb-node-shape" x="2" y="2" width="48" height="24" rx="6"></rect><circle class="wb-node-start" cx="12" cy="9" r="4"></circle></svg>
                         <span>@Rich("flow.legend.start")</span>
+                    </li>
+                    <li>
+                        <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><rect class="wb-node-shape wb-node-now-sample" x="2" y="2" width="48" height="24" rx="6"></rect><circle class="wb-node-here" cx="38" cy="9" r="6"></circle></svg>
+                        <span>@Rich("flow.legend.here")</span>
                     </li>
                     <li>
                         <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><line class="wb-edge" x1="2" y1="14" x2="50" y2="14"></line></svg>
@@ -594,23 +647,27 @@
                         <span>@Rich("flow.legend.side")</span>
                     </li>
                     <li>
-                        <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><path class="wb-edge wb-edge-side" d="M 4 4 C 48 4 48 24 4 24"></path></svg>
+                        <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><path class="wb-edge wb-edge-side wb-edge-return" d="M 2 6 L 44 6 L 44 22 L 2 22"></path></svg>
                         <span>@Rich("flow.legend.cycle")</span>
                     </li>
                     <li>
+                        <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><circle class="wb-count" cx="26" cy="14" r="8"></circle>@SvgText(26, 14, "wb-count-t", "2")</svg>
+                        <span>@Rich("flow.legend.count")</span>
+                    </li>
+                    <li>
                         <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><circle class="wb-untried" cx="26" cy="14" r="8"></circle>@SvgText(26, 14, "wb-untried-t", "?")</svg>
-                        <span>@PluralText("flow.legend.untried", untriedCount)</span>
+                        <span>@if (untriedCount == 0){@Rich("flow.legend.allTried")}else{@PluralText("flow.legend.untried", untriedCount)}</span>
                     </li>
                     @if (hasLoose)
                     {
-                        <li><span>@Rich("flow.legend.noStage")</span></li>
+                        <li class="wb-legend-note"><span>@Rich("flow.legend.noStage")</span></li>
                     }
                 </ul>
             </section>
         </text>;
     }
 
-    private string NodeLabel(FlowNode node, string family, bool now)
+    private string NodeLabel(FlowNode node, FlowFamily family, bool now)
     {
         var parts = new List<string> { node.Label, FamilyWord(family) };
         if (node.IsStart)
@@ -626,7 +683,7 @@
         return string.Join(Plain("flow.join.label"), parts);
     }
 
-    // ----- Try it -----------------------------------------------------------------------------------------------------
+    // ----- Simulate ---------------------------------------------------------------------------------------------------
 
     private RenderFragment TryPanel(FlowData d, FlowWork work)
     {
@@ -650,37 +707,45 @@
     private static string? HintKey(FlowFormField field) => field.Kind switch
     {
         FlowFieldKind.Number => field.Type == "Integer" ? "flow.field.hint.whole" : "flow.field.hint.number",
-        FlowFieldKind.Date => "flow.field.hint.date",
         FlowFieldKind.DateTime => "flow.field.hint.dateTime",
         FlowFieldKind.Lines => "flow.field.hint.lines",
         _ => null,
     };
 
-    /// <summary>One control of a form, by the kind of the field, with its label, its hint and, when its text could not be read, its error.</summary>
-    private RenderFragment FieldControl(string id, string refKey, string label, FlowFormField field, string value, bool invalid, Action<ChangeEventArgs> change)
+    /// <summary>The control a form field gets, by its kind: a number, a date, a date and time (UTC), a checkbox for yes or no, several lines or a line of text.</summary>
+    private RenderFragment FieldInput(string id, string refKey, FlowFormField field, string value, bool invalid, bool disabled, string? described, Action<ChangeEventArgs> change)
+    {
+        var css = invalid ? "wb-in wb-in-err" : "wb-in";
+        var ariaInvalid = invalid ? "true" : null;
+        return field.Kind switch
+        {
+            FlowFieldKind.YesNo => @<input id="@id" type="checkbox" class="wb-check" checked="@(value == "true")" disabled="@disabled" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="args => change(CheckedArgs(args))" @ref="refs[refKey]" />,
+            FlowFieldKind.Lines => @<textarea id="@id" class="@css" rows="3" value="@value" disabled="@disabled" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="change" @ref="refs[refKey]"></textarea>,
+            FlowFieldKind.Number => @<input id="@id" type="number" step="@(field.Type == "Integer" ? "1" : "any")" inputmode="decimal" class="@css" value="@value" disabled="@disabled" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="change" @ref="refs[refKey]" />,
+            FlowFieldKind.Date => @<input id="@id" type="date" class="@css" value="@value" disabled="@disabled" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="change" @ref="refs[refKey]" />,
+            FlowFieldKind.DateTime => @<input id="@id" type="datetime-local" class="@css" value="@value" disabled="@disabled" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="change" @ref="refs[refKey]" />,
+            _ => @<input id="@id" type="text" autocomplete="off" class="@css" value="@value" disabled="@disabled" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="change" @ref="refs[refKey]" />,
+        };
+    }
+
+    /// <summary>One control of a form, by the kind of the field, with its label (the name of the variable as code), its hint and, when its text could not be read, its error.</summary>
+    private RenderFragment FieldControl(string id, string refKey, RenderFragment label, FlowFormField field, string value, bool invalid, Action<ChangeEventArgs> change, bool disabled = false, bool addUtc = true)
     {
         var hintKey = HintKey(field);
         var describedBy = (invalid ? id + "-err " : string.Empty) + (hintKey is not null ? id + "-hint" : string.Empty);
         var described = describedBy.Length > 0 ? describedBy.Trim() : null;
-        var css = invalid ? "wb-in wb-in-err" : "wb-in";
-        var ariaInvalid = invalid ? "true" : null;
-        return @<div class="wb-field">
-            <label class="wb-label" for="@id">@label</label>
-            @switch (field.Kind)
+        var isCheck = field.Kind == FlowFieldKind.YesNo;
+        return @<div class="@(isCheck ? "wb-field wb-field-check" : "wb-field")">
+            @{ Seen(refKey); }
+            @if (isCheck)
             {
-                case FlowFieldKind.YesNo:
-                    <select id="@id" class="@css" value="@value" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="change" @ref="refs[refKey]">
-                        <option value="">@Plain("flow.field.unset")</option>
-                        <option value="true">@Plain("flow.field.yes")</option>
-                        <option value="false">@Plain("flow.field.no")</option>
-                    </select>
-                    break;
-                case FlowFieldKind.Lines:
-                    <textarea id="@id" class="@css" rows="3" value="@value" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="change" @ref="refs[refKey]"></textarea>
-                    break;
-                default:
-                    <input id="@id" type="text" autocomplete="off" class="@css" value="@value" aria-describedby="@described" aria-invalid="@ariaInvalid" @onchange="change" @ref="refs[refKey]" />
-                    break;
+                @FieldInput(id, refKey, field, value, invalid, disabled, described, change)
+                <label class="wb-label" for="@id">@label</label>
+            }
+            else
+            {
+                <label class="wb-label" for="@id">@label@if (field.Kind == FlowFieldKind.DateTime && addUtc){@(" ")@Plain("flow.field.utc")}</label>
+                @FieldInput(id, refKey, field, value, invalid, disabled, described, change)
             }
             @if (hintKey is not null)
             {
@@ -709,7 +774,7 @@
                         <option value="">@Plain("flow.try.start.likeNone")</option>
                         @foreach (var name in d.Outline.Scenarios)
                         {
-                            <option value="@name">@name</option>
+                            <option value="@name">@Quoted(name)</option>
                         }
                     </select>
                 </div>
@@ -723,11 +788,11 @@
                 var name = field.Name;
                 var value = work.StartValues.TryGetValue(name, out var typed) ? typed : string.Empty;
                 <div class="wb-field-gap">
-                    @FieldControl(FieldId("start:" + name), StartFieldRef(name), Labelled(name), field, value, work.StartInvalid.Contains(name), args => SetStartValue(work, name, args))
+                    @FieldControl(FieldId("start:" + name), StartFieldRef(name), VarName(name), field, value, work.StartInvalid.Contains(name), args => SetStartValue(work, name, args))
                 </div>
             }
             <div class="wb-field wb-field-gap">
-                @FieldControl(FieldId("start:at"), StartFieldRef(StartRef), Plain("flow.try.start.at"), new FlowFormField("start", "Instant", FlowFieldKind.DateTime), StartAtText(work), atInvalid, args => SetStartAt(work, args))
+                @FieldControl(FieldId("start:at"), StartFieldRef(StartRef), Rich("flow.try.start.at"), new FlowFormField("start", "Instant", FlowFieldKind.DateTime), StartAtText(work), atInvalid, args => SetStartAt(work, args), addUtc: false)
             </div>
             @if (work.StartRefusal is { } refusal)
             {
@@ -735,6 +800,7 @@
             }
             <div class="wb-actions">
                 <button type="button" class="wb-btn wb-btn-primary" @onclick="() => StartTryOut(d, work)" @ref="refs[StartRef]">@Rich("flow.try.start.go")</button>
+                @{ Seen(StartRef); }
             </div>
         </div>;
     }
@@ -752,6 +818,17 @@
         }
     }
 
+    /// <summary>The controls of a replay: which command of the scenario is next, and the two ways to go on. They are drawn while the scenario has commands left.</summary>
+    private RenderFragment ReplayBar(FlowData d, FlowWork work, FlowReplay replay) => @<div class="wb-card wb-card-gap wb-replay" role="group" aria-label="@Plain("flow.try.replay.label")">
+        <div class="wb-hint">@Rich("flow.try.replaying", ("name", Quoted(replay.Name)))</div>
+        <div class="wb-sub" role="status">@Rich("flow.try.replay.progress", ("n", Number(replay.Played)), ("t", Number(replay.Total)))</div>
+        <div class="wb-actions">
+            <button type="button" class="wb-btn wb-btn-primary wb-btn-sm" @onclick="() => ReplayNext(d, work)" @ref="refs[ReplayNextRef]">@Rich("flow.try.replay.next")</button>
+            @{ Seen(ReplayNextRef); }
+            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => ReplayAll(d, work)">@Rich("flow.try.replay.all")</button>
+        </div>
+    </div>;
+
     private RenderFragment RunningCase(FlowData d, FlowWork work, TryFrame frame)
     {
         var simulation = frame.Simulation;
@@ -760,12 +837,20 @@
         var ended = simulation.Status is ProcessStatus.Completed or ProcessStatus.Cancelled;
         var isChild = work.Frames.Count > 1;
         var isLast = work.Frames.Count > 0 && ReferenceEquals(frame, work.Frames[^1]);
+        var locked = work.IsReplaying;
         var outstanding = simulation.Outstanding;
         var variables = simulation.Variables.OrderBy(pair => pair.Key, StringComparer.Ordinal).ToList();
         return @<text>
-            @if (work.ReplayName is { } replayName)
+            @if (work.Replay is { } replay)
             {
-                <div class="wb-hint">@Rich("flow.try.replaying", ("name", replayName))</div>
+                if (!replay.IsFinished)
+                {
+                    @ReplayBar(d, work, replay)
+                }
+                else if (replay.Failure is { } replayFailure)
+                {
+                    @FailureBlock(replayFailure)
+                }
             }
             @if (isChild)
             {
@@ -782,7 +867,8 @@
                 </div>
             }
             <div class="wb-card wb-card-gap">
-                <h2 class="wb-h2">@Rich("flow.try.where.title")</h2>
+                <h2 class="wb-h2" tabindex="-1" @ref="refs[WhereRef]">@Rich("flow.try.where.title")</h2>
+                @{ Seen(WhereRef); }
                 <dl class="wb-kv">
                     <dt>@Rich("flow.try.where.status")</dt>
                     <dd><span class="@PillClass(ended ? "ok" : "sim")">@StatusWord(simulation.Status)</span></dd>
@@ -796,7 +882,7 @@
                     @if (step is not null)
                     {
                         <dt>@Rich("flow.try.where.step")</dt>
-                        <dd>@step.Label @if (step.StageLabel is not null){<span class="wb-sub"> @Plain("flow.try.where.inStage", ("stage", step.StageLabel))</span>}</dd>
+                        <dd>@step.Label@if (step.StageLabel is not null){@(" ")<span class="wb-sub">@Plain("flow.try.where.inStage", ("stage", step.StageLabel))</span>}</dd>
                         <dt>@Rich("flow.try.where.does")</dt>
                         <dd>@Sentence(step.Sentence)</dd>
                     }
@@ -811,7 +897,7 @@
                     <dl class="wb-kv">
                         @foreach (var pair in variables)
                         {
-                            <dt>@Labelled(pair.Key)</dt>
+                            <dt>@VarName(pair.Key)</dt>
                             <dd>@VarText(pair.Value)</dd>
                         }
                     </dl>
@@ -828,7 +914,7 @@
             {
                 <div class="wb-card wb-card-gap">
                     <p class="wb-sub">@Rich("flow.try.suspended")</p>
-                    <div class="wb-actions"><button type="button" class="wb-btn wb-btn-secondary" @onclick="() => ResumeCase(d, work, frame)">@Rich("flow.try.resume")</button></div>
+                    <div class="wb-actions"><button type="button" class="wb-btn wb-btn-secondary" disabled="@locked" @onclick="() => ResumeCase(d, work, frame)">@Rich("flow.try.resume")</button></div>
                 </div>
             }
             @if (!ended)
@@ -840,9 +926,9 @@
                 }
                 @foreach (var item in outstanding)
                 {
-                    @WaitingCard(d, work, frame, words, view, item)
+                    @WaitingCard(d, work, frame, words, view, item, locked)
                 }
-                @TimeControls(d, work, frame)
+                @TimeControls(d, work, frame, locked)
             }
             else
             {
@@ -861,60 +947,82 @@
             ? @<div class="wb-errt" role="alert"><span aria-hidden="true">!</span> @Sentence(Reason(refusal.Code.Length == 0 ? null : refusal.Code))</div>
             : @<text></text>;
 
-    private RenderFragment WaitingCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, FlowView view, FlowOutstanding item) => item switch
+    /// <summary>What a test says when it fails: a plain sentence, and the words of the test player as technical detail, written as code.</summary>
+    private RenderFragment FailureBlock(string reason) => @<div class="wb-errt" role="alert">
+        <div>@Rich("flow.tests.failure")</div>
+        @if (reason.Length > 0)
+        {
+            <div class="wb-small"><span class="wb-sub">@Plain("flow.tests.technical")</span>@(" ")<code class="wb-code">@reason</code></div>
+        }
+    </div>;
+
+    private RenderFragment WaitingCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, FlowView view, FlowOutstanding item, bool locked) => item switch
     {
-        OutstandingEffect effect => EffectCard(d, work, frame, words, view, effect),
-        OutstandingTask task => TaskCard(d, work, frame, words, task),
-        OutstandingWait wait => EventCard(d, work, frame, words, wait),
-        OutstandingTimer timer => MomentCard(d, work, frame, words, timer.Id, timer.Step, timer.Due, "flow.try.timer"),
-        OutstandingWindow window => MomentCard(d, work, frame, words, window.Id, window.Step, window.OpensAt, "flow.try.window"),
-        OutstandingChild child => ChildCard(d, work, frame, words, child),
+        OutstandingEffect effect => EffectCard(d, work, frame, words, view, effect, locked),
+        OutstandingTask task => TaskCard(d, work, frame, words, task, locked),
+        OutstandingWait wait => EventCard(d, work, frame, words, wait, locked),
+        OutstandingTimer timer => MomentCard(d, work, frame, words, timer.Id, timer.Step, timer.Due, "flow.try.timer", locked),
+        OutstandingWindow window => MomentCard(d, work, frame, words, window.Id, window.Step, window.OpensAt, "flow.try.window", locked),
+        OutstandingChild child => ChildCard(d, work, frame, words, child, locked),
         _ => @<text></text>,
     };
 
-    private RenderFragment EffectCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, FlowView view, OutstandingEffect effect)
+    private RenderFragment EffectCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, FlowView view, OutstandingEffect effect, bool locked)
     {
         var step = view.Steps.FirstOrDefault(item => item.Id == effect.Step);
         var fields = FlowSchemaFields.From(step?.Ai?.OutputSchemaJson);
-        var answers = FlowScenarioAnswers.For(frame.Simulation.Process, effect.Step, AnsweredCount(frame, effect.Step));
-        var busy = asking is not null;
-        var thisBusy = busy && askingEffect == effect.Id;
+        var answers = FlowScenarioAnswers.For(frame.Simulation, effect.Step);
+        var picked = PickedAnswer(frame, effect.Id, answers);
+        var source = frame.Simulation.AnswerSource;
+        var busy = asking is not null || locked;
+        var thisBusy = asking is not null && askingEffect == effect.Id;
         var answerId = FieldId("answer:" + effect.Id);
         var headingId = FieldId("effect:" + effect.Id);
+        var pickId = FieldId("pick:" + effect.Id);
         return @<section class="wb-card wb-card-gap wb-wait" aria-labelledby="@headingId">
             <h3 class="wb-step-t" id="@headingId">@Rich("flow.try.effect.title", ("step", words.Step(effect.Step)))</h3>
-            <div class="wb-sub">@Rich("flow.try.effect.port", ("port", effect.Port), ("n", Number(effect.Attempt)))</div>
+            <div class="wb-sub">@Weave("flow.try.effect.port", [("n", Number(effect.Attempt))], ("port", effect.Port))</div>
             @if (fields.Count > 0)
             {
                 <div class="wb-hint">@Rich("flow.try.effect.shape")</div>
                 <ul class="wb-flow-list">
                     @foreach (var field in fields)
                     {
-                        <li>@Code(field.Name) @Plain("flow.ai.field", ("type", TypeWord(field.Type)), ("required", field.IsRequired ? Plain("flow.ai.required") : Plain("flow.ai.optional")))</li>
+                        <li>@Code(field.Name)@(" ")@Plain("flow.ai.field", ("type", TypeWord(field.Type)), ("required", field.IsRequired ? Plain("flow.ai.required") : Plain("flow.ai.optional")))</li>
                     }
                 </ul>
             }
+            @if (picked is not null)
+            {
+                <div class="wb-field wb-field-gap">
+                    <label class="wb-label" for="@pickId">@Rich("flow.try.effect.pick")</label>
+                    <div class="wb-pick">
+                        <select id="@pickId" class="wb-in" value="@picked.Scenario" disabled="@busy" @onchange="args => SetInput(frame, PickKey(effect.Id), args)">
+                            @foreach (var option in answers)
+                            {
+                                <option value="@option.Scenario">@Quoted(option.Scenario)@(option.Answer.IsFailure ? " " + Plain("flow.try.effect.failsMark") : string.Empty)</option>
+                            }
+                        </select>
+                        <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@busy" @onclick="() => AnswerFromTest(d, work, frame, effect, picked.Answer)">@Rich("flow.try.effect.use")</button>
+                    </div>
+                </div>
+            }
             <div class="wb-actions">
-                @foreach (var scenarioAnswer in answers)
+                @if (source is not null)
                 {
-                    var given = scenarioAnswer;
-                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@busy" @onclick="() => AnswerFromTest(d, work, frame, effect, given.Answer)">@Rich(given.Answer.IsFailure ? "flow.try.effect.fromTestFails" : "flow.try.effect.fromTest", ("name", given.Scenario))</button>
-                }
-                @if (AnswerSource is not null)
-                {
-                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@busy" @onclick="() => AskAsync(d, work, frame, effect)">@Rich("flow.try.effect.ask", ("source", AnswerSource.Name))</button>
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@busy" @onclick="() => AskAsync(d, work, frame, effect)">@Rich("flow.try.effect.ask", ("source", Quoted(source.Name)))</button>
                 }
                 <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@busy" @onclick="() => FailEffect(d, work, frame, effect, false)">@Rich("flow.try.effect.failTemp")</button>
                 <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@busy" @onclick="() => FailEffect(d, work, frame, effect, true)">@Rich("flow.try.effect.failPerm")</button>
             </div>
             @if (thisBusy)
             {
-                <div class="wb-busy" role="status"><span aria-hidden="true">...</span> @Rich("flow.try.effect.asking", ("source", AnswerSource?.Name ?? string.Empty)) <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="CancelAsk">@Rich("flow.try.effect.cancelAsk")</button></div>
+                <div class="wb-busy" role="status"><span aria-hidden="true">...</span> @Rich("flow.try.effect.asking", ("source", Quoted(source?.Name ?? string.Empty))) <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="CancelAsk">@Rich("flow.try.effect.cancelAsk")</button></div>
             }
             <details class="wb-fold">
                 <summary>@Rich("flow.try.effect.write")</summary>
                 <label class="wb-label" for="@answerId">@Rich("flow.try.effect.writeLabel")</label>
-                <textarea id="@answerId" class="wb-in" rows="3" value="@InputOf(frame, AnswerKey(effect.Id))" @onchange="args => SetInput(frame, AnswerKey(effect.Id), args)"></textarea>
+                <textarea id="@answerId" class="wb-in" rows="3" value="@InputOf(frame, AnswerKey(effect.Id))" disabled="@locked" @onchange="args => SetInput(frame, AnswerKey(effect.Id), args)"></textarea>
                 <div class="wb-hint">@Rich("flow.try.effect.writeHelp")</div>
                 <div class="wb-actions"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@busy" @onclick="() => AnswerByHand(d, work, frame, effect)">@Rich("flow.try.effect.send")</button></div>
             </details>
@@ -922,7 +1030,7 @@
         </section>;
     }
 
-    private RenderFragment TaskCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, OutstandingTask task)
+    private RenderFragment TaskCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, OutstandingTask task, bool locked)
     {
         var shown = ShownValues(task.ShowJson);
         var headingId = FieldId("task:" + task.Id);
@@ -934,7 +1042,7 @@
                 <dl class="wb-kv">
                     @foreach (var (name, value) in shown)
                     {
-                        <dt>@Labelled(name)</dt>
+                        <dt>@VarName(name)</dt>
                         <dd>@value</dd>
                     }
                 </dl>
@@ -944,21 +1052,21 @@
                 @foreach (var outcome in task.Outcomes)
                 {
                     var chosen = outcome;
-                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => CompleteTask(d, work, frame, task, chosen)">@words.Outcome(outcome)</button>
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@locked" @onclick="() => CompleteTask(d, work, frame, task, chosen)">@words.Outcome(outcome)</button>
                 }
             </div>
             @RefusalFor(frame, task.Id)
         </section>;
     }
 
-    private RenderFragment EventCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, OutstandingWait wait)
+    private RenderFragment EventCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, OutstandingWait wait, bool locked)
     {
         var fields = FlowForms.PayloadFields(frame.Simulation.Process, wait.Step);
         var invalid = frame.Invalid.TryGetValue(wait.Id, out var names) ? names : [];
         var headingId = FieldId("wait:" + wait.Id);
         return @<section class="wb-card wb-card-gap wb-wait" aria-labelledby="@headingId">
             <h3 class="wb-step-t" id="@headingId">@Rich("flow.try.event.title", ("step", words.Step(wait.Step)))</h3>
-            <div class="wb-sub">@Rich("flow.try.event.waiting", ("event", words.Event(wait.Event)))@if (wait.Correlation is not null){<span> @Rich("flow.try.event.correlation", ("value", wait.Correlation))</span>}</div>
+            <div class="wb-sub">@Rich("flow.try.event.waiting", ("event", words.Event(wait.Event)))@if (wait.Correlation is not null){@(" ")@Weave("flow.try.event.correlation", [], ("value", wait.Correlation))}</div>
             @if (fields.Count > 0)
             {
                 <div class="wb-hint">@Rich("flow.try.event.payload")</div>
@@ -968,25 +1076,26 @@
                 var name = field.Name;
                 var key = FieldKey(wait.Id, name);
                 <div class="wb-field-gap">
-                    @FieldControl(FieldId(key), FieldRefOf(wait.Id, name), Labelled(name), field, InputOf(frame, key), invalid.Contains(name), args => SetInput(frame, key, args))
+                    @FieldControl(FieldId(key), FieldRefOf(wait.Id, name), VarName(name), field, InputOf(frame, key), invalid.Contains(name), args => SetInput(frame, key, args), locked)
                 </div>
             }
-            <div class="wb-actions"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => SendEvent(d, work, frame, wait)">@Rich("flow.try.event.send")</button></div>
+            <div class="wb-actions"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@locked" @onclick="() => SendEvent(d, work, frame, wait)">@Rich("flow.try.event.send")</button></div>
             @RefusalFor(frame, wait.Id)
         </section>;
     }
 
-    private RenderFragment MomentCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, string id, string stepId, DateTimeOffset due, string key)
+    private RenderFragment MomentCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, string id, string stepId, DateTimeOffset due, string key, bool locked)
     {
         var headingId = FieldId("moment:" + id);
         return @<section class="wb-card wb-card-gap wb-wait" aria-labelledby="@headingId">
             <h3 class="wb-step-t" id="@headingId">@Rich(key + ".title", ("step", words.Step(stepId)))</h3>
             <div class="wb-sub">@Rich(key + ".until", ("time", TimeText(due)))</div>
-            <div class="wb-actions"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => GoToMoment(d, work, frame, id, due)">@Rich("flow.try.goTo")</button></div>
+            <div class="wb-actions"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@locked" @onclick="() => GoToMoment(d, work, frame, id, due)">@Rich("flow.try.goTo")</button></div>
             @RefusalFor(frame, id)
         </section>;
     }
 
+    /// <summary>The results the child flow can give, as the child's own document words them.</summary>
     private List<(string Id, string Word)> ChildOptions(OutstandingChild child)
     {
         var target = FlowWithId(child.ProcessId);
@@ -995,10 +1104,10 @@
             return [];
         }
 
-        return [.. childData.Outline.Steps.Where(item => item.Kind == OutlineStepKind.End && item.Result is not null).Select(item => item.Result!).Distinct(StringComparer.Ordinal).Select(item => (item, childData.Words.Result(item)))];
+        return [.. FlowLibrary.ResultsOf(childData.Process).Select(item => (item, childData.Words.Result(item)))];
     }
 
-    private RenderFragment ChildCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, OutstandingChild child)
+    private RenderFragment ChildCard(FlowData d, FlowWork work, TryFrame frame, FlowWords words, OutstandingChild child, bool locked)
     {
         var options = ChildOptions(child);
         var canOpen = FlowWithId(child.ProcessId) is not null;
@@ -1013,7 +1122,7 @@
                 <label class="wb-label" for="@resultId">@Rich("flow.try.child.resultLabel")</label>
                 @if (options.Count > 0)
                 {
-                    <select id="@resultId" class="wb-in" value="@(current.Length > 0 ? current : options[0].Id)" @onchange="args => SetInput(frame, resultKey, args)">
+                    <select id="@resultId" class="wb-in" value="@(current.Length > 0 ? current : options[0].Id)" disabled="@locked" @onchange="args => SetInput(frame, resultKey, args)">
                         @foreach (var option in options)
                         {
                             <option value="@option.Id">@option.Word</option>
@@ -1022,35 +1131,35 @@
                 }
                 else
                 {
-                    <input id="@resultId" type="text" autocomplete="off" class="wb-in" value="@current" @onchange="args => SetInput(frame, resultKey, args)" />
+                    <input id="@resultId" type="text" autocomplete="off" class="wb-in" value="@current" disabled="@locked" @onchange="args => SetInput(frame, resultKey, args)" />
                 }
             </div>
             <div class="wb-actions">
-                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => FinishChild(d, work, frame, child)">@Rich("flow.try.child.finish")</button>
-                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => FailChild(d, work, frame, child)">@Rich("flow.try.child.fail")</button>
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@locked" @onclick="() => FinishChild(d, work, frame, child)">@Rich("flow.try.child.finish")</button>
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@locked" @onclick="() => FailChild(d, work, frame, child)">@Rich("flow.try.child.fail")</button>
                 @if (canOpen)
                 {
-                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => OpenChild(d, work, frame, child)">@Rich("flow.try.child.open")</button>
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@locked" @onclick="() => OpenChild(d, work, frame, child)">@Rich("flow.try.child.open")</button>
                 }
             </div>
             @RefusalFor(frame, child.Id)
         </section>;
     }
 
-    private RenderFragment TimeControls(FlowData d, FlowWork work, TryFrame frame)
+    private RenderFragment TimeControls(FlowData d, FlowWork work, TryFrame frame, bool locked)
     {
-        var next = NextMoment(frame);
+        var next = frame.Simulation.NextDue;
         return @<section class="wb-card wb-card-gap" aria-labelledby="@FieldId("time")">
             <h3 class="wb-step-t" id="@FieldId("time")">@Rich("flow.try.time.title")</h3>
             <div class="wb-actions">
                 @foreach (var passage in Passages)
                 {
                     var span = passage.Span;
-                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => LetPass(d, work, frame, span)">@Rich(passage.Key)</button>
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@locked" @onclick="() => LetPass(d, work, frame, span)">@Rich(passage.Key)</button>
                 }
                 @if (next is { } moment)
                 {
-                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => GoToMoment(d, work, frame, TimeCard, moment)">@Rich("flow.try.pass.next", ("time", TimeText(moment)))</button>
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@locked" @onclick="() => GoToMoment(d, work, frame, TimeCard, moment)">@Rich("flow.try.pass.next", ("time", TimeText(moment)))</button>
                 }
             </div>
             @RefusalFor(frame, TimeCard)
@@ -1073,17 +1182,14 @@
                     {
                         var refused = entry.Disposition != AdvanceDisposition.Applied;
                         <li>
-                            <span class="wb-sub">@TimeText(entry.At)</span>
-                            <span>@WhoWord(entry.Source)</span>:
-                            <span>@EntryText(entry, words)</span>
+                            <span class="wb-sub">@TimeText(entry.At)</span>@(" ")<span>@Plain("flow.log.who", ("who", WhoOf(entry)))</span>@(" ")<span>@EntryText(entry, words)</span>
                             @if (refused)
                             {
-                                <span class="@PillClass("bad")">@Rich("flow.try.log.refused")</span>
-                                <span>@Sentence(Reason(entry.Code))</span>
+                                @(" ")<span class="@PillClass("bad")">@Rich("flow.try.log.refused")</span>@(" ")<span>@Sentence(Reason(entry.Code))</span>
                             }
                             else if (Entered(entry, words) is { Length: > 0 } entered)
                             {
-                                <span class="wb-sub">@entered</span>
+                                @(" ")<span class="wb-sub">@entered</span>
                             }
                         </li>
                     }
@@ -1101,6 +1207,7 @@
             <div class="wb-field">
                 <label class="wb-label" for="@nameId">@Rich("flow.try.keep.nameLabel")</label>
                 <input id="@nameId" type="text" autocomplete="off" class="@(invalid ? "wb-in wb-in-err" : "wb-in")" value="@work.SaveName" aria-describedby="@(invalid ? nameId + "-err" : nameId + "-hint")" aria-invalid="@(invalid ? "true" : null)" @onchange="args => SetSaveName(work, args)" @ref="refs[SaveNameRef]" />
+                @{ Seen(SaveNameRef); }
                 <div class="wb-hint" id="@(nameId + "-hint")">@Rich("flow.try.keep.help")</div>
                 @if (work.SaveError is { } error)
                 {
@@ -1121,6 +1228,7 @@
                     <p>@Rich("flow.try.reset.question")</p>
                     <div class="wb-actions">
                         <button type="button" class="wb-btn wb-btn-secondary" @onclick="() => KeepTryOut(work)" @ref="refs[KeepResetRef]">@Rich("flow.try.reset.keep")</button>
+                        @{ Seen(KeepResetRef); }
                         <button type="button" class="wb-btn wb-btn-primary" @onclick="() => StartOver(work)">@Rich("flow.try.reset.discard")</button>
                     </div>
                 </div>
@@ -1130,20 +1238,34 @@
 
     // ----- Tests and coverage -----------------------------------------------------------------------------------------
 
-    private RenderFragment ScenarioRow(FlowData d, FlowWork work, ScenarioLine line)
+    /// <summary>
+    /// One test of the flow: the document's own or a proposed one. Both get the same lines: the result, the steps it goes through, a
+    /// small review control and a way to replay it in the Simulate tab.
+    /// </summary>
+    private RenderFragment ScenarioRow(FlowData d, FlowWork work, ScenarioLine line, string? proposedJson = null, bool valid = true)
     {
         var target = "scenario:" + line.Name;
         var headingId = FieldId("scenario:" + line.Name);
+        var name = line.Name;
+        var (tone, mark, wordKey) = ScenarioLook(valid, line.Passed);
         return @<li class="wb-card wb-card-gap wb-scenario">
             <div class="wb-card-head">
                 <h3 class="wb-step-t" id="@headingId">@line.Name</h3>
-                <span class="@PillClass(line.Passed ? "ok" : "bad")"><span aria-hidden="true">@(line.Passed ? "✓" : "✗")</span> @Rich(line.Passed ? "flow.tests.pass" : "flow.tests.fail")</span>
+                @if (proposedJson is not null)
+                {
+                    <span class="@PillClass("neutral")">@Rich("flow.tests.proposed")</span>
+                }
+                <span class="@PillClass(tone)"><span aria-hidden="true">@mark</span>@(" ")@Rich(wordKey)</span>
                 <span class="wb-sp"></span>
-                @ReviewControl(work, target, Plain("flow.review.groupScenario", ("name", line.Name)))
+                @ReviewControl(work, target, Plain("flow.review.groupScenario", ("name", Quoted(line.Name))))
             </div>
-            @if (!line.Passed)
+            @if (!valid)
             {
-                <div class="wb-errt">@Rich("flow.tests.failure", ("reason", line.Failure ?? string.Empty))</div>
+                <div class="wb-errt">@Rich("flow.tests.invalidBody")</div>
+            }
+            else if (!line.Passed)
+            {
+                @FailureBlock(line.Failure ?? string.Empty)
             }
             @if (line.Trace.Count > 0)
             {
@@ -1157,7 +1279,14 @@
             }
             @NoteEditor(work, target)
             <div class="wb-actions">
-                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => Replay(d, work, line.Name)">@Rich("flow.tests.replay", ("name", line.Name))</button>
+                @if (valid)
+                {
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => Replay(d, work, name, proposedJson)">@Rich("flow.tests.replay", ("name", Quoted(name)))</button>
+                }
+                @if (proposedJson is not null)
+                {
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => RemoveProposed(work, name)">@Rich("flow.tests.remove", ("name", Quoted(name)))</button>
+                }
             </div>
         </li>;
     }
@@ -1183,27 +1312,13 @@
             }
             @if (work.Proposed.Count > 0)
             {
-                var checks = FlowReviewCheck.Against(BuildReview(d, work), d.Process).Scenarios;
                 <h2 class="wb-h2">@Rich("flow.tests.proposedTitle")</h2>
                 <p class="wb-sub">@Rich("flow.tests.proposedHelp")</p>
                 <ul class="wb-flow-list wb-plain-list">
-                    @foreach (var check in checks)
+                    @foreach (var proposed in work.Proposed)
                     {
-                        var name = check.Name;
-                        var tone = check.Passed switch { true => "ok", false => "bad", _ => "warn" };
-                        <li class="wb-card wb-card-gap">
-                            <div class="wb-card-head">
-                                <strong>@name</strong>
-                                <span class="@PillClass("neutral")">@Rich("flow.tests.proposed")</span>
-                                <span class="@PillClass(tone)"><span aria-hidden="true">@(check.Passed switch { true => "✓", false => "✗", _ => "!" })</span> @Rich(check.Passed switch { true => "flow.tests.pass", false => "flow.tests.fail", _ => "flow.tests.invalid" })</span>
-                                <span class="wb-sp"></span>
-                                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => RemoveProposed(work, name)">@Rich("flow.tests.remove", ("name", name))</button>
-                            </div>
-                            @if (check.Passed == false)
-                            {
-                                <div class="wb-errt">@Rich("flow.tests.failure", ("reason", check.Failure ?? string.Empty))</div>
-                            }
-                        </li>
+                        var result = ProposedResult(d, work, proposed);
+                        @ScenarioRow(d, work, new ScenarioLine(proposed.Name, result?.Passed ?? false, result?.Failure, result?.Trace ?? []), proposed.Json, result is not null)
                     }
                 </ul>
             }
@@ -1239,7 +1354,7 @@
                     <ul class="wb-flow-list">
                         @foreach (var problem in coverage.Problems)
                         {
-                            <li>@Rich("flow.coverage.problem", ("name", problem.Path))</li>
+                            <li>@Rich("flow.coverage.problem", ("name", Quoted(problem.Path)))</li>
                         }
                     </ul>
                 }
@@ -1255,19 +1370,22 @@
 
     private RenderFragment ReviewPanel(FlowData d, FlowWork work)
     {
-        var marked = d.Targets.Where(target => work.Review(target).State != ReviewState.Unreviewed || work.Review(target).Note.Length > 0).ToList();
-        var markedCount = d.Targets.Count(target => work.Review(target).State != ReviewState.Unreviewed);
-        var unreviewed = d.Targets.Count - markedCount;
+        var targets = TargetsOf(d, work);
+        var shown = targets.Where(target => work.Review(target).State != ReviewState.Unreviewed || work.Review(target).Note.Length > 0 || IsProposed(work, target)).ToList();
+        var markedCount = targets.Count(target => work.Review(target).State != ReviewState.Unreviewed);
+        var unreviewed = targets.Count - markedCount;
         var exportable = ExportableFlowCount();
-        var missingNotes = MissingNoteCount();
+        var missing = FlowsMissingNotes();
+        var missingNotes = missing.Sum(item => item.Count);
+        var orphans = OrphanCount();
         var reviewerId = idp + "-reviewer";
         return @<text>
             @PrivacyNotice()
             <div class="wb-grid2 wb-grid-review">
                 <div>
                     <h2 class="wb-h2">@Rich("flow.review.title")</h2>
-                    <p class="wb-sub" role="status">@Rich("flow.review.progress", ("n", Number(markedCount)), ("t", Number(d.Targets.Count)))</p>
-                    @if (marked.Count == 0 && work.Proposed.Count == 0)
+                    <p class="wb-sub" role="status">@Rich("flow.review.progress", ("n", Number(markedCount)), ("t", Number(targets.Count)))</p>
+                    @if (shown.Count == 0)
                     {
                         <div class="wb-sub">@Rich("flow.review.empty")</div>
                     }
@@ -1282,21 +1400,29 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var target in marked)
+                                @foreach (var target in shown)
                                 {
                                     var entry = work.Review(target);
+                                    var about = TargetName(d, target);
                                     <tr>
-                                        <td>@TargetName(d, target)</td>
-                                        <td><span class="@PillClass(StateTone(entry.State))">@StateWord(entry.State)</span></td>
-                                        <td>@if (entry.NeedsNote) { @MissingNote(work, target) } else if (entry.Note.Length > 0) { @entry.Note } else { <span class="wb-sub">@Rich("flow.review.noNote")</span> }</td>
-                                    </tr>
-                                }
-                                @foreach (var proposedName in work.Proposed.Select(item => item.Name))
-                                {
-                                    <tr>
-                                        <td>@Plain("flow.review.scenarioTarget", ("name", proposedName))</td>
-                                        <td><span class="@PillClass("neutral")">@Rich("flow.review.proposed")</span></td>
-                                        <td><span class="wb-sub">@Rich("flow.review.proposedNote")</span></td>
+                                        <td>@about</td>
+                                        <td>
+                                            @if (entry.State == ReviewState.Unreviewed && IsProposed(work, target))
+                                            {
+                                                <span class="@PillClass("neutral")">@Rich("flow.review.proposed")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="@PillClass(StateTone(entry.State))">@StateWord(entry.State)</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (entry.NeedsNote)
+                                            {
+                                                @MissingNote(work, target)
+                                            }
+                                            @NoteEditor(work, target, about)
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -1321,6 +1447,7 @@
                         <div class="wb-field wb-field-gap">
                             <label class="wb-label" for="@reviewerId">@Rich("flow.review.name")</label>
                             <input id="@reviewerId" type="text" autocomplete="off" class="@(nameError ? "wb-in wb-in-err" : "wb-in")" value="@Session.Reviewer" aria-describedby="@(nameError ? reviewerId + "-err" : null)" aria-invalid="@(nameError ? "true" : null)" @onchange="SetReviewer" @ref="refs[ReviewerRef]" />
+                            @{ Seen(ReviewerRef); }
                             @if (nameError)
                             {
                                 <div class="wb-errt" id="@(reviewerId + "-err")">@Rich("flow.review.nameRequired")</div>
@@ -1331,16 +1458,20 @@
                         </div>
                         @if (notesHeld && missingNotes > 0)
                         {
-                            <div class="wb-errt" role="alert">@PluralText("flow.review.notesNeeded", missingNotes)</div>
+                            <div class="wb-errt" role="alert">@PluralText("flow.review.notesNeeded", missingNotes, ("flows", string.Join(Plain("flow.join"), missing.Select(item => item.Label))))</div>
                         }
                         @if (exportable == 0)
                         {
                             <div class="wb-hint">@Rich("flow.review.nothingToExport")</div>
                         }
                         <div class="wb-hint">@Rich("flow.review.exportHelp")</div>
-                        @if (exportDone && Session.UnexportedFlowCount == 0)
+                        @if (exportDone && ListedUnexportedCount() == 0)
                         {
                             <div class="wb-saved" role="status">@(exportPlace is null ? Rich("flow.review.savedNoPlace") : Rich("flow.review.saved", ("place", exportPlace)))</div>
+                        }
+                        @if (orphans > 0)
+                        {
+                            <div class="wb-hint" role="status">@PluralText("flow.review.orphans", orphans)</div>
                         }
                     }
                 </div>

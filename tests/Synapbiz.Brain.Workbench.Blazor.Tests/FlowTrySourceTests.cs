@@ -10,7 +10,7 @@ public sealed class FlowTrySourceTests
     private const string Scenario = "nothing is missing";
 
     private static IElement AskButton(FlowHarness harness, string name) =>
-        harness.Buttons.First(button => FlowHarness.Normalise(button.TextContent) == "Ask " + name);
+        harness.Buttons.First(button => FlowHarness.Normalise(button.TextContent) == "Ask \u201C" + name + "\u201D");
 
     private sealed class Named(string name, Func<FlowEffectRequest, CancellationToken, ValueTask<FlowAnswer?>> answer) : IFlowAnswerSource
     {
@@ -50,7 +50,7 @@ public sealed class FlowTrySourceTests
         var source = new Named("Practice AI", (_, _) => ValueTask.FromResult<FlowAnswer?>(null));
         using var harness = Open(source);
         AskButton(harness, "Practice AI").Click();
-        harness.Find(".wb-sr[role=status]").TextContent.Should().Be("Practice AI gave no answer");
+        harness.Find(".wb-sr[role=status]").TextContent.Should().Be("\u201CPractice AI\u201D gave no answer");
         harness.PanelText.Should().Contain("Waiting for an answer at");
     }
 
@@ -63,7 +63,7 @@ public sealed class FlowTrySourceTests
         harness.PanelText.Should().Contain("the answer source failed").And.Contain("Refused");
         harness.Find(".wb-sr[role=status]").TextContent.Should().Contain("the answer source failed");
         harness.PanelText.Should().Contain("Waiting for an answer at");
-        harness.Buttons.Where(button => FlowHarness.Normalise(button.TextContent).StartsWith("Answer like the test", StringComparison.Ordinal)).Should().NotBeEmpty();
+        harness.Buttons.Where(button => FlowHarness.Normalise(button.TextContent).Equals("Use this answer", StringComparison.Ordinal)).Should().NotBeEmpty();
     }
 
     [Fact]
@@ -86,14 +86,14 @@ public sealed class FlowTrySourceTests
         });
         using var harness = Open(source);
         AskButton(harness, "Practice AI").Click();
-        harness.Cut.WaitForAssertion(() => harness.PanelText.Should().Contain("Asking Practice AI…"));
+        harness.Cut.WaitForAssertion(() => harness.PanelText.Should().Contain("Asking \u201CPractice AI\u201D…"));
         harness.Find(".wb-busy").GetAttribute("role").Should().Be("status");
-        harness.Buttons.Where(button => FlowHarness.Normalise(button.TextContent).StartsWith("Answer like the test", StringComparison.Ordinal))
+        harness.Buttons.Where(button => FlowHarness.Normalise(button.TextContent).Equals("Use this answer", StringComparison.Ordinal))
             .Should().OnlyContain(button => button.HasAttribute("disabled"));
-        harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().Be("Asking Practice AI");
+        harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().Be("Asking \u201CPractice AI\u201D");
 
         harness.Press("Cancel");
-        harness.Cut.WaitForAssertion(() => harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().Be("The question to Practice AI was cancelled"));
+        harness.Cut.WaitForAssertion(() => harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().Be("The question to \u201CPractice AI\u201D was cancelled"));
         harness.FindAll(".wb-busy").Should().BeEmpty();
         harness.PanelText.Should().Contain("Waiting for an answer at");
     }
@@ -109,7 +109,7 @@ public sealed class FlowTrySourceTests
         });
         var harness = Open(source);
         AskButton(harness, "Practice AI").Click();
-        harness.Cut.WaitForAssertion(() => harness.PanelText.Should().Contain("Asking Practice AI…"));
+        harness.Cut.WaitForAssertion(() => harness.PanelText.Should().Contain("Asking \u201CPractice AI\u201D…"));
         harness.Select("visit.note_wait");
         harness.Cut.WaitForAssertion(() => harness.FindAll(".wb-busy").Should().BeEmpty());
         harness.Dispose();

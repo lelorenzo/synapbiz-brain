@@ -61,10 +61,11 @@ public sealed class FlowReviewTests
         harness.Find("[role=alert]").TextContent.Should().Contain("1 item to fix or with a question needs its note");
 
         harness.Press("Write the note");
-        harness.Session.SelectedTab.Should().Be(FlowWorkbenchTab.Read);
-        harness.Find("section.wb-step textarea").Change("Why this wait?");
-        harness.Open(FlowWorkbenchTab.Review);
-        harness.PanelText.Should().Contain("Why this wait?").And.NotContain("The note is missing.");
+        harness.Session.SelectedTab.Should().Be(FlowWorkbenchTab.Review);
+        harness.FocusIds.Should().Equal(harness.RefOf("note:step:" + FlowDescriber.Describe(FlowDocs.Process("previsit.outreach"), WorkbenchLocale.En).Steps[0].Id).Id);
+        harness.Find("table textarea").Change("Why this wait?");
+        harness.PanelText.Should().NotContain("The note is missing.");
+        harness.Find("table textarea").GetAttribute("value").Should().Be("Why this wait?");
         harness.Press("Export the review");
         harness.Exports.Should().HaveCount(1);
     }
@@ -104,7 +105,7 @@ public sealed class FlowReviewTests
         harness.Open(FlowWorkbenchTab.Try);
         harness.Type("Start like the test", "nothing is missing");
         harness.Press("Start");
-        harness.FindAll("section.wb-wait")[0].QuerySelectorAll("button").First(button => button.TextContent.Contains("Answer like the test nothing is missing", StringComparison.Ordinal)).Click();
+        harness.UseAnswer("nothing is missing");
         harness.Type("Name of the proposed test", "kept one");
         harness.Press("Save as a proposed test");
         harness.Open(FlowWorkbenchTab.Review);

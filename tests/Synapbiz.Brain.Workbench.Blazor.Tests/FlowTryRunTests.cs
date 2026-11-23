@@ -33,10 +33,14 @@ public sealed class FlowTryRunTests
         foreach (var card in harness.FindAll("section.wb-wait"))
         {
             var heading = FlowHarness.Normalise(card.QuerySelector("h3")!.TextContent);
+            if (heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) && harness.UseAnswer(scenario))
+            {
+                return;
+            }
+
             var button = heading switch
             {
-                _ when heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) => (scenario is null ? null : Action(card, "Answer like the test " + scenario) ?? Action(card, "Fail like the test " + scenario))
-                    ?? Action(card, "Answer like the test") ?? Action(card, "It fails for good"),
+                _ when heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) => Action(card, "It fails for good"),
                 _ when heading.StartsWith("A person must act", StringComparison.Ordinal) => card.QuerySelectorAll(".wb-actions button").FirstOrDefault(),
                 _ when heading.StartsWith("Waiting for an event", StringComparison.Ordinal) => Action(card, "The event arrives"),
                 _ when heading.StartsWith("Waiting for another flow", StringComparison.Ordinal) => Action(card, "Finish the child flow"),
@@ -76,7 +80,7 @@ public sealed class FlowTryRunTests
     public void AnAnswerFromATestMovesTheCaseOnAndTheTimelineSaysWhoAnsweredAndWhatCameNext()
     {
         using var harness = Started("previsit.outreach", "nothing is missing");
-        Action(Card(harness, "Waiting for an answer")!, "Answer like the test nothing is missing")!.Click();
+        harness.UseAnswer("nothing is missing");
         harness.PanelText.Should().Contain("Answer at Check what is missing").And.Contain("from a test").And.Contain("Then:");
         harness.PanelText.Should().Contain("The case has finished.");
         harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().StartWith("The case finished with the result");
@@ -125,9 +129,9 @@ public sealed class FlowTryRunTests
     public void ATaskShowsItsValuesAndOneButtonPerOutcomeWithTheDocumentsLabels()
     {
         using var harness = Started("previsit.outreach", "the requirements cannot be read at all");
-        Action(Card(harness, "Waiting for an answer")!, "Fail like the test the requirements cannot be read at all")!.Click();
+        harness.UseAnswer("the requirements cannot be read at all");
         var card = Card(harness, "A person must act")!;
-        card.TextContent.Should().Contain("Case ref").And.Contain("c-");
+        card.TextContent.Should().Contain("case_ref").And.Contain("c-");
         var outcomes = card.QuerySelectorAll(".wb-actions button").Select(button => FlowHarness.Normalise(button.TextContent)).ToList();
         var words = FlowWords.For(FlowDocs.Process("previsit.outreach"), WorkbenchLocale.En);
         outcomes.Should().Equal(words.Outcome("resolved"), words.Outcome("unreachable"));
@@ -178,13 +182,13 @@ public sealed class FlowTryRunTests
     {
         using var harness = Started("previsit.outreach", "nothing is missing");
         var before = harness.PanelText;
-        before.Should().Contain("2027-01-04 14:00 (simulated time)");
+        before.Should().Contain("01/04/2027 2:00 PM UTC");
         harness.Press("1 day");
-        harness.PanelText.Should().Contain("2027-01-05 14:00 (simulated time)").And.Contain("Time passed");
+        harness.PanelText.Should().Contain("01/05/2027 2:00 PM UTC").And.Contain("Time passed");
         harness.Press("1 week");
-        harness.PanelText.Should().Contain("2027-01-12 14:00 (simulated time)");
+        harness.PanelText.Should().Contain("01/12/2027 2:00 PM UTC");
         harness.Press("1 hour");
-        harness.PanelText.Should().Contain("2027-01-12 15:00 (simulated time)");
+        harness.PanelText.Should().Contain("01/12/2027 3:00 PM UTC");
     }
 
     [Fact]
@@ -206,9 +210,9 @@ public sealed class FlowTryRunTests
     public void ACommandTheFlowRefusesIsListedWithItsReasonAndChangesNoState()
     {
         using var harness = Started("previsit.outreach", "nothing is missing");
-        Action(Card(harness, "Waiting for an answer")!, "Answer like the test nothing is missing")!.Click();
+        harness.UseAnswer("nothing is missing");
         harness.PanelText.Should().Contain("The case has finished.");
         harness.FindAll("section.wb-wait").Should().BeEmpty();
-        harness.Buttons.Any(button => button.TextContent.Contains("Answer like", StringComparison.Ordinal)).Should().BeFalse();
+        harness.Buttons.Any(button => button.TextContent.Contains("Use this answer", StringComparison.Ordinal)).Should().BeFalse();
     }
 }

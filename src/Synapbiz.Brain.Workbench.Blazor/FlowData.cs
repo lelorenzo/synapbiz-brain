@@ -29,35 +29,30 @@ internal sealed class FlowData
 
     internal required IReadOnlyList<ScenarioLine> Scenarios { get; init; }
 
-    internal required DiagramLayout Layout { get; init; }
-
     /// <summary>The routes no scenario takes, as <c>step/label</c>.</summary>
     internal required HashSet<string> Untried { get; init; }
 
-    /// <summary>Every target of a review of this flow, in the order of the export: the flow, its stages, steps, routes and scenarios.</summary>
+    /// <summary>Every target of a review of this flow, in the order of the export: the flow, its triggers, stages, steps, routes and scenarios.</summary>
     internal required IReadOnlyList<string> Targets { get; init; }
 
-    internal static FlowData Build(BrainProcess process, WorkbenchLocale locale, IReadOnlyList<BrainProcess> known, FlowEntry entry)
+    /// <summary>The ids of the triggers, as review targets are named, in document order.</summary>
+    internal required IReadOnlyList<string> TriggerIds { get; init; }
+
+    private DiagramLayout? layout;
+
+    /// <summary>The diagram of the flow; the label of the band of the steps with no stage is the host's text, so it is given once.</summary>
+    internal DiagramLayout LayoutFor(string looseLabel) =>
+        layout ??= DiagramLayout.Of(Graph, Outline.Stages.Count, Untried, View.Stages.Select(stage => stage.Label).ToList(), looseLabel);
+
+    internal static FlowData Build(BrainProcess process, WorkbenchLocale locale, IReadOnlyList<BrainProcess> known, FlowEntry entry, FlowScenarioReport report)
     {
         var outline = ProcessOutline.From(process);
         var graph = FlowGraph.From(process, locale, known);
-        var results = process.RunScenarios().Results.ToDictionary(result => result.Name, StringComparer.Ordinal);
         var words = FlowWords.For(process, locale, known);
-        var scenarios = outline.Scenarios.Select(name =>
-        {
-            var result = results.GetValueOrDefault(name);
-            var trace = FlowSimulation.Replay(process, name).History
-                .Where(item => item.Kind == ProcessHistoryKind.StepEntered && item.Step is not null)
-                .Select(item => words.Step(item.Step!))
-                .ToList();
-            return new ScenarioLine(name, result?.Passed ?? false, result?.Failure, trace);
-        }).ToList();
-        var coverage = FlowCoverage.Of(process, null, locale);
-        var targets = new List<string> { "process" };
-        targets.AddRange(outline.Stages.Select(stage => "stage:" + stage));
-        targets.AddRange(outline.Steps.Select(step => "step:" + step.Id));
-        targets.AddRange(outline.Steps.SelectMany(step => step.Routes.Select(route => RouteTarget(step.Id, route.Label))));
-        targets.AddRange(outline.Scenarios.Select(name => "scenario:" + name));
+        var scenarios = report.Scenarios
+            .Select(result => new ScenarioLine(result.Name, result.Passed, result.Failure, [.. result.Trace.Select(words.Step)]))
+            .ToList();
+        var coverage = report.Coverage;
         return new FlowData
         {
             Process = process,
@@ -68,11 +63,11 @@ internal sealed class FlowData
             Coverage = coverage,
             Words = words,
             Scenarios = scenarios,
-            Layout = DiagramLayout.Of(graph, outline.Stages.Count),
             Untried = [.. coverage.NeverTaken.Select(route => route.Step + "/" + route.Label)],
-            Targets = targets,
+            Targets = FlowReviewTargets.Of(process),
+            TriggerIds = FlowReviewTargets.TriggerIds(process),
         };
     }
 
-    internal static string RouteTarget(string step, string label) => "route:" + step + "/" + label;
+    internal static string RouteTarget(string step, string label) => FlowReviewTargets.Route(step, label);
 }

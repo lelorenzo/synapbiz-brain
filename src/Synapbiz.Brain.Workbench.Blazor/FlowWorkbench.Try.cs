@@ -11,25 +11,9 @@ public sealed partial class FlowWorkbench
     private const string StartRef = "start";
     private const string SaveNameRef = "save:name";
     private const string KeepResetRef = "reset:keep";
-    private const string ZoneInvalid = "zone_invalid";
     private const string TimeCard = "time";
-
-    private static readonly Dictionary<string, string> CodeKeys = new(StringComparer.Ordinal)
-    {
-        ["process.input.unknown"] = "flow.code.inputUnknown",
-        ["process.variable.type_mismatch"] = "flow.code.typeMismatch",
-        ["workbench.flow.json_invalid"] = "flow.code.jsonInvalid",
-        ["workbench.flow.duration_invalid"] = "flow.code.durationInvalid",
-        ["workbench.flow.not_started"] = "flow.code.notStarted",
-        ["workbench.flow.answer_source_failed"] = "flow.code.sourceFailed",
-        ["process.trigger.stale"] = "flow.code.stale",
-        ["process.task.outcome_unknown"] = "flow.code.outcomeUnknown",
-        ["process.event.not_accepted"] = "flow.code.eventNotAccepted",
-        ["process.window.zone_unknown"] = "flow.code.zoneUnknown",
-        ["process.effect.output_malformed"] = "flow.code.outputMalformed",
-        ["process.ai.output_invalid"] = "flow.code.aiOutputInvalid",
-        [ZoneInvalid] = "flow.code.zoneInvalid",
-    };
+    private const string ReplayNextRef = "replay:next";
+    private const string WhereRef = "where";
 
     private static readonly (string Key, TimeSpan Span)[] Passages =
     [
@@ -62,12 +46,8 @@ public sealed partial class FlowWorkbench
         return info;
     }
 
-    /// <summary>The words of a code the flow gave, with the code in backticks when the panel has no sentence for it.</summary>
-    private string Reason(string? code)
-    {
-        var key = code is not null && CodeKeys.TryGetValue(code, out var found) ? found : "flow.code.other";
-        return Plain(key, ("code", code ?? string.Empty));
-    }
+    /// <summary>The words of a code the flow gave, with the code in backticks when the library has no sentence for it.</summary>
+    private string Reason(string? code) => FlowCodes.Describe(code, Locale);
 
     private static string WithoutCode(string sentence) => sentence.Replace("`", string.Empty, StringComparison.Ordinal);
 
@@ -143,7 +123,7 @@ public sealed partial class FlowWorkbench
             simulation = FlowSimulation.Start(d.Process, new FlowSimulationSetup
             {
                 At = at!.Value,
-                Today = DateOnly.FromDateTime(at.Value.UtcDateTime),
+                Today = FlowSimulationSetup.TodayOf(at.Value),
                 InputJson = form.Json,
                 Zones = Zones ?? new Dictionary<string, TimeSpan>(),
                 AnswerSource = AnswerSource,
@@ -152,7 +132,7 @@ public sealed partial class FlowWorkbench
         }
         catch (ArgumentException)
         {
-            work.StartRefusal = ZoneInvalid;
+            work.StartRefusal = FlowCodes.ZoneInvalid;
             Session.Touch();
             return;
         }
@@ -165,7 +145,7 @@ public sealed partial class FlowWorkbench
         }
 
         work.Frames.Clear();
-        work.ReplayName = null;
+        work.Replay = null;
         var frame = new TryFrame(simulation);
         work.Frames.Add(frame);
         work.Live = LiveText(d, frame, simulation.Log);
@@ -236,12 +216,12 @@ public sealed partial class FlowWorkbench
 
     private async Task AskAsync(FlowData d, FlowWork work, TryFrame frame, OutstandingEffect effect)
     {
-        if (AnswerSource is null || asking is not null)
+        if (frame.Simulation.AnswerSource is not { } sourceOfAnswers || asking is not null)
         {
             return;
         }
 
-        var source = AnswerSource.Name;
+        var source = Quoted(sourceOfAnswers.Name);
         var cancellation = new CancellationTokenSource();
         asking = cancellation;
         askingEffect = effect.Id;
@@ -249,7 +229,7 @@ public sealed partial class FlowWorkbench
         Session.Touch();
         try
         {
-            var entries = await frame.Simulation.RunAnswersAsync(1, cancellation.Token).ConfigureAwait(true);
+            var entries = await frame.Simulation.AskAsync(effect.Id, cancellation.Token).ConfigureAwait(true);
             AfterCommand(d, work, frame, effect.Id, entries);
             if (entries.Count == 0)
             {
@@ -260,6 +240,11 @@ public sealed partial class FlowWorkbench
         {
             frame.Refusal = null;
             work.Live = Plain("flow.live.askCancelled", ("source", source));
+        }
+        catch (InvalidOperationException)
+        {
+            frame.Refusal = (effect.Id, FlowSimulation.ErrorAnswerSourceFailed);
+            work.Live = Plain("flow.live.refused", ("reason", WithoutCode(Reason(FlowSimulation.ErrorAnswerSourceFailed))));
         }
         finally
         {
@@ -274,6 +259,15 @@ public sealed partial class FlowWorkbench
 
         Session.Touch();
     }
+
+    /// <summary>The scenario the reader chose in the select of an effect's card; the first one that answers the step when none was chosen.</summary>
+    private static FlowScenarioAnswer? PickedAnswer(TryFrame frame, string effectId, IReadOnlyList<FlowScenarioAnswer> answers)
+    {
+        var name = InputOf(frame, PickKey(effectId));
+        return answers.FirstOrDefault(item => string.Equals(item.Scenario, name, StringComparison.Ordinal)) ?? (answers.Count > 0 ? answers[0] : null);
+    }
+
+    private static string PickKey(string effectId) => "pick:" + effectId;
 
     private void CancelAsk() => asking?.Cancel();
 
@@ -304,14 +298,6 @@ public sealed partial class FlowWorkbench
 
     private void LetPass(FlowData d, FlowWork work, TryFrame frame, TimeSpan span) =>
         Do(d, work, frame, TimeCard, () => frame.Simulation.AdvanceBy(span));
-
-    private static DateTimeOffset? NextMoment(TryFrame frame) =>
-        frame.Simulation.Outstanding.Select(item => item switch
-        {
-            OutstandingTimer timer => (DateTimeOffset?)timer.Due,
-            OutstandingWindow window => window.OpensAt,
-            _ => null,
-        }).Where(due => due is not null).Min();
 
     private void ResumeCase(FlowData d, FlowWork work, TryFrame frame) =>
         Do(d, work, frame, TimeCard, () => frame.Simulation.Resume());
@@ -390,7 +376,9 @@ public sealed partial class FlowWorkbench
         {
             try
             {
-                work.Proposed.Add(new FlowProposedScenario(name, first.Simulation.ToScenarioJson(name)));
+                var proposed = new FlowProposedScenario(name, first.Simulation.ToScenarioJson(name));
+                work.Proposed.Add(proposed);
+                work.ProposedResults[name] = FlowScenarioReport.ResultOf(d.Process, name, proposed.Json);
                 work.SaveError = null;
                 work.SaveName = string.Empty;
                 exportDone = false;
@@ -413,6 +401,8 @@ public sealed partial class FlowWorkbench
     private void RemoveProposed(FlowWork work, string name)
     {
         work.Proposed.RemoveAll(item => item.Name == name);
+        work.ProposedResults.Remove(name);
+        work.Reviews.Remove("scenario:" + name);
         exportDone = false;
         Session.Touch();
     }
@@ -434,7 +424,7 @@ public sealed partial class FlowWorkbench
     {
         asking?.Cancel();
         work.Frames.Clear();
-        work.ReplayName = null;
+        work.Replay = null;
         work.ConfirmReset = false;
         work.Live = string.Empty;
         work.SaveError = null;
@@ -442,26 +432,65 @@ public sealed partial class FlowWorkbench
         Session.Touch();
     }
 
-    private void Replay(FlowData d, FlowWork work, string scenario)
+    /// <summary>What a proposed scenario does to the flow, played once and kept; null when it is not valid for the flow.</summary>
+    private static FlowScenarioResult? ProposedResult(FlowData d, FlowWork work, FlowProposedScenario proposed)
+    {
+        if (!work.ProposedResults.TryGetValue(proposed.Name, out var result))
+        {
+            result = FlowScenarioReport.ResultOf(d.Process, proposed.Name, proposed.Json);
+            work.ProposedResults[proposed.Name] = result;
+        }
+
+        return result;
+    }
+
+    /// <summary>Starts a scenario of the document (or a proposed one) in the Simulate tab, to be played command by command.</summary>
+    private void Replay(FlowData d, FlowWork work, string scenario, string? proposedJson = null)
     {
         asking?.Cancel();
-        var simulation = FlowSimulation.Replay(d.Process, scenario);
+        FlowReplay replay;
+        try
+        {
+            replay = proposedJson is null
+                ? FlowReplay.Start(d.Process, scenario, AnswerSource, known)
+                : FlowReplay.StartJson(d.Process, proposedJson, AnswerSource, known);
+        }
+        catch (ArgumentException)
+        {
+            return;
+        }
+
         work.Frames.Clear();
-        var frame = new TryFrame(simulation);
-        work.Frames.Add(frame);
-        work.ReplayName = scenario;
+        work.Frames.Add(new TryFrame(replay.Session));
+        work.Replay = replay;
         work.ConfirmReset = false;
-        work.Live = Plain("flow.live.replayed", ("name", scenario));
+        work.Live = Plain("flow.live.replayed", ("name", Quoted(scenario)));
+        pendingFocus = ReplayNextRef;
         Session.SelectedTab = FlowWorkbenchTab.Try;
     }
 
-    // ----- what the screen shows of a try-out -------------------------------------------------------------------------
+    private void ReplayNext(FlowData d, FlowWork work)
+    {
+        if (work.Replay is { } replay && CurrentFrame(work) is { } frame)
+        {
+            AfterCommand(d, work, frame, TimeCard, replay.Next());
+            pendingFocus = replay.IsFinished ? WhereRef : ReplayNextRef;
+        }
+    }
 
-    /// <summary>How many answers the frame has already given to a step, which tells the scenarios' <c>n</c>-th answer to offer.</summary>
-    private static int AnsweredCount(TryFrame frame, string step) =>
-        frame.Simulation.Log.Count(entry => entry.Step == step
-            && entry.Kind is FlowSimulationEntryKind.EffectAnswered or FlowSimulationEntryKind.EffectFailed
-            && entry.Disposition == AdvanceDisposition.Applied);
+    private void ReplayAll(FlowData d, FlowWork work)
+    {
+        if (work.Replay is { } replay && CurrentFrame(work) is { } frame)
+        {
+            AfterCommand(d, work, frame, TimeCard, replay.PlayToEnd());
+            pendingFocus = WhereRef;
+        }
+    }
+
+    /// <summary>Data of the document written inside a sentence: between typographic quotes.</summary>
+    private static string Quoted(string name) => "\u201C" + name + "\u201D";
+
+    // ----- what the screen shows of a try-out -------------------------------------------------------------------------
 
     private string StatusWord(ProcessStatus status) => status switch
     {
@@ -472,11 +501,13 @@ public sealed partial class FlowWorkbench
         _ => Plain("flow.status.cancelled"),
     };
 
+    private string WhoOf(FlowSimulationEntry entry) => entry.IsAutomatic ? Plain("flow.who.automatic") : WhoWord(entry.Source);
+
     private string WhoWord(string source) => source switch
     {
         FlowSimulation.ManualSource => Plain("flow.who.manual"),
         FlowSimulation.ScriptedSource => Plain("flow.who.test"),
-        _ => Plain("flow.who.source", ("name", source)),
+        _ => Plain("flow.who.source", ("name", Quoted(source))),
     };
 
     private string EntryText(FlowSimulationEntry entry, FlowWords words)
@@ -504,14 +535,14 @@ public sealed partial class FlowWorkbench
 
     private string Entered(FlowSimulationEntry entry, FlowWords words)
     {
-        var steps = entry.History.Where(item => item.Kind == ProcessHistoryKind.StepEntered && item.Step is not null).Select(item => words.Step(item.Step!)).ToList();
+        var steps = entry.EnteredSteps.Select(words.Step).ToList();
         var parts = new List<string>();
         if (steps.Count > 0)
         {
             parts.Add(Plain("flow.log.then", ("steps", string.Join(Plain("flow.join"), steps))));
         }
 
-        if (entry.History.Any(item => item.Kind == ProcessHistoryKind.Completed))
+        if (entry.EndedCase)
         {
             parts.Add(Plain("flow.log.ended"));
         }

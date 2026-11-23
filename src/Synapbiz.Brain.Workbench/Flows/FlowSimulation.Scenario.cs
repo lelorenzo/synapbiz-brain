@@ -11,18 +11,20 @@ public sealed partial class FlowSimulation
     /// Plays an embedded scenario command by command, as the scenario player of the process library does, and returns the session, so
     /// that a screen can show the scenario step by step. The session ends where the scenario takes the case; whether that is where the
     /// scenario expects is <see cref="BrainProcess.RunScenarios"/>' question, and the replay of a scenario that passes ends in the
-    /// state, the trace and the variables it expects.
+    /// state, the trace and the variables it expects. The answer source and the child documents, when given, are those of the session, so
+    /// that the reader can go on by hand from where the scenario ended (ask a source, open a child); with neither given the replay is the
+    /// one it always was.
     /// </summary>
     /// <param name="process">The loaded process.</param>
     /// <param name="scenarioName">The name of an embedded scenario.</param>
+    /// <param name="answerSource">Who answers effects when <see cref="RunAnswersAsync"/> or <see cref="AskAsync"/> is called on the session, or null.</param>
+    /// <param name="childProcesses">Child documents for <c>subprocess</c> steps, or null.</param>
     /// <exception cref="ArgumentException">The document has no scenario with that name.</exception>
-    public static FlowSimulation Replay(BrainProcess process, string scenarioName)
+    public static FlowSimulation Replay(BrainProcess process, string scenarioName, IFlowAnswerSource? answerSource = null, IReadOnlyCollection<BrainProcess>? childProcesses = null)
     {
-        ArgumentNullException.ThrowIfNull(process);
-        ArgumentNullException.ThrowIfNull(scenarioName);
-        var text = ProcessOutline.From(process).ScenarioJson(scenarioName)
-            ?? throw new ArgumentException($"The document has no scenario named '{scenarioName}'.", nameof(scenarioName));
-        return Play(process, JsonNode.Parse(text)!.AsObject()).Session;
+        var replay = FlowReplay.Start(process, scenarioName, answerSource, childProcesses);
+        _ = replay.PlayToEnd();
+        return replay.Session;
     }
 
     /// <summary>The session after a scenario, and what went wrong; null when the scenario ran to its own <c>expect</c>.</summary>
@@ -30,6 +32,14 @@ public sealed partial class FlowSimulation
 
     /// <summary>Plays a scenario in the embedded format (it must be valid for the process) and checks its <c>expect</c>.</summary>
     internal static ScenarioRun Play(BrainProcess process, JsonObject scenario)
+    {
+        var replay = new FlowReplay(process, scenario, null, null);
+        _ = replay.PlayToEnd();
+        return new ScenarioRun(replay.Session, replay.Failure);
+    }
+
+    /// <summary>Starts the case of a scenario: the session with the scenario's start, zones and input, and the scripted answers of its commands.</summary>
+    internal static (FlowSimulation Session, ScriptedAnswerSource Script) BeginScenario(BrainProcess process, JsonObject scenario, IFlowAnswerSource? answerSource, IReadOnlyCollection<BrainProcess>? childProcesses)
     {
         var start = scenario["start"]!.AsObject();
         var zones = new Dictionary<string, TimeSpan>(StringComparer.Ordinal);
@@ -44,22 +54,12 @@ public sealed partial class FlowSimulation
             Today = DateOnly.ParseExact(start["today"]!.GetValue<string>(), "yyyy-MM-dd", CultureInfo.InvariantCulture),
             InputJson = start["input"] is JsonObject input ? FlowJson.Canonical(input) : null,
             Zones = zones,
+            AnswerSource = answerSource,
+            ChildProcesses = childProcesses,
         };
         var session = Begin(process, setup, "scenario", ScriptedSource);
         session.Name = scenario["name"]!.GetValue<string>();
-        var script = Script(scenario["events"]!.AsArray());
-        var failure = Problem(session.log);
-        foreach (var item in scenario["events"]!.AsArray().Select(node => node!.AsObject()))
-        {
-            if (failure is not null)
-            {
-                break;
-            }
-
-            failure = session.Apply(item, script);
-        }
-
-        return new ScenarioRun(session, failure ?? Check(session, scenario["expect"]!.AsObject()));
+        return (session, Script(scenario["events"]!.AsArray()));
     }
 
     private static TimeSpan Offset(string text)
@@ -99,12 +99,12 @@ public sealed partial class FlowSimulation
     private static TimeSpan ParseDuration(string text) => System.Xml.XmlConvert.ToTimeSpan(text);
 
     // The first thing a command did that the interpreter did not apply, in the words of the scenario player.
-    private static string? Problem(IEnumerable<FlowSimulationEntry> entries) =>
+    internal static string? Problem(IEnumerable<FlowSimulationEntry> entries) =>
         entries.Where(entry => entry.Disposition != AdvanceDisposition.Applied)
             .Select(entry => $"{entry.Kind} was {entry.Disposition}: {entry.Code}")
             .FirstOrDefault();
 
-    private string? Apply(JsonObject item, ScriptedAnswerSource script)
+    internal string? Apply(JsonObject item, ScriptedAnswerSource script)
     {
         if (item["complete"] is { } complete)
         {
@@ -181,7 +181,7 @@ public sealed partial class FlowSimulation
         return send(pending.Id);
     }
 
-    private static string? Check(FlowSimulation session, JsonObject expect)
+    internal static string? Check(FlowSimulation session, JsonObject expect)
     {
         var state = session.state;
         var status = expect["status"]!.GetValue<string>();
