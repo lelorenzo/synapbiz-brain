@@ -8,7 +8,7 @@ namespace Synapbiz.Brain.Authoring;
 /// <summary>The tools that turn a ready draft into a proposal file, and read the proposals. A proposal changes nothing.</summary>
 internal static class ProposalTools
 {
-    private const string FlowPrefix = "flow.";
+    private const string FlowPrefix = "process.";
     private const string RulePrefix = "rule.";
 
     internal static IEnumerable<AuthoringTool> Create(ToolContext context)

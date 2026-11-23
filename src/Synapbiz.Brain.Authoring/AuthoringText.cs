@@ -22,13 +22,16 @@ internal static partial class AuthoringText
         AddTools();
     }
 
-    /// <summary>The keys whose Spanish text is, on purpose, the English text: separators and punctuation.</summary>
+    /// <summary>The keys whose Spanish text is, on purpose, the English text: separators, punctuation and the word "no".</summary>
     internal static IReadOnlySet<string> IntentionallyEqual { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
         "join.sep",
+        "no",
     };
 
     internal static IReadOnlyCollection<string> Keys => English.Keys;
+
+    internal static IReadOnlyCollection<string> SpanishKeys => Spanish.Keys;
 
     internal static string Template(WorkbenchLocale locale, string key) => Table(locale)[key];
 

@@ -145,7 +145,7 @@ public sealed class ToolTests
             currentMoving!.Moved = true;
             return I(tools, "rule_propose", Obj("""{"id":"visit.note_ready","summary":"s","requestedBy":"Dr. Reviewer"}"""));
         }),
-        new("proposal_get of a name that is not there", "authoring.proposal.not_found", tools => I(tools, "proposal_get", Obj("""{"name":"flow.visit.note_wait.v9"}"""))),
+        new("proposal_get of a name that is not there", "authoring.proposal.not_found", tools => I(tools, "proposal_get", Obj("""{"name":"process.visit.note_wait.v9"}"""))),
         new("proposal_get of a file that is not a proposal", "authoring.proposal.unreadable", tools => I(tools, "proposal_get", Obj("""{"name":"stray"}"""))),
     ];
 
