@@ -155,22 +155,35 @@ public sealed partial class RuleWorkbench
     }
 
     /// <summary>
-    /// The edits that make a case expect something else. A decision is a <see cref="SetCaseExpectation"/>, which keeps the case
-    /// where it is. Expecting no decision, or a list of several results, is something that edit cannot say: the case is then
-    /// removed and added again, which writes it at the end of the cases.
+    /// The edits that make a case expect something else. Every expectation is a <see cref="SetCaseExpectation"/>, which keeps the case
+    /// where it is: a decision, no decision, and under <c>collect</c> the list of results. A case is never removed and added again
+    /// for an edit; only a case that is new goes to the end.
     /// </summary>
     private static IReadOnlyList<RuleEdit> Replace(Ctx c, TestCaseView testCase, GoldenExpectation expectation)
     {
-        if (expectation is ExpectedDecided decided && OutcomeFields(decided.OutcomeJson, c.View.HitPolicy == HitPolicy.Collect) is { } fields)
+        if (expectation is not ExpectedDecided decided)
         {
-            return [new SetCaseExpectation(testCase.Name, decided.RowKey, fields)];
+            return [SetCaseExpectation.NoDecision(testCase.Name)];
         }
 
-        return [new RemoveCase(testCase.Name), new AddCase(ProposedOf(c.Brain, testCase.Name, testCase.Facts, expectation))];
+        var collect = c.View.HitPolicy == HitPolicy.Collect;
+        var results = OutcomeResults(decided.OutcomeJson, collect);
+        if (results is null)
+        {
+            // An outcome that is not flat cannot come from the engine; the loader refuses the empty outcome and the draft stays as it was.
+            return [new SetCaseExpectation(testCase.Name, decided.RowKey, new Dictionary<string, DecisionValue>(0, StringComparer.Ordinal))];
+        }
+
+        return collect
+            ? [new SetCaseExpectation(testCase.Name, decided.RowKey, new Dictionary<string, DecisionValue>(0, StringComparer.Ordinal)) { Results = results }]
+            : [new SetCaseExpectation(testCase.Name, decided.RowKey, results[0])];
     }
 
-    /// <summary>The fields of an expected outcome as values, or null when the text is not a single flat outcome.</summary>
-    internal static Dictionary<string, DecisionValue>? OutcomeFields(string outcomeJson, bool collect)
+    /// <summary>
+    /// The results of an expected outcome as values: one for a rule that does not collect, any number for one that does. Null when
+    /// the text is not made of flat outcomes.
+    /// </summary>
+    internal static List<Dictionary<string, DecisionValue>>? OutcomeResults(string outcomeJson, bool collect)
     {
         JsonNode? node;
         try
@@ -182,11 +195,28 @@ public sealed partial class RuleWorkbench
             return null;
         }
 
-        if (collect)
+        var items = collect ? (node as JsonArray)?.ToList() : [node];
+        if (items is null)
         {
-            node = node is JsonArray { Count: 1 } list ? list[0] : null;
+            return null;
         }
 
+        var results = new List<Dictionary<string, DecisionValue>>();
+        foreach (var item in items)
+        {
+            if (FlatOutcome(item) is not { } fields)
+            {
+                return null;
+            }
+
+            results.Add(fields);
+        }
+
+        return results;
+    }
+
+    private static Dictionary<string, DecisionValue>? FlatOutcome(JsonNode? node)
+    {
         if (node is not JsonObject outcome)
         {
             return null;

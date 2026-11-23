@@ -620,7 +620,7 @@ public sealed class CaseDraftTests
         Heading(harness).Should().Be("9 of 9 cases pass");
     }
 
-    private static List<string> CaseOrder(Harness harness) => [.. Ed.Draft(harness).Rule!.Goldens.Select(item => item.Name)];
+    private static List<string> CaseOrder(Harness harness, string key = "intake.first") => [.. harness.Session.Work(key).Draft!.Rule!.Goldens.Select(item => item.Name)];
 
     [Fact]
     public void AcceptingTheNewResultKeepsTheCaseWhereItWasInTheDraftAndInTheDocument()
@@ -663,11 +663,79 @@ public sealed class CaseDraftTests
         Ed.Draft(harness).Rule!.Goldens.Single(item => item.Name == name).Expected.Should().BeOfType<ExpectedDecided>();
     }
 
+    private static List<string> DocumentOrder(Harness harness, string key = "intake.first") =>
+        [.. System.Text.Json.Nodes.JsonNode.Parse(harness.Session.Work(key).Draft!.Text!)!["body"]!["goldens"]!.AsArray().Select(golden => (string)golden!["name"]!)];
+
+    [Fact]
+    public void ChangingWhatACaseExpectsToNoRowDecidesKeepsTheCaseWhereItWasInTheDraftAndInTheDocument()
+    {
+        using var harness = Ed.Open();
+        harness.Open(WorkbenchTab.Tests);
+        var name = "An invoice by email goes to the billing mailbox";
+        var order = CaseOrder(harness);
+        order.IndexOf(name).Should().BeLessThan(order.Count - 1);
+        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        harness.Find(".wb-case-form select").Change("none");
+
+        Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
+
+        CaseOrder(harness).Should().Equal(order);
+        DocumentOrder(harness).Should().Equal(order);
+        Ed.Draft(harness).Rule!.Goldens.Single(item => item.Name == name).Expected.Should().BeOfType<ExpectedNoDecision>();
+        var edit = Ed.Draft(harness).Steps[^1].Edits.Should().ContainSingle().Which.Should().BeOfType<SetCaseExpectation>().Subject;
+        edit.ExpectNoDecision.Should().BeTrue();
+    }
+
+    [Fact]
+    public void OnACollectRuleChangingTheResultsToNoneAndToTwoKeepsTheCaseWhereItWas()
+    {
+        using var harness = Ed.Open(rule: Fx.Editable("readiness"));
+        harness.Open(WorkbenchTab.Tests);
+        var order = CaseOrder(harness, "readiness");
+        var name = order[0];
+
+        Ed.Button(Lines(harness)[0], "Change what is expected").Click();
+        harness.FindAll(".wb-case-form input[type=checkbox]").Last().Change(true);
+        Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
+
+        CaseOrder(harness, "readiness").Should().Equal(order);
+        DocumentOrder(harness, "readiness").Should().Equal(order);
+        harness.Session.Work("readiness").Draft!.Rule!.Goldens.Single(item => item.Name == name).Expected.Should().BeOfType<ExpectedNoDecision>();
+
+        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        harness.FindAll(".wb-case-form input[type=checkbox]")[0].Change(true);
+        harness.FindAll(".wb-case-form input[type=checkbox]")[1].Change(true);
+        Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
+
+        CaseOrder(harness, "readiness").Should().Equal(order);
+        DocumentOrder(harness, "readiness").Should().Equal(order);
+        var expected = harness.Session.Work("readiness").Draft!.Rule!.Goldens.Single(item => item.Name == name).Expected;
+        expected.Should().BeOfType<ExpectedDecided>().Which.OutcomeJson.Should().StartWith("[{").And.Contain("},{");
+        harness.Session.Work("readiness").Draft!.Steps[^1].Edits.Should().ContainSingle().Which.Should().BeOfType<SetCaseExpectation>().Which.Results.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void OnACollectRuleAcceptingTheNewResultsKeepsTheCaseWhereItWas()
+    {
+        using var harness = Ed.Open(rule: Fx.Editable("readiness"));
+        harness.Open(WorkbenchTab.Tests);
+        var order = CaseOrder(harness, "readiness");
+        var name = order[1];
+        harness.Session.Work("readiness").Draft!.Steps.Should().BeEmpty();
+        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        harness.FindAll(".wb-case-form input[type=checkbox]")[0].Change(true);
+        Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
+
+        CaseOrder(harness, "readiness").Should().Equal(order);
+        DocumentOrder(harness, "readiness").Should().Equal(order);
+        harness.Session.Work("readiness").Draft!.Rule!.Goldens.Single(item => item.Name == name).Expected.Should().BeOfType<ExpectedDecided>();
+    }
+
     [Fact]
     public void AReadingOfAnExpectedOutcomeAsValues()
     {
-        RuleWorkbench.OutcomeFields("{\"queue\":\"billing\",\"notify\":true,\"priority\":2,\"score\":1.5,\"fee\":{\"amount\":2.5,\"currency\":\"USD\"}}", false)
-            .Should().BeEquivalentTo(new Dictionary<string, DecisionValue>
+        RuleWorkbench.OutcomeResults("{\"queue\":\"billing\",\"notify\":true,\"priority\":2,\"score\":1.5,\"fee\":{\"amount\":2.5,\"currency\":\"USD\"}}", false)
+            .Should().ContainSingle().Which.Should().BeEquivalentTo(new Dictionary<string, DecisionValue>
             {
                 ["queue"] = new CodeValue("billing"),
                 ["notify"] = new BooleanValue(true),
@@ -675,20 +743,27 @@ public sealed class CaseDraftTests
                 ["score"] = new DecimalValue(1.5m),
                 ["fee"] = new MoneyValue(2.5m, "USD"),
             });
-        RuleWorkbench.OutcomeFields("[{\"note\":\"mid\"}]", true).Should().BeEquivalentTo(new Dictionary<string, DecisionValue> { ["note"] = new CodeValue("mid") });
+        RuleWorkbench.OutcomeResults("[{\"note\":\"mid\"}]", true).Should().ContainSingle().Which
+            .Should().BeEquivalentTo(new Dictionary<string, DecisionValue> { ["note"] = new CodeValue("mid") });
+    }
+
+    [Fact]
+    public void ACollectOutcomeIsReadAsZeroOneOrSeveralResultsInOrder()
+    {
+        RuleWorkbench.OutcomeResults("[]", true).Should().BeEmpty();
+        RuleWorkbench.OutcomeResults("[{\"note\":\"a\"},{\"note\":\"b\"}]", true)!.Select(result => ((CodeValue)result["note"]).Value).Should().Equal("a", "b");
     }
 
     [Theory]
-    [InlineData("[{\"note\":\"a\"},{\"note\":\"b\"}]", true)]
-    [InlineData("[]", true)]
     [InlineData("{\"note\":\"a\"}", true)]
     [InlineData("[{\"note\":\"a\"}]", false)]
+    [InlineData("[{\"note\":\"a\"},1]", true)]
     [InlineData("not json", false)]
     [InlineData("{\"note\":null}", false)]
     [InlineData("{\"note\":[1]}", false)]
     [InlineData("{\"fee\":{\"currency\":\"USD\"}}", false)]
-    public void AnOutcomeThatTheEditCannotSayIsLeftToTheCaseBeingWrittenAgain(string json, bool collect)
+    public void AnOutcomeThatIsNotMadeOfFlatOutcomesIsNotRead(string json, bool collect)
     {
-        RuleWorkbench.OutcomeFields(json, collect).Should().BeNull();
+        RuleWorkbench.OutcomeResults(json, collect).Should().BeNull();
     }
 }
