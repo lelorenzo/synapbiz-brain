@@ -61,4 +61,56 @@ public sealed class ProtectionTests
         (await rig.Engine.GetInstanceAsync("tenant-b", id)).Should().BeNull();
         await rig.Engine.Invoking(engine => engine.ListOpenTasksAsync("tenant-a", "review_q")).Should().NotThrowAsync();
     }
+
+    [Fact]
+    public async Task TheInboxRowsOfTheChildAndCancelPathsHoldNoPlaintextAndStillRoundTrip()
+    {
+        const string childValue = "v-secret-9";
+        await using var rig = await Rig.CreateAsync(new ReversingProtector());
+        rig.Catalog.Add(Fixtures.Host("parent"), Fixtures.Host("child"));
+        var input = "{\"case_ref\":\"" + Secret + "\"}";
+
+        // 1. a child that completes: Start for the child, ChildCompleted for the parent.
+        var completing = await rig.StartAsync("host.parent", "k-1", input);
+        await rig.DrainAsync();
+        var task = (await rig.Engine.ListOpenTasksAsync(rig.Tenant, "child_q")).Single();
+        await rig.Engine.CompleteTaskAsync(rig.Tenant, task.TaskId, "finish", "{\"value\":\"" + childValue + "\"}");
+        await rig.DrainAsync();
+
+        // 2. a parent that is cancelled: Cancel for the child.
+        var cancelledParent = await rig.StartAsync("host.parent", "k-2", input);
+        await rig.DrainAsync();
+        await rig.Engine.CancelAsync(rig.Tenant, cancelledParent, "operator");
+        await rig.DrainAsync();
+
+        // 3. a child that is cancelled: ChildFailed for the parent.
+        var failingParent = await rig.StartAsync("host.parent", "k-3", input);
+        await rig.DrainAsync();
+        var child = (await rig.Engine.FindInstanceAsync(rig.Tenant, "host.child", failingParent + "/spawn/1/child"))!;
+        await rig.Engine.CancelAsync(rig.Tenant, child.InstanceId, "operator");
+        await rig.DrainAsync();
+
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, completing))!.State!.Variables["child_value"].Should().Be("\"" + childValue + "\"");
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, cancelledParent))!.Status.Should().Be(ProcessStatus.Cancelled);
+        (await rig.Engine.GetInstanceAsync(rig.Tenant, failingParent))!.Result.Should().Be("child_failed");
+        (await rig.CountAsync("process_inbox", "status <> 2")).Should().Be(0, "every row was applied, so every protected payload was read back");
+
+        var plaintexts = new Dictionary<int, string[]>
+        {
+            [1] = [Secret],
+            [3] = [Secret, childValue, "finished"],
+            [4] = ["process.child.cancelled"],
+            [5] = ["process.parent.cancelled"],
+        };
+        foreach (var (kind, known) in plaintexts)
+        {
+            var payloads = await rig.ColumnAsync<string>("select payload from {schema}.process_inbox where kind = @k", ("k", (short)kind));
+            payloads.Should().NotBeEmpty($"a row of kind {kind} was written");
+            payloads.Should().OnlyContain(value => value.StartsWith(ReversingProtector.Marker, StringComparison.Ordinal), $"kind {kind} is protected");
+            foreach (var text in known.Concat(["childKey", "\"reason\"", "\"code\"", "\"input\"", "\"output\""]))
+            {
+                payloads.Should().NotContain(value => value.Contains(text, StringComparison.Ordinal), $"kind {kind} holds no plaintext {text}");
+            }
+        }
+    }
 }
