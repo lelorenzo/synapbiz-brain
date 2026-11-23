@@ -92,10 +92,10 @@ All are errors; the loader reports every error of the first group that has any (
 | `process.variable.initial` | `initial` is not a valid value of the type, or `allowedValues` misused |
 | `process.rule.unavailable` | `rule` names no rule in the load context |
 | `process.rule.fact_unknown` | a `facts` key is not a fact of the rule's kind |
-| `process.rule.outcome_unknown` | an `output` key or `route` is not an outcome field of the rule's kind |
+| `process.rule.outcome_unknown` | an `output` key or `route` is not an outcome field of the rule's kind, or `route` names a field whose type is not `Enum`, `Boolean` or `Code` |
 | `process.rule.hit_policy` | members of form (a) used with a `collect` rule, or form (b) with a `unique`/`first` rule |
-| `process.route.incomplete` | `route` is an `Enum` field with `allowedValues` and `on` lacks one of them; or `route` is `Boolean` and `on` lacks `true` or `false` (keys are the strings `"true"` and `"false"`) |
-| `process.route.unknown_value` | `on` has a key that is not a member of the `Enum` field's `allowedValues` |
+| `process.route.incomplete` | at `/on`: for a `decide` route of type `Enum` or `Code`, `on` lacks a value that some row or the default row of the rule produces for the `route` field; for a `Boolean` route, `on` lacks `true` or `false` (keys are the strings `"true"` and `"false"`); for a `humanTask`, `on` lacks a member of `outcomes` |
+| `process.route.unknown_value` | at `/on/<key>`: for a `decide` route of type `Enum` or `Code`, a key that no row and no default row of the rule produces for the `route` field; for a `humanTask`, a key that is not a member of `outcomes` |
 | `process.uses.missing` | a rule or process named by a step is not in `uses` |
 | `process.uses.unused` | `uses` lists a reference no step names |
 | `process.subprocess.unavailable` | `process` is not in the load context's known process ids (only checked when the context supplies them) |
@@ -155,7 +155,7 @@ public sealed record AdvanceResult(
     IReadOnlyList<ProcessHistoryEntry> History);
 ```
 
-`ProcessState` is an immutable class with `ToJson()` (deterministic text: members in a fixed order, dictionaries ordered by ordinal key) and `static ProcessState FromJson(string)` (throws `BrainException` with code `process.state.malformed` on bad input). `FromJson(ToJson(s))` equals `s` (value equality). Its public read-only members:
+`ProcessState` is an immutable class with `ToJson()` (deterministic text: members in a fixed order, dictionaries ordered by ordinal key) and `static ProcessState FromJson(string)` (throws `DecisionEngineException`, a `BrainException`, with code `process.state.malformed` on bad input). `FromJson(ToJson(s))` equals `s` (value equality). Its public read-only members:
 
 | Member | Type |
 | --- | --- |
@@ -225,7 +225,7 @@ Entering a step: increment `StepCount`; if it exceeds `limits.maxSteps` the inst
 
 1. `state.DefinitionId`, `DefinitionVersion`, `DefinitionHash` must equal the process's: otherwise `Rejected`, `process.definition.mismatch`, state unchanged.
 2. `CancelRequested`: if `Completed` or `Cancelled` → `Ignored`, `process.trigger.stale`. Otherwise emit the cancel request for the pending timer, wait or task and for a timeout timer (nothing for an effect or a child), write `Cancelled`, `Status = Cancelled`, `CurrentStep = null`, `Pending = null`.
-3. `ResumeRequested`: only when `Suspended` (otherwise `Ignored`, `process.trigger.stale`): clear `Problem`, write `Resumed`, increment `StepCount`, set `Entry = StepCount` (so every identifier is fresh) and `Attempt = 1`, do **not** write `StepEntered`, and execute the current step again. Loop counters are not changed by the resume itself (a resumed `loop` step counts one more arrival).
+3. `ResumeRequested`: only when `Suspended` (otherwise `Ignored`, `process.trigger.stale`). When `StepCount` is already at or above `limits.maxSteps` the result is `Rejected` with `process.limits.max_steps` and the state is unchanged, so a host that resumes blindly cannot loop. Otherwise: clear `Problem`, write `Resumed`, increment `StepCount`, set `Entry = StepCount` (so every identifier is fresh) and `Attempt = 1`, do **not** write `StepEntered`, and execute the current step again. Loop counters are not changed by the resume itself (a resumed `loop` step counts one more arrival).
 4. `EventReceived`: section 6.6.
 5. Any other trigger must match `Pending` (kind and id, or the `TimeoutTimerId`): otherwise `Ignored`, `process.trigger.stale`, state unchanged, no requests, no history. This makes redelivery of a result harmless.
 6. If `Status` is not `Waiting` → `Ignored`, `process.trigger.stale`.
@@ -257,7 +257,7 @@ Build `InputJson` as in 6.1 and validate it against `inputSchema`; invalid → h
 
 Build the facts: for each `facts` entry whose variable has a value, convert it to the `DecisionValue` of the fact's type (`Instant` and `Json` variables can never be mapped; the static rule `process.variable.type` already forbids it). Call `BrainRule.Evaluate(facts, clock.Today)`. Write `Decided` with the provenance.
 
-- A `DecisionEngineException` (or any `BrainException`) → `onError` when present, else suspend with the exception's `ErrorCode`.
+- A `DecisionEngineException` (or any `BrainException`) → write `Decided` with `Code` = the exception's `ErrorCode` and `DataJson` = `{"rule":<id>,"version":<n>,"error":<code>}`, then `onError` when present, else suspend with that code.
 - `NoDecision` → `onNoDecision`.
 - Form (a): assign `output` from the outcome object (missing or null member clears the variable); then `next`, or look up the `route` field's value in `on` (Boolean as `"true"`/`"false"`); a value with no entry → `onError` when present, else suspend with `process.route.unmatched`.
 - Form (b): store the outcome JSON array in `collectInto`, go to `next`.
@@ -311,13 +311,15 @@ Emit `ChildStartRequest` (`InputJson` built as in 6.1), write `ChildStarted`, `P
 
 `end`: `Status = Completed`, `Result`, `CurrentStep = null`, write `Completed`.
 
+A payload that is not parseable JSON or not an object is treated as a type mismatch of its step: read and action output → `EffectFailed(Permanent, "process.effect.output_malformed")`; ai output → `process.ai.output_invalid`; task data → `Rejected`, `process.variable.type_mismatch`; wait payload → suspend with `process.variable.type_mismatch` (a buffered event with a bad payload is `Rejected` with the same code when it arrives); child output → `ChildFailed` then `onError` or suspend. Cancelling during a retry delay emits `CancelTimerRequest` for the retry timer.
+
 Suspension: `Status = Suspended`, `Problem = (code, step, detail)`, `Pending = null`, write `Suspended`. Outstanding timeout timers are cancelled with a `CancelTimerRequest`. The instance stays on its step; `ResumeRequested` runs it again.
 
 ## 7. Value conversions
 
 Variable JSON to `DecisionValue`: `Code` → `DecisionValue.Code`, `Enum` → `Enum`, `Boolean` → `Boolean`, `Integer` → `Integer`, `Decimal` → `Decimal` (invariant culture), `Money` → `Money(amount, currency)`, `Date` → `Date`, `Reference` → `Reference(Guid)`.
 
-Outcome JSON to a variable: the outcome object member is a plain JSON value in the same forms as section 2.2 for the outcome field's type (verify against how `Synapbiz.Brain.Spec` writes outcomes, using a test with each type; if an outcome type is written differently from section 2.2, **stop and report** instead of inventing a conversion).
+Outcome JSON to a variable: the outcome object member is a plain JSON value in the forms of section 2.2 for the outcome field's type, with two exceptions that `Synapbiz.Brain.Spec` writes as JSON numbers: a `Decimal` outcome is a JSON number and a `Money` outcome is `{ "amount": <number>, "currency": .. }`. For these the variable receives the number's **raw JSON lexeme** as its string (no parsing to a binary floating type); a lexeme that does not match the `Decimal` pattern of section 2.2 (for example exponent notation) is a type mismatch.
 
 ## 8. Scenarios
 
