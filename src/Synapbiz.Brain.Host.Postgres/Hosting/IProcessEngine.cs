@@ -22,11 +22,13 @@ public interface IProcessEngine
 
     /// <summary>
     /// Publishes an external event. The event is de-duplicated by its id, routed to the instances that wait for it and applied
-    /// later by the pump.
+    /// later by the pump. Every event trigger of the tenant for that event name (see <see cref="ActivateAsync"/>) also queues the
+    /// start of an instance, whose business key is read from the payload; an instance that already has that business key is left
+    /// alone.
     /// </summary>
     /// <param name="processEvent">The event.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
-    /// <returns>Whether the event was queued, was a duplicate or had no target, and for how many instances it was queued.</returns>
+    /// <returns>Whether the event was queued, was a duplicate or had no target, and for how many instances it was queued or started.</returns>
     Task<PublishResult> PublishEventAsync(ProcessEvent processEvent, CancellationToken cancellationToken = default);
 
     /// <summary>Completes an open human task with one of its outcomes.</summary>
@@ -52,6 +54,27 @@ public interface IProcessEngine
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>What the interpreter did with the trigger and its code.</returns>
     Task<CommandResult> ResumeAsync(string tenantId, string instanceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Activates the triggers of the latest version of a process for a tenant. Until then the <c>triggers</c> of a definition do
+    /// nothing. One transaction writes the activation (the pinned version and hash, the zone and the protected input), its event
+    /// trigger rows and its schedule rows, the first fire time of a schedule being its first occurrence after now. Activating the
+    /// same version, zone and input again changes nothing and keeps every fire time; a new version, zone or input replaces the rows,
+    /// and a schedule whose cron expression and zone did not change keeps its fire time. Instances that are running are not touched.
+    /// </summary>
+    /// <param name="activation">The tenant, the process, the zone for schedules that declare none, and the input every started instance begins with.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The version that is pinned, and whether this call changed anything.</returns>
+    /// <exception cref="InvalidOperationException">The catalog has no definition of the process (<c>process.definition.unavailable</c>).</exception>
+    /// <exception cref="ArgumentException">An argument is invalid; the input names a variable that is not an <c>input: true</c> variable or has a value of the wrong type; or a schedule has no zone, or a zone the host does not know (the message names the schedule id).</exception>
+    Task<ActivationResult> ActivateAsync(ProcessActivation activation, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes the activation of a process, with its event trigger and schedule rows. Running instances are not touched.</summary>
+    /// <param name="tenantId">The tenant.</param>
+    /// <param name="processId">The process id.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>True when there was an activation to remove.</returns>
+    Task<bool> DeactivateAsync(string tenantId, string processId, CancellationToken cancellationToken = default);
 
     /// <summary>Reads an instance by id.</summary>
     /// <param name="tenantId">The tenant.</param>
@@ -95,6 +118,18 @@ public sealed record StartRequest(string TenantId, string ProcessId, string Busi
 /// <param name="Created">False when an instance with that business key already existed.</param>
 public sealed record StartResult(string InstanceId, bool Created);
 
+/// <summary>The activation of the triggers of a process for a tenant.</summary>
+/// <param name="TenantId">The tenant.</param>
+/// <param name="ProcessId">The id of the process; its latest version is pinned.</param>
+/// <param name="Zone">The IANA id of the time zone of the schedules that declare none; null when every schedule declares its own.</param>
+/// <param name="InputJson">The input every instance started by a trigger begins with, as the text of a JSON object; the members the trigger maps (payload members, <c>scheduledFor</c>, <c>scheduledDate</c>) are laid over it.</param>
+public sealed record ProcessActivation(string TenantId, string ProcessId, string? Zone = null, string InputJson = "{}");
+
+/// <summary>The result of activating a process.</summary>
+/// <param name="ProcessVersion">The version of the definition the activation is pinned to.</param>
+/// <param name="Changed">False when the same activation already existed and nothing was written.</param>
+public sealed record ActivationResult(long ProcessVersion, bool Changed);
+
 /// <summary>An external event for the instances that wait for it.</summary>
 /// <param name="TenantId">The tenant.</param>
 /// <param name="EventId">The id that de-duplicates the event.</param>
@@ -111,7 +146,7 @@ public sealed record ProcessEvent(string TenantId, string EventId, string Name, 
     Justification = "Ordinals start at 1 by design and by project convention (the same documented CA1008 suppression as FactType in Synapbiz.Brain.Contracts): default(PublishStatus) == 0 is deliberately not a valid status, so an uninitialized value is never read as a queued event.")]
 public enum PublishStatus
 {
-    /// <summary>The event was queued for at least one instance.</summary>
+    /// <summary>The event was queued for at least one instance, or started at least one instance through an event trigger.</summary>
     Queued = 1,
 
     /// <summary>An event with the same id was published before; nothing was written.</summary>
@@ -123,7 +158,7 @@ public enum PublishStatus
 
 /// <summary>The result of publishing an event.</summary>
 /// <param name="Status">What happened.</param>
-/// <param name="Instances">The number of instances the event was queued for.</param>
+/// <param name="Instances">The number of instances the event was queued for, plus the number of instances an event trigger started.</param>
 public sealed record PublishResult(PublishStatus Status, int Instances);
 
 /// <summary>The result of a command on an instance or a task.</summary>

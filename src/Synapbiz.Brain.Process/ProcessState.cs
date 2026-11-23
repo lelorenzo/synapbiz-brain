@@ -52,6 +52,9 @@ public enum ProcessPendingKind
 
     /// <summary>A child instance.</summary>
     Child,
+
+    /// <summary>The opening of the delivery window of an <c>action</c> step.</summary>
+    Window,
 }
 
 /// <summary>The work an instance waits for.</summary>
@@ -72,6 +75,11 @@ public sealed record BufferedEvent(string Name, string? Correlation, string Payl
 /// <param name="Detail">A short text for the operator, if there is one.</param>
 public sealed record ProcessProblem(string Code, string Step, string? Detail = null);
 
+/// <summary>The progress of a <c>poll</c> step that is running.</summary>
+/// <param name="Round">The round the poll is in, from 1.</param>
+/// <param name="StartedAt">When the step was entered, in UTC; the time limit of the poll counts from it.</param>
+public sealed record ProcessPoll(int Round, DateTimeOffset StartedAt);
+
 /// <summary>
 /// The complete state of one process instance: an immutable value that <see cref="BrainProcess.Advance"/> takes and
 /// returns. It has value equality and a deterministic JSON form (<see cref="ToJson"/> and <see cref="FromJson"/>).
@@ -84,6 +92,10 @@ public sealed class ProcessState : IEquatable<ProcessState>
         "instanceId", "definitionId", "definitionVersion", "definitionHash", "status", "currentStep", "stage", "result",
         "variables", "loopCounters", "attempt", "entry", "stepCount", "sequence", "pending", "inbox", "problem",
     ];
+
+    // Members a state may have and need not: they are written only when they hold something, so a state written before
+    // they existed reads, and writes, as it always did.
+    private static readonly string[] OptionalMembers = ["poll"];
 
     private static readonly JsonWriterOptions Compact = new()
     {
@@ -146,6 +158,9 @@ public sealed class ProcessState : IEquatable<ProcessState>
     /// <summary>Why the instance is suspended; null otherwise.</summary>
     public ProcessProblem? Problem { get; internal init; }
 
+    /// <summary>The progress of the current step when it is a <c>poll</c> step that has started; null otherwise.</summary>
+    public ProcessPoll? Poll { get; internal init; }
+
     /// <summary>Writes the state as deterministic JSON text: members in a fixed order, dictionaries in ordinal key order.</summary>
     public string ToJson()
     {
@@ -183,6 +198,7 @@ public sealed class ProcessState : IEquatable<ProcessState>
             WritePending(writer);
             WriteInbox(writer);
             WriteProblem(writer);
+            WritePoll(writer);
             writer.WriteEndObject();
         }
 
@@ -201,7 +217,7 @@ public sealed class ProcessState : IEquatable<ProcessState>
             throw Fail("$", "the text is not a JSON object");
         }
 
-        var unknown = root.Select(member => member.Key).FirstOrDefault(name => !Members.Contains(name, StringComparer.Ordinal));
+        var unknown = root.Select(member => member.Key).FirstOrDefault(name => !Members.Contains(name, StringComparer.Ordinal) && !OptionalMembers.Contains(name, StringComparer.Ordinal));
         if (unknown is not null)
         {
             throw Fail("$." + unknown, "the member is not part of a state");
@@ -232,6 +248,7 @@ public sealed class ProcessState : IEquatable<ProcessState>
             Pending = ReadPending(root["pending"]),
             Inbox = ReadInbox(root["inbox"]),
             Problem = ReadProblem(root["problem"]),
+            Poll = ReadPoll(root["poll"]),
         };
     }
 
@@ -252,6 +269,7 @@ public sealed class ProcessState : IEquatable<ProcessState>
         && Sequence == other.Sequence
         && Pending == other.Pending
         && Problem == other.Problem
+        && Poll == other.Poll
         && Variables.Count == other.Variables.Count
         && Variables.All(entry => other.Variables.TryGetValue(entry.Key, out var value) && value == entry.Value)
         && LoopCounters.Count == other.LoopCounters.Count
@@ -308,6 +326,19 @@ public sealed class ProcessState : IEquatable<ProcessState>
         writer.WriteString("code", Problem.Code);
         writer.WriteString("step", Problem.Step);
         writer.WriteString("detail", Problem.Detail);
+        writer.WriteEndObject();
+    }
+
+    private void WritePoll(Utf8JsonWriter writer)
+    {
+        if (Poll is null)
+        {
+            return;
+        }
+
+        writer.WriteStartObject("poll");
+        writer.WriteNumber("round", Poll.Round);
+        writer.WriteString("startedAt", Poll.StartedAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
         writer.WriteEndObject();
     }
 
@@ -391,6 +422,26 @@ public sealed class ProcessState : IEquatable<ProcessState>
         }
 
         return result;
+    }
+
+    private static ProcessPoll? ReadPoll(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        var map = node as JsonObject ?? throw Fail("$.poll", "expected an object or null");
+        var known = map.Select(member => member.Key).FirstOrDefault(name => name is not ("round" or "startedAt"));
+        if (known is not null)
+        {
+            throw Fail("$.poll." + known, "the member is not part of a poll");
+        }
+
+        var round = Integer(map, "round", 1, int.MaxValue);
+        return DateTimeOffset.TryParseExact(RequiredText(map, "startedAt"), "O", CultureInfo.InvariantCulture, DateTimeStyles.None, out var startedAt)
+            ? new ProcessPoll((int)round, startedAt.ToUniversalTime())
+            : throw Fail("$.poll.startedAt", "expected an ISO 8601 instant");
     }
 
     private static ProcessProblem? ReadProblem(JsonNode? node)

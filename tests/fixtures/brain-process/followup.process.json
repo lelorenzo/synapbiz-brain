@@ -1,0 +1,134 @@
+{
+  "$spec": "brain.process@1",
+  "id": "notice.followup",
+  "version": 1,
+  "uses": [{ "$ref": "rule/notice.reply_state" }],
+  "requires": ["followup@1"],
+  "meta": { "title": "Notice sent in contact hours, then polled for a reply" },
+  "body": {
+    "subject": "case",
+    "stages": ["notice"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "replies": { "type": "Integer" }
+    },
+    "triggers": [
+      { "kind": "event", "event": "case.opened", "businessKey": "case_ref", "input": { "case_ref": "case_ref" } },
+      { "kind": "schedule", "id": "morning", "cron": "0 8 * * 1-5", "zone": "America/New_York", "misfire": "skip" }
+    ],
+    "windows": {
+      "contact_hours": { "zone": "America/New_York", "days": ["mon", "tue", "wed", "thu", "fri"], "from": "09:00", "to": "18:00" }
+    },
+    "start": "send",
+    "steps": {
+      "send": {
+        "kind": "action",
+        "stage": "notice",
+        "port": "messaging.notice",
+        "delivery": "atLeastOnce",
+        "contact": true,
+        "window": "contact_hours",
+        "input": { "case": "case_ref" },
+        "retry": { "maxAttempts": 2, "backoff": "fixed", "initial": "PT5M" },
+        "next": "await_reply",
+        "onError": "failed"
+      },
+      "await_reply": {
+        "kind": "poll",
+        "port": "intake.replies",
+        "input": { "case": "case_ref" },
+        "output": { "reply_count": "replies" },
+        "rule": "notice.reply_state",
+        "facts": { "replies": "replies" },
+        "field": "state",
+        "until": ["answered"],
+        "every": "PT1H",
+        "backoff": "exponential",
+        "max": "PT4H",
+        "maxDuration": "PT6H",
+        "next": "done",
+        "onExpired": "expired",
+        "onError": "failed"
+      },
+      "done": { "kind": "end", "result": "answered" },
+      "expired": { "kind": "end", "result": "expired" },
+      "failed": { "kind": "end", "result": "failed" }
+    },
+    "scenarios": [
+      {
+        "name": "open window sends at once and the second round finds a reply",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "send" },
+          { "complete": "await_reply", "output": { "reply_count": 0 } },
+          { "advance": "PT1H" },
+          { "complete": "await_reply", "output": { "reply_count": 2 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "answered",
+          "trace": ["send", "await_reply", "done"],
+          "variables": { "replies": 2 }
+        }
+      },
+      {
+        "name": "a closed window holds the notice until the next opening",
+        "start": { "at": "2027-01-04T23:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "advance": "PT15H" },
+          { "complete": "send" },
+          { "complete": "await_reply", "output": { "reply_count": 1 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "answered",
+          "trace": ["send", "await_reply", "done"]
+        }
+      },
+      {
+        "name": "the poll expires after the longest allowed time",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "send" },
+          { "complete": "await_reply", "output": { "reply_count": 0 } },
+          { "advance": "PT1H" },
+          { "complete": "await_reply", "output": { "reply_count": 0 } },
+          { "advance": "PT2H" },
+          { "complete": "await_reply", "output": { "reply_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "expired",
+          "trace": ["send", "await_reply", "expired"]
+        }
+      },
+      {
+        "name": "a zone the host cannot resolve follows onError",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "events": [],
+        "expect": {
+          "status": "Completed",
+          "result": "failed",
+          "trace": ["send", "failed"]
+        }
+      },
+      {
+        "name": "a failed read after its retries follows onError",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "send" },
+          { "fail": "await_reply", "error": "Permanent", "code": "intake.gone" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "failed",
+          "trace": ["send", "await_reply", "failed"]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "notice.reply_state",
+  "version": 1,
+  "uses": [],
+  "requires": ["followup@1"],
+  "meta": { "title": "Replies received decide whether a notice is answered" },
+  "body": {
+    "kind": "followup.reply_state",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "no-reply",
+        "version": 1,
+        "legacyKey": "no-reply",
+        "conditions": [
+          { "fact": "replies", "op": "equals", "value": { "type": "Integer", "value": "0" } }
+        ],
+        "outcome": { "state": "waiting" }
+      },
+      {
+        "id": "replied",
+        "version": 1,
+        "legacyKey": "replied",
+        "conditions": [
+          { "fact": "replies", "op": "range", "value": { "type": "Integer", "value": "1" } }
+        ],
+        "outcome": { "state": "answered" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "No reply yet keeps waiting",
+        "facts": { "replies": { "type": "Integer", "value": "0" } },
+        "expect": { "row": "no-reply", "outcome": { "state": "waiting" } }
+      },
+      {
+        "name": "One reply answers the notice",
+        "facts": { "replies": { "type": "Integer", "value": "1" } },
+        "expect": { "row": "replied", "outcome": { "state": "answered" } }
+      },
+      {
+        "name": "A negative count decides nothing",
+        "facts": { "replies": { "type": "Integer", "value": "-1" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

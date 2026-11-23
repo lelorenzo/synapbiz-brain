@@ -46,5 +46,10 @@ internal static class Guard
         {
             return false;
         }
+        catch (ArgumentException)
+        {
+            // A text that holds an unpaired surrogate cannot be turned into UTF-8, so it is not the text of any JSON value.
+            return false;
+        }
     }
 }

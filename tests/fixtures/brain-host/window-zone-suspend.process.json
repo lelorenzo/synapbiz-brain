@@ -1,0 +1,32 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.window_suspend",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "The same window with a zone variable and no onError: an unknown zone suspends the instance" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "practice_zone": { "type": "Code", "input": true }
+    },
+    "windows": {
+      "contact_hours": { "zone": { "variable": "practice_zone" }, "days": ["mon", "tue", "wed", "thu", "fri"], "from": "09:00", "to": "18:00" }
+    },
+    "start": "send",
+    "steps": {
+      "send": {
+        "kind": "action",
+        "port": "t.send",
+        "delivery": "atLeastOnce",
+        "contact": true,
+        "window": "contact_hours",
+        "input": { "case": "case_ref" },
+        "next": "done"
+      },
+      "done": { "kind": "end", "result": "sent" }
+    }
+  }
+}

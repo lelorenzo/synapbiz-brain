@@ -1,0 +1,25 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.trigger_dst",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Three daily schedules: two at local times that a daylight saving transition removes or repeats, and one in the evening whose local date differs from its UTC date" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "run_for": { "type": "Date", "input": true },
+      "fired_at": { "type": "Instant", "input": true }
+    },
+    "triggers": [
+      { "kind": "schedule", "id": "gap", "cron": "30 2 * * *", "zone": "America/New_York", "misfire": "fireOnce", "input": { "run_for": "scheduledDate", "fired_at": "scheduledFor" } },
+      { "kind": "schedule", "id": "evening", "cron": "30 21 * * *", "zone": "America/New_York", "misfire": "fireOnce", "input": { "run_for": "scheduledDate", "fired_at": "scheduledFor" } },
+      { "kind": "schedule", "id": "fold", "cron": "30 1 * * *", "zone": "America/New_York", "misfire": "fireOnce", "input": { "run_for": "scheduledDate", "fired_at": "scheduledFor" } }
+    ],
+    "start": "done",
+    "steps": {
+      "done": { "kind": "end", "result": "ran" }
+    }
+  }
+}

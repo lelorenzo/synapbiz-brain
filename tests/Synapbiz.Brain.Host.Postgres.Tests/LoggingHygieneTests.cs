@@ -59,6 +59,52 @@ public sealed class LoggingHygieneTests
     }
 
     [Fact]
+    public async Task NoLogRecordOfActivationSchedulesEventTriggersAndWindowsCarriesAValueThatWentThroughThem()
+    {
+        const string SiteValue = "zq-site-5521";
+        const string PayloadValue = "zq-visit-7783";
+        const string KeyValue = "zq-key-3392";
+        const string ZoneValue = "Zq/Secret-Zone-4410";
+        var sentinels = new[] { SiteValue, PayloadValue, KeyValue, ZoneValue };
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("trigger-schedule"), Fixtures.Host("trigger-event"), Fixtures.Host("window-zone-variable"));
+        rig.Port("t.send");
+
+        await rig.Engine.ActivateAsync(new ProcessActivation(rig.Tenant, "host.trigger_schedule", "Test/Fixed", "{\"site\":\"" + SiteValue + "\"}"));
+        await rig.Engine.ActivateAsync(new ProcessActivation(rig.Tenant, "host.trigger_event", null, "{\"site\":\"" + SiteValue + "\"}"));
+        await rig.Engine.ActivateAsync(new ProcessActivation(rig.Tenant, "host.trigger_schedule", "Test/Fixed", "{\"site\":\"" + SiteValue + "\"}"));
+        await rig.Engine.PublishEventAsync(new ProcessEvent(rig.Tenant, "e-1", "case.opened", null, "{\"case_ref\":\"" + KeyValue + "\",\"visit_date\":\"2027-02-01\",\"note\":\"" + PayloadValue + "\"}"));
+        await rig.Engine.PublishEventAsync(new ProcessEvent(rig.Tenant, "e-2", "case.opened", null, "{\"note\":\"" + PayloadValue + "\"}"));
+        await rig.Engine.PublishEventAsync(new ProcessEvent(rig.Tenant, "e-3", "case.opened", null, "{\"case_ref\":\"" + KeyValue + "-2\",\"visit_date\":\"" + PayloadValue + "\"}"));
+        await rig.StartAsync("host.window_zone", "k-w", "{\"case_ref\":\"" + KeyValue + "\",\"practice_zone\":\"" + ZoneValue + "\"}");
+        rig.Time.Advance(TimeSpan.FromHours(10));
+        await rig.DrainAsync();
+        rig.Catalog.Remove("host.trigger_schedule");
+        rig.Time.Advance(TimeSpan.FromHours(10));
+        await rig.DrainAsync();
+        rig.Zones.Clear();
+        rig.Time.Advance(TimeSpan.FromHours(30));
+        await rig.DrainAsync();
+        await rig.Engine.DeactivateAsync(rig.Tenant, "host.trigger_schedule");
+
+        var entries = rig.Logs.Entries;
+        foreach (var expected in new[] { 13, 14, 15, 16, 17, 18, 19 })
+        {
+            entries.Should().Contain(entry => entry.EventId.Id == expected, "the flow produced log event " + expected + ", so the check below is not vacuous");
+        }
+
+        foreach (var entry in entries)
+        {
+            foreach (var sentinel in sentinels)
+            {
+                entry.Message.Should().NotContain(sentinel);
+                (entry.ExceptionText ?? string.Empty).Should().NotContain(sentinel);
+                entry.State.Select(pair => Convert.ToString(pair.Value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty).Should().NotContain(value => value.Contains(sentinel, StringComparison.Ordinal));
+            }
+        }
+    }
+
+    [Fact]
     public async Task EveryLogRecordOfTheHostCarriesAnEventIdAndAStableCodePrefix()
     {
         await using var rig = await Rig.CreateAsync();

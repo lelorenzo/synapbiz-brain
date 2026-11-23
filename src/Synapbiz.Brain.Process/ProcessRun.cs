@@ -40,6 +40,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
     private long sequence;
     private ProcessPending? pending;
     private ProcessProblem? problem;
+    private ProcessPoll? pollProgress;
 
     internal AdvanceResult Start(string id, JsonObject? input)
     {
@@ -121,6 +122,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         Pending = pending,
         Inbox = [.. inbox],
         Problem = problem,
+        Poll = pollProgress,
     };
 
     private void Load(ProcessState state)
@@ -136,6 +138,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         sequence = state.Sequence;
         pending = state.Pending;
         problem = state.Problem;
+        pollProgress = state.Poll;
         foreach (var (name, value) in state.Variables)
         {
             variables[name] = value;
@@ -173,6 +176,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         entry = stepCount;
         attempt = 1;
         pending = null;
+        pollProgress = null;
         if (step.Stage is not null)
         {
             stage = step.Stage;
@@ -194,6 +198,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         status = ProcessStatus.Cancelled;
         currentStep = null;
         pending = null;
+        pollProgress = null;
         problem = null;
         return TriggerOutcome.Applied;
     }
@@ -281,6 +286,8 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
             EffectFailed failed when IsPending(ProcessPendingKind.Effect, failed.EffectId) && step is EffectStep effect =>
                 Applied(FailEffect(effect, failed.Kind, failed.Code, failed.RetryAfter)),
             TimerFired fired => OnTimerFired(step, fired.TimerId),
+            WindowFailed failed when IsPending(ProcessPendingKind.Window, failed.TimerId) && step is ActionStep action =>
+                Applied(OnWindowFailed(action, failed)),
             TaskCompleted task when IsPending(ProcessPendingKind.Task, task.TaskId) && step is HumanTaskStep human =>
                 OnTaskCompleted(human, task),
             ChildCompleted child when IsPending(ProcessPendingKind.Child, child.ChildKey) && step is SubprocessStep subprocess =>
@@ -314,6 +321,22 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
             attempt++;
             pending = null;
             return Applied(RequestEffect(effect));
+        }
+
+        if (IsPending(ProcessPendingKind.Window, timerId) && step is ActionStep gated)
+        {
+            Log(ProcessHistoryKind.WindowOpened, null, Data(("timerId", timerId)));
+            pending = null;
+            return Applied(SendEffect(gated));
+        }
+
+        if (IsPending(ProcessPendingKind.Timer, timerId) && step is PollStep poll)
+        {
+            Log(ProcessHistoryKind.TimerFired, null, Data(("timerId", timerId)));
+            pending = null;
+            pollProgress = Progress() with { Round = Progress().Round + 1 };
+            attempt = 1;
+            return Applied(RequestEffect(poll));
         }
 
         if (pending!.TimeoutTimerId is { } timeout && string.Equals(timeout, timerId, StringComparison.Ordinal))
@@ -357,7 +380,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         var step = currentStep!;
         switch (pending)
         {
-            case { Kind: ProcessPendingKind.Timer or ProcessPendingKind.RetryDelay } timer:
+            case { Kind: ProcessPendingKind.Timer or ProcessPendingKind.RetryDelay or ProcessPendingKind.Window } timer:
                 requests.Add(new CancelTimerRequest(step, timer.Id));
                 break;
             case { Kind: ProcessPendingKind.Wait } wait:
@@ -377,6 +400,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
     {
         CancelOutstanding();
         pending = null;
+        pollProgress = null;
         status = ProcessStatus.Suspended;
         problem = new ProcessProblem(code, currentStep!, detail);
         Log(ProcessHistoryKind.Suspended, code, detail is null ? null : Data(("detail", detail)));
@@ -409,11 +433,18 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
     private string Key(string suffix) =>
         instanceId + "/" + currentStep + "/" + entry.ToString(CultureInfo.InvariantCulture) + suffix;
 
-    private string IdempotencyKey() => Key("");
+    // The round of a poll step is part of the identifiers of its effects, so that every round is a new read: /r{round}.
+    private string Round() => pollProgress is { } progress ? "/r" + progress.Round.ToString(CultureInfo.InvariantCulture) : "";
 
-    private string EffectId() => Key("/" + attempt.ToString(CultureInfo.InvariantCulture));
+    private string IdempotencyKey() => Key(Round());
 
-    private string RetryTimerId() => Key("/retry/" + attempt.ToString(CultureInfo.InvariantCulture));
+    private string EffectId() => Key(Round() + "/" + attempt.ToString(CultureInfo.InvariantCulture));
+
+    private string RetryTimerId() => Key(Round() + "/retry/" + attempt.ToString(CultureInfo.InvariantCulture));
+
+    private string WindowTimerId() => Key("/" + attempt.ToString(CultureInfo.InvariantCulture) + "/window");
+
+    private string PollTimerId() => Key(Round() + "/poll");
 
     private string TimerId() => Key("/timer");
 

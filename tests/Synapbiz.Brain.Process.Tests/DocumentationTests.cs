@@ -70,5 +70,11 @@ public sealed class DocumentationTests
         }
     }
 
+    [Fact]
+    public void ThePageNamesTheCodeOfACorrelationTheStoreCannotKeep()
+    {
+        TestFiles.Read(ReferencePage).Should().Contain("`process.wait.correlation_invalid`");
+    }
+
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal);
 }

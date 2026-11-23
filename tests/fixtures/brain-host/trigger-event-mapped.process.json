@@ -1,0 +1,25 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.trigger_event_mapped",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Started by the event case.opened with two mapped variables: one is the correlation of a wait, the other is only kept" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "ref_code": { "type": "Code", "input": true },
+      "note": { "type": "Code", "input": true }
+    },
+    "triggers": [
+      { "kind": "event", "event": "case.opened", "businessKey": "case_ref", "input": { "case_ref": "case_ref", "ref_code": "ref_code", "note": "note" } }
+    ],
+    "start": "hold",
+    "steps": {
+      "hold": { "kind": "wait", "event": "case.reply", "correlation": "ref_code", "next": "done" },
+      "done": { "kind": "end", "result": "replied" }
+    }
+  }
+}

@@ -20,6 +20,7 @@ internal enum InboxKind
     ChildCompleted = 3,
     ChildFailed = 4,
     Cancel = 5,
+    WindowFailed = 6,
 }
 
 /// <summary>The status of an inbox row.</summary>
@@ -144,7 +145,12 @@ internal sealed record HistoryRecord(long Sequence, DateTimeOffset At, string? S
 /// is the time the scan ordered the item by (lease expiry or due time); null for the inbox, which is ordered by its numeric id. The
 /// last item of a page is the keyset cursor of the next page.
 /// </summary>
-internal sealed record WorkRef(string TenantId, string InstanceId, string ItemId, DateTimeOffset? SortAt = null);
+/// <param name="TenantId">The tenant of the item.</param>
+/// <param name="InstanceId">The instance to lock; empty for a schedule item, which belongs to no instance.</param>
+/// <param name="ItemId">The id of the item: effect id, inbox id, timer id or, for a schedule, the schedule id.</param>
+/// <param name="SortAt">The time the scan ordered the item by; null for the inbox.</param>
+/// <param name="ProcessId">Only for a schedule item: the process id of the schedule.</param>
+internal sealed record WorkRef(string TenantId, string InstanceId, string ItemId, DateTimeOffset? SortAt = null, string? ProcessId = null);
 
 /// <summary>An instance that has a wait for an event; <paramref name="Exact"/> is false when the correlation matched only without regard to case.</summary>
 internal sealed record WaitCandidate(string InstanceId, bool Exact);
@@ -156,4 +162,32 @@ internal enum WorkKind
     Inbox,
     DueTimer,
     DueEffect,
+    DueSchedule,
 }
+
+/// <summary>The tenant and process id of an activation: what the store serialises activations on.</summary>
+internal readonly record struct ActivationKey(string TenantId, string ProcessId);
+
+/// <summary>The tenant, process id and schedule id of a schedule row: what the store locks to handle a schedule.</summary>
+internal readonly record struct ScheduleKey(string TenantId, string ProcessId, string ScheduleId);
+
+/// <summary>An activation row as stored; the input is still protected.</summary>
+internal sealed record ActivationRecord(string TenantId, string ProcessId, long ProcessVersion, string ProcessHash, string? Zone, string ProtectedInput, DateTimeOffset ActivatedAt)
+{
+    internal ActivationKey Key => new(TenantId, ProcessId);
+}
+
+/// <summary>An event trigger row: the event that starts instances of the process, the payload member that is the business key and the mapping of payload members to input variables (a JSON object of variable to member).</summary>
+internal sealed record EventTriggerRow(string TenantId, string Event, string ProcessId, string BusinessKeyMember, string InputMapJson);
+
+/// <summary>An event trigger row with the activation it belongs to, as publishing an event needs it.</summary>
+internal sealed record EventTriggerRecord(string Event, string ProcessId, string BusinessKeyMember, string InputMapJson, long ProcessVersion, string ProcessHash, string ProtectedInput);
+
+/// <summary>A schedule row as stored; <paramref name="Zone"/> is the zone the schedule is evaluated in.</summary>
+internal sealed record ScheduleRow(string TenantId, string ProcessId, string ScheduleId, string Cron, string Zone, ProcessMisfire Misfire, DateTimeOffset NextFireAt)
+{
+    internal ScheduleKey Key => new(TenantId, ProcessId, ScheduleId);
+}
+
+/// <summary>A schedule row with the activation it belongs to: the pinned definition and the protected input of the activation.</summary>
+internal sealed record ScheduleRecord(ScheduleRow Row, long ProcessVersion, string ProcessHash, string ProtectedInput);

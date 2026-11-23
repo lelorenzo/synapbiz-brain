@@ -1,0 +1,23 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.trigger_event_second",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "A second process that the same event case.opened starts, keyed by another payload member" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "file_no": { "type": "Code", "input": true }
+    },
+    "triggers": [
+      { "kind": "event", "event": "case.opened", "businessKey": "file_no", "input": { "case_ref": "case_ref", "file_no": "file_no" } }
+    ],
+    "start": "done",
+    "steps": {
+      "done": { "kind": "end", "result": "filed" }
+    }
+  }
+}

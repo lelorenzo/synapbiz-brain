@@ -68,6 +68,9 @@ public sealed class BrainProcess
     /// <summary>The ids of the steps, in document order.</summary>
     public IReadOnlyList<string> StepIds => [.. definition.Steps.Select(step => step.Id)];
 
+    /// <summary>The triggers the document declares, in document order; empty when it declares none. The interpreter does not run them: the host does.</summary>
+    public IReadOnlyList<ProcessTriggerDeclaration> Triggers => definition.Triggers;
+
     /// <summary>A deep clone of the <c>meta</c> object of the document.</summary>
     public JsonObject Meta => (JsonObject)definition.Meta.DeepClone();
 

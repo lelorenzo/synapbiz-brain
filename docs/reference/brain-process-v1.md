@@ -31,6 +31,8 @@ All members are required and no other member is allowed.
 | `limits` | no | `{ "maxSteps": 1..1000000 }`. Default 10000. |
 | `start` | yes | Id of the first step. |
 | `steps` | yes | Object: step id to step. At least one. Every step must be reachable from `start`. |
+| `triggers` | no | What starts an instance: event and schedule declarations, see [Triggers, cron and delivery windows](#triggers-cron-and-delivery-windows). The interpreter only validates and exposes them. |
+| `windows` | no | Delivery windows by name, see [Triggers, cron and delivery windows](#triggers-cron-and-delivery-windows). |
 | `scenarios` | no | Executable examples, see [Scenarios](#scenarios). |
 
 ## Variables
@@ -59,7 +61,8 @@ Every step has a `kind` and may have a `stage`. "Mapping" means an object of str
 | `kind` | Members |
 | --- | --- |
 | `read` | `port`; `input?` (port parameter to variable); `output?` (result member to variable); `retry?`; `next`; `onError?`, `onNotAvailable?`, `onNotEntitled?` |
-| `action` | as `read`, plus `delivery` (`atLeastOnce` or `atMostOnce`) and `onUnknown`, required with `atMostOnce` and forbidden otherwise |
+| `action` | as `read`, plus `delivery` (`atLeastOnce` or `atMostOnce`) and `onUnknown`, required with `atMostOnce` and forbidden otherwise; `contact?` (boolean, `true` needs a `window`) and `window?` (the name of a delivery window) |
+| `poll` | `port`, `input?`, `output?`, `retry?`, `onError?`, `onNotAvailable?`, `onNotEntitled?` as for `read`; `rule`, `facts` as for `decide` (hit policy `unique` or `first`); `field` (an `Enum` or `Boolean` outcome of the rule), `until` (non-empty, unique values of that field that end the poll); `every` (duration); `backoff?` (`fixed`, the default, or `exponential`); `max?` (the largest interval, only with `exponential`); `maxDuration` (duration); `next`; `onExpired` |
 | `ai` | `port`, `model`, `prompt` `{ "id", "version" }`, `input?`, `inputSchema`, `outputSchema`, `output?`, `maxAttempts?` (1 to 5, default 1), `retry?`, `next` (a `decide` step), `onInvalid`, `onError?`, `onNotAvailable?`, `onNotEntitled?` |
 | `decide` | `rule`, `facts` (fact name to variable); either `output?` and one of `next` or `route` with `on` (rule of hit policy `unique` or `first`), or `collectInto` and `next` (hit policy `collect`); `onNoDecision`; `onError?` |
 | `humanTask` | `queue`, `outcomes`, `show?` (variables to show), `output?` (data member to variable), `on` (outcome to step), `timeout?`, `onTimeout` (required with `timeout`, forbidden without) |
@@ -85,6 +88,19 @@ The step asks the host to call a port. The request carries the input object buil
 An `action` with `atMostOnce` delivery tells the host never to repeat the call; use it for effects that must not be duplicated, and route `Unknown` to a person.
 
 `inputSchema` and `outputSchema` must be self-contained: Brain builds each one and evaluates it once against `{}` at load time; a schema that cannot be built, uses an unknown keyword, or has a `$ref` that does not resolve inside the same schema object is `process.ai.schema_invalid` at the schema's path. An `ai` step validates its input object against `inputSchema` before asking (a failure is `process.ai.input_invalid`) and the answer against `outputSchema`. An invalid answer is retried at once, up to `maxAttempts`, then goes to `onInvalid`. The history entry of a valid answer records the model, the prompt id and version, a hash of the input and the output. `next` must be a `decide` step: an AI output never moves a case by itself, a rule decides.
+
+### Delivery windows on an `action`
+
+An `action` that names a `window` does not request the effect straight away. Before every attempt (the first and each retry) the interpreter emits a `WindowRequest` and waits; when the host answers with `TimerFired` for the window timer, the effect is requested exactly as for an action without a window. See [Triggers, cron and delivery windows](#triggers-cron-and-delivery-windows). `contact: true` marks an action that reaches a person and requires a `window` (`process.action.window_required`); the library gives it no other meaning. A non-contact action may name a window too.
+
+### `poll`
+
+A `poll` reads a port, evaluates a rule on the result and repeats until the rule's `field` takes one of the `until` values or the time is up.
+
+- Entering the step records the start instant and begins round 1. A round requests the read (effect id `I/S/E/rR/A`, see [Identifiers](#identifiers); retries inside a round work as for `read`), assigns `output`, evaluates the rule and records a `Decided` entry with the usual provenance.
+- When the field's value is in `until` the step goes to `next`. When the rule decides nothing, or the value is not in `until`, the wait after round `R` is `every` (`fixed`) or `every x 2^(R-1)` (`exponential`), never above `max`. If `now` plus that wait is later than the start plus `maxDuration`, the step records `PollExpired` and goes to `onExpired`; otherwise it requests the timer `I/S/E/rR/poll` for that instant and, when it fires, begins round `R+1`.
+- A port failure after its retries follows `onError` and the other error routes, or suspends, exactly as for `read`; a rule error follows `onError` or suspends. A suspended poll keeps no progress: `ResumeRequested` enters the step again with a fresh entry number, so the poll starts over with round 1 and a new start instant. While it runs, the round and the start instant are the `poll` member of the state.
+- The number of rounds that fit in `maxDuration` must be at most 10000 (`process.poll.too_many_rounds`). Rounds do not count against `limits.maxSteps`: the step is entered once. A `poll` is not a `loop` for the cycle rule and needs no bound of its own; a route back to it from its own `onExpired` path is an unbounded cycle like any other.
 
 ### `decide`
 
@@ -121,6 +137,43 @@ Asks the host to start the process `process` as a child with the mapped input. `
 
 Completes the instance with `result`.
 
+## Triggers, cron and delivery windows
+
+### Triggers
+
+```json
+"triggers": [
+  { "kind": "event", "event": "case.opened", "businessKey": "case_ref", "input": { "case_ref": "case_ref" } },
+  { "kind": "schedule", "id": "daily", "cron": "0 6 * * *", "zone": "America/New_York", "misfire": "fireOnce",
+    "input": { "run_for": "scheduledDate", "fired_at": "scheduledFor" } }
+]
+```
+
+The library never starts an instance by itself: a host reads `BrainProcess.Triggers` (an ordered list of `EventTriggerDeclaration` and `ScheduleTriggerDeclaration`, empty when the document declares none) and does the starting. The loader validates them. The collections it returns (`Triggers`, the `Input` map of each trigger) and `WindowRequest.Days` are read-only copies: a caller cannot change the definition through them.
+
+- An **event trigger** has a non-empty `event` name, unique among the event triggers (`process.trigger.event_duplicate`), and `businessKey`, the name of the payload member whose string value becomes the business key. A host accepts that value only when, after trimming, it is not empty, has at most 200 characters, holds no control character and no unpaired surrogate, and does not start with `@`; anything else means no start for that trigger (a bad key never stops the event from being recorded and routed to waiting instances). `input?` maps an `input: true` variable to a payload member; the variable must exist (`process.trigger.variable_unknown`) and be an input (`process.trigger.variable_not_input`).
+- A **schedule trigger** has an `id` (`[a-z][a-z0-9_]{0,31}`, unique, `process.trigger.schedule_duplicate`), a `cron` expression (`process.trigger.cron_invalid` when it does not parse or never fires), an optional `zone` (an IANA id, checked for shape only: `process.trigger.zone_invalid`; without it the zone comes from the activation in the host), a required `misfire` (`skip` or `fireOnce`) and an optional `input` that maps an `input: true` variable to `scheduledFor` (the variable must be `Instant`) or `scheduledDate` (the variable must be `Date`: the local calendar date of the fire time in the schedule's zone). Another name is `process.trigger.input_source_unknown`, a variable of the wrong type is `process.variable.type_mismatch`. A host starts an instance for a schedule with the business key `@schedule/{scheduleId}/{yyyyMMddTHHmmZ}` (the occurrence in UTC); the reserved `@` keeps it apart from any key taken from an event.
+
+### Cron
+
+`CronSchedule.TryParse(text, out schedule)` and `schedule.Next(after, zone)` are pure. A cron expression has five fields separated by single spaces: minute (0 to 59), hour (0 to 23), day of month (1 to 31), month (1 to 12) and day of week (0 to 7, where 0 and 7 are Sunday). A field is `*`, a number, a range `a-b`, a step `*/n` or `a-b/n` (n at least 1), or a comma list of those. There are no names, seconds, `L`, `W`, `#`, `?` or macros. A day field counts as restricted unless its text is exactly `*` (so `*/1` and `1-31` restrict it). When both day fields are restricted a day matches when either matches; otherwise both must match. An expression that can never fire (`0 0 31 2 *`) is invalid.
+
+`Next` returns the first occurrence strictly after `after`, as a UTC instant, evaluated on the local wall clock of the given `TimeZoneInfo` (never by adding 24 hours). A local time that does not exist on a day (the gap of a spring transition) fires once, at the first valid instant after the gap; a local time that occurs twice (the fold of an autumn transition) fires at its first occurrence only, so in the repeated hour a cron expression fires on the first pass only and an every-minute or hourly schedule is silent for that one hour. On a day a zone skips entirely (a date-line change) nothing fires for that day. Iterating `Next` is strictly increasing. The search looks at most 8 years ahead.
+
+### Delivery windows
+
+```json
+"windows": {
+  "contact_hours": { "zone": { "variable": "practice_zone" }, "days": ["mon", "tue", "wed", "thu", "fri"], "from": "09:00", "to": "18:00" }
+}
+```
+
+`zone` is an IANA id (shape check as for schedules: `UTC`, or `Area/Location` matching `^[A-Za-z_]+(/[A-Za-z0-9_+\-]+){1,2}$`) or `{ "variable": "<Code variable>" }`; `days` is a non-empty list of unique `mon` to `sun`; `from` and `to` are `HH:mm` with `from` earlier than `to` (a window does not cross midnight; `to` may be `24:00`). The window is open on a listed local day from `from` inclusive to `to` exclusive. Errors are `process.window.invalid` (at the offending member) and `process.window.unknown` (a step names an undeclared window); a window that no step uses is not an error.
+
+At run time the interpreter emits `WindowRequest(Step, TimerId, Zone, Days, From, To)` (`To` is `00:00` for a window that closes at the end of the day), records `WindowWaiting` and waits with the pending kind `Window`. The host answers with `TimerFired(TimerId)` at an instant inside the window, at once when it is open now; the interpreter records `WindowOpened` and requests the effect. A retry delay runs first, then the gate again. If the zone variable has no value the instance suspends with `process.window.zone_missing`. If the host cannot resolve the zone, or the value of the zone variable does not have the shape above (`localtime`, `EST5EDT`, `Factory`, a path, an empty text are refused without the system time zone database being asked; `DeliveryWindows.IsZoneIdShape` is the check), it delivers `WindowFailed(TimerId, "process.window.zone_unknown")`: the step goes to `onError`, or the instance suspends with that code. Cancelling or suspending the instance cancels a pending window with `CancelTimerRequest`.
+
+`DeliveryWindows.NextOpen(now, zone, days, from, to)` is the pure helper hosts and scenarios use. On each listed local day the window is the interval from its opening instant (inclusive) to its closing instant (exclusive). The instant of a local time that occurs twice is its first occurrence; the instant of a local time inside a gap is the end of the gap; a window whose two instants coincide (a gap swallows it) is empty that day. `NextOpen` returns `now` when `now` is inside such an interval, otherwise the earliest opening instant after `now` (as UTC). So a window that spans the repeated hour of an autumn change stays open through both passes, and one that closes inside it closes on the first pass. A window timer is not re-checked when it fires, and an `atLeastOnce` contact action whose lease expired may be requested again after the window closed: declare a contact action `atMostOnce` when a repeat outside the window is worse than a missed contact.
+
 ## Routing at a glance
 
 | Situation | Goes to |
@@ -144,7 +197,7 @@ if (!loaded.IsValid) { /* loaded.Errors: code, path, English and Spanish message
 BrainProcess process = loaded.Process!;
 ```
 
-`ProcessLoadContext.KnownProcessIds` is optional; when given, `subprocess` steps must name one of them. Errors are `BrainSpecError` values ordered by path then code. JSON, envelope and schema failures are reported alone (`spec.json.invalid`, `spec.structure.envelope`, `spec.structure.unknown_format`, `spec.structure.schema`); only a document that passes them is checked against the rules below, and all of those are reported together.
+`ProcessLoadContext.KnownProcessIds` is optional; when given, `subprocess` steps must name one of them. Errors are `BrainSpecError` values ordered by path then code. JSON, envelope and schema failures are reported alone (`spec.json.invalid`, `spec.structure.envelope`, `spec.structure.unknown_format`, `spec.structure.schema`); only a document that passes them is checked against the rules below, and all of those are reported together. `BrainProcessLoader.Load` never throws for any text: invalid JSON (including a string with an unpaired surrogate or a repeated member name) is `spec.json.invalid`, and a number that a schema evaluation cannot compare by value (`1e400`, thirty digits) where a list of unique items is expected is a `spec.structure.schema` violation at the path of that number. The same holds while an instance runs: an `ai` schema that meets such a number never makes the interpreter throw.
 
 | Code | Condition |
 | --- | --- |
@@ -167,6 +220,17 @@ BrainProcess process = loaded.Process!;
 | `process.ai.schema_invalid` | `inputSchema` or `outputSchema` cannot be built as a JSON Schema |
 | `process.cycle.unbounded` | the step graph without the `body` edges of `loop` steps has a cycle (a step that routes back to a step before it, or a loop whose `onExhausted` or `next` path leads back into a cycle) |
 | `process.duration.invalid` | a duration that matches the pattern but is zero, longer than 3660 days or has no component |
+| `process.action.window_required` | an `action` with `contact: true` names no `window` |
+| `process.window.invalid` | a window member is out of range, malformed or contradictory (zone shape, days, times, `from` not before `to`) |
+| `process.window.unknown` | a step names a window the document does not declare |
+| `process.trigger.event_duplicate` | two event triggers share one event name |
+| `process.trigger.schedule_duplicate` | two schedule triggers share one id |
+| `process.trigger.cron_invalid` | a cron expression does not parse or can never fire |
+| `process.trigger.zone_invalid` | a schedule's zone is not shaped like an IANA id |
+| `process.trigger.input_source_unknown` | a schedule `input` source is neither `scheduledFor` nor `scheduledDate` |
+| `process.trigger.variable_unknown` | a trigger `input` names no declared variable |
+| `process.trigger.variable_not_input` | a trigger `input` names a variable that is not `input: true` |
+| `process.poll.too_many_rounds` | more than 10000 rounds fit in a poll's `maxDuration` |
 | `process.scenario.invalid` | a scenario names an unknown step, variable or event, or is otherwise malformed |
 
 The domain of a `decide` route is read from the rule: the values that its rows and its default row set for the route field. A row that leaves the route field empty produces no value; if such a row matches at run time the step goes to `onError`, or suspends with `process.route.unmatched`.
@@ -193,7 +257,8 @@ AdvanceResult next = process.Advance(state, new EffectCompleted(effectId, output
 | --- | --- |
 | `EffectCompleted(effectId, outputJson)` | a port call succeeded |
 | `EffectFailed(effectId, kind, code, retryAfter?)` | a port call failed; kinds `Transient`, `RateLimited`, `NotAvailable`, `NotEntitled`, `Permanent`, `Unknown` |
-| `TimerFired(timerId)` | a requested timer is due (timers of retry delays, `timer` steps and timeouts) |
+| `TimerFired(timerId)` | a requested timer is due (timers of retry delays, `timer` steps, timeouts, poll rounds and delivery windows) |
+| `WindowFailed(timerId, code)` | the host cannot resolve the zone of a pending delivery window (`process.window.zone_unknown`) |
 | `EventReceived(name, correlation, payloadJson)` | an external event arrived |
 | `TaskCompleted(taskId, outcome, dataJson)` | a person finished a task |
 | `ChildCompleted(childKey, result, outputJson)` / `ChildFailed(childKey, code)` | the child process ended |
@@ -202,7 +267,7 @@ AdvanceResult next = process.Advance(state, new EffectCompleted(effectId, output
 
 ### Requests
 
-`EffectRequest` (step, effect id, idempotency key, kind `Read`/`Action`/`Ai`, port, input JSON, attempt, delivery, and for `ai` the model and prompt), `TimerRequest` (id, due time), `CancelTimerRequest`, `WaitRequest` (event, correlation), `CancelWaitRequest`, `TaskRequest` (queue, outcomes, JSON to show), `CancelTaskRequest`, `ChildStartRequest` (process, input JSON).
+`EffectRequest` (step, effect id, idempotency key, kind `Read`/`Action`/`Ai`, port, input JSON, attempt, delivery, and for `ai` the model and prompt), `TimerRequest` (id, due time), `CancelTimerRequest`, `WaitRequest` (event, correlation), `CancelWaitRequest`, `TaskRequest` (queue, outcomes, JSON to show), `CancelTaskRequest`, `ChildStartRequest` (process, input JSON), `WindowRequest` (step, timer id, zone, days, from, to).
 
 ### Identifiers
 
@@ -214,16 +279,18 @@ Identifiers are derived, never generated. With the instance id `I`, the step `S`
 | effect id | `I/S/E/A` |
 | timer id | `I/S/E/timer`; retry delay `I/S/E/retry/A`; timeout `I/S/E/timeout` |
 | wait id, task id, child key | `I/S/E/wait`, `I/S/E/task`, `I/S/E/child` |
+| delivery window | `I/S/E/A/window` |
+| `poll` round `R` | idempotency key `I/S/E/rR`; effect id `I/S/E/rR/A`; retry delay `I/S/E/rR/retry/A`; next round timer `I/S/E/rR/poll` |
 
 A resume gives the step a fresh entry number, so the host never confuses a re-run with the earlier attempt.
 
 ### State and history
 
-`ProcessState.ToJson()` is the serialized state (stable text: object keys in a fixed order, variables and counters in ordinal order) and `ProcessState.FromJson` reads it back (a `null` element of a `forEach` array clears `item`, and such a state round-trips); text that is not a state throws `DecisionEngineException` with the code `process.state.malformed`. The state holds the status (`Waiting`, `Suspended`, `Completed`, `Cancelled`), current step, stage, result, variables, loop counters, the outstanding work (`Pending`), the event inbox and, when suspended, the `Problem` (code, step, detail).
+`ProcessState.ToJson()` is the serialized state (stable text: object keys in a fixed order, variables and counters in ordinal order) and `ProcessState.FromJson` reads it back (a `null` element of a `forEach` array clears `item`, and such a state round-trips); text that is not a state throws `DecisionEngineException` with the code `process.state.malformed`. The state holds the status (`Waiting`, `Suspended`, `Completed`, `Cancelled`), current step, stage, result, variables, loop counters, the outstanding work (`Pending`; its kind is one of `Effect`, `RetryDelay`, `Timer`, `Wait`, `Task`, `Child` and `Window`), the event inbox and, when suspended, the `Problem` (code, step, detail). A poll in progress adds the member `poll` (`{"round":R,"startedAt":"..."}`); it is written only then, so a state written without it still loads and a state of any other step has the same text as before.
 
 Every `DateTimeOffset` in a request or a history entry is UTC, whatever offset the host clock has. Suspending an instance cancels its outstanding work like `CancelRequested` does: `CancelWaitRequest`, `CancelTaskRequest` and `CancelTimerRequest` (timeouts and retry delays included). A payload that is malformed JSON or has a duplicate member name never throws: a malformed effect output is a permanent failure (`process.effect.output_malformed`); malformed task data, event payload or trigger input is rejected with `process.variable.type_mismatch` (an awaited event suspends the instance with that code); a malformed child output is a child failure.
 
-Every history entry has a sequence number (continuing across advances), the time, the step, the step's entry number, the attempt, a kind (`Started`, `StepEntered`, `EffectRequested`, `EffectCompleted`, `EffectFailed`, `RetryScheduled`, `Decided`, `TaskRequested`, `TaskCompleted`, `WaitStarted`, `EventConsumed`, `EventBuffered`, `TimerStarted`, `TimerFired`, `TimedOut`, `LoopIteration`, `LoopExhausted`, `ChildStarted`, `ChildCompleted`, `ChildFailed`, `Suspended`, `Resumed`, `Cancelled`, `Completed`), an optional code and an optional JSON object. History never contains a value that the state or the trigger did not contain.
+Every history entry has a sequence number (continuing across advances), the time, the step, the step's entry number, the attempt, a kind (`Started`, `StepEntered`, `EffectRequested`, `EffectCompleted`, `EffectFailed`, `RetryScheduled`, `Decided`, `TaskRequested`, `TaskCompleted`, `WaitStarted`, `EventConsumed`, `EventBuffered`, `TimerStarted`, `TimerFired`, `TimedOut`, `LoopIteration`, `LoopExhausted`, `ChildStarted`, `ChildCompleted`, `ChildFailed`, `Suspended`, `Resumed`, `Cancelled`, `Completed`, `WindowWaiting`, `WindowOpened`, `PollExpired`), an optional code and an optional JSON object. History never contains a value that the state or the trigger did not contain.
 
 ### Run-time codes
 
@@ -240,8 +307,11 @@ Every history entry has a sequence number (continuing across advances), the time
 | `process.route.unmatched` | a route value or child result has no entry and the step has no `onError` |
 | `process.timer.until_missing` | an `until` timer has no instant |
 | `process.wait.correlation_missing` | a `wait` declares a correlation variable that has no value |
+| `process.wait.correlation_invalid` | the correlation of a `wait` holds the character U+0000, which a store cannot keep as text and no event could match; the instance is suspended instead of waiting |
 | `process.loop.not_a_list` | a `forEach` variable holds no array |
 | `process.limits.max_steps` | the instance entered more steps than `limits.maxSteps`; it is suspended on the step before; a later `ResumeRequested` is rejected with the same code while `StepCount` is at or above the limit |
+| `process.window.zone_missing` | the zone variable of a delivery window has no value; the instance is suspended |
+| `process.window.zone_unknown` | the host could not resolve the zone of a delivery window (`WindowFailed`) |
 | `process.state.malformed` | `ProcessState.FromJson` could not read the text (not JSON, wrong shape, or a duplicate member name) |
 
 ## Scenarios
@@ -266,7 +336,7 @@ A scenario is an executable example stored in the document. `BrainProcess.RunSce
               "variables": { "pending": 0 } } }
 ```
 
-`complete` and `fail` answer the outstanding effect of the named step; `task`, `child` and `childFailed` the outstanding task or child. `advance` moves the clock forward and fires every timer that falls due, each at its own time and in time order (ties by timer id), including timers started by those firings. An event that matches nothing outstanding, or any rejected trigger, fails the scenario. `expect.status` is required; `result`, `trace` (the exact ordered list of entered steps) and `variables` (a subset, compared as JSON) are optional.
+`complete` and `fail` answer the outstanding effect of the named step; `task`, `child` and `childFailed` the outstanding task or child. `advance` moves the clock forward and fires every timer that falls due, each at its own time and in time order (ties by timer id), including timers started by those firings. On a `poll` step, `complete` and `fail` answer the read of the current round. A scenario may carry `zones`, an object of IANA id to a fixed UTC offset such as `"-05:00"` (at most 14 hours): a `WindowRequest` is answered with `DeliveryWindows.NextOpen` at the virtual clock, at once when the window is open and otherwise by a timer at the next opening, and a zone that is not listed is answered with `WindowFailed` (`process.window.zone_unknown`). Triggers are not executed by scenarios. An event that matches nothing outstanding, or any rejected trigger, fails the scenario. `expect.status` is required; `result`, `trace` (the exact ordered list of entered steps) and `variables` (a subset, compared as JSON) are optional.
 
 ## Complete example
 
@@ -543,3 +613,238 @@ The process, with five scenarios that `RunScenarios()` plays:
 ```
 
 Reading it: the `cycle` loop bounds the number of reminders to two. `check` reads the count of missing items into `missing`; `assess` asks the rule and routes on its `action` outcome (`none` ends the process as `ready`, `remind` sends a notice). `send` is `atMostOnce`: if the host cannot tell whether the notice went out (`Unknown`), the case goes to the `escalate` task instead of being retried, and a person who resolves it sends the case back to `cycle`. When the reminders are used up (`onExhausted`) the case goes to a separate task, `escalate_final`: a path out of a loop must not lead back into the loop. `reply` waits for the `form_submitted` event of this case for 24 hours and then returns to `cycle`. The documentation tests load these files and run the scenarios, so the page and the fixtures cannot drift apart.
+
+## Follow-up example
+
+A second synthetic process shows the additions together: it is started by an event or a schedule, sends a notice only inside contact hours (waiting for the window to open, and again before any retry) and then polls for a reply, reading at growing intervals until a rule says the notice is answered or six hours have passed. Its scenarios use `zones` to answer the window. The contract, the rule and the process:
+
+```json
+{
+  "module": "followup",
+  "schemaVersion": 1,
+  "facts": [
+    {
+      "kind": "followup.reply_state",
+      "name": "replies",
+      "type": "Integer",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "followup.reply_state",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "followup.decisions.read",
+        "author": "followup.decisions.author",
+        "approve": "followup.decisions.approve",
+        "readTrace": "followup.decisions.read_trace"
+      },
+      "outcomes": [
+        {
+          "name": "state",
+          "type": "Enum",
+          "nullable": false,
+          "labelSource": null,
+          "allowedValues": ["waiting", "answered"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+```json
+{
+  "$spec": "brain.rule@1",
+  "id": "notice.reply_state",
+  "version": 1,
+  "uses": [],
+  "requires": ["followup@1"],
+  "meta": { "title": "Replies received decide whether a notice is answered" },
+  "body": {
+    "kind": "followup.reply_state",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "no-reply",
+        "version": 1,
+        "legacyKey": "no-reply",
+        "conditions": [
+          { "fact": "replies", "op": "equals", "value": { "type": "Integer", "value": "0" } }
+        ],
+        "outcome": { "state": "waiting" }
+      },
+      {
+        "id": "replied",
+        "version": 1,
+        "legacyKey": "replied",
+        "conditions": [
+          { "fact": "replies", "op": "range", "value": { "type": "Integer", "value": "1" } }
+        ],
+        "outcome": { "state": "answered" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "No reply yet keeps waiting",
+        "facts": { "replies": { "type": "Integer", "value": "0" } },
+        "expect": { "row": "no-reply", "outcome": { "state": "waiting" } }
+      },
+      {
+        "name": "One reply answers the notice",
+        "facts": { "replies": { "type": "Integer", "value": "1" } },
+        "expect": { "row": "replied", "outcome": { "state": "answered" } }
+      },
+      {
+        "name": "A negative count decides nothing",
+        "facts": { "replies": { "type": "Integer", "value": "-1" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "$spec": "brain.process@1",
+  "id": "notice.followup",
+  "version": 1,
+  "uses": [{ "$ref": "rule/notice.reply_state" }],
+  "requires": ["followup@1"],
+  "meta": { "title": "Notice sent in contact hours, then polled for a reply" },
+  "body": {
+    "subject": "case",
+    "stages": ["notice"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "replies": { "type": "Integer" }
+    },
+    "triggers": [
+      { "kind": "event", "event": "case.opened", "businessKey": "case_ref", "input": { "case_ref": "case_ref" } },
+      { "kind": "schedule", "id": "morning", "cron": "0 8 * * 1-5", "zone": "America/New_York", "misfire": "skip" }
+    ],
+    "windows": {
+      "contact_hours": { "zone": "America/New_York", "days": ["mon", "tue", "wed", "thu", "fri"], "from": "09:00", "to": "18:00" }
+    },
+    "start": "send",
+    "steps": {
+      "send": {
+        "kind": "action",
+        "stage": "notice",
+        "port": "messaging.notice",
+        "delivery": "atLeastOnce",
+        "contact": true,
+        "window": "contact_hours",
+        "input": { "case": "case_ref" },
+        "retry": { "maxAttempts": 2, "backoff": "fixed", "initial": "PT5M" },
+        "next": "await_reply",
+        "onError": "failed"
+      },
+      "await_reply": {
+        "kind": "poll",
+        "port": "intake.replies",
+        "input": { "case": "case_ref" },
+        "output": { "reply_count": "replies" },
+        "rule": "notice.reply_state",
+        "facts": { "replies": "replies" },
+        "field": "state",
+        "until": ["answered"],
+        "every": "PT1H",
+        "backoff": "exponential",
+        "max": "PT4H",
+        "maxDuration": "PT6H",
+        "next": "done",
+        "onExpired": "expired",
+        "onError": "failed"
+      },
+      "done": { "kind": "end", "result": "answered" },
+      "expired": { "kind": "end", "result": "expired" },
+      "failed": { "kind": "end", "result": "failed" }
+    },
+    "scenarios": [
+      {
+        "name": "open window sends at once and the second round finds a reply",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "send" },
+          { "complete": "await_reply", "output": { "reply_count": 0 } },
+          { "advance": "PT1H" },
+          { "complete": "await_reply", "output": { "reply_count": 2 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "answered",
+          "trace": ["send", "await_reply", "done"],
+          "variables": { "replies": 2 }
+        }
+      },
+      {
+        "name": "a closed window holds the notice until the next opening",
+        "start": { "at": "2027-01-04T23:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "advance": "PT15H" },
+          { "complete": "send" },
+          { "complete": "await_reply", "output": { "reply_count": 1 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "answered",
+          "trace": ["send", "await_reply", "done"]
+        }
+      },
+      {
+        "name": "the poll expires after the longest allowed time",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "send" },
+          { "complete": "await_reply", "output": { "reply_count": 0 } },
+          { "advance": "PT1H" },
+          { "complete": "await_reply", "output": { "reply_count": 0 } },
+          { "advance": "PT2H" },
+          { "complete": "await_reply", "output": { "reply_count": 0 } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "expired",
+          "trace": ["send", "await_reply", "expired"]
+        }
+      },
+      {
+        "name": "a zone the host cannot resolve follows onError",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "events": [],
+        "expect": {
+          "status": "Completed",
+          "result": "failed",
+          "trace": ["send", "failed"]
+        }
+      },
+      {
+        "name": "a failed read after its retries follows onError",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1" } },
+        "zones": { "America/New_York": "-05:00" },
+        "events": [
+          { "complete": "send" },
+          { "fail": "await_reply", "error": "Permanent", "code": "intake.gone" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "failed",
+          "trace": ["send", "await_reply", "failed"]
+        }
+      }
+    ]
+  }
+}
+```
+
+Reading it: `send` is a contact action tied to `contact_hours` (Monday to Friday, 09:00 to 18:00 in New York), so at 23:00 UTC in January (18:00 local) the notice waits for the next morning. `await_reply` reads `intake.replies` after the notice, asks the rule for `state`, and ends on `answered`; otherwise it waits one hour, then two, then four (the `max`), and expires once the next read would fall after the sixth hour. A read that fails for good goes to `failed`, as does a window zone the host cannot resolve. The documentation tests load these files and run the scenarios.

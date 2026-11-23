@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Npgsql;
+using Synapbiz.Brain.Process;
 using Synapbiz.Brain.Process.Hosting;
 
 namespace Synapbiz.Brain.Host.Postgres;
@@ -13,6 +14,8 @@ internal sealed partial class PostgresProcessStore
         private readonly NpgsqlConnection connection;
         private readonly NpgsqlTransaction transaction;
         private readonly HashSet<InstanceKey> held = [];
+        private readonly HashSet<ActivationKey> heldActivations = [];
+        private readonly HashSet<ScheduleKey> heldSchedules = [];
         private bool finished;
 
         internal Session(PostgresProcessStore owner, NpgsqlConnection connection, NpgsqlTransaction transaction)
@@ -411,6 +414,178 @@ internal sealed partial class PostgresProcessStore
                 [Text("t", tenantId), Text("e", eventName), Text("c", correlation)],
                 reader => new WaitCandidate(reader.GetString(0), reader.GetBoolean(1)),
                 cancellationToken).ConfigureAwait(false);
+
+        public async Task LockActivationAsync(ActivationKey key, CancellationToken cancellationToken)
+        {
+            await ExecuteAsync(
+                connection,
+                transaction,
+                "select pg_advisory_xact_lock(hashtextextended(@key, 0))",
+                [Text("key", "brain.process.activation:" + owner.schema + ":" + key.TenantId.Length + ":" + key.TenantId + ":" + key.ProcessId)],
+                cancellationToken).ConfigureAwait(false);
+            heldActivations.Add(key);
+        }
+
+        public async Task<ActivationRecord?> GetActivationAsync(ActivationKey key, CancellationToken cancellationToken)
+        {
+            var rows = await QueryAsync(
+                connection,
+                transaction,
+                owner.Bake("select tenant_id, process_id, process_version, process_hash, zone, input, activated_at from {activation} where tenant_id = @t and process_id = @p"),
+                [Text("t", key.TenantId), Text("p", key.ProcessId)],
+                reader => new ActivationRecord(reader.GetString(0), reader.GetString(1), reader.GetInt64(2), reader.GetString(3), Str(reader, 4), reader.GetString(5), reader.GetFieldValue<DateTimeOffset>(6)),
+                cancellationToken).ConfigureAwait(false);
+            return rows.Count == 0 ? null : rows[0];
+        }
+
+        public async Task SaveActivationAsync(ActivationKey key, ActivationRecord activation, CancellationToken cancellationToken)
+        {
+            RequireActivationLock(key);
+            await ExecuteAsync(
+                connection,
+                transaction,
+                owner.Bake("insert into {activation} (tenant_id, process_id, process_version, process_hash, zone, input, activated_at) values (@t, @p, @v, @h, @z, @in, @at) on conflict (tenant_id, process_id) do update set process_version = @v, process_hash = @h, zone = @z, input = @in, activated_at = @at"),
+                [
+                    Text("t", key.TenantId),
+                    Text("p", key.ProcessId),
+                    Big("v", activation.ProcessVersion),
+                    Text("h", activation.ProcessHash),
+                    Text("z", activation.Zone),
+                    Text("in", activation.ProtectedInput),
+                    Time("at", activation.ActivatedAt),
+                ],
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task<bool> DeleteActivationAsync(ActivationKey key, CancellationToken cancellationToken)
+        {
+            RequireActivationLock(key);
+            var count = await ExecuteAsync(
+                connection,
+                transaction,
+                owner.Bake("delete from {activation} where tenant_id = @t and process_id = @p"),
+                [Text("t", key.TenantId), Text("p", key.ProcessId)],
+                cancellationToken).ConfigureAwait(false);
+            return count > 0;
+        }
+
+        public async Task ReplaceEventTriggersAsync(ActivationKey key, IReadOnlyList<EventTriggerRow> rows, CancellationToken cancellationToken)
+        {
+            RequireActivationLock(key);
+            await ExecuteAsync(
+                connection,
+                transaction,
+                owner.Bake("delete from {eventtrigger} where tenant_id = @t and process_id = @p"),
+                [Text("t", key.TenantId), Text("p", key.ProcessId)],
+                cancellationToken).ConfigureAwait(false);
+            foreach (var row in rows)
+            {
+                await ExecuteAsync(
+                    connection,
+                    transaction,
+                    owner.Bake("insert into {eventtrigger} (tenant_id, event, process_id, business_key_member, input_map) values (@t, @e, @p, @m, @map)"),
+                    [Text("t", key.TenantId), Text("e", row.Event), Text("p", key.ProcessId), Text("m", row.BusinessKeyMember), Text("map", row.InputMapJson)],
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        public async Task<IReadOnlyList<ScheduleRow>> GetSchedulesForUpdateAsync(ActivationKey key, CancellationToken cancellationToken)
+        {
+            RequireActivationLock(key);
+            return await QueryAsync(
+                connection,
+                transaction,
+                owner.Bake("select " + ScheduleColumns + " from {schedule} s where s.tenant_id = @t and s.process_id = @p order by s.schedule_id for update"),
+                [Text("t", key.TenantId), Text("p", key.ProcessId)],
+                ReadSchedule,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task UpsertScheduleAsync(ActivationKey key, ScheduleRow row, CancellationToken cancellationToken)
+        {
+            RequireActivationLock(key);
+            await ExecuteAsync(
+                connection,
+                transaction,
+                owner.Bake("insert into {schedule} (tenant_id, process_id, schedule_id, cron, zone, misfire, next_fire_at) values (@t, @p, @s, @c, @z, @m, @next) on conflict (tenant_id, process_id, schedule_id) do update set cron = @c, zone = @z, misfire = @m, next_fire_at = @next"),
+                [
+                    Text("t", key.TenantId),
+                    Text("p", key.ProcessId),
+                    Text("s", row.ScheduleId),
+                    Text("c", row.Cron),
+                    Text("z", row.Zone),
+                    Small("m", (int)row.Misfire),
+                    Time("next", row.NextFireAt),
+                ],
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task DeleteSchedulesExceptAsync(ActivationKey key, IReadOnlyCollection<string> keep, CancellationToken cancellationToken)
+        {
+            RequireActivationLock(key);
+            await ExecuteAsync(
+                connection,
+                transaction,
+                owner.Bake("delete from {schedule} where tenant_id = @t and process_id = @p and schedule_id <> all(@keep)"),
+                [Text("t", key.TenantId), Text("p", key.ProcessId), new NpgsqlParameter("keep", keep.ToArray())],
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task<IReadOnlyList<EventTriggerRecord>> FindEventTriggersAsync(string tenantId, string eventName, CancellationToken cancellationToken) =>
+            await QueryAsync(
+                connection,
+                transaction,
+                owner.Bake("select e.event, e.process_id, e.business_key_member, e.input_map, a.process_version, a.process_hash, a.input from {eventtrigger} e join {activation} a on a.tenant_id = e.tenant_id and a.process_id = e.process_id where e.tenant_id = @t and e.event = @e order by e.process_id"),
+                [Text("t", tenantId), Text("e", eventName)],
+                reader => new EventTriggerRecord(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt64(4), reader.GetString(5), reader.GetString(6)),
+                cancellationToken).ConfigureAwait(false);
+
+        public async Task<ScheduleRecord?> LockScheduleAsync(ScheduleKey key, bool skipLocked, CancellationToken cancellationToken)
+        {
+            var sql = "select " + ScheduleColumns + ", a.process_version, a.process_hash, a.input from {schedule} s join {activation} a on a.tenant_id = s.tenant_id and a.process_id = s.process_id where s.tenant_id = @t and s.process_id = @p and s.schedule_id = @s for update of s"
+                + (skipLocked ? " skip locked" : string.Empty);
+            var rows = await QueryAsync(
+                connection,
+                transaction,
+                owner.Bake(sql),
+                [Text("t", key.TenantId), Text("p", key.ProcessId), Text("s", key.ScheduleId)],
+                reader => new ScheduleRecord(ReadSchedule(reader), reader.GetInt64(7), reader.GetString(8), reader.GetString(9)),
+                cancellationToken).ConfigureAwait(false);
+            if (rows.Count == 0)
+            {
+                return null;
+            }
+
+            heldSchedules.Add(key);
+            return rows[0];
+        }
+
+        public async Task SaveScheduleAsync(ScheduleKey key, DateTimeOffset nextFireAt, CancellationToken cancellationToken)
+        {
+            RequireScheduleLock(key);
+            await ExecuteAsync(
+                connection,
+                transaction,
+                owner.Bake("update {schedule} set next_fire_at = @next where tenant_id = @t and process_id = @p and schedule_id = @s"),
+                [Time("next", nextFireAt), Text("t", key.TenantId), Text("p", key.ProcessId), Text("s", key.ScheduleId)],
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private void RequireActivationLock(ActivationKey key)
+        {
+            if (!heldActivations.Contains(key))
+            {
+                throw new InvalidOperationException("The activation lock of " + key.TenantId + "/" + key.ProcessId + " is not held by this transaction.");
+            }
+        }
+
+        private void RequireScheduleLock(ScheduleKey key)
+        {
+            if (!heldSchedules.Contains(key))
+            {
+                throw new InvalidOperationException("The schedule lock of " + key.TenantId + "/" + key.ProcessId + "/" + key.ScheduleId + " is not held by this transaction.");
+            }
+        }
 
         private void RequireLock(InstanceKey key)
         {

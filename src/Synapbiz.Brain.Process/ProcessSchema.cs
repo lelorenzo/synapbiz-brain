@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
@@ -15,9 +16,20 @@ internal static class ProcessSchema
     /// <summary>The distinct JSON Pointers of the values that violate the schema, in ordinal order.</summary>
     internal static IReadOnlyList<string> Violations(JsonNode? document)
     {
-        var result = Schema.Value.Evaluate(
-            JsonSerializer.SerializeToElement(document),
-            new EvaluationOptions { OutputFormat = OutputFormat.List });
+        EvaluationResults result;
+        try
+        {
+            result = Evaluate(document);
+        }
+        catch (FormatException)
+        {
+            // The evaluation compares numbers as decimals, for example when it checks that the items of an array are unique, and
+            // throws for a literal that does not fit one (1e400, thirty digits). Such a number is evaluated as the largest
+            // magnitude a decimal holds, with its sign, so that it is judged by the same keywords as any other large number and
+            // reported at its own path.
+            result = Evaluate(WithRepresentableNumbers(document));
+        }
+
         if (result.IsValid)
         {
             return [];
@@ -28,6 +40,35 @@ internal static class ProcessSchema
             .Select(detail => detail.InstanceLocation.ToString())
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)];
+    }
+
+    private static EvaluationResults Evaluate(JsonNode? document) =>
+        Schema.Value.Evaluate(
+            JsonSerializer.SerializeToElement(document),
+            new EvaluationOptions { OutputFormat = OutputFormat.List });
+
+    // A copy of the document in which every number that is not a decimal is replaced by the largest magnitude of its sign, so that the
+    // evaluation can compare it. The structure, and so every path, is unchanged.
+    internal static JsonNode? WithRepresentableNumbers(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject members:
+                var copy = new JsonObject();
+                foreach (var (name, value) in members)
+                {
+                    copy[name] = WithRepresentableNumbers(value);
+                }
+
+                return copy;
+            case JsonArray items:
+                return new JsonArray([.. items.Select(WithRepresentableNumbers)]);
+            case JsonValue value when value.GetValueKind() == JsonValueKind.Number && !JsonSerializer.SerializeToElement(value).TryGetDecimal(out _):
+                // A number too close to zero is read as a decimal (it rounds to zero), so what is left is too large in magnitude.
+                return JsonValue.Create(double.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture) < 0 ? decimal.MinValue : decimal.MaxValue);
+            default:
+                return node?.DeepClone();
+        }
     }
 
     /// <summary>
