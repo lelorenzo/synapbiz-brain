@@ -44,4 +44,20 @@
 
 ## W-C — guided editing
 
-- [ ] Brief
+### W-C1 — headless drafts and proposals
+
+- [x] Brief, with the addendum (deciding rows in `CaseOutcomeChange`, `DraftErrorLocator`)
+- [x] Typed edits and `RuleDrafter` (version rule, preservation, error codes)
+- [x] Round-trip tests: every edit kind and every offered operator for every value type load with `BrainRuleLoader`
+- [x] Simulation tests before and after an edit
+- [x] `RuleChoiceCatalog`, with the operator table checked against `ConditionMatcher.Create`
+- [x] `RuleChangeDescriber`: row changes, summary in both locales, cases that change, deciding rows
+- [x] `DraftErrorLocator`, tested with real loader errors
+- [x] `brain.rule-proposal@1`: serialise, parse, error codes
+- [x] Null guards, purity scan and coupling tests unchanged and green
+- [x] Docs: reference page, spec, overview, changelog
+- [x] Independent verification of every gate
+
+### W-C2 — panels
+
+- [ ] Brief (pending design)
