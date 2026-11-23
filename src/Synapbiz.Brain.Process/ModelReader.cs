@@ -172,7 +172,9 @@ internal sealed class ModelReader(List<BrainSpecError> errors)
         {
             var built = JsonSchema.FromText(schema!.ToJsonString(), new BuildOptions { SchemaRegistry = new SchemaRegistry() });
             var check = MetaSchemas.Draft202012.Evaluate(JsonSerializer.SerializeToElement(schema), new EvaluationOptions { OutputFormat = OutputFormat.Flag });
-            if (check.IsValid)
+            // The schema is proved by evaluating it once: a reference that does not resolve inside the schema throws here.
+            _ = built.Evaluate(JsonSerializer.SerializeToElement(new JsonObject()), new EvaluationOptions { OutputFormat = OutputFormat.Flag });
+            if (check.IsValid && ReferencesResolve(schema!))
             {
                 return built;
             }
@@ -184,6 +186,78 @@ internal sealed class ModelReader(List<BrainSpecError> errors)
 
         errors.Add(Diagnostics.AiSchemaNotValid(path));
         return null;
+    }
+
+    // Schemas are self-contained: every $ref is a fragment that resolves inside the same schema object (no external reference).
+    private static bool ReferencesResolve(JsonNode root)
+    {
+        var anchors = new HashSet<string>(StringComparer.Ordinal);
+        var references = new List<string>();
+        var pending = new Stack<JsonNode?>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            switch (pending.Pop())
+            {
+                case JsonObject map:
+                    foreach (var (key, value) in map)
+                    {
+                        if (key == "$ref" && JsonText.Text(value) is { } reference)
+                        {
+                            references.Add(reference);
+                        }
+                        else if (key == "$anchor" && JsonText.Text(value) is { } anchor)
+                        {
+                            anchors.Add(anchor);
+                        }
+
+                        pending.Push(value);
+                    }
+
+                    break;
+                case JsonArray list:
+                    foreach (var item in list)
+                    {
+                        pending.Push(item);
+                    }
+
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return references.All(reference => reference.StartsWith('#') && FragmentResolves(root, reference[1..], anchors));
+    }
+
+    private static bool FragmentResolves(JsonNode root, string fragment, HashSet<string> anchors)
+    {
+        if (fragment.Length == 0)
+        {
+            return true;
+        }
+
+        if (!fragment.StartsWith('/'))
+        {
+            return anchors.Contains(fragment);
+        }
+
+        var node = root;
+        foreach (var part in Uri.UnescapeDataString(fragment).Split('/').Skip(1).Select(part => part.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)))
+        {
+            node = node switch
+            {
+                JsonObject map => map[part],
+                JsonArray list when int.TryParse(part, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var index) && index < list.Count => list[index],
+                _ => null,
+            };
+            if (node is null)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private RetryPolicy ReadRetry(JsonObject step, string path)

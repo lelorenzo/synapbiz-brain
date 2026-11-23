@@ -218,6 +218,11 @@ internal sealed class ProcessValidator(ProcessDefinition definition, ProcessLoad
                 errors.Add(Diagnostics.IncompleteRoute(path + "/on"));
             }
 
+            foreach (var key in keys.Where(key => key is not ("true" or "false")))
+            {
+                errors.Add(Diagnostics.UnknownRouteValue(JsonText.Pointer(path + "/on", key)));
+            }
+
             return;
         }
 

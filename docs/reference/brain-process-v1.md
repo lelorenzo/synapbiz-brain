@@ -42,15 +42,15 @@ A declaration is `{ "type": ..., "allowedValues": [...]?, "input": true?, "initi
 | `Code` | string |
 | `Enum` | string, one of `allowedValues` |
 | `Boolean` | `true` or `false` |
-| `Integer` | JSON integer within the safe-integer range (plus or minus 9007199254740991) |
+| `Integer` | JSON integer within the safe-integer range, both bounds inclusive (-9007199254740991 to 9007199254740991; one beyond either bound is a mismatch) |
 | `Decimal` | string such as `"12.50"` (`-?(0\|[1-9][0-9]*)(\.[0-9]{1,28})?`) |
 | `Money` | `{ "amount": "<Decimal string>", "currency": "USD" }` (three upper-case letters) |
 | `Date` | string `YYYY-MM-DD`, a real calendar date |
-| `Reference` | string GUID in the `D` format |
+| `Reference` | string GUID in the `D` format; stored lower-case, so correlation compares equal whatever the case of the input |
 | `Instant` | ISO 8601 date-time with `Z` or an offset; stored as UTC `yyyy-MM-ddTHH:mm:ssZ`, fractions truncated |
 | `Json` | any JSON value, opaque |
 
-A value that does not fit its type is `process.variable.type_mismatch`. Values are stored in the state as canonical JSON text (object members in ordinal order).
+A JSON document with a duplicate member name, at any depth, is invalid wherever Brain reads one (a process, `ProcessState.FromJson`, an effect output, task data, an event payload, a child output, an input). A value that does not fit its type is `process.variable.type_mismatch`. Values are stored in the state as canonical JSON text (object members in ordinal order).
 
 ## Steps
 
@@ -84,7 +84,7 @@ The step asks the host to call a port. The request carries the input object buil
 
 An `action` with `atMostOnce` delivery tells the host never to repeat the call; use it for effects that must not be duplicated, and route `Unknown` to a person.
 
-An `ai` step validates its input object against `inputSchema` before asking (a failure is `process.ai.input_invalid`) and the answer against `outputSchema`. An invalid answer is retried at once, up to `maxAttempts`, then goes to `onInvalid`. The history entry of a valid answer records the model, the prompt id and version, a hash of the input and the output. `next` must be a `decide` step: an AI output never moves a case by itself, a rule decides.
+`inputSchema` and `outputSchema` must be self-contained: Brain builds each one and evaluates it once against `{}` at load time; a schema that cannot be built, uses an unknown keyword, or has a `$ref` that does not resolve inside the same schema object is `process.ai.schema_invalid` at the schema's path. An `ai` step validates its input object against `inputSchema` before asking (a failure is `process.ai.input_invalid`) and the answer against `outputSchema`. An invalid answer is retried at once, up to `maxAttempts`, then goes to `onInvalid`. The history entry of a valid answer records the model, the prompt id and version, a hash of the input and the output. `next` must be a `decide` step: an AI output never moves a case by itself, a rule decides.
 
 ### `decide`
 
@@ -159,7 +159,7 @@ BrainProcess process = loaded.Process!;
 | `process.rule.outcome_unknown` | an `output` key or the `route` is not an outcome field of the kind (also when the route field is not an `Enum`, `Boolean` or `Code`) |
 | `process.rule.hit_policy` | members for a `collect` rule on a `unique` or `first` rule, or the reverse |
 | `process.route.incomplete` | at `/on`: a `Boolean` route lacks `true` or `false`; an `Enum` or `Code` route lacks a value that some row or the default row of the rule produces for the route field; a `humanTask` `on` lacks one of its `outcomes` |
-| `process.route.unknown_value` | at `/on/<key>`: an `Enum` or `Code` route has a key that no row and no default row of the rule produces for the route field; a `humanTask` `on` has a key that is not one of its `outcomes` |
+| `process.route.unknown_value` | at `/on/<key>`: a `Boolean` route has a key other than `true` and `false`; an `Enum` or `Code` route has a key that no row and no default row of the rule produces for the route field; a `humanTask` `on` has a key that is not one of its `outcomes` |
 | `process.uses.missing` | a rule or process named by a step is not in `uses` |
 | `process.uses.unused` | `uses` lists something no step names |
 | `process.subprocess.unavailable` | the child process is not among the known process ids |
@@ -219,7 +219,9 @@ A resume gives the step a fresh entry number, so the host never confuses a re-ru
 
 ### State and history
 
-`ProcessState.ToJson()` is the serialized state (stable text: object keys in a fixed order, variables and counters in ordinal order) and `ProcessState.FromJson` reads it back; text that is not a state throws `DecisionEngineException` with the code `process.state.malformed`. The state holds the status (`Waiting`, `Suspended`, `Completed`, `Cancelled`), current step, stage, result, variables, loop counters, the outstanding work (`Pending`), the event inbox and, when suspended, the `Problem` (code, step, detail).
+`ProcessState.ToJson()` is the serialized state (stable text: object keys in a fixed order, variables and counters in ordinal order) and `ProcessState.FromJson` reads it back (a `null` element of a `forEach` array clears `item`, and such a state round-trips); text that is not a state throws `DecisionEngineException` with the code `process.state.malformed`. The state holds the status (`Waiting`, `Suspended`, `Completed`, `Cancelled`), current step, stage, result, variables, loop counters, the outstanding work (`Pending`), the event inbox and, when suspended, the `Problem` (code, step, detail).
+
+Every `DateTimeOffset` in a request or a history entry is UTC, whatever offset the host clock has. Suspending an instance cancels its outstanding work like `CancelRequested` does: `CancelWaitRequest`, `CancelTaskRequest` and `CancelTimerRequest` (timeouts and retry delays included). A payload that is malformed JSON or has a duplicate member name never throws: a malformed effect output is a permanent failure (`process.effect.output_malformed`); malformed task data, event payload or trigger input is rejected with `process.variable.type_mismatch` (an awaited event suspends the instance with that code); a malformed child output is a child failure.
 
 Every history entry has a sequence number (continuing across advances), the time, the step, the step's entry number, the attempt, a kind (`Started`, `StepEntered`, `EffectRequested`, `EffectCompleted`, `EffectFailed`, `RetryScheduled`, `Decided`, `TaskRequested`, `TaskCompleted`, `WaitStarted`, `EventConsumed`, `EventBuffered`, `TimerStarted`, `TimerFired`, `TimedOut`, `LoopIteration`, `LoopExhausted`, `ChildStarted`, `ChildCompleted`, `ChildFailed`, `Suspended`, `Resumed`, `Cancelled`, `Completed`), an optional code and an optional JSON object. History never contains a value that the state or the trigger did not contain.
 
@@ -240,7 +242,7 @@ Every history entry has a sequence number (continuing across advances), the time
 | `process.wait.correlation_missing` | a `wait` declares a correlation variable that has no value |
 | `process.loop.not_a_list` | a `forEach` variable holds no array |
 | `process.limits.max_steps` | the instance entered more steps than `limits.maxSteps`; it is suspended on the step before; a later `ResumeRequested` is rejected with the same code while `StepCount` is at or above the limit |
-| `process.state.malformed` | `ProcessState.FromJson` could not read the text |
+| `process.state.malformed` | `ProcessState.FromJson` could not read the text (not JSON, wrong shape, or a duplicate member name) |
 
 ## Scenarios
 

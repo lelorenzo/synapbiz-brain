@@ -28,7 +28,7 @@ public enum ProcessDelivery
 /// <summary>Something the host must do after it has committed the new state of an instance.</summary>
 /// <param name="Step">The step that produced the request.</param>
 [SuppressMessage(
-    "Major Code Smell",
+    "Design",
     "S1694:An abstract class should have both abstract and concrete methods",
     Justification = "A closed, pattern-matchable hierarchy of sealed records is the point; an interface would lose record value-equality. Same reason as DecisionOutcome in Synapbiz.Brain.Contracts.")]
 public abstract record ProcessRequest(string Step);

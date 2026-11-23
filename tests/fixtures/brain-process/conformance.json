@@ -4714,6 +4714,138 @@
     }
   },
   {
+    "name": "route.unknown_value: a boolean route with a key other than true and false",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "flag",
+            "on": {
+              "true": "e",
+              "false": "e",
+              "maybe": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/maybe"
+        }
+      ]
+    }
+  },
+  {
+    "name": "route.incomplete and unknown_value: a boolean route with only another key",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "route": "flag",
+            "on": {
+              "yes": "e"
+            },
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.route.incomplete",
+          "path": "/body/steps/s/on"
+        },
+        {
+          "code": "process.route.unknown_value",
+          "path": "/body/steps/s/on/yes"
+        }
+      ]
+    }
+  },
+  {
     "name": "route.incomplete: a humanTask that does not route an outcome",
     "context": {
       "rules": []
@@ -4808,6 +4940,600 @@
         }
       ]
     }
+  },
+  {
+    "name": "ai.schema_invalid: an external reference",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "$ref": "http://example.com/x"
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary"
+              ]
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/inputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.schema_invalid: a reference to a missing definition",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "$ref": "#/$defs/q"
+                }
+              }
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.schema_invalid: a top-level reference to a missing definition",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "$ref": "#/$defs/q"
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai: a schema with a pattern that is not a regular expression",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "pattern": "("
+                }
+              }
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai.schema_invalid: an unknown keyword nested in a property",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "typo": 1
+                }
+              }
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": {
+      "errors": [
+        {
+          "code": "process.ai.schema_invalid",
+          "path": "/body/steps/s/outputSchema"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid ai with a local definition",
+    "context": {
+      "rules": [
+        "flag"
+      ]
+    },
+    "document": {
+      "$spec": "brain.process@1",
+      "id": "conf.proc",
+      "version": 1,
+      "uses": [
+        {
+          "$ref": "rule/conf.flag_rule"
+        }
+      ],
+      "requires": [
+        "conf@1"
+      ],
+      "meta": {},
+      "body": {
+        "subject": "case",
+        "stages": [
+          "one",
+          "two"
+        ],
+        "variables": {
+          "count": {
+            "type": "Integer",
+            "input": true,
+            "initial": 3
+          },
+          "label": {
+            "type": "Code"
+          }
+        },
+        "start": "s",
+        "steps": {
+          "s": {
+            "kind": "ai",
+            "port": "p.model",
+            "model": "model-1",
+            "prompt": {
+              "id": "summary",
+              "version": 2
+            },
+            "input": {
+              "text": "label"
+            },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "$ref": "#/$defs/text"
+                }
+              },
+              "required": [
+                "summary"
+              ],
+              "$defs": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "output": {
+              "summary": "label"
+            },
+            "maxAttempts": 2,
+            "next": "d",
+            "onInvalid": "e"
+          },
+          "d": {
+            "kind": "decide",
+            "rule": "conf.flag_rule",
+            "facts": {
+              "count": "count"
+            },
+            "output": {
+              "note": "label"
+            },
+            "next": "e",
+            "onNoDecision": "e"
+          },
+          "e": {
+            "kind": "end",
+            "result": "ok"
+          }
+        }
+      }
+    },
+    "expect": "valid"
   },
   {
     "name": "uses.missing: rule and process",

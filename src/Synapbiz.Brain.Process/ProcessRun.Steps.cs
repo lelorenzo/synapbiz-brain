@@ -150,8 +150,18 @@ internal sealed partial class ProcessRun
             ["output"] = output.DeepClone(),
         });
 
-    private static bool IsValid(JsonSchema schema, JsonNode? instance) =>
-        schema.Evaluate(JsonSerializer.SerializeToElement(instance), new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid;
+    // A schema that cannot be evaluated never throws out of the interpreter: the instance is treated as invalid.
+    private static bool IsValid(JsonSchema schema, JsonNode? instance)
+    {
+        try
+        {
+            return schema.Evaluate(JsonSerializer.SerializeToElement(instance), new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid;
+        }
+        catch (Exception error) when (error is JsonSchemaException or JsonException or InvalidOperationException or ArgumentException)
+        {
+            return false;
+        }
+    }
 
     // 6.3: decide.
     private string? Decide(DecideStep step)
@@ -327,7 +337,7 @@ internal sealed partial class ProcessRun
 
         var index = inbox.FindIndex(buffered =>
             string.Equals(buffered.Name, step.Event, StringComparison.Ordinal)
-            && (step.Correlation is null || string.Equals(buffered.Correlation, correlation, StringComparison.Ordinal)));
+            && (step.Correlation is null || string.Equals(NormalizedCorrelation(step, buffered.Correlation), correlation, StringComparison.Ordinal)));
         if (index >= 0)
         {
             var buffered = inbox[index];
@@ -386,7 +396,15 @@ internal sealed partial class ProcessRun
 
         if (list is not null)
         {
-            variables[step.Item!] = JsonText.Canonical(list[arrival - 1]);
+            // A null element clears the item (no value).
+            if (list[arrival - 1] is { } element)
+            {
+                variables[step.Item!] = JsonText.Canonical(element);
+            }
+            else
+            {
+                variables.Remove(step.Item!);
+            }
         }
 
         Log(ProcessHistoryKind.LoopIteration, null, JsonText.Canonical(new JsonObject { ["iteration"] = arrival }));

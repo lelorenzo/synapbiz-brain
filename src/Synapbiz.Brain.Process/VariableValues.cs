@@ -37,7 +37,7 @@ internal sealed record VariableDef(
 /// </summary>
 internal static partial class VariableValues
 {
-    private const double MaximumSafeInteger = 9_007_199_254_740_991;
+    private const long MaximumSafeInteger = 9_007_199_254_740_991;
 
     /// <summary>The variable type of a type name of the document, or null.</summary>
     internal static VariableType? ParseType(string? name) => name switch
@@ -90,7 +90,7 @@ internal static partial class VariableValues
             VariableType.Decimal => JsonText.Text(node) is { } number && TryDecimal(number, out _) ? Quote(number) : null,
             VariableType.Money => MoneyText(node),
             VariableType.Date => JsonText.Text(node) is { } date && TryDate(date, out _) ? Quote(date) : null,
-            VariableType.Reference => JsonText.Text(node) is { } guid && Guid.TryParseExact(guid, "D", out _) ? Quote(guid) : null,
+            VariableType.Reference => JsonText.Text(node) is { } guid && Guid.TryParseExact(guid, "D", out var parsed) ? Quote(parsed.ToString("D", CultureInfo.InvariantCulture)) : null,
             VariableType.Instant => JsonText.Text(node) is { } instant && TryInstant(instant, out var moment) ? Quote(FormatInstant(moment)) : null,
             _ => JsonText.Canonical(node),
         };
@@ -150,12 +150,11 @@ internal static partial class VariableValues
 
     /// <summary>
     /// Writes the outcome member of a decision as the value of a variable of the same type. The outcome forms of
-    /// Code, Enum, Boolean, Integer, Date and Reference are the document forms of section 2.2. The forms of Decimal and
-    /// Money differ (the rule library writes them as JSON numbers, the document as strings), and the specification does
-    /// not say how to convert them, so they are refused here until it does.
+    /// Code, Enum, Boolean, Integer, Date and Reference are the document forms of section 2.2. The rule library writes a
+    /// Decimal outcome as a JSON number and a Money outcome as <c>{ amount: number, currency }</c>: the variable receives
+    /// the raw lexeme of the number as its string (nothing goes through a binary floating type), and a lexeme that is not
+    /// of the Decimal form (exponent notation, for example) is a type mismatch.
     /// </summary>
-    // Section 7: the rule library writes a Decimal outcome as a JSON number and a Money outcome as { amount: number, currency }.
-    // The variable receives the raw lexeme of the number as its string; nothing goes through a binary floating type.
     internal static bool TryFromOutcome(FactType type, VariableDef target, JsonNode? member, out string? canonical)
     {
         canonical = null;
@@ -185,7 +184,8 @@ internal static partial class VariableValues
         if (node.GetValueKind() != JsonValueKind.Number
             || !decimal.TryParse(node.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
             || decimal.Truncate(number) != number
-            || Math.Abs(number) > (decimal)MaximumSafeInteger)
+            || number < -MaximumSafeInteger
+            || number > MaximumSafeInteger)
         {
             return null;
         }

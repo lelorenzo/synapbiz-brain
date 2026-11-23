@@ -319,7 +319,7 @@ public sealed class WaitingTests
 
         driver.State.Status.Should().Be(ProcessStatus.Suspended);
         driver.State.Problem!.Code.Should().Be("process.variable.type_mismatch");
-        driver.Last.Requests.Should().Equal(new CancelTimerRequest("s", "i-1/s/1/timeout"));
+        driver.Last.Requests.Should().Equal(new CancelWaitRequest("s", "i-1/s/1/wait"), new CancelTimerRequest("s", "i-1/s/1/timeout"));
     }
 
     [Fact]
@@ -387,7 +387,7 @@ public sealed class WaitingTests
         var steps = """{ "kind": "wait", "event": "form_submitted", "correlation": "owner", "next": "ok" }""";
         var driver = Started(steps, """{ "owner": "00000000-0000-0000-0000-00000000000A" }""");
 
-        driver.Single<WaitRequest>().Correlation.Should().Be("00000000-0000-0000-0000-00000000000A");
+        driver.Single<WaitRequest>().Correlation.Should().Be("00000000-0000-0000-0000-00000000000a");
         driver.Send(new EventReceived("form_submitted", "00000000-0000-0000-0000-00000000000A", "{}")).State.Result.Should().Be("ok");
     }
 }

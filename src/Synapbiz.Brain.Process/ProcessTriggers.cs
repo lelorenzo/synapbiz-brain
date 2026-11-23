@@ -30,7 +30,7 @@ public enum ProcessErrorKind
 
 /// <summary>Something that happened outside the interpreter and that <see cref="BrainProcess.Advance"/> applies to an instance.</summary>
 [SuppressMessage(
-    "Major Code Smell",
+    "Design",
     "S1694:An abstract class should have both abstract and concrete methods",
     Justification = "A closed, pattern-matchable hierarchy of sealed records is the point; an interface would lose record value-equality. Same reason as DecisionOutcome in Synapbiz.Brain.Contracts.")]
 public abstract record ProcessTrigger;

@@ -31,12 +31,51 @@ internal static class JsonText
         try
         {
             node = JsonNode.Parse(text);
-            return true;
         }
         catch (Exception error) when (error is JsonException or ArgumentException)
         {
             return false;
         }
+
+        if (HasDuplicateNames(text))
+        {
+            node = null;
+            return false;
+        }
+
+        return true;
+    }
+
+    // Duplicate member names are not valid input anywhere. They are found eagerly, at every depth, so that no later access can throw.
+    private static bool HasDuplicateNames(string text)
+    {
+        var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(text));
+        var objects = new Stack<HashSet<string>>();
+        try
+        {
+            while (reader.Read())
+            {
+                switch (reader.TokenType)
+                {
+                    case JsonTokenType.StartObject:
+                        objects.Push(new HashSet<string>(StringComparer.Ordinal));
+                        break;
+                    case JsonTokenType.EndObject:
+                        objects.Pop();
+                        break;
+                    case JsonTokenType.PropertyName when !objects.Peek().Add(reader.GetString()!):
+                        return true;
+                    default:
+                        break;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+
+        return false;
     }
 
     /// <summary>Parses JSON text that must be an object; null when it is not.</summary>

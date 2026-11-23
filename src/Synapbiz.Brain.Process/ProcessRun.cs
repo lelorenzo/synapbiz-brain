@@ -19,8 +19,10 @@ internal readonly record struct TriggerOutcome(AdvanceDisposition Disposition, s
 /// The status of a run is always the status the returned state has: a step that continues leaves it unchanged, a step that
 /// blocks sets <see cref="ProcessStatus.Waiting"/>, <c>end</c> and suspension set their own.
 /// </summary>
-internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessClock clock)
+internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessClock suppliedClock)
 {
+    // Every instant that leaves the interpreter is UTC, whatever the offset of the supplied clock.
+    private readonly ProcessClock clock = new(suppliedClock.Now.ToUniversalTime(), suppliedClock.Today);
     private readonly SortedDictionary<string, string> variables = new(StringComparer.Ordinal);
     private readonly SortedDictionary<string, int> loopCounters = new(StringComparer.Ordinal);
     private readonly List<BufferedEvent> inbox = [];
@@ -187,23 +189,7 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
             return TriggerOutcome.Stale;
         }
 
-        var step = currentStep!;
-        switch (pending)
-        {
-            case { Kind: ProcessPendingKind.Timer or ProcessPendingKind.RetryDelay } timer:
-                requests.Add(new CancelTimerRequest(step, timer.Id));
-                break;
-            case { Kind: ProcessPendingKind.Wait } wait:
-                requests.Add(new CancelWaitRequest(step, wait.Id));
-                break;
-            case { Kind: ProcessPendingKind.Task } task:
-                requests.Add(new CancelTaskRequest(step, task.Id));
-                break;
-            default:
-                break;
-        }
-
-        CancelTimeoutTimer();
+        CancelOutstanding();
         Log(ProcessHistoryKind.Cancelled, null, Data(("reason", cancel.Reason)));
         status = ProcessStatus.Cancelled;
         currentStep = null;
@@ -269,7 +255,16 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
     private bool CorrelationMatches(WaitStep wait, string? correlation) =>
         wait.Correlation is null
         || (variables.TryGetValue(wait.Correlation, out var text)
-            && string.Equals(JsonText.Text(JsonNode.Parse(text)), correlation, StringComparison.Ordinal));
+            && string.Equals(JsonText.Text(JsonNode.Parse(text)), NormalizedCorrelation(wait, correlation), StringComparison.Ordinal));
+
+    // A Reference is stored lower-case, so a correlation that names one compares equal whatever the case it arrives in.
+    private string? NormalizedCorrelation(WaitStep wait, string? correlation) =>
+        wait.Correlation is not null
+        && definition.Variables[wait.Correlation].Type == VariableType.Reference
+        && correlation is not null
+        && Guid.TryParseExact(correlation, "D", out var guid)
+            ? guid.ToString("D", CultureInfo.InvariantCulture)
+            : correlation;
 
     private TriggerOutcome ReceiveResult(ProcessTrigger trigger)
     {
@@ -356,9 +351,31 @@ internal sealed partial class ProcessRun(ProcessDefinition definition, ProcessCl
         }
     }
 
+    // Cancels what the instance waits for: a timer or retry delay, a wait or a task, and the timeout timer of a wait or a task.
+    private void CancelOutstanding()
+    {
+        var step = currentStep!;
+        switch (pending)
+        {
+            case { Kind: ProcessPendingKind.Timer or ProcessPendingKind.RetryDelay } timer:
+                requests.Add(new CancelTimerRequest(step, timer.Id));
+                break;
+            case { Kind: ProcessPendingKind.Wait } wait:
+                requests.Add(new CancelWaitRequest(step, wait.Id));
+                break;
+            case { Kind: ProcessPendingKind.Task } task:
+                requests.Add(new CancelTaskRequest(step, task.Id));
+                break;
+            default:
+                break;
+        }
+
+        CancelTimeoutTimer();
+    }
+
     private void Suspend(string code, string? detail)
     {
-        CancelTimeoutTimer();
+        CancelOutstanding();
         pending = null;
         status = ProcessStatus.Suspended;
         problem = new ProcessProblem(code, currentStep!, detail);

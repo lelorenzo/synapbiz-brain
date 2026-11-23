@@ -90,7 +90,7 @@ public sealed class StartTests
         state.Variables["ratio"].Should().Be("\"1.50\"");
         state.Variables["price"].Should().Be("{\"amount\":\"2.5\",\"currency\":\"USD\"}");
         state.Variables["day"].Should().Be("\"2027-01-04\"");
-        state.Variables["owner"].Should().Be("\"00000000-0000-0000-0000-00000000000A\"");
+        state.Variables["owner"].Should().Be("\"00000000-0000-0000-0000-00000000000a\"");
         state.Variables["moment"].Should().Be("\"2027-01-04T08:00:00Z\"");
         state.Variables["blob"].Should().Be("{\"a\":[1,2],\"z\":1}");
         state.Variables.Keys.Should().BeInAscendingOrder(StringComparer.Ordinal);
