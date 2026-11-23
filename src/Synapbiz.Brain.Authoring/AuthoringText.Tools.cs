@@ -15,15 +15,15 @@ internal static partial class AuthoringText
     {
         T("say.guide.list", "Here are the sections of the guide. Read the working method first, then the sections you need.", "Aquí están las secciones de la guía. Lee primero el método de trabajo y después las secciones que necesites.");
         T("say.guide.section", "Here is that section of the guide.", "Esta es esa sección de la guía.");
-        T("say.catalog.open", "The host has not limited what processes may use, so everything the format allows is available. There are {rules} approved rules.", "El anfitrión no ha limitado lo que pueden usar los procesos, así que está disponible todo lo que permite el formato. Hay {rules} reglas aprobadas.");
-        T("say.catalog.some", "Available here: {ports} ports, {events} events, {queues} task queues and {rules} rules.", "Disponible aquí: {ports} puertos, {events} eventos, {queues} colas de tareas y {rules} reglas.");
-        T("say.flow.list", "There are {n} approved processes and {d} drafts in progress.", "Hay {n} procesos aprobados y {d} borradores en curso.");
+        T("say.catalog.open", "The host has not limited what processes may use, so everything the format allows is available. Approved rules: {rules}.", "El anfitrión no ha limitado lo que pueden usar los procesos, así que está disponible todo lo que permite el formato. Reglas aprobadas: {rules}.");
+        T("say.catalog.some", "Available here: ports {ports}, events {events}, task queues {queues}, rules {rules}.", "Disponible aquí: puertos {ports}, eventos {events}, colas de tareas {queues}, reglas {rules}.");
+        T("say.flow.list", "Approved processes: {n}. Drafts in progress: {d}.", "Procesos aprobados: {n}. Borradores en curso: {d}.");
         T("say.flow.get", "The process {title} (version {version}) has {steps} steps; {pass} of its {total} tests pass.", "El proceso {title} (versión {version}) tiene {steps} pasos; {pass} de sus {total} pruebas pasan.");
         T("say.flow.notloading", "The approved process {id} is not accepted by Brain; its errors are listed.", "Brain no acepta el proceso aprobado {id}; sus errores están en la lista.");
-        T("say.draft.refused", "Brain does not accept this draft yet: {n} problems. The first: {first}", "Brain todavía no acepta este borrador: {n} problemas. El primero: {first}");
+        T("say.draft.refused", "Brain does not accept this draft yet. Problems found: {n}. The first: {first}", "Brain todavía no acepta este borrador. Problemas encontrados: {n}. El primero: {first}");
         T("say.draft.tests", "{pass} of {total} tests pass.", "{pass} de {total} pruebas pasan.");
         T("say.draft.ready", "The draft of {title} is ready to propose. {tests}", "El borrador de {title} está listo para proponer. {tests}");
-        T("say.draft.notready", "Brain accepts the draft of {title}, but it is not ready to propose: {n} things to fix. The first: {first} {tests}", "Brain acepta el borrador de {title}, pero no está listo para proponer: {n} cosas por corregir. La primera: {first} {tests}");
+        T("say.draft.notready", "Brain accepts the draft of {title}, but it is not ready to propose. Things to fix: {n}. The first: {first} {tests}", "Brain acepta el borrador de {title}, pero no está listo para proponer. Cosas por corregir: {n}. La primera: {first} {tests}");
         T("say.scenario.added", "The test {name} was added and it passes.", "Se añadió la prueba {name} y pasa.");
         T("say.scenario.addedfailing", "The test {name} was added but it does not pass.", "Se añadió la prueba {name} pero no pasa.");
         T("change.nobase", "The approved process this draft came from cannot be read, so there is nothing to compare it with.", "No se puede leer el proceso aprobado del que viene este borrador, así que no hay con qué compararlo.");
@@ -50,12 +50,12 @@ internal static partial class AuthoringText
 
     private static void AddRuleSay()
     {
-        T("say.rule.list", "There are {n} approved rules and {d} drafts in progress.", "Hay {n} reglas aprobadas y {d} borradores en curso.");
+        T("say.rule.list", "Approved rules: {n}. Drafts in progress: {d}.", "Reglas aprobadas: {n}. Borradores en curso: {d}.");
         T("say.rule.get", "The rule {title} (version {version}) has {rows} rows; {pass} of its {total} tests pass.", "La regla {title} (versión {version}) tiene {rows} filas; {pass} de sus {total} pruebas pasan.");
         T("say.rule.notloading", "The approved rule {id} is not accepted by Brain; its errors are listed.", "Brain no acepta la regla aprobada {id}; sus errores están en la lista.");
-        T("say.rule.refused", "Brain does not accept this rule draft yet: {n} problems. The first: {first}", "Brain todavía no acepta este borrador de regla: {n} problemas. El primero: {first}");
+        T("say.rule.refused", "Brain does not accept this rule draft yet. Problems found: {n}. The first: {first}", "Brain todavía no acepta este borrador de regla. Problemas encontrados: {n}. El primero: {first}");
         T("say.rule.ready", "The draft of the rule {title} is accepted and its tests pass ({pass} of {total}).", "El borrador de la regla {title} se acepta y sus pruebas pasan ({pass} de {total}).");
-        T("say.rule.failing", "The draft of the rule {title} is accepted, but {n} of its tests do not pass. The first: {name}.", "El borrador de la regla {title} se acepta, pero {n} de sus pruebas no pasan. La primera: {name}.");
+        T("say.rule.failing", "The draft of the rule {title} is accepted, but some of its tests do not pass (how many: {n}). The first: {name}.", "El borrador de la regla {title} se acepta, pero algunas de sus pruebas no pasan (cuántas: {n}). La primera: {name}.");
         T("say.rule.review.needed", "A proposal of this change would be reviewed by our team first.", "Una propuesta de este cambio la revisaría primero nuestro equipo.");
         T("say.rule.review.notneeded", "A proposal of this change stays within what the rule reads and gives, so the clinic that approves it can apply it.", "Una propuesta de este cambio se queda dentro de lo que la regla lee y da, así que la clínica que la apruebe puede aplicarla.");
         T("say.rule.sim.failed", "The engine refused these facts: {detail}", "El motor rechazó estos datos: {detail}");
@@ -63,8 +63,8 @@ internal static partial class AuthoringText
         T("say.rule.sim.defaultrow", "the default row", "la fila por defecto");
         T("say.rule.sim.row", "Row {row} decides: {sentence}", "Decide la fila {row}: {sentence}");
         T("say.rule.sim.none", "No row applies to these facts, so the rule decides nothing.", "Ninguna fila se aplica a estos datos, así que la regla no decide nada.");
-        T("say.rule.test.pass", "All tests pass. {uncovered} rows are not reached by any passing test.", "Todas las pruebas pasan. {uncovered} filas no las alcanza ninguna prueba que pase.");
-        T("say.rule.test.fail", "{n} tests do not pass. The first: {name}.", "{n} pruebas no pasan. La primera: {name}.");
+        T("say.rule.test.pass", "All tests pass. Rows that no passing test reaches: {uncovered}.", "Todas las pruebas pasan. Filas que ninguna prueba que pase alcanza: {uncovered}.");
+        T("say.rule.test.fail", "Tests that do not pass: {n}. The first: {name}.", "Pruebas que no pasan: {n}. La primera: {name}.");
         T("rule.review.kind_changed", "the kind of decision changed", "cambió el tipo de decisión");
         T("rule.review.hit_policy_changed", "the way rows are chosen changed", "cambió la forma de elegir las filas");
         T("rule.review.new_fact_read", "a row now reads a fact that no row read before", "una fila lee ahora un dato que ninguna fila leía antes");
@@ -77,7 +77,7 @@ internal static partial class AuthoringText
         T("say.propose.flow", "The proposal for the process {id} is written at {location}. It changes nothing: our team reviews it before anything is activated.", "La propuesta para el proceso {id} está escrita en {location}. No cambia nada: nuestro equipo la revisa antes de activar algo.");
         T("say.propose.rule.review", "The proposal for the rule {id} is written at {location}. It goes beyond what the rule reads or gives, so our team reviews it first. It changes nothing until then.", "La propuesta para la regla {id} está escrita en {location}. Va más allá de lo que la regla lee o da, así que la revisa primero nuestro equipo. No cambia nada hasta entonces.");
         T("say.propose.rule.clinic", "The proposal for the rule {id} is written at {location}. It stays within what the rule reads and gives. It changes nothing until the person who approves it applies it.", "La propuesta para la regla {id} está escrita en {location}. Se queda dentro de lo que la regla lee y da. No cambia nada hasta que la persona que la aprueba la aplique.");
-        T("say.proposal.list", "There are {n} proposals.", "Hay {n} propuestas.");
+        T("say.proposal.list", "Proposals written so far: {n}.", "Propuestas escritas hasta ahora: {n}.");
         T("say.proposal.get", "Here is the proposal {name}.", "Esta es la propuesta {name}.");
         T("proposal.flow.head", "Proposal to change the process {id} (new version {version}).", "Propuesta para cambiar el proceso {id} (nueva versión {version}).");
         T("proposal.flow.head.new", "Proposal for a new process {id} (version {version}).", "Propuesta de un proceso nuevo {id} (versión {version}).");
@@ -125,7 +125,7 @@ internal static partial class AuthoringText
         T("refuse.rule.edit_invalid", "Change number {n} cannot be used: {detail}", "El cambio número {n} no se puede usar: {detail}");
         T("refuse.rule.edit_failed", "A change to the rule could not be applied: {detail}", "No se pudo aplicar un cambio a la regla: {detail}");
         T("refuse.rule.facts_invalid", "These facts cannot be used: {detail}", "Estos datos no se pueden usar: {detail}");
-        T("refuse.proposal.not_ready", "This draft is not ready to propose: {n} things to fix. The first: {first}", "Este borrador no está listo para proponer: {n} cosas por corregir. La primera: {first}");
+        T("refuse.proposal.not_ready", "This draft is not ready to propose. Things to fix: {n}. The first: {first}", "Este borrador no está listo para proponer. Cosas por corregir: {n}. La primera: {first}");
         T("refuse.proposal.inconsistent", "The proposal does not hold together (reason {code}); see the details.", "La propuesta no es coherente (motivo {code}); mira los detalles.");
         T("refuse.proposal.base_stale", "The approved version of {id} changed after the draft was made. Make the draft again from the current version.", "La versión aprobada de {id} cambió después de hacer el borrador. Haz el borrador de nuevo desde la versión actual.");
         T("refuse.proposal.not_found", "There is no proposal called {name}.", "No hay ninguna propuesta llamada {name}.");

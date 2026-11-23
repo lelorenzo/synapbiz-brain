@@ -8,13 +8,15 @@ public static partial class StoreIds
     /// <summary>The longest id or name.</summary>
     public const int MaximumLength = 120;
 
-    /// <summary>True when the text is a letter, digit or underscore followed by letters, digits, <c>_</c>, <c>.</c> and <c>-</c>, at most 120 characters, with no <c>..</c> and no trailing dot.</summary>
+    /// <summary>True when the text is a letter, digit or underscore followed by letters, digits, <c>_</c>, <c>.</c> and <c>-</c>, at most 120 characters, with no <c>..</c>, no trailing dot and no ending <c>.draft</c> or <c>.tmp</c>, which the store keeps for itself.</summary>
     /// <param name="id">The candidate id.</param>
     public static bool IsValid(string? id) =>
         id is { Length: > 0 and <= MaximumLength }
         && Pattern().IsMatch(id)
         && !id.Contains("..", StringComparison.Ordinal)
-        && !id.EndsWith('.');
+        && !id.EndsWith('.')
+        && !id.EndsWith(".draft", StringComparison.OrdinalIgnoreCase)
+        && !id.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Throws <see cref="ArgumentException"/> unless <see cref="IsValid"/>.</summary>
     /// <param name="id">The candidate id.</param>

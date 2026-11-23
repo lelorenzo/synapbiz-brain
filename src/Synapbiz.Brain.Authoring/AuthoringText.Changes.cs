@@ -6,7 +6,7 @@ internal static partial class AuthoringText
     {
         T("change.new", "A new process {title} with {steps} steps and {tests} tests.", "Un proceso nuevo {title} con {steps} pasos y {tests} pruebas.");
         T("change.summary.none", "Nothing changed in the process.", "No cambió nada en el proceso.");
-        T("change.summary.some", "{n} changes: {parts}.", "{n} cambios: {parts}.");
+        T("change.summary.some", "What changed: {parts}.", "Qué cambió: {parts}.");
         T("change.summary.notests", "The earlier version had no tests to replay.", "La versión anterior no tenía pruebas que repetir.");
         T("change.summary.allsame", "All {n} tests of the earlier version still behave as before.", "Las {n} pruebas de la versión anterior se comportan como antes.");
         T("change.summary.somedifferent", "{k} of the {n} tests of the earlier version now behave differently.", "{k} de las {n} pruebas de la versión anterior ahora se comportan distinto.");
