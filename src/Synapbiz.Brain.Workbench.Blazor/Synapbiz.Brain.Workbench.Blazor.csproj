@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Synapbiz.Brain.Workbench.Blazor</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Workbench.Blazor</AssemblyName>
+    <PackageId>Synapbiz.Brain.Workbench.Blazor</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Blazor panels of the rule workbench for brain.rule@1: rule list, reader, simulator, test cases and review, styled only by host-supplied tokens.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
+  </ItemGroup>
+
+</Project>
