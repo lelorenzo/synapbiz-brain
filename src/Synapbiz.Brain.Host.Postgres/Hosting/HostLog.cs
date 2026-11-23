@@ -43,4 +43,25 @@ internal static partial class HostLog
 
     [LoggerMessage(EventId = 12, Level = LogLevel.Warning, Message = "process.item.failed: {Kind} item of tenant {TenantId} instance {InstanceId} item {ItemId} failed with {ExceptionType}; the item is left as it was and the pass goes on")]
     internal static partial void ItemFailed(ILogger logger, string kind, string tenantId, string instanceId, string itemId, string exceptionType);
+
+    [LoggerMessage(EventId = 13, Level = LogLevel.Warning, Message = "process.trigger.no_business_key: tenant {TenantId} event {EventId} named {EventName} has no usable business key for process {ProcessId}; no instance is started for that trigger")]
+    internal static partial void NoBusinessKey(ILogger logger, string tenantId, string eventId, string eventName, string processId);
+
+    [LoggerMessage(EventId = 14, Level = LogLevel.Information, Message = "process.schedule.fired: tenant {TenantId} process {ProcessId} schedule {ScheduleId} occurrence {Occurrence} queued a start (started {Started})")]
+    internal static partial void ScheduleFired(ILogger logger, string tenantId, string processId, string scheduleId, string occurrence, bool started);
+
+    [LoggerMessage(EventId = 15, Level = LogLevel.Warning, Message = "process.schedule.misfired: tenant {TenantId} process {ProcessId} schedule {ScheduleId} policy {Policy} missed occurrences up to {Occurrence} (fired {Fired})")]
+    internal static partial void ScheduleMisfired(ILogger logger, string tenantId, string processId, string scheduleId, string policy, string occurrence, bool fired);
+
+    [LoggerMessage(EventId = 16, Level = LogLevel.Warning, Message = "process.definition.unavailable: tenant {TenantId} schedule {ScheduleId} of process {ProcessId} needs version {ProcessVersion}; the schedule is left for a later pass")]
+    internal static partial void ScheduleDefinitionUnavailable(ILogger logger, string tenantId, string scheduleId, string processId, long processVersion);
+
+    [LoggerMessage(EventId = 17, Level = LogLevel.Warning, Message = "process.window.zone_unknown: tenant {TenantId} instance {InstanceId} step {Step} timer {TimerId} names a time zone the host cannot resolve")]
+    internal static partial void WindowZoneUnknown(ILogger logger, string tenantId, string instanceId, string step, string timerId);
+
+    [LoggerMessage(EventId = 18, Level = LogLevel.Information, Message = "process.activation.saved: tenant {TenantId} process {ProcessId} version {ProcessVersion} changed {Changed}")]
+    internal static partial void ActivationSaved(ILogger logger, string tenantId, string processId, long processVersion, bool changed);
+
+    [LoggerMessage(EventId = 19, Level = LogLevel.Information, Message = "process.activation.removed: tenant {TenantId} process {ProcessId} removed {Removed}")]
+    internal static partial void ActivationRemoved(ILogger logger, string tenantId, string processId, bool removed);
 }

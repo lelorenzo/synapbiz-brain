@@ -159,3 +159,53 @@ internal sealed class FailingProtector : IPayloadProtector
     public string Unprotect(string tenantId, string protectedText) =>
         Armed && tenantId == failingTenant ? throw new InvalidOperationException(Message) : protectedText;
 }
+
+/// <summary>
+/// The zones of the tests, built without a system time zone database: the resolver the host is given instead of the default one.
+/// A test adds the ids it needs; an id nobody added is unknown to the host.
+/// </summary>
+internal sealed class TestZoneResolver : IZoneResolver
+{
+    private readonly ConcurrentDictionary<string, TimeZoneInfo> zones = new(StringComparer.Ordinal);
+    private readonly ConcurrentQueue<string> asked = new();
+
+    /// <summary>
+    /// A zone of the United States pattern: UTC-5, one hour of daylight saving from 02:00 on the second Sunday of March (the clock
+    /// jumps to 03:00) to 02:00 on the first Sunday of November (the clock goes back to 01:00). In 2027 the two transitions are on 14
+    /// March and on 7 November.
+    /// </summary>
+    internal static TimeZoneInfo Eastern { get; } = CreateEastern();
+
+    /// <summary>A zone with a fixed offset of +05:30 and no daylight saving.</summary>
+    internal static TimeZoneInfo Fixed { get; } = TimeZoneInfo.CreateCustomTimeZone("Test/Fixed", new TimeSpan(5, 30, 0), "Fixed", "Fixed");
+
+    internal TestZoneResolver()
+    {
+        Add("America/New_York", Eastern);
+        Add("Test/Fixed", Fixed);
+        Add("UTC", TimeZoneInfo.Utc);
+    }
+
+    internal void Add(string id, TimeZoneInfo zone) => zones[id] = zone;
+
+    internal void Remove(string id) => zones.TryRemove(id, out _);
+
+    internal void Clear() => zones.Clear();
+
+    /// <summary>Every id the host asked this resolver for, in order: what a test checks to show that an id of the wrong shape never got this far.</summary>
+    internal IReadOnlyCollection<string> Asked => [.. asked];
+
+    public TimeZoneInfo? Find(string id)
+    {
+        asked.Enqueue(id);
+        return zones.GetValueOrDefault(id);
+    }
+
+    private static TimeZoneInfo CreateEastern()
+    {
+        var start = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 2, 0, 0, DateTimeKind.Unspecified), 3, 2, DayOfWeek.Sunday);
+        var end = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 2, 0, 0, DateTimeKind.Unspecified), 11, 1, DayOfWeek.Sunday);
+        var rule = TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(DateTime.MinValue.Date, DateTime.MaxValue.Date, TimeSpan.FromHours(1), start, end);
+        return TimeZoneInfo.CreateCustomTimeZone("Test/Eastern", TimeSpan.FromHours(-5), "Eastern", "Eastern standard", "Eastern daylight", [rule]);
+    }
+}

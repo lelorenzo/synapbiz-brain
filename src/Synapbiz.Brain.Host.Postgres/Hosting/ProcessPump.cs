@@ -30,7 +30,8 @@ internal sealed class ProcessPump : IProcessPump
     /// <inheritdoc />
     public async Task<int> RunOnceAsync(CancellationToken cancellationToken = default)
     {
-        var handled = await ExpiredLeasesAsync(cancellationToken).ConfigureAwait(false);
+        var handled = await SchedulesAsync(cancellationToken).ConfigureAwait(false);
+        handled += await ExpiredLeasesAsync(cancellationToken).ConfigureAwait(false);
         handled += await InboxAsync(cancellationToken).ConfigureAwait(false);
         handled += await TimersAsync(cancellationToken).ConfigureAwait(false);
         handled += await EffectsAsync(cancellationToken).ConfigureAwait(false);
@@ -60,6 +61,79 @@ internal sealed class ProcessPump : IProcessPump
             return true;
         }
     }
+
+    /// <summary>
+    /// The first step of a pass: the schedules that are due. Each is handled in one transaction that locks its row
+    /// (<c>for update skip locked</c>) and re-reads it under the lock, so that two pumps never handle the same schedule at once, and the
+    /// start it queues has a business key per occurrence, so that two pumps can never start two instances for one occurrence.
+    /// </summary>
+    private async Task<int> SchedulesAsync(CancellationToken cancellationToken)
+    {
+        return await ScanAsync(
+            WorkKind.DueSchedule,
+            item => FireScheduleAsync(new ScheduleKey(item.TenantId, item.ProcessId!, item.ItemId), cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> FireScheduleAsync(ScheduleKey key, CancellationToken cancellationToken)
+    {
+        var session = await store.BeginAsync(cancellationToken).ConfigureAwait(false);
+        await using (session.ConfigureAwait(false))
+        {
+            var record = await session.LockScheduleAsync(key, true, cancellationToken).ConfigureAwait(false);
+            if (record is null)
+            {
+                return false;
+            }
+
+            var now = runtime.Time.GetUtcNow();
+            var row = record.Row;
+            if (row.NextFireAt > now)
+            {
+                // Another pump handled it between the scan and the lock.
+                return true;
+            }
+
+            var process = runtime.Find(row.ProcessId, record.ProcessVersion, record.ProcessHash);
+            if (process is null)
+            {
+                HostLog.ScheduleDefinitionUnavailable(runtime.Logger, row.TenantId, row.ScheduleId, row.ProcessId, record.ProcessVersion);
+                return false;
+            }
+
+            var declaration = process.Triggers.OfType<ScheduleTriggerDeclaration>().FirstOrDefault(trigger => trigger.Id == row.ScheduleId)
+                ?? throw new InvalidOperationException("The pinned definition no longer declares the schedule.");
+            var zone = runtime.FindZone(row.Zone) ?? throw new InvalidOperationException("The zone of the schedule is no longer known to the host.");
+            if (!CronSchedule.TryParse(row.Cron, out var cron))
+            {
+                throw new InvalidOperationException("The cron expression of the schedule is not valid.");
+            }
+
+            var plan = SchedulePlanner.Plan(cron, zone, row.Misfire, row.NextFireAt, now, options.ScheduleMisfireGrace);
+            var started = false;
+            if (plan.Fire is { } occurrence)
+            {
+                var input = TriggerInputs.ScheduleInput(runtime.Unprotect(row.TenantId, record.ProtectedInput), declaration, occurrence, zone);
+                started = await runtime.QueueStartAsync(
+                    session,
+                    new NewInstance(row.TenantId, Guid.NewGuid().ToString("N"), row.ProcessId, record.ProcessVersion, record.ProcessHash, TriggerInputs.ScheduleBusinessKey(row.ScheduleId, occurrence), null, null, now),
+                    input.ToJsonString(),
+                    cancellationToken).ConfigureAwait(false);
+                HostLog.ScheduleFired(runtime.Logger, row.TenantId, row.ProcessId, row.ScheduleId, Occurrence(occurrence), started);
+            }
+
+            if (plan.Misfired)
+            {
+                HostLog.ScheduleMisfired(runtime.Logger, row.TenantId, row.ProcessId, row.ScheduleId, row.Misfire.ToString(), Occurrence(plan.Last), plan.Fire is not null);
+            }
+
+            await session.SaveScheduleAsync(key, plan.NextFireAt, cancellationToken).ConfigureAwait(false);
+            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+    }
+
+    private static string Occurrence(DateTimeOffset occurrence) => occurrence.UtcDateTime.ToString("yyyyMMdd'T'HHmm'Z'", CultureInfo.InvariantCulture);
 
     private async Task<int> ExpiredLeasesAsync(CancellationToken cancellationToken)
     {
@@ -116,7 +190,13 @@ internal sealed class ProcessPump : IProcessPump
         }
         catch (Exception exception) when (!(exception is OperationCanceledException && cancellationToken.IsCancellationRequested))
         {
-            HostLog.ItemFailed(runtime.Logger, kind, item.TenantId, item.InstanceId, item.ItemId, exception.GetType().FullName ?? nameof(Exception));
+            HostLog.ItemFailed(
+                runtime.Logger,
+                kind,
+                item.TenantId,
+                item.InstanceId,
+                item.ProcessId is null ? item.ItemId : item.ProcessId + "/" + item.ItemId,
+                exception.GetType().FullName ?? nameof(Exception));
             return false;
         }
     }

@@ -422,6 +422,18 @@ public sealed class AiTests
     }
 
     [Fact]
+    public void AnOutputThatIsNoTextAtAllCountsAsInvalidAndNeverThrows()
+    {
+        var driver = Started(Steps("1"));
+
+        var complete = () => driver.Send(new EffectCompleted("i-1/s/1/1", null!));
+
+        complete.Should().NotThrow();
+        driver.State.Result.Should().Be("manual");
+        driver.History.Should().Contain(entry => entry.Code == "process.ai.output_invalid");
+    }
+
+    [Fact]
     public void AnOutputThatPassesTheSchemaButNotTheVariableTypeCountsAsInvalid()
     {
         var steps = Steps("1").Replace("\"score\": { \"type\": \"integer\" }", "\"score\": { \"type\": \"number\" }", StringComparison.Ordinal);
@@ -430,6 +442,110 @@ public sealed class AiTests
         driver.Send(new EffectCompleted("i-1/s/1/1", """{ "answer": "yes", "score": 1.5 }"""));
 
         driver.State.Result.Should().Be("manual");
+    }
+
+    private static string WithTags(string uniqueness = "true") =>
+        Steps("1").Replace(
+            "\"score\": { \"type\": \"integer\" } } }",
+            "\"score\": { \"type\": \"integer\" }, \"tags\": { \"type\": \"array\", \"uniqueItems\": " + uniqueness + " } } }",
+            StringComparison.Ordinal);
+
+    [Theory]
+    [InlineData("1e400")]
+    [InlineData("-1e400")]
+    [InlineData("123456789012345678901234567890")]
+    public void ANumberTheSchemaCannotCompareDoesNotMakeTheInterpreterThrow(string number)
+    {
+        var driver = Started(WithTags());
+
+        var distinct = () => driver.Send(new EffectCompleted("i-1/s/1/1", $$"""{ "answer": "yes", "score": 12, "tags": [{{number}}, "x"] }"""));
+
+        distinct.Should().NotThrow();
+        driver.State.Result.Should().Be("ok");
+    }
+
+    [Fact]
+    public void TwoEqualNumbersTheSchemaCannotCompareAreJudgedAsDuplicates()
+    {
+        var driver = Started(WithTags());
+
+        var duplicated = () => driver.Send(new EffectCompleted("i-1/s/1/1", """{ "answer": "yes", "score": 12, "tags": [1e400, 1e400] }"""));
+
+        duplicated.Should().NotThrow();
+        driver.State.Result.Should().Be("manual");
+        driver.History.Should().Contain(entry => entry.Code == "process.ai.output_invalid");
+    }
+
+    [Theory]
+    [InlineData("1e400")]
+    [InlineData("-1e400")]
+    [InlineData("123456789012345678901234567890")]
+    public void ASchemaNumberThatIsNotADecimalNeverMakesTheLoaderOrTheInterpreterThrow(string number)
+    {
+        var steps = Steps(inputSchema: $$"""{ "type": "object", "required": ["case"], "properties": { "case": { "maxLength": {{number}} } } }""");
+        var text = Docs.Text(Variables, steps, uses: """[{ "$ref": "rule/conf.flag_rule" }]""");
+        var load = () => BrainProcessLoader.Load(text, new ProcessLoadContext([Docs.FlagRule]));
+
+        var loaded = load.Should().NotThrow().Subject;
+
+        if (loaded.Process is { } process)
+        {
+            var driver = new Driver(process);
+            var start = () => driver.Start("""{ "case_ref": "c-1" }""");
+            start.Should().NotThrow();
+            driver.State.Status.Should().Be(ProcessStatus.Waiting);
+        }
+        else
+        {
+            loaded.Errors.Should().Contain(error => error.Code == "process.ai.schema_invalid");
+        }
+    }
+
+    [Theory]
+    [InlineData("123456789012345678901234567890")]
+    [InlineData("1e400")]
+    public void AnOutputBoundThatIsNotADecimalNeverMakesTheInterpreterThrow(string bound)
+    {
+        var steps = Steps("1").Replace("\"score\": { \"type\": \"integer\" } } }", "\"score\": { \"type\": \"integer\", \"maximum\": " + bound + " } } }", StringComparison.Ordinal);
+        var text = Docs.Text(Variables, steps, uses: """[{ "$ref": "rule/conf.flag_rule" }]""");
+        var loaded = BrainProcessLoader.Load(text, new ProcessLoadContext([Docs.FlagRule]));
+        var driver = new Driver(loaded.Process ?? throw new InvalidOperationException("The test document does not load."));
+        driver.Start("""{ "case_ref": "c-1" }""");
+
+        var complete = () => driver.Send(new EffectCompleted("i-1/s/1/1", """{ "answer": "yes", "score": 12 }"""));
+
+        complete.Should().NotThrow();
+        driver.State.Result.Should().Be("ok");
+    }
+
+    private static BrainProcessLoadResult LoadWithInputSchema(string inputSchema) =>
+        BrainProcessLoader.Load(Docs.Text(Variables, Steps(inputSchema: inputSchema), uses: """[{ "$ref": "rule/conf.flag_rule" }]"""), new ProcessLoadContext([Docs.FlagRule]));
+
+    [Theory]
+    [InlineData("""{ "type": "object", "properties": { "case": { "$ref": "#/$defs/code" } }, "$defs": { "code": { "type": "string" } } }""")]
+    [InlineData("""{ "allOf": [{ "type": "object", "required": ["case"] }], "properties": { "case": { "type": "string" }, "next": { "$ref": "#/allOf/0" } } }""")]
+    [InlineData("""{ "type": "object", "properties": { "case": { "type": "string" }, "next": { "$ref": "#" } } }""")]
+    [InlineData("""{ "type": "object", "properties": { "case": { "$ref": "#code" } }, "$defs": { "code": { "$anchor": "code", "type": "string" } } }""")]
+    public void AReferenceThatResolvesInsideTheSchemaIsAccepted(string inputSchema)
+    {
+        var loaded = LoadWithInputSchema(inputSchema);
+
+        loaded.Errors.Should().BeEmpty();
+        loaded.Process.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData("""{ "type": "object", "properties": { "case": { "$ref": "#/allOf/9" } }, "allOf": [{ "type": "object" }] }""")]
+    [InlineData("""{ "type": "object", "properties": { "case": { "$ref": "#/type/x" } } }""")]
+    [InlineData("""{ "type": "object", "properties": { "case": { "$ref": "#/allOf/first" } }, "allOf": [{ "type": "object" }] }""")]
+    [InlineData("""{ "type": "object", "properties": { "case": { "$ref": "#/$defs/missing" } } }""")]
+    [InlineData("""{ "type": "object", "properties": { "case": { "$ref": "#nowhere" } } }""")]
+    public void AReferenceThatDoesNotResolveInsideTheSchemaIsReportedAtTheSchema(string inputSchema)
+    {
+        var loaded = LoadWithInputSchema(inputSchema);
+
+        loaded.Process.Should().BeNull();
+        loaded.Errors.Should().Contain(error => error.Code == "process.ai.schema_invalid" && error.Path == "/body/steps/s/inputSchema");
     }
 
     [Fact]

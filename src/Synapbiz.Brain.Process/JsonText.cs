@@ -19,7 +19,10 @@ internal static class JsonText
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    /// <summary>Parses JSON text; false when the text is not valid I-JSON (syntax, depth or duplicate member names).</summary>
+    /// <summary>
+    /// Parses JSON text; false when the text is not valid I-JSON: syntax, depth, duplicate member names, or a string (or member name)
+    /// with an unpaired surrogate, which no later access could read. A text that is not valid never throws.
+    /// </summary>
     internal static bool TryParse(string? text, out JsonNode? node)
     {
         node = null;
@@ -37,7 +40,7 @@ internal static class JsonText
             return false;
         }
 
-        if (HasDuplicateNames(text))
+        if (!IsSound(text))
         {
             node = null;
             return false;
@@ -46,8 +49,10 @@ internal static class JsonText
         return true;
     }
 
-    // Duplicate member names are not valid input anywhere. They are found eagerly, at every depth, so that no later access can throw.
-    private static bool HasDuplicateNames(string text)
+    // Duplicate member names and unreadable strings are not valid input anywhere. They are found eagerly, at every depth, so that no
+    // later access can throw: the member names of a parsed object are indexed lazily, and a string that holds an unpaired surrogate
+    // (the escape \ud800 on its own) only throws when it is read.
+    private static bool IsSound(string text)
     {
         var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(text));
         var objects = new Stack<HashSet<string>>();
@@ -64,18 +69,21 @@ internal static class JsonText
                         objects.Pop();
                         break;
                     case JsonTokenType.PropertyName when !objects.Peek().Add(reader.GetString()!):
-                        return true;
+                        return false;
+                    case JsonTokenType.String:
+                        _ = reader.GetString();
+                        break;
                     default:
                         break;
                 }
             }
         }
-        catch (JsonException)
+        catch (Exception error) when (error is JsonException or InvalidOperationException)
         {
             return false;
         }
 
-        return false;
+        return true;
     }
 
     /// <summary>Parses JSON text that must be an object; null when it is not.</summary>
@@ -107,8 +115,18 @@ internal static class JsonText
         path + "/" + index.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>The string a node holds, or null when the node is absent or not a string.</summary>
-    internal static string? Text(JsonNode? node) =>
-        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    internal static string? Text(JsonNode? node)
+    {
+        try
+        {
+            return node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+        }
+        catch (InvalidOperationException)
+        {
+            // A string that holds an unpaired surrogate cannot be read: it is no string.
+            return null;
+        }
+    }
 
     /// <summary>JSON equality: objects by member, arrays by position, numbers by value, everything else by text.</summary>
     internal static bool Equal(JsonNode? left, JsonNode? right)

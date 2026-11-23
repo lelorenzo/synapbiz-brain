@@ -10,6 +10,25 @@ internal sealed class RequiresInstanceLockAttribute : Attribute
 {
 }
 
+/// <summary>
+/// Marks the session operations that write an activation and the event trigger and schedule rows that belong to it. Each one takes
+/// the <see cref="ActivationKey"/> as its first argument and fails with <see cref="InvalidOperationException"/> unless the session
+/// holds the activation lock for that key, which serialises concurrent activations and deactivations of one process of one tenant.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+internal sealed class RequiresActivationLockAttribute : Attribute
+{
+}
+
+/// <summary>
+/// Marks the session operations that write a schedule row while the pump handles it. Each one takes the <see cref="ScheduleKey"/>
+/// as its first argument and fails with <see cref="InvalidOperationException"/> unless the session holds the row lock for that key.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+internal sealed class RequiresScheduleLockAttribute : Attribute
+{
+}
+
 /// <summary>The whole persistence surface of the host. Nothing outside an implementation of it knows a database API.</summary>
 internal interface IProcessStore
 {
@@ -138,6 +157,52 @@ internal interface IProcessSession : IAsyncDisposable
     /// only by case.
     /// </summary>
     Task<IReadOnlyList<WaitCandidate>> FindWaitingInstancesAsync(string tenantId, string eventName, string? correlation, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Takes the transaction-scoped lock that serialises activations and deactivations of one process of one tenant. It touches no
+    /// instance and no schedule row, so it cannot take part in a cycle with the instance lock order.
+    /// </summary>
+    Task LockActivationAsync(ActivationKey key, CancellationToken cancellationToken);
+
+    /// <summary>Reads the activation of a process, if any.</summary>
+    Task<ActivationRecord?> GetActivationAsync(ActivationKey key, CancellationToken cancellationToken);
+
+    /// <summary>Inserts the activation row or replaces it.</summary>
+    [RequiresActivationLock]
+    Task SaveActivationAsync(ActivationKey key, ActivationRecord activation, CancellationToken cancellationToken);
+
+    /// <summary>Deletes the activation row; false when there was none.</summary>
+    [RequiresActivationLock]
+    Task<bool> DeleteActivationAsync(ActivationKey key, CancellationToken cancellationToken);
+
+    /// <summary>Replaces all the event trigger rows of the activation.</summary>
+    [RequiresActivationLock]
+    Task ReplaceEventTriggersAsync(ActivationKey key, IReadOnlyList<EventTriggerRow> rows, CancellationToken cancellationToken);
+
+    /// <summary>Reads the schedule rows of the activation and locks them (waiting for a pump that is handling one), so that what is read is what a pump left.</summary>
+    [RequiresActivationLock]
+    Task<IReadOnlyList<ScheduleRow>> GetSchedulesForUpdateAsync(ActivationKey key, CancellationToken cancellationToken);
+
+    /// <summary>Inserts a schedule row or replaces its definition and next fire time.</summary>
+    [RequiresActivationLock]
+    Task UpsertScheduleAsync(ActivationKey key, ScheduleRow row, CancellationToken cancellationToken);
+
+    /// <summary>Deletes the schedule rows of the activation whose id is not in <paramref name="keep"/>.</summary>
+    [RequiresActivationLock]
+    Task DeleteSchedulesExceptAsync(ActivationKey key, IReadOnlyCollection<string> keep, CancellationToken cancellationToken);
+
+    /// <summary>The event triggers of a tenant for an event name, with the activation each belongs to, in process id order.</summary>
+    Task<IReadOnlyList<EventTriggerRecord>> FindEventTriggersAsync(string tenantId, string eventName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Selects a schedule row <c>for update</c> together with the activation it belongs to; with <paramref name="skipLocked"/> a row
+    /// locked by someone else gives null, and so does a row that is gone.
+    /// </summary>
+    Task<ScheduleRecord?> LockScheduleAsync(ScheduleKey key, bool skipLocked, CancellationToken cancellationToken);
+
+    /// <summary>Sets the next fire time of a schedule row.</summary>
+    [RequiresScheduleLock]
+    Task SaveScheduleAsync(ScheduleKey key, DateTimeOffset nextFireAt, CancellationToken cancellationToken);
 
     /// <summary>Commits the transaction.</summary>
     Task CommitAsync(CancellationToken cancellationToken);

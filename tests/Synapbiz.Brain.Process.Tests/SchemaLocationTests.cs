@@ -59,6 +59,31 @@ public sealed partial class SchemaLocationTests
         tested.Should().BeGreaterThan(25);
     }
 
+    [Fact]
+    public void TheFollowupProcessHasOnlyTheOneErrorToo()
+    {
+        var text = TestFiles.Read(TestFiles.Fixtures + "followup.process.json");
+        var document = JsonNode.Parse(text)!;
+        var tested = 0;
+        var failures = new List<string>();
+        var paths = ObjectPaths(document, "").Where(path => IsClosed(path)).ToList();
+
+        foreach (var path in paths)
+        {
+            var copy = JsonNode.Parse(text)!;
+            Navigate(copy, path).AsObject()["zzz"] = 1;
+
+            var result = BrainProcessLoader.Load(copy.ToJsonString(), new ProcessLoadContext([TestFiles.FollowupRule()]));
+
+            Check(failures, $"followup: '{path}'", result, path);
+            tested++;
+        }
+
+        failures.Should().BeEmpty();
+        paths.Should().Contain(["/body/triggers/0", "/body/triggers/1", "/body/windows", "/body/windows/contact_hours", "/body/steps/send", "/body/steps/await_reply", "/body/scenarios/0/zones"]);
+        tested.Should().BeGreaterThan(30);
+    }
+
     private static void Check(List<string> failures, string where, BrainProcessLoadResult result, string path)
     {
         var actual = result.Errors.Select(error => error.Code + "@" + error.Path).ToList();

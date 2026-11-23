@@ -34,11 +34,26 @@ internal static class Fixtures
         return Load(Read(ProcessFixtures + "outreach.process.json"), [rule]);
     }
 
+    /// <summary>The follow-up process of the interpreter library (a contact action in a delivery window, then a poll), loaded against its synthetic contract and rule.</summary>
+    internal static BrainProcess Followup()
+    {
+        var contract = BrainContract.Parse(Read(ProcessFixtures + "followup.contract.json"));
+        var rule = BrainRuleLoader.Load(Read(ProcessFixtures + "followup.rule.json"), [contract]).Rule
+            ?? throw new InvalidOperationException("The follow-up rule does not load.");
+        return Load(Read(ProcessFixtures + "followup.process.json"), [rule]);
+    }
+
+    /// <summary>The text of the follow-up process document.</summary>
+    internal static string FollowupText() => Read(ProcessFixtures + "followup.process.json");
+
     /// <summary>The text of the reference outreach process document.</summary>
     internal static string OutreachText() => Read(ProcessFixtures + "outreach.process.json");
 
     /// <summary>A process of <c>tests/fixtures/brain-host</c>, by file name without the extension.</summary>
     internal static BrainProcess Host(string name) => Load(Read(HostFixtures + name + ".process.json"), []);
+
+    /// <summary>A process of <c>tests/fixtures/brain-host</c> with its text changed by <paramref name="edit"/> (another version, another cron expression), loaded as a document of its own.</summary>
+    internal static BrainProcess HostEdited(string name, Func<string, string> edit) => Load(edit(Read(HostFixtures + name + ".process.json")), []);
 
     private static BrainProcess Load(string text, IReadOnlyCollection<BrainRule> rules)
     {

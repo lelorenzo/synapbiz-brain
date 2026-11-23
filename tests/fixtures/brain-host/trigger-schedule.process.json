@@ -1,0 +1,26 @@
+{
+  "$spec": "brain.process@1",
+  "id": "host.trigger_schedule",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": { "title": "Started by three schedules: a daily one in its own zone and two hourly ones that take the zone of the activation" },
+  "body": {
+    "subject": "case",
+    "stages": [],
+    "variables": {
+      "run_for": { "type": "Date", "input": true },
+      "fired_at": { "type": "Instant", "input": true },
+      "site": { "type": "Code", "input": true }
+    },
+    "triggers": [
+      { "kind": "schedule", "id": "daily", "cron": "0 6 * * *", "zone": "America/New_York", "misfire": "fireOnce", "input": { "run_for": "scheduledDate", "fired_at": "scheduledFor" } },
+      { "kind": "schedule", "id": "hourly_skip", "cron": "0 * * * *", "misfire": "skip", "input": { "fired_at": "scheduledFor" } },
+      { "kind": "schedule", "id": "hourly_once", "cron": "0 * * * *", "misfire": "fireOnce", "input": { "fired_at": "scheduledFor" } }
+    ],
+    "start": "done",
+    "steps": {
+      "done": { "kind": "end", "result": "ran" }
+    }
+  }
+}

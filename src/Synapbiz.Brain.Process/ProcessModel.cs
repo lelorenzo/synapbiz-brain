@@ -17,6 +17,7 @@ internal enum StepKind
     Loop,
     Subprocess,
     End,
+    Poll,
 }
 
 /// <summary>A reference from a step to another step: the target and the pointer of the member that holds it, relative to the step.</summary>
@@ -100,11 +101,72 @@ internal sealed record ReadStep(
 /// <summary>An <c>action</c> step.</summary>
 internal sealed record ActionStep(
     string Id, string? Stage, string Port, Mapping Input, Mapping Output, RetryPolicy Retry, string Next,
-    string? OnError, string? OnNotAvailable, string? OnNotEntitled, bool AtMostOnce, string? OnUnknown)
+    string? OnError, string? OnNotAvailable, string? OnNotEntitled, bool AtMostOnce, string? OnUnknown,
+    bool Contact = false, string? Window = null)
     : EffectStep(Id, Stage, Port, Input, Output, Retry, Next, OnError, OnNotAvailable, OnNotEntitled, OnUnknown)
 {
     internal override StepKind Kind => StepKind.Action;
 }
+
+/// <summary>
+/// A <c>poll</c> step: it reads a port, evaluates a rule on the result and, until the rule's field takes one of the
+/// <see cref="Until"/> values, reads again after an interval that is fixed or doubles each round, until the time is up.
+/// </summary>
+internal sealed record PollStep(
+    string Id, string? Stage, string Port, Mapping Input, Mapping Output, RetryPolicy Retry, string Next,
+    string? OnError, string? OnNotAvailable, string? OnNotEntitled, string Rule, Mapping Facts, string Field,
+    IReadOnlyList<string> Until, TimeSpan Every, bool Exponential, TimeSpan? Max, TimeSpan MaxDuration, string OnExpired)
+    : EffectStep(Id, Stage, Port, Input, Output, Retry, Next, OnError, OnNotAvailable, OnNotEntitled, null)
+{
+    // Beyond this an interval is longer than any poll can last, so doubling stops: the arithmetic never overflows.
+    private static readonly long Saturation = TimeSpan.FromDays(4 * 3660).Ticks;
+
+    internal override StepKind Kind => StepKind.Poll;
+
+    internal override IEnumerable<StepRef> References() => EffectReferences().Concat(Optional(OnExpired, "onExpired"));
+
+    internal override IEnumerable<(string Variable, string Member)> VariableUses() =>
+        base.VariableUses().Concat(MappedVariables(Facts, "facts"));
+
+    /// <summary>The wait after round <paramref name="round"/> (from 1): <c>every</c>, doubled each round when exponential, never above <c>max</c>.</summary>
+    internal TimeSpan IntervalAfter(int round)
+    {
+        var ticks = Every.Ticks;
+        for (var doubling = 1; Exponential && doubling < round && ticks < Saturation; doubling++)
+        {
+            ticks *= 2;
+        }
+
+        if (Max is { } cap && ticks > cap.Ticks)
+        {
+            ticks = cap.Ticks;
+        }
+
+        return TimeSpan.FromTicks(Math.Min(ticks, Saturation));
+    }
+
+    /// <summary>The number of rounds that fit in <c>maxDuration</c>, counted up to <paramref name="stopAfter"/> + 1.</summary>
+    internal int CountRounds(int stopAfter)
+    {
+        var rounds = 1;
+        var elapsed = TimeSpan.Zero;
+        while (rounds <= stopAfter)
+        {
+            elapsed += IntervalAfter(rounds);
+            if (elapsed > MaxDuration)
+            {
+                break;
+            }
+
+            rounds++;
+        }
+
+        return rounds;
+    }
+}
+
+/// <summary>A delivery window of the document. <see cref="To"/> is 00:00 for a window that closes at the end of the day.</summary>
+internal sealed record WindowDef(string Name, string? Zone, string? ZoneVariable, IReadOnlyList<DayOfWeek> Days, TimeOnly From, TimeOnly To);
 
 /// <summary>An <c>ai</c> step.</summary>
 internal sealed record AiStep(
@@ -239,6 +301,10 @@ internal sealed class ProcessDefinition
     internal required IReadOnlyList<(string Reference, int Index)> Uses { get; init; }
 
     internal required JsonObject Meta { get; init; }
+
+    internal IReadOnlyList<ProcessTriggerDeclaration> Triggers { get; init; } = [];
+
+    internal IReadOnlyDictionary<string, WindowDef> Windows { get; init; } = new Dictionary<string, WindowDef>(StringComparer.Ordinal);
 
     internal required JsonArray Scenarios { get; init; }
 

@@ -1573,14 +1573,14 @@
             "result": "ok"
           }
         },
-        "triggers": []
+        "unknownMember": []
       }
     },
     "expect": {
       "errors": [
         {
           "code": "spec.structure.schema",
-          "path": "/body/triggers"
+          "path": "/body/unknownMember"
         }
       ]
     }

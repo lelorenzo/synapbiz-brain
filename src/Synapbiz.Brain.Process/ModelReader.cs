@@ -1,5 +1,7 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Json.Schema;
 using Synapbiz.Brain.Spec;
 
@@ -10,8 +12,19 @@ namespace Synapbiz.Brain.Process;
 /// every member; what the schema cannot say (durations, initial values, JSON Schemas of ai steps) is checked here and
 /// reported into <c>errors</c>.
 /// </summary>
-internal sealed class ModelReader(List<BrainSpecError> errors)
+internal sealed partial class ModelReader(List<BrainSpecError> errors)
 {
+    private static readonly Dictionary<string, DayOfWeek> WeekDays = new(StringComparer.Ordinal)
+    {
+        ["mon"] = DayOfWeek.Monday,
+        ["tue"] = DayOfWeek.Tuesday,
+        ["wed"] = DayOfWeek.Wednesday,
+        ["thu"] = DayOfWeek.Thursday,
+        ["fri"] = DayOfWeek.Friday,
+        ["sat"] = DayOfWeek.Saturday,
+        ["sun"] = DayOfWeek.Sunday,
+    };
+
     internal ProcessDefinition Read(JsonObject root, string json)
     {
         var body = root["body"]!.AsObject();
@@ -32,8 +45,122 @@ internal sealed class ModelReader(List<BrainSpecError> errors)
             Uses = [.. root["uses"]!.AsArray().Select((use, index) => (JsonText.Text(use!["$ref"])!, index))],
             Meta = (JsonObject)root["meta"]!.AsObject().DeepClone(),
             Scenarios = body["scenarios"] is JsonArray scenarios ? (JsonArray)scenarios.DeepClone() : [],
+            Triggers = ReadTriggers(body["triggers"]),
+            Windows = ReadWindows(body["windows"]),
         };
     }
+
+    // The declarations are handed out through BrainProcess.Triggers, so the list and the input maps are read-only: a cast cannot change the definition.
+    private static ReadOnlyCollection<ProcessTriggerDeclaration> ReadTriggers(JsonNode? node)
+    {
+        var result = new List<ProcessTriggerDeclaration>();
+        foreach (var item in (node as JsonArray ?? []).Select(item => item!.AsObject()))
+        {
+            var input = ReadInput(item["input"]);
+            result.Add(JsonText.Text(item["kind"]) == "event"
+                ? new EventTriggerDeclaration(JsonText.Text(item["event"])!, JsonText.Text(item["businessKey"])!, input)
+                : ReadSchedule(item, input));
+        }
+
+        return result.AsReadOnly();
+    }
+
+    private static ScheduleTriggerDeclaration ReadSchedule(JsonObject item, ReadOnlyDictionary<string, string> input)
+    {
+        var misfire = JsonText.Text(item["misfire"]) == "skip" ? ProcessMisfire.Skip : ProcessMisfire.FireOnce;
+        return new ScheduleTriggerDeclaration(JsonText.Text(item["id"])!, JsonText.Text(item["cron"])!, JsonText.Text(item["zone"]), misfire, input);
+    }
+
+    private static ReadOnlyDictionary<string, string> ReadInput(JsonNode? node) =>
+        new(new SortedDictionary<string, string>(
+            (node as JsonObject ?? []).ToDictionary(entry => entry.Key, entry => JsonText.Text(entry.Value)!, StringComparer.Ordinal),
+            StringComparer.Ordinal));
+
+    private Dictionary<string, WindowDef> ReadWindows(JsonNode? node)
+    {
+        var result = new Dictionary<string, WindowDef>(StringComparer.Ordinal);
+        foreach (var (name, window) in node as JsonObject ?? [])
+        {
+            result[name] = ReadWindow(name, window!.AsObject(), JsonText.Pointer("/body/windows", name));
+        }
+
+        return result;
+    }
+
+    // A window that is not valid is reported and still read, with what could be made of it: the document does not load.
+    private WindowDef ReadWindow(string name, JsonObject window, string path)
+    {
+        string? zone = null;
+        string? variable = null;
+        if (window["zone"] is JsonObject reference)
+        {
+            variable = JsonText.Text(reference["variable"]);
+        }
+        else
+        {
+            zone = JsonText.Text(window["zone"]);
+            if (!LocalTimes.IsZoneIdShape(zone))
+            {
+                errors.Add(Diagnostics.BadWindow(path + "/zone"));
+            }
+        }
+
+        var days = ReadDays(window["days"], path + "/days");
+        var from = ReadClock(window["from"], false, path + "/from");
+        var to = ReadClock(window["to"], true, path + "/to");
+        if (from is { } opens && to is { } closes && closes <= opens)
+        {
+            errors.Add(Diagnostics.BadWindow(path + "/to"));
+        }
+
+        return new WindowDef(name, zone, variable, days, ToClock(from ?? 0), ToClock(to ?? 0));
+    }
+
+    private List<DayOfWeek> ReadDays(JsonNode? node, string path)
+    {
+        var days = new List<DayOfWeek>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var valid = (node as JsonArray ?? []).Count > 0;
+        foreach (var text in (node as JsonArray ?? []).Select(item => JsonText.Text(item)))
+        {
+            if (text is null || !WeekDays.TryGetValue(text, out var day) || !seen.Add(text))
+            {
+                valid = false;
+            }
+            else
+            {
+                days.Add(day);
+            }
+        }
+
+        if (!valid)
+        {
+            errors.Add(Diagnostics.BadWindow(path));
+        }
+
+        return days;
+    }
+
+    // Minutes of the day of an HH:mm text; 24:00 (the end of the day) is 1440 and allowed for the closing time only.
+    private int? ReadClock(JsonNode? node, bool closing, string path)
+    {
+        var match = JsonText.Text(node) is { } text ? ClockPattern().Match(text) : Match.Empty;
+        if (match.Success)
+        {
+            var minutes = (int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) * 60)
+                + int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+            if (minutes < 24 * 60 || (closing && minutes == 24 * 60))
+            {
+                return minutes;
+            }
+        }
+
+        errors.Add(Diagnostics.BadWindow(path));
+        return null;
+    }
+
+    // The TimeOnly of the specification: 24:00 is written 00:00.
+    private static TimeOnly ToClock(int minutes) => new((minutes / 60) % 24, minutes % 60);
 
     private static List<string> Strings(JsonNode? node) =>
         node is JsonArray array ? [.. array.Select(item => JsonText.Text(item)!)] : [];
@@ -109,9 +236,10 @@ internal sealed class ModelReader(List<BrainSpecError> errors)
         return JsonText.Text(step["kind"]) switch
         {
             "read" => new ReadStep(id, stage, Port(step), ReadMapping(step["input"]), ReadMapping(step["output"]), ReadRetry(step, path), Next(step), OnError(step), Route(step, "onNotAvailable"), Route(step, "onNotEntitled")),
-            "action" => new ActionStep(id, stage, Port(step), ReadMapping(step["input"]), ReadMapping(step["output"]), ReadRetry(step, path), Next(step), OnError(step), Route(step, "onNotAvailable"), Route(step, "onNotEntitled"), JsonText.Text(step["delivery"]) == "atMostOnce", Route(step, "onUnknown")),
+            "action" => new ActionStep(id, stage, Port(step), ReadMapping(step["input"]), ReadMapping(step["output"]), ReadRetry(step, path), Next(step), OnError(step), Route(step, "onNotAvailable"), Route(step, "onNotEntitled"), JsonText.Text(step["delivery"]) == "atMostOnce", Route(step, "onUnknown"), step["contact"]?.GetValue<bool>() ?? false, JsonText.Text(step["window"])),
             "ai" => ReadAi(id, stage, step, path),
             "decide" => ReadDecide(id, stage, step),
+            "poll" => ReadPoll(id, stage, step, path),
             "humanTask" => new HumanTaskStep(id, stage, JsonText.Text(step["queue"])!, Strings(step["outcomes"]), Strings(step["show"]), ReadMapping(step["output"]), ReadTable(step["on"])!, ReadDuration(step, "timeout", path), Route(step, "onTimeout")),
             "wait" => new WaitStep(id, stage, JsonText.Text(step["event"])!, JsonText.Text(step["correlation"]), ReadMapping(step["output"]), Next(step), ReadDuration(step, "timeout", path), Route(step, "onTimeout")),
             "timer" => new TimerStep(id, stage, ReadDuration(step, "after", path), JsonText.Text(step["until"]), ReadDuration(step, "offset", path, signed: true), Next(step)),
@@ -142,6 +270,28 @@ internal sealed class ModelReader(List<BrainSpecError> errors)
             JsonText.Text(step["collectInto"]),
             JsonText.Text(step["onNoDecision"])!,
             OnError(step));
+
+    private PollStep ReadPoll(string id, string? stage, JsonObject step, string path) =>
+        new(
+            id,
+            stage,
+            Port(step),
+            ReadMapping(step["input"]),
+            ReadMapping(step["output"]),
+            ReadRetry(step, path),
+            Next(step),
+            OnError(step),
+            Route(step, "onNotAvailable"),
+            Route(step, "onNotEntitled"),
+            JsonText.Text(step["rule"])!,
+            ReadMapping(step["facts"]),
+            JsonText.Text(step["field"])!,
+            Strings(step["until"]),
+            ReadDuration(step, "every", path) ?? TimeSpan.Zero,
+            JsonText.Text(step["backoff"]) == "exponential",
+            ReadDuration(step, "max", path),
+            ReadDuration(step, "maxDuration", path) ?? TimeSpan.Zero,
+            Route(step, "onExpired")!);
 
     private AiStep ReadAi(string id, string? stage, JsonObject step, string path)
     {
@@ -290,4 +440,7 @@ internal sealed class ModelReader(List<BrainSpecError> errors)
         errors.Add(Diagnostics.BadDuration(JsonText.Pointer(path, member)));
         return TimeSpan.Zero;
     }
+
+    [GeneratedRegex(@"\A([01][0-9]|2[0-4]):([0-5][0-9])\z", RegexOptions.CultureInvariant)]
+    private static partial Regex ClockPattern();
 }

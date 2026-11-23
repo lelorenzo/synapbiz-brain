@@ -79,6 +79,51 @@ public sealed class ConcurrencyTests
     }
 
     [Fact]
+    public async Task FourPumpsInParallelFireEveryOccurrenceOfEveryScheduleExactlyOnce()
+    {
+        const int Hours = 60;
+        await using var rig = await Rig.CreateAsync();
+        rig.Catalog.Add(Fixtures.Host("trigger-schedule"));
+        await rig.Engine.ActivateAsync(new ProcessActivation(rig.Tenant, "host.trigger_schedule", "UTC", "{\"site\":\"s-1\"}"));
+        var pumps = new[] { rig.Pump, rig.NewPump(), rig.NewPump(), rig.NewPump() };
+
+        for (var hour = 0; hour < Hours; hour++)
+        {
+            // The clock only moves while no pump runs, so every occurrence is on time and handled by whichever pump gets to it first.
+            rig.Time.Advance(TimeSpan.FromHours(1));
+            var gate = new TaskCompletionSource();
+            var running = pumps.Select(pump => Task.Run(async () =>
+            {
+                await gate.Task;
+                var handled = await pump.RunOnceAsync();
+                while (handled > 0)
+                {
+                    handled = await pump.RunOnceAsync();
+                }
+            })).ToList();
+            gate.SetResult();
+            await Task.WhenAll(running).WaitAsync(TimeSpan.FromMinutes(2));
+        }
+
+        await rig.DrainAsync();
+
+        // The clock runs 60 hours from 14:00 UTC on 4 January to 02:00 UTC on the 7th: 60 occurrences of each hourly schedule and two of
+        // the daily one (06:00 in New York is 11:00 UTC, on the 5th and on the 6th).
+        var hourly = await rig.ColumnAsync<string>("select business_key from {schema}.process_instance where business_key like '@schedule/hourly_skip/%' order by business_key");
+        hourly.Should().HaveCount(Hours).And.OnlyHaveUniqueItems();
+        (await rig.CountAsync("process_instance", "business_key like '@schedule/hourly_once/%'")).Should().Be(Hours);
+        var daily = await rig.CountAsync("process_instance", "business_key like '@schedule/daily/%'");
+        daily.Should().Be(2);
+        (await rig.CountAsync("process_instance")).Should().Be(Hours * 2 + daily);
+        (await rig.CountAsync("process_instance", "status = 4 and result = 'ran'")).Should().Be(Hours * 2 + daily);
+        (await rig.CountAsync("process_inbox", "kind = 1")).Should().Be(Hours * 2 + daily, "one start per occurrence, however many pumps saw it");
+        var fired = rig.Logs.Entries.Where(entry => entry.EventId.Id == 14).ToList();
+        fired.Should().HaveCount((int)(Hours * 2 + daily), "each occurrence was fired by exactly one pump");
+        fired.Should().OnlyContain(entry => entry.Message.EndsWith("(started True)", StringComparison.Ordinal));
+        rig.Logs.Entries.Should().NotContain(entry => entry.EventId.Id == 12 || entry.EventId.Id == 15, "no item failed and no occurrence was missed");
+    }
+
+    [Fact]
     public async Task CompletingATaskWhilePumpsFireItsTimeoutNeverDeadlocksAndEndsInExactlyOneOutcome()
     {
         await using var rig = await Rig.CreateAsync();
