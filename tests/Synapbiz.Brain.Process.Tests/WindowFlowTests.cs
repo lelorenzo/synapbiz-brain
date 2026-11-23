@@ -269,4 +269,21 @@ public sealed class WindowFlowTests
 
         driver.Single<EffectRequest>().Delivery.Should().Be(ProcessDelivery.AtMostOnce);
     }
+
+    [Fact]
+    public void ATimeoutTimerOfAStepThatHasNoTimeoutIsIgnored()
+    {
+        // A stored state that names a timeout timer on an action step (no step of that kind has one): the timer is stale.
+        var process = Docs.Load(Variables, Steps(), Windows);
+        var started = process.Start("i-1", Docs.Input("""{ "case_ref": "c-1", "zone": "Europe/Paris" }"""), Docs.Clock());
+        var json = started.State.ToJson();
+        var edited = json.Replace("\"timeoutTimerId\":null", "\"timeoutTimerId\":\"i-1/s/1/odd\"", StringComparison.Ordinal);
+        edited.Should().NotBe(json);
+        var state = ProcessState.FromJson(edited);
+
+        var result = process.Advance(state, new TimerFired("i-1/s/1/odd"), Docs.Clock());
+
+        result.Disposition.Should().Be(AdvanceDisposition.Ignored);
+        result.State.Should().Be(state);
+    }
 }

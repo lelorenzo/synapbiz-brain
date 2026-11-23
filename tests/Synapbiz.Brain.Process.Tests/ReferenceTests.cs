@@ -240,6 +240,24 @@ public sealed class ScenarioRunnerTests
     }
 
     [Fact]
+    public void TheTimersOfStepsThatAreOverNeverFireAfterwards()
+    {
+        var events = """
+            [
+              { "complete": "r", "output": { "n": 1 } },
+              { "child": "c", "result": "done" },
+              { "task": "t", "outcome": "go" },
+              { "event": "ping", "payload": {} },
+              { "advance": "P3D" }
+            ]
+            """;
+
+        var result = Run(events, """{ "status": "Completed", "result": "ok", "trace": ["r", "c", "t", "w", "ok"] }""");
+
+        result.IsOk.Should().BeTrue(because: result.Results[0].Failure);
+    }
+
+    [Fact]
     public void ACancelAndAFailedChildAreEvents()
     {
         var failed = Run("""[ { "complete": "r" }, { "childFailed": "c", "code": "child.broken" } ]""", """{ "status": "Completed", "result": "bad" }""");

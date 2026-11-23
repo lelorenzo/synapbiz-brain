@@ -159,13 +159,25 @@ internal sealed partial class ProcessRun
     {
         try
         {
-            return schema.Evaluate(JsonSerializer.SerializeToElement(instance), new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid;
+            try
+            {
+                return Evaluate(schema, instance);
+            }
+            catch (FormatException)
+            {
+                // A number that is not a decimal (1e400, thirty digits) cannot be compared by value, for example when the schema
+                // asks for unique items: it is judged as the largest magnitude a decimal holds, with its sign.
+                return Evaluate(schema, ProcessSchema.WithRepresentableNumbers(instance));
+            }
         }
-        catch (Exception error) when (error is JsonSchemaException or JsonException or InvalidOperationException or ArgumentException)
+        catch (Exception error) when (error is JsonSchemaException or JsonException or InvalidOperationException or ArgumentException or FormatException)
         {
             return false;
         }
     }
+
+    private static bool Evaluate(JsonSchema schema, JsonNode? instance) =>
+        schema.Evaluate(JsonSerializer.SerializeToElement(instance), new EvaluationOptions { OutputFormat = OutputFormat.Flag }).IsValid;
 
     // 6.3: decide.
     private string? Decide(DecideStep step)

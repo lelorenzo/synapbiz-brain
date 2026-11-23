@@ -47,9 +47,9 @@ internal static class ProcessSchema
             JsonSerializer.SerializeToElement(document),
             new EvaluationOptions { OutputFormat = OutputFormat.List });
 
-    // A copy of the document in which every number that is not a decimal is replaced by the largest magnitude of its sign (or by zero
-    // when it is too close to zero to be one), so that the evaluation can compare it. The structure, and so every path, is unchanged.
-    private static JsonNode? WithRepresentableNumbers(JsonNode? node)
+    // A copy of the document in which every number that is not a decimal is replaced by the largest magnitude of its sign, so that the
+    // evaluation can compare it. The structure, and so every path, is unchanged.
+    internal static JsonNode? WithRepresentableNumbers(JsonNode? node)
     {
         switch (node)
         {
@@ -64,13 +64,8 @@ internal static class ProcessSchema
             case JsonArray items:
                 return new JsonArray([.. items.Select(WithRepresentableNumbers)]);
             case JsonValue value when value.GetValueKind() == JsonValueKind.Number && !JsonSerializer.SerializeToElement(value).TryGetDecimal(out _):
-                var magnitude = double.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture);
-                if (Math.Abs(magnitude) < 1)
-                {
-                    return JsonValue.Create(0m);
-                }
-
-                return JsonValue.Create(magnitude < 0 ? decimal.MinValue : decimal.MaxValue);
+                // A number too close to zero is read as a decimal (it rounds to zero), so what is left is too large in magnitude.
+                return JsonValue.Create(double.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture) < 0 ? decimal.MinValue : decimal.MaxValue);
             default:
                 return node?.DeepClone();
         }

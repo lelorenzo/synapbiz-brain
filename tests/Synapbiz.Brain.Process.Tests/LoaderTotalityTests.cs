@@ -17,6 +17,8 @@ public sealed class LoaderTotalityTests
         "123456789012345678901234567890",
         "1.5e999999999",
         "0.0000000000000000000000000000000001",
+        "1e-400",
+        "-1e-400",
     };
 
     private static string Document(string uses = "[]", string requires = "[]", string stages = "[]", string until = "[\"yes\"]") =>
