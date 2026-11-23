@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Synapbiz.Brain.Authoring</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Authoring</AssemblyName>
+    <PackageId>Synapbiz.Brain.Authoring</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>Headless authoring tools for Brain flows and rules: a workspace of approved documents, drafts and proposals, a catalog of what a host offers, the tools as plain functions with a JSON Schema each (read, draft, check, simulate, propose), the flow differ with plain-language change texts, the proposal documents and the readiness checks. No model, no transport, no network.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The two worked examples of brain_guide are the reference documents themselves, so the guide cannot drift from them. -->
+    <EmbeddedResource Include="../../samples/process-reference/practice.daily_refresh/process.json" LogicalName="Guide.daily_refresh.process.json" />
+    <EmbeddedResource Include="../../samples/process-reference/visit.note_wait/process.json" LogicalName="Guide.note_wait.process.json" />
+    <EmbeddedResource Include="../../samples/process-reference/visit.note_wait/note_ready.rule.json" LogicalName="Guide.note_wait.rule.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Synapbiz.Brain.Authoring.Tests" />
+  </ItemGroup>
+
+</Project>
