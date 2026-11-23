@@ -56,7 +56,7 @@
 - [x] `brain.rule-proposal@1`: serialise, parse, error codes
 - [x] Null guards, purity scan and coupling tests unchanged and green
 - [x] Docs: reference page, spec, overview, changelog
-- [ ] Independent verification of every gate
+- [x] Independent verification of every gate
 
 ### W-C2 — panels
 
