@@ -657,7 +657,7 @@
     };
 
     /// <summary>One control of a form, by the kind of the field, with its label, its hint and, when its text could not be read, its error.</summary>
-    private RenderFragment FieldControl(string id, string refKey, FlowFormField field, string value, bool invalid, Action<ChangeEventArgs> change)
+    private RenderFragment FieldControl(string id, string refKey, string label, FlowFormField field, string value, bool invalid, Action<ChangeEventArgs> change)
     {
         var hintKey = HintKey(field);
         var describedBy = (invalid ? id + "-err " : string.Empty) + (hintKey is not null ? id + "-hint" : string.Empty);
@@ -665,7 +665,7 @@
         var css = invalid ? "wb-in wb-in-err" : "wb-in";
         var ariaInvalid = invalid ? "true" : null;
         return @<div class="wb-field">
-            <label class="wb-label" for="@id">@WorkbenchText.Humanize(field.Name)</label>
+            <label class="wb-label" for="@id">@label</label>
             @switch (field.Kind)
             {
                 case FlowFieldKind.YesNo:
@@ -723,11 +723,11 @@
                 var name = field.Name;
                 var value = work.StartValues.TryGetValue(name, out var typed) ? typed : string.Empty;
                 <div class="wb-field-gap">
-                    @FieldControl(FieldId("start:" + name), StartFieldRef(name), field, value, work.StartInvalid.Contains(name), args => SetStartValue(work, name, args))
+                    @FieldControl(FieldId("start:" + name), StartFieldRef(name), Labelled(name), field, value, work.StartInvalid.Contains(name), args => SetStartValue(work, name, args))
                 </div>
             }
             <div class="wb-field wb-field-gap">
-                @FieldControl(FieldId("start:at"), StartFieldRef(StartRef), new FlowFormField("start", "Instant", FlowFieldKind.DateTime), StartAtText(work), atInvalid, args => SetStartAt(work, args))
+                @FieldControl(FieldId("start:at"), StartFieldRef(StartRef), Plain("flow.try.start.at"), new FlowFormField("start", "Instant", FlowFieldKind.DateTime), StartAtText(work), atInvalid, args => SetStartAt(work, args))
             </div>
             @if (work.StartRefusal is { } refusal)
             {
@@ -811,7 +811,7 @@
                     <dl class="wb-kv">
                         @foreach (var pair in variables)
                         {
-                            <dt>@WorkbenchText.Humanize(pair.Key)</dt>
+                            <dt>@Labelled(pair.Key)</dt>
                             <dd>@VarText(pair.Value)</dd>
                         }
                     </dl>
@@ -934,7 +934,7 @@
                 <dl class="wb-kv">
                     @foreach (var (name, value) in shown)
                     {
-                        <dt>@WorkbenchText.Humanize(name)</dt>
+                        <dt>@Labelled(name)</dt>
                         <dd>@value</dd>
                     }
                 </dl>
@@ -968,7 +968,7 @@
                 var name = field.Name;
                 var key = FieldKey(wait.Id, name);
                 <div class="wb-field-gap">
-                    @FieldControl(FieldId(key), FieldRefOf(wait.Id, name), field, InputOf(frame, key), invalid.Contains(name), args => SetInput(frame, key, args))
+                    @FieldControl(FieldId(key), FieldRefOf(wait.Id, name), Labelled(name), field, InputOf(frame, key), invalid.Contains(name), args => SetInput(frame, key, args))
                 </div>
             }
             <div class="wb-actions"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => SendEvent(d, work, frame, wait)">@Rich("flow.try.event.send")</button></div>
@@ -1183,18 +1183,26 @@
             }
             @if (work.Proposed.Count > 0)
             {
+                var checks = FlowReviewCheck.Against(BuildReview(d, work), d.Process).Scenarios;
                 <h2 class="wb-h2">@Rich("flow.tests.proposedTitle")</h2>
                 <p class="wb-sub">@Rich("flow.tests.proposedHelp")</p>
                 <ul class="wb-flow-list wb-plain-list">
-                    @foreach (var name in work.Proposed.Select(item => item.Name))
+                    @foreach (var check in checks)
                     {
+                        var name = check.Name;
+                        var tone = check.Passed switch { true => "ok", false => "bad", _ => "warn" };
                         <li class="wb-card wb-card-gap">
                             <div class="wb-card-head">
                                 <strong>@name</strong>
                                 <span class="@PillClass("neutral")">@Rich("flow.tests.proposed")</span>
+                                <span class="@PillClass(tone)"><span aria-hidden="true">@(check.Passed switch { true => "✓", false => "✗", _ => "!" })</span> @Rich(check.Passed switch { true => "flow.tests.pass", false => "flow.tests.fail", _ => "flow.tests.invalid" })</span>
                                 <span class="wb-sp"></span>
                                 <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="() => RemoveProposed(work, name)">@Rich("flow.tests.remove", ("name", name))</button>
                             </div>
+                            @if (check.Passed == false)
+                            {
+                                <div class="wb-errt">@Rich("flow.tests.failure", ("reason", check.Failure ?? string.Empty))</div>
+                            }
                         </li>
                     }
                 </ul>

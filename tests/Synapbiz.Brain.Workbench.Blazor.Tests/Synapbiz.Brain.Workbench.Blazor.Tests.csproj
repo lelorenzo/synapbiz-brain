@@ -19,9 +19,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The flow documents the headless tests run on (the six reference documents and the fixtures), compiled here as they are. -->
+    <Compile Include="../Synapbiz.Brain.Workbench.Tests/FlowDocs.cs" Link="FlowTests/FlowDocs.cs" />
+    <Compile Include="../Synapbiz.Brain.Workbench.Tests/TestFiles.cs" Link="FlowTests/TestFiles.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Workbench.Blazor/Synapbiz.Brain.Workbench.Blazor.csproj" />
   </ItemGroup>

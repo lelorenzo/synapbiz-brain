@@ -143,6 +143,13 @@ public sealed partial class FlowWorkbench : IDisposable
     private string PluralText(string key, long count, params (string Name, string Value)[] values) =>
         text.Plain(UiText.Plural(key, count), [.. values, ("n", Number(count))]);
 
+    /// <summary>The name of a variable or a member as a label: words, the first one capitalised.</summary>
+    private static string Labelled(string name)
+    {
+        var words = WorkbenchText.Humanize(name);
+        return words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
+    }
+
     private static string Number(long value) => value.ToString(CultureInfo.InvariantCulture);
 
     private string TimeText(DateTimeOffset moment) =>

@@ -18,10 +18,10 @@ internal sealed record EdgePath(FlowEdge Edge, string Path, int MidX, int MidY, 
 /// Where everything of a flow's diagram goes, from the stage and the depth of each step and nothing else. The rule: one band for each
 /// stage in document order, then one for the steps with no stage (only when there are some). In a band, a step is in the row of its
 /// depth (<see cref="RowHeight"/> per level, below the heading), and the steps of one band and one depth are side by side in document
-/// order. A band is as wide as its widest row plus room at the side for the curves of routes that close a cycle. A route to a deeper
-/// step is a straight line from the bottom of its step to the top of the other; a route that closes a cycle is a curve out of the right
-/// side of its step and back into the right side of the other (a small loop for a route to the step itself); any other route is a
-/// straight line between the nearest sides, upward when the target is shallower.
+/// order. A band is as wide as its widest row plus room at the side for the curves of routes that go back. A route to a deeper
+/// step is a straight line from the bottom of its step to the top of the other; a route that closes a cycle and leads to a
+/// shallower step is a curve out of the right side of its step and back into the right side of the other (a small loop for a route to
+/// the step itself); any other route is a straight line between the nearest sides, upward when the target is shallower.
 /// </summary>
 internal sealed record DiagramLayout(
     IReadOnlyList<BandBox> Bands,
@@ -96,7 +96,7 @@ internal sealed record DiagramLayout(
         static string N(int value) => value.ToString(CultureInfo.InvariantCulture);
         var fromRight = from.X + from.Width;
         var fromMid = from.Y + (from.Height / 2);
-        if (edge.IsBackEdge)
+        if (edge.IsBackEdge && (toDepth < fromDepth || from.Id == to.Id))
         {
             if (from.Id == to.Id)
             {
