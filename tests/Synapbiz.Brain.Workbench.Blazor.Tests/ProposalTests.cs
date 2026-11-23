@@ -537,7 +537,31 @@ public sealed class ProposalTests
         harness.Open(WorkbenchTab.Changes);
 
         tagged.Should().Equal(2, 3);
-        harness.FindAll("[role=tabpanel] .wb-changed").Select(card => Harness.Normalise(card.QuerySelector("strong")!.TextContent)).Should().Equal("Row 3", "Row 2");
+        harness.FindAll("[role=tabpanel] .wb-changed").Select(card => Harness.Normalise(card.QuerySelector("strong")!.TextContent)).Should().Equal("Row 2", "Row 3");
+    }
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, "This draft changes 3 rows", "3 row changes", "3 changes")]
+    [InlineData(WorkbenchLocale.Es, "Este borrador cambia 3 filas", "3 cambios de filas", "3 cambios")]
+    public void TheSummaryThePillTheExportCardTheDraftBarAndTheDiscardDialogAllCountTheSameRows(WorkbenchLocale locale, string summary, string rows, string bar)
+    {
+        var es = Ed.IsEs(locale);
+        using var harness = Ed.Open(locale);
+        Rename(harness, 2, "Billing on any channel", locale);
+        Rename(harness, 1, "Phone emergencies", locale);
+        Ed.Edit(harness, 3, locale);
+        Ed.Pick(harness, es ? "Ruta" : "Route", es ? "revisión manual" : "manual review");
+        Ed.Apply(harness, locale);
+
+        harness.Open(WorkbenchTab.Changes);
+        harness.FindAll("[role=tabpanel] .wb-changed").Should().HaveCount(3);
+        Harness.Normalise(Card(harness).QuerySelector(".wb-h2 + .wb-sub")!.TextContent).Should().StartWith(rows);
+        Harness.Normalise(harness.Find("[role=tabpanel] .wb-sub").TextContent).Should().StartWith(summary);
+        harness.Tab(WorkbenchTab.Changes).QuerySelector(".wb-pill")!.TextContent.Should().Be("3");
+        harness.Find(".wb-switch button").Click();
+        Harness.Normalise(harness.Find(".wb-draftbar-t").TextContent).Should().Contain(bar);
+        harness.Find(".wb-head button").Click();
+        harness.Find("[role=dialog] p").TextContent.Should().Contain(rows);
     }
 
     [Fact]

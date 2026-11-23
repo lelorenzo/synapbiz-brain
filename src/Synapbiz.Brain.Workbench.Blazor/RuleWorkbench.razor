@@ -1479,8 +1479,7 @@
         var draft = c.Draft!;
         var readOnly = IsStale(c.Rule, draft);
         var change = ChangesOf(c.Rule, draft);
-        var rowItems = ChangedRows(c.Rule, draft);
-        var renamed = RenamedRows(c.Rule, draft);
+        var rowItems = change.Rows;
         var baseView = Context(c.Rule, baseOnly: true).View;
         var lines = CaseLines(c);
         var changing = readOnly ? 0 : lines.Count(line => line.Changes);
@@ -1518,15 +1517,15 @@
                                     }
                                 }
                             </div>
-                            @if (item.SentenceBefore is { } before)
+                            @if (item.SentenceBefore is { } before && !IsNameOnly(item))
                             {
                                 <div class="wb-sub wb-sub-flush"><span class="wb-before">@Rich("row.before")</span> <span class="@(item.Tag == RowChangeTag.Removed ? "wb-struck" : null)">@before</span></div>
                             }
-                            @if (item.Tag != RowChangeTag.Removed && renamed.TryGetValue(key, out var rename))
+                            @if (IsRenamed(item))
                             {
-                                <div class="wb-sent">@RenameText(rename)</div>
+                                <div class="wb-sent">@RenameText(item)</div>
                             }
-                            @if (item.SentenceAfter is { } after)
+                            @if (item.SentenceAfter is { } after && !IsNameOnly(item))
                             {
                                 <div class="wb-sent"><span class="wb-before">@Rich("changes.now")</span> @after</div>
                             }

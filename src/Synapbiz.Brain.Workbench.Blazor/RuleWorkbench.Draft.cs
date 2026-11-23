@@ -59,53 +59,10 @@ public sealed partial class RuleWorkbench
     private RuleChangeView ChangesOf(WorkbenchRule rule, DraftState draft) =>
         draft.Change(Locale, rule.Labels, draft.Labels(Locale, rule.Labels));
 
-    /// <summary>The name a row had in the rule and has in the draft; null for no name.</summary>
-    private sealed record RowRename(string? Before, string? After);
-
-    /// <summary>The rows whose name the draft sets, changes or clears, by key. The library's comparison of rows does not see a name.</summary>
-    private Dictionary<string, RowRename> RenamedRows(WorkbenchRule rule, DraftState draft)
-    {
-        var renamed = new Dictionary<string, RowRename>(StringComparer.Ordinal);
-        if (draft.Rule is null)
-        {
-            return renamed;
-        }
-
-        var before = Session.Work(rule.Key).View(rule, Locale).Rows.ToDictionary(row => row.Key, row => row.Title, StringComparer.Ordinal);
-        foreach (var row in draft.View(Locale, draft.Labels(Locale, rule.Labels)).Rows)
-        {
-            var was = string.IsNullOrWhiteSpace(before.GetValueOrDefault(row.Key)) ? null : before[row.Key];
-            var now = string.IsNullOrWhiteSpace(row.Title) ? null : row.Title;
-            if (before.ContainsKey(row.Key) && !string.Equals(was, now, StringComparison.Ordinal))
-            {
-                renamed[row.Key] = new RowRename(was, now);
-            }
-        }
-
-        return renamed;
-    }
-
     /// <summary>
-    /// The rows the draft changes, as the Changes tab lists them: the library's rows, then each row whose only change is its name,
-    /// tagged as changed with no sentences (the name line says what changed).
+    /// The number of rows the draft changes, adds, removes, moves or only names, the default row counted. It is the length of the
+    /// library's rows, so the summary sentence, the Changes tab, the draft bar and the discard dialog agree.
     /// </summary>
-    private List<RowChangeView> ChangedRows(WorkbenchRule rule, DraftState draft)
-    {
-        var rows = ChangesOf(rule, draft).Rows.ToList();
-        var known = rows.Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
-        var view = draft.Rule is null ? null : draft.View(Locale, draft.Labels(Locale, rule.Labels));
-        foreach (var key in RenamedRows(rule, draft).Keys)
-        {
-            if (!known.Contains(key) && view?.Rows.FirstOrDefault(row => string.Equals(row.Key, key, StringComparison.Ordinal)) is { } row)
-            {
-                rows.Add(new RowChangeView(key, row.Title ?? string.Empty, RowChangeTag.Changed, row.Index + 1, row.Index + 1, null, null, null, null));
-            }
-        }
-
-        return rows;
-    }
-
-    /// <summary>The number of rows the draft changes, adds, removes, moves or only names, the default row counted.</summary>
     private int ChangeCount(WorkbenchRule rule, DraftState draft)
     {
         if (draft.Rule is null)
@@ -113,20 +70,29 @@ public sealed partial class RuleWorkbench
             return 0;
         }
 
-        return ChangedRows(rule, draft).Count + (ChangesOf(rule, draft).DefaultRowChanged ? 1 : 0);
+        var change = ChangesOf(rule, draft);
+        return change.Rows.Count + (change.DefaultRowChanged ? 1 : 0);
     }
 
+    /// <summary>True when the row is on both sides and its name differs: set, changed or cleared.</summary>
+    private static bool IsRenamed(RowChangeView row) =>
+        row.Tag is RowChangeTag.Changed or RowChangeTag.Moved && !string.Equals(row.NameBefore, row.NameAfter, StringComparison.Ordinal);
+
+    /// <summary>True when the row's only change is its name: its two sentences are the same.</summary>
+    private static bool IsNameOnly(RowChangeView row) =>
+        row.Tag == RowChangeTag.Changed && string.Equals(row.SentenceBefore, row.SentenceAfter, StringComparison.Ordinal);
+
     /// <summary>"Antes se llamaba «a». Ahora se llama «b».", with the words for a side that has no name.</summary>
-    private string RenameText(RowRename rename)
+    private string RenameText(RowChangeView row)
     {
-        if (rename.Before is null)
+        if (row.NameBefore is null)
         {
-            return Plain("changes.named", ("b", rename.After!));
+            return Plain("changes.named", ("b", row.NameAfter!));
         }
 
-        return rename.After is null
-            ? Plain("changes.unnamed", ("a", rename.Before))
-            : Plain("changes.renamed", ("a", rename.Before), ("b", rename.After));
+        return row.NameAfter is null
+            ? Plain("changes.unnamed", ("a", row.NameBefore))
+            : Plain("changes.renamed", ("a", row.NameBefore), ("b", row.NameAfter));
     }
 
     // ----- start, switch and discard ----------------------------------------------------------------------------------

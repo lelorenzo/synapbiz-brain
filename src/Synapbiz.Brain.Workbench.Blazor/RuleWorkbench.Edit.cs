@@ -42,7 +42,7 @@ public sealed partial class RuleWorkbench
     private List<DraftItem> DraftItems(Ctx c)
     {
         var draft = c.Draft!;
-        var changes = ChangedRows(c.Rule, draft).ToDictionary(item => item.Key, StringComparer.Ordinal);
+        var changes = ChangesOf(c.Rule, draft).Rows.ToDictionary(item => item.Key, StringComparer.Ordinal);
         var present = c.View.Rows.Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
         var baseKeys = draft.BaseRule.Table.Rows.Select(row => row.Key).ToList();
         var removed = changes.Values.Where(item => item.Tag == RowChangeTag.Removed).OrderBy(item => item.NumberBefore).ToList();
