@@ -53,6 +53,16 @@ public sealed partial class RuleWorkbench
 
     private static string CaseRestoreRef(string name) => "case:restore:" + name;
 
+    /// <summary>The name of the menu of a case among the menus of the rows.</summary>
+    private static string CaseMenuKey(string name) => "case:menu:" + name;
+
+    /// <summary>The entries of the "Más" menu of a case: what it expects can be changed and the case can be removed.</summary>
+    private (string Key, bool Enabled, Action Run)[] CaseMenu(Ctx c, CaseLine line) =>
+    [
+        ("case.change", true, () => { menuFor = null; OpenCaseEdit(c, line); }),
+        ("case.remove", true, () => { menuFor = null; RemoveCaseAction(c, line); }),
+    ];
+
     // ----- what the draft shows ---------------------------------------------------------------------------------------
 
     /// <summary>The cases of the draft in order, each removed case where it was, and what the draft does to each.</summary>

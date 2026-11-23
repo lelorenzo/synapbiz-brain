@@ -176,7 +176,7 @@ public sealed class ProposalTests
         using var harness = WithChange(openChanges: false);
         harness.Open(WorkbenchTab.Tests);
         var line = harness.FindAll(".wb-table tbody tr").First(item => item.ClassList.Contains("wb-fail-row"));
-        Ed.Button(line, "Remove the case").Click();
+        Ed.CaseAction(harness, line, "Remove the case");
         harness.Open(WorkbenchTab.Changes);
 
         Harness.Normalise(harness.FindAll("[role=tabpanel] .wb-table tbody tr")[0].QuerySelectorAll("td")[3].TextContent).Should().Be("Removed");

@@ -921,6 +921,23 @@
   display: inline-block;
 }
 
+.wb-btn-more::after {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-left: 6px;
+  border-top: 5px solid var(--wb-ink-2);
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  vertical-align: middle;
+}
+
+.wb-btn-more[aria-expanded="true"]::after {
+  border-top: 0;
+  border-bottom: 5px solid var(--wb-ink-2);
+}
+
 .wb-menu {
   position: absolute;
   right: 0;

@@ -117,6 +117,13 @@ internal static class Ed
 
     internal static void OpenMenu(Harness harness, int number, WorkbenchLocale locale = WorkbenchLocale.En) => Button(Row(harness, number), IsEs(locale) ? "Más" : "More").Click();
 
+    /// <summary>Opens the "More" menu of a test case line and chooses one of its items.</summary>
+    internal static void CaseAction(Harness harness, IElement line, string item, WorkbenchLocale locale = WorkbenchLocale.En)
+    {
+        Button(line, IsEs(locale) ? "Más" : "More").Click();
+        MenuItem(harness, item).Click();
+    }
+
     internal static IElement MenuItem(Harness harness, string text) => harness.Find(".wb-menu").QuerySelectorAll("button").First(item => item.TextContent == text);
 
     internal static DraftState Draft(Harness harness) => harness.Session.Work("intake.first").Draft!;

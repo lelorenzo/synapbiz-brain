@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using FluentAssertions;
 using Nuvora.Decisions.Contracts.Evaluation;
 using Nuvora.Decisions.Contracts.Goldens;
@@ -76,8 +77,115 @@ public sealed class CaseDraftTests
         panel.Should().NotContain("Proposed by you");
         harness.FindAll("[role=tabpanel] button").Select(item => item.TextContent).Should().NotContain("Review");
         harness.FindAll(".wb-pill-btn").Should().BeEmpty();
-        Ed.HasButton(LineOf(harness, UrgentCase), "Change what is expected").Should().BeTrue();
-        Ed.HasButton(LineOf(harness, UrgentCase), "Remove the case").Should().BeTrue();
+        Ed.HasButton(LineOf(harness, UrgentCase), "Change what is expected").Should().BeFalse("it is an item of the menu");
+        Ed.HasButton(LineOf(harness, UrgentCase), "Remove the case").Should().BeFalse("it is an item of the menu");
+        Ed.HasButton(LineOf(harness, UrgentCase), "More").Should().BeTrue();
+    }
+
+    // ---- one menu per case --------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En, "More", "More actions for the case An urgent phone request is escalated", "Change what is expected|Remove the case")]
+    [InlineData(WorkbenchLocale.Es, "Más", "Más acciones del caso An urgent phone request is escalated", "Cambiar lo que se espera|Quitar el caso")]
+    public void EachCaseHasASingleMoreMenuWithTheTwoActionsAndTheSameMenuAsTheRows(WorkbenchLocale locale, string more, string label, string items)
+    {
+        using var harness = Ed.Open(locale);
+        harness.Open(WorkbenchTab.Tests);
+        var line = LineOf(harness, UrgentCase);
+
+        line.QuerySelectorAll(".wb-menuwrap").Should().ContainSingle();
+        var button = line.QuerySelector(".wb-menuwrap > button")!;
+        button.TextContent.Should().Be(more);
+        button.GetAttribute("aria-label").Should().Be(label);
+        button.GetAttribute("aria-haspopup").Should().Be("menu");
+        button.GetAttribute("aria-expanded").Should().Be("false");
+        button.ClassList.Should().Contain("wb-btn-more");
+        line.QuerySelectorAll("button").Should().ContainSingle("the line has no other button");
+        line.QuerySelector(".wb-menu").Should().BeNull();
+
+        button.Click();
+
+        var menu = harness.Find(".wb-menu");
+        menu.GetAttribute("role").Should().Be("menu");
+        menu.GetAttribute("aria-label").Should().Be(label);
+        Ed.Join(menu.QuerySelectorAll("[role=menuitem]").Select(item => item.TextContent)).Should().Be(items);
+        harness.FindAll(".wb-menu").Should().ContainSingle();
+        LineOf(harness, UrgentCase).QuerySelector(".wb-menuwrap > button")!.GetAttribute("aria-expanded").Should().Be("true");
+    }
+
+    [Fact]
+    public void TheCaseMenuClosesWithEscapeAndMovesWithTheArrowsAndTheRowMenuStaysWhereItWas()
+    {
+        using var harness = Ed.Open();
+        harness.Open(WorkbenchTab.Tests);
+        LineOf(harness, UrgentCase).QuerySelector(".wb-menuwrap > button")!.Click();
+        var focus = harness.FocusCount;
+
+        harness.FindAll(".wb-menu [role=menuitem]")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        harness.FocusCount.Should().BeGreaterThan(focus);
+        harness.FindAll(".wb-menu [role=menuitem]")[1].KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        harness.FindAll(".wb-menu").Should().BeEmpty();
+        harness.Open(WorkbenchTab.Read);
+        Ed.OpenMenu(harness, 1);
+        Ed.Join(harness.Find(".wb-menu").QuerySelectorAll("[role=menuitem]").Select(item => item.TextContent)).Should().Be("Move up|Move down|Add a row below|Remove the row");
+    }
+
+    [Fact]
+    public void OpeningTheMenuOfACaseClosesTheMenuOfAnotherAndChoosingAnItemClosesTheMenu()
+    {
+        using var harness = Ed.Open();
+        harness.Open(WorkbenchTab.Tests);
+        LineOf(harness, UrgentCase).QuerySelector(".wb-menuwrap > button")!.Click();
+        Lines(harness)[1].QuerySelector(".wb-menuwrap > button")!.Click();
+
+        harness.FindAll(".wb-menu").Should().ContainSingle();
+
+        Ed.MenuItem(harness, "Change what is expected").Click();
+
+        harness.FindAll(".wb-menu").Should().BeEmpty();
+        harness.FindAll(".wb-case-form").Should().ContainSingle();
+    }
+
+    [Fact]
+    public void ACaseThatChangesKeepsItsTwoAnswersAndAlsoHasTheMenu()
+    {
+        using var harness = ChangedRow();
+        harness.Open(WorkbenchTab.Tests);
+
+        harness.FindAll(".wb-review-line button").Should().HaveCount(2);
+        LineOf(harness, UrgentCase).QuerySelectorAll(".wb-menuwrap").Should().ContainSingle();
+        Ed.CaseAction(harness, LineOf(harness, UrgentCase), "Remove the case");
+        Ed.Draft(harness).Steps[^1].Kind.Should().Be(StepKind.CaseRemove);
+    }
+
+    [Fact]
+    public void ARemovedCaseKeepsOnlyItsRestoreButton()
+    {
+        using var harness = Ed.Open();
+        harness.Open(WorkbenchTab.Tests);
+        Ed.CaseAction(harness, LineOf(harness, UrgentCase), "Remove the case");
+
+        var line = LineOf(harness, UrgentCase);
+
+        line.QuerySelectorAll(".wb-menuwrap").Should().BeEmpty();
+        Ed.Join(line.QuerySelectorAll("button").Select(item => item.TextContent)).Should().Be("Restore");
+    }
+
+    [Fact]
+    public void TheMoreButtonOfARowAndOfACaseDrawsItsCaretInTheStylesheetAndNotInTheText()
+    {
+        using var harness = Ed.Open();
+        var rowMore = Ed.Row(harness, 1).QuerySelector(".wb-menuwrap > button")!;
+        harness.Open(WorkbenchTab.Tests);
+        var caseMore = LineOf(harness, UrgentCase).QuerySelector(".wb-menuwrap > button")!;
+
+        foreach (var button in new[] { rowMore, caseMore })
+        {
+            button.ClassList.Should().Contain("wb-btn-more");
+            button.TextContent.Should().Be("More");
+            button.InnerHtml.Should().NotContain("▾").And.NotContain("▼").And.NotContain("&#9662;").And.NotContain("<span").And.NotContain("<svg");
+        }
     }
 
     [Theory]
@@ -229,7 +337,7 @@ public sealed class CaseDraftTests
         using var harness = Ed.Open(locale);
         harness.Open(WorkbenchTab.Tests);
         var name = "A billing topic on the web goes to billing";
-        Ed.Button(LineOf(harness, name), es ? "Cambiar lo que se espera" : "Change what is expected").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), es ? "Cambiar lo que se espera" : "Change what is expected", locale);
 
         var form = harness.Find(".wb-case-form");
         form.QuerySelector("h2")!.TextContent.Should().Be(es ? $"Cambiar lo que se espera del caso {name}" : $"Change what the case {name} expects");
@@ -255,7 +363,7 @@ public sealed class CaseDraftTests
         using var harness = Ed.Open();
         harness.Open(WorkbenchTab.Tests);
         var name = "A billing topic on the web goes to billing";
-        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), "Change what is expected");
         var select = harness.Find(".wb-case-form select");
         select.GetAttribute("value").Should().NotBeNullOrEmpty();
 
@@ -274,11 +382,11 @@ public sealed class CaseDraftTests
         using var harness = Ed.Open();
         harness.Open(WorkbenchTab.Tests);
         var name = "A billing topic on the web goes to billing";
-        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), "Change what is expected");
         harness.Find(".wb-case-form select").Change("none");
         Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
 
-        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), "Change what is expected");
 
         harness.Find(".wb-case-form select").GetAttribute("value").Should().Be("none");
     }
@@ -288,7 +396,7 @@ public sealed class CaseDraftTests
     {
         using var harness = Ed.Open(rule: Fx.Editable("readiness"));
         harness.Open(WorkbenchTab.Tests);
-        Ed.Button(Lines(harness)[0], "Change what is expected").Click();
+        Ed.CaseAction(harness, Lines(harness)[0], "Change what is expected");
 
         var boxes = harness.FindAll(".wb-case-form input[type=checkbox]");
         boxes.Should().NotBeEmpty();
@@ -304,7 +412,7 @@ public sealed class CaseDraftTests
         using var harness = Ed.Open();
         harness.Open(WorkbenchTab.Tests);
         var name = "A billing topic on the web goes to billing";
-        Ed.Button(LineOf(harness, name), "Remove the case").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), "Remove the case");
 
         var draft = Ed.Draft(harness);
         draft.Steps[^1].Kind.Should().Be(StepKind.CaseRemove);
@@ -329,7 +437,7 @@ public sealed class CaseDraftTests
         using var harness = ChangedRow();
         harness.Open(WorkbenchTab.Tests);
         harness.Find(".wb-review-line .wb-btn-primary").Click();
-        Ed.Button(LineOf(harness, UrgentCase), "Remove the case").Click();
+        Ed.CaseAction(harness, LineOf(harness, UrgentCase), "Remove the case");
 
         Ed.Button(LineOf(harness, UrgentCase), "Restore").Click();
 
@@ -352,12 +460,12 @@ public sealed class CaseDraftTests
         line.QuerySelectorAll("td")[4].TextContent.Should().Contain("Passes");
         harness.PanelText.Should().NotContain("Proposed by you");
         harness.Session.Work("intake.first").Cases.Should().BeEmpty();
-        Ed.Button(line, "Change what is expected").Click();
+        Ed.CaseAction(harness, line, "Change what is expected");
         harness.Find(".wb-case-form select").Change("none");
         Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
         draft.Steps.Select(item => item.Kind).Should().Equal(StepKind.CaseAdd, StepKind.CaseEdit);
 
-        Ed.Button(LineOf(harness, "Chat from the web"), "Remove the case").Click();
+        Ed.CaseAction(harness, LineOf(harness, "Chat from the web"), "Remove the case");
 
         draft.Steps.Should().BeEmpty();
         Lines(harness).Should().HaveCount(9);
@@ -409,7 +517,7 @@ public sealed class CaseDraftTests
         };
         using var harness = Ed.Open(rule: host);
         harness.Open(WorkbenchTab.Tests);
-        Ed.Button(Lines(harness)[0], "Change what is expected").Click();
+        Ed.CaseAction(harness, Lines(harness)[0], "Change what is expected");
         harness.Find(".wb-case-form select").Change("none");
         refuse = true;
 
@@ -438,7 +546,7 @@ public sealed class CaseDraftTests
 
         harness.Find("[role=tabpanel] > .wb-refusal, [role=tabpanel] .wb-refusal").Should().NotBeNull();
         Ed.Draft(harness).DecidedCases.Should().BeEmpty();
-        Ed.Button(LineOf(harness, "A billing topic on the web goes to billing"), "Remove the case").Click();
+        Ed.CaseAction(harness, LineOf(harness, "A billing topic on the web goes to billing"), "Remove the case");
         Ed.Draft(harness).Rule!.Goldens.Select(item => item.Name).Should().Contain("A billing topic on the web goes to billing");
         harness.Find("[role=tabpanel] .wb-refusal").Should().NotBeNull();
     }
@@ -648,7 +756,7 @@ public sealed class CaseDraftTests
         harness.Open(WorkbenchTab.Tests);
         var name = "An urgent phone request is escalated";
         var order = CaseOrder(harness);
-        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), "Change what is expected");
         var select = harness.Find(".wb-case-form select");
         var current = select.GetAttribute("value") ?? select.QuerySelector("option[selected]")?.GetAttribute("value");
         var other = select.QuerySelectorAll("option").Select(item => item.GetAttribute("value")).First(value => !string.IsNullOrEmpty(value) && value != "none" && value != current);
@@ -674,7 +782,7 @@ public sealed class CaseDraftTests
         var name = "An invoice by email goes to the billing mailbox";
         var order = CaseOrder(harness);
         order.IndexOf(name).Should().BeLessThan(order.Count - 1);
-        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), "Change what is expected");
         harness.Find(".wb-case-form select").Change("none");
 
         Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
@@ -694,15 +802,16 @@ public sealed class CaseDraftTests
         var order = CaseOrder(harness, "readiness");
         var name = order[0];
 
-        Ed.Button(Lines(harness)[0], "Change what is expected").Click();
-        harness.FindAll(".wb-case-form input[type=checkbox]").Last().Change(true);
+        Ed.CaseAction(harness, Lines(harness)[0], "Change what is expected");
+        var boxes = harness.FindAll(".wb-case-form input[type=checkbox]");
+        boxes[boxes.Count - 1].Change(true);
         Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
 
         CaseOrder(harness, "readiness").Should().Equal(order);
         DocumentOrder(harness, "readiness").Should().Equal(order);
         harness.Session.Work("readiness").Draft!.Rule!.Goldens.Single(item => item.Name == name).Expected.Should().BeOfType<ExpectedNoDecision>();
 
-        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), "Change what is expected");
         harness.FindAll(".wb-case-form input[type=checkbox]")[0].Change(true);
         harness.FindAll(".wb-case-form input[type=checkbox]")[1].Change(true);
         Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
@@ -722,7 +831,7 @@ public sealed class CaseDraftTests
         var order = CaseOrder(harness, "readiness");
         var name = order[1];
         harness.Session.Work("readiness").Draft!.Steps.Should().BeEmpty();
-        Ed.Button(LineOf(harness, name), "Change what is expected").Click();
+        Ed.CaseAction(harness, LineOf(harness, name), "Change what is expected");
         harness.FindAll(".wb-case-form input[type=checkbox]")[0].Change(true);
         Ed.Button(harness.Find(".wb-case-form"), "Apply to my draft").Click();
 

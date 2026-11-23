@@ -529,6 +529,30 @@
         </text>;
     }
 
+    /// <summary>
+    /// The "Más" button and its menu: the one menu of a row and of a test case. <paramref name="key"/> names the menu in
+    /// <c>menuFor</c> and the focus targets; an entry that is not enabled is shown and cannot be chosen.
+    /// </summary>
+    private RenderFragment MoreMenu(string key, string label, (string Key, bool Enabled, Action Run)[] entries)
+    {
+        var open = menuFor == key;
+        var enabledAt = entries.Select((entry, index) => (entry, index)).Where(pair => pair.entry.Enabled).Select(pair => pair.index).ToList();
+        return @<span class="wb-menuwrap">
+            <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm wb-btn-more" aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")" aria-label="@label" @onclick="() => ToggleMenu(key, enabledAt[0])" @ref="refs[MoreRef(key)]">@Rich("row.more")</button>
+            @if (open)
+            {
+                <div class="wb-menu" role="menu" aria-label="@label">
+                    @for (var index = 0; index < entries.Length; index++)
+                    {
+                        var at = index;
+                        var entry = entries[index];
+                        <button type="button" role="menuitem" class="wb-menu-i" disabled="@(!entry.Enabled)" @onclick="entry.Run" @onkeydown="args => OnMenuKey(args, key, enabledAt, at)" @ref="refs[MenuItemRef(key, at)]">@Rich(entry.Key)</button>
+                    }
+                </div>
+            }
+        </span>;
+    }
+
     private RenderFragment DraftRow(Ctx c, DraftItem item, RowForm? form, RuleChoices? catalog, bool readOnly, HashSet<string> unreachable)
     {
         var draft = c.Draft!;
@@ -545,7 +569,6 @@
         var number = removed ? string.Empty : SimulationPresenter.Number(row!);
         var rows = c.View.Rows;
         var position = removed ? -1 : row!.Index;
-        var open = menuFor == key;
         var entries = new (string Key, bool Enabled, Action Run)[]
         {
             ("row.up", position > 0, () => MoveRow(c, key, -1)),
@@ -553,7 +576,6 @@
             ("row.addBelow", true, () => AddBelow(c, key)),
             ("row.remove", true, () => RemoveRowAction(c, key)),
         };
-        var enabledAt = entries.Select((entry, index) => (entry, index)).Where(pair => pair.entry.Enabled).Select(pair => pair.index).ToList();
         return @<div>
             <div class="@(removed ? "wb-row wb-row-removed" : "wb-row")">
                 <span class="wb-num">@number</span>
@@ -594,20 +616,7 @@
                                 <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.undoFor", ("n", number))" @onclick="() => UndoRow(c, key, step => step.Key == key && step.Kind is StepKind.Row or StepKind.Move)">@Rich("row.undo")</button>
                             }
                             <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("row.editFor", ("n", number))" @onclick="() => OpenEdit(c, key, false)" @ref="refs[EditRef(key)]">@Rich("row.edit")</button>
-                            <span class="wb-menuwrap">
-                                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-haspopup="menu" aria-expanded="@(open ? "true" : "false")" aria-label="@Plain("row.moreFor", ("n", number))" @onclick="() => ToggleMenu(key, enabledAt[0])" @ref="refs[MoreRef(key)]">@Rich("row.more")</button>
-                                @if (open)
-                                {
-                                    <div class="wb-menu" role="menu" aria-label="@Plain("row.moreFor", ("n", number))">
-                                        @for (var index = 0; index < entries.Length; index++)
-                                        {
-                                            var at = index;
-                                            var entry = entries[index];
-                                            <button type="button" role="menuitem" class="wb-menu-i" disabled="@(!entry.Enabled)" @onclick="entry.Run" @onkeydown="args => OnMenuKey(args, key, enabledAt, at)" @ref="refs[MenuItemRef(key, at)]">@Rich(entry.Key)</button>
-                                        }
-                                    </div>
-                                }
-                            </span>
+                            @MoreMenu(key, Plain("row.moreFor", ("n", number)), entries)
                         }
                     }
                 </div>
@@ -1348,8 +1357,7 @@
                                         }
                                         @if (!readOnly)
                                         {
-                                            <div class="wb-cell-gap"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("case.changeFor", ("name", name))" @onclick="() => OpenCaseEdit(c, line)" @ref="refs[CaseChangeRef(name)]">@Rich("case.change")</button></div>
-                                            <div class="wb-cell-gap"><button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" aria-label="@Plain("case.removeFor", ("name", name))" @onclick="() => RemoveCaseAction(c, line)">@Rich("case.remove")</button></div>
+                                            <div class="wb-cell-gap">@MoreMenu(CaseMenuKey(name), Plain("case.moreFor", ("name", name)), CaseMenu(c, line))</div>
                                         }
                                     }
                                 </td>

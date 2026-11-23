@@ -168,6 +168,14 @@ public sealed partial class StylesheetTests
     }
 
     [Fact]
+    public void TheMoreButtonDrawsItsCaretWithABorderTriangleOfATokenColourAndNoContent()
+    {
+        var caret = Rules().First(item => item.Selector == ".wb-btn-more::after").Body;
+        caret.Should().Contain("content: \"\"").And.Contain("border-top: 5px solid var(--wb-ink-2)").And.Contain("border-left: 4px solid transparent");
+        Rules().First(item => item.Selector == ".wb-btn-more[aria-expanded=\"true\"]::after").Body.Should().Contain("border-bottom: 5px solid var(--wb-ink-2)");
+    }
+
+    [Fact]
     public void BelowElevenHundredPixelsTheListCollapsesToASelect()
     {
         var at = Sheet.Value.IndexOf("@media (max-width: 1100px)", StringComparison.Ordinal);
