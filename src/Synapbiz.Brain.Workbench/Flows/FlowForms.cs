@@ -60,8 +60,8 @@ public static class FlowForms
     }
 
     /// <summary>
-    /// The payload of the event a <c>wait</c> step reads: one field for each member the step keeps, typed by the variable it is kept in.
-    /// Empty for a step that is not a <c>wait</c>, that keeps nothing, or that does not exist.
+    /// The payload of the event a step reads: one field for each member a <c>wait</c> step keeps, or the <c>interruptBy</c> of an <c>action</c>
+    /// keeps, typed by the variable it is kept in. Empty for any other step, a step that keeps nothing, or a step that does not exist.
     /// </summary>
     /// <param name="process">The loaded process.</param>
     /// <param name="stepId">The id of the step.</param>
@@ -70,13 +70,15 @@ public static class FlowForms
         ArgumentNullException.ThrowIfNull(process);
         ArgumentNullException.ThrowIfNull(stepId);
         var outline = ProcessOutline.From(process);
-        if (outline.Step(stepId) is not { Kind: OutlineStepKind.Wait } step)
+        var step = outline.Step(stepId);
+        var bindings = step switch
         {
-            return new ReadOnlyCollection<FlowFormField>([]);
-        }
-
+            { Kind: OutlineStepKind.Wait } => step.Outputs,
+            { Kind: OutlineStepKind.Action, Interrupt: { } interrupt } => interrupt.Output,
+            _ => [],
+        };
         var types = outline.Variables.ToDictionary(variable => variable.Name, variable => variable.Type, StringComparer.Ordinal);
-        return new ReadOnlyCollection<FlowFormField>([.. step.Outputs.Select(binding => Field(binding.Name, types.GetValueOrDefault(binding.Variable) ?? "Code"))]);
+        return new ReadOnlyCollection<FlowFormField>([.. bindings.Select(binding => Field(binding.Name, types.GetValueOrDefault(binding.Variable) ?? "Code"))]);
     }
 
     /// <summary>
@@ -183,13 +185,17 @@ public static class FlowForms
         return decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var number) ? JsonValue.Create(number) : null;
     }
 
-    private static JsonValue? ReadInstant(string text)
+    /// <summary>Reads the text of a date-and-time control: <c>yyyy-MM-ddTHH:mm</c> (seconds optional, read as UTC) or an ISO instant with an offset. Null when the text is not one.</summary>
+    /// <param name="text">The text of the control.</param>
+    public static DateTimeOffset? ParseInstant(string text)
     {
+        ArgumentNullException.ThrowIfNull(text);
         var styles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal;
-        return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, styles, out var instant)
-            ? JsonValue.Create(instant.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture))
-            : null;
+        return DateTimeOffset.TryParse(text.Trim(), CultureInfo.InvariantCulture, styles, out var instant) ? instant : null;
     }
+
+    private static JsonValue? ReadInstant(string text) =>
+        ParseInstant(text) is { } instant ? JsonValue.Create(instant.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)) : null;
 
     private static JsonNode? ReadLines(string text)
     {

@@ -6,7 +6,7 @@
     <AssemblyName>Synapbiz.Brain.Workbench.Blazor</AssemblyName>
     <PackageId>Synapbiz.Brain.Workbench.Blazor</PackageId>
     <IsPackable>true</IsPackable>
-    <Description>Blazor panels of the rule workbench for brain.rule@1: rule list, reader, simulator, test cases and review, styled only by host-supplied tokens.</Description>
+    <Description>Blazor panels of the workbench: RuleWorkbench for brain.rule@1 (rule list, reader, simulator, test cases and review) and FlowWorkbench for brain.process@1 (flow list, reader, diagram, try-out, tests and coverage, and review), styled only by host-supplied tokens.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="../Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
     <ProjectReference Include="../Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
     <ProjectReference Include="../Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
     <ProjectReference Include="../Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
   </ItemGroup>

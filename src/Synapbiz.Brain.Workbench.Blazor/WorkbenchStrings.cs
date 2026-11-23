@@ -4,17 +4,18 @@ namespace Synapbiz.Brain.Workbench.Blazor;
 
 /// <summary>
 /// The fixed strings of the panels, in Spanish and English. Every key can be replaced by the host through
-/// <c>RuleWorkbench.TextOverrides</c>, except that the seven markings (<c>band.simulate</c>, <c>band.tests</c>,
-/// <c>pill.simulation</c>, <c>notice.privacy</c>, <c>draft.bar</c>, <c>pill.draft</c> and <c>export.proposal.explain</c>) may be
+/// <c>RuleWorkbench.TextOverrides</c> or <c>FlowWorkbench.TextOverrides</c> (the keys of the flow panels start with <c>flow.</c>), except
+/// that the nine markings (<c>band.simulate</c>, <c>band.tests</c>, <c>pill.simulation</c>, <c>notice.privacy</c>, <c>draft.bar</c>,
+/// <c>pill.draft</c>, <c>export.proposal.explain</c>, <c>flow.band.try</c> and <c>flow.band.tests</c>) may be
 /// reworded but never emptied: an override that is null, empty or white space is ignored and the default is used. In a string, a <c>**bold**</c> pair renders as <c>strong</c>; nothing else
 /// is interpreted and every text is HTML-encoded. A <c>{name}</c> placeholder is filled by the panel.
 /// </summary>
-public static class WorkbenchStrings
+public static partial class WorkbenchStrings
 {
     private static readonly string[] MandatoryKeys =
-        ["band.simulate", "band.tests", "pill.simulation", "notice.privacy", "draft.bar", "pill.draft", "export.proposal.explain"];
+        ["band.simulate", "band.tests", "pill.simulation", "notice.privacy", "draft.bar", "pill.draft", "export.proposal.explain", "flow.band.try", "flow.band.tests"];
 
-    private static readonly (string Key, string Es, string En)[] Table =
+    private static readonly (string Key, string Es, string En)[] CoreTable =
     [
         ("tabs.label", "Secciones de la regla", "Rule sections"),
         ("tabs.read", "Leer", "Read"),
@@ -393,6 +394,8 @@ public static class WorkbenchStrings
         ("export.proposal.explain", "Se guarda un archivo en este equipo. Usted lo envía a quien mantiene las reglas. Exportar no cambia, no aprueba y no activa la regla.", "A file is saved on this computer. You send it to the rule's maintainer. Exporting does not change, approve or activate the rule."),
         ("row.restoreFor", "Restaurar la fila {n}", "Restore row {n}"),
     ];
+
+    private static readonly (string Key, string Es, string En)[] Table = [.. CoreTable, .. FlowTable()];
 
     private static readonly Dictionary<string, (string Es, string En)> ByKey = Table.ToDictionary(
         entry => entry.Key, entry => (entry.Es, entry.En), StringComparer.Ordinal);

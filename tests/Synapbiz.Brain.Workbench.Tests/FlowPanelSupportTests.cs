@@ -247,6 +247,10 @@ public sealed class FlowPanelSupportTests
         FlowForms.FromScenario(FlowDocs.Process("previsit.outreach"), "no such scenario").Should().BeNull();
         FluentActions.Invoking(() => FlowForms.FromScenario(null!, "x")).Should().Throw<ArgumentNullException>();
         FluentActions.Invoking(() => FlowForms.FromScenario(FlowDocs.Process("previsit.outreach"), null!)).Should().Throw<ArgumentNullException>();
+        FlowForms.ParseInstant("2027-01-04T14:00").Should().Be(Start);
+        FlowForms.ParseInstant(" 2027-01-04T16:00:05+02:00 ").Should().Be(Start.AddSeconds(5));
+        FlowForms.ParseInstant("soon").Should().BeNull();
+        FluentActions.Invoking(() => FlowForms.ParseInstant(null!)).Should().Throw<ArgumentNullException>();
         FlowForms.DateTimeText(Start).Should().Be("2027-01-04T14:00");
         FlowForms.DateTimeText(Start.AddSeconds(5).ToOffset(TimeSpan.FromHours(2))).Should().Be("2027-01-04T14:00:05");
     }
@@ -261,6 +265,7 @@ public sealed class FlowPanelSupportTests
         });
         FlowForms.PayloadFields(process, "hold").Should().Equal(new FlowFormField("note", "Code", FlowFieldKind.Text));
         FlowForms.PayloadFields(process, "settle").Should().BeEmpty("a timer is not a wait");
+        FlowForms.PayloadFields(FlowDocs.Process("fixture.reminder"), "remind").Should().Equal(new FlowFormField("reply_kind", "Code", FlowFieldKind.Text));
         FlowForms.PayloadFields(process, "no_such_step").Should().BeEmpty();
         FlowForms.PayloadFields(FlowDocs.Process("flow.clock"), "hold").Should().BeEmpty();
         FluentActions.Invoking(() => FlowForms.PayloadFields(null!, "x")).Should().Throw<ArgumentNullException>();
