@@ -1,0 +1,37 @@
+{
+  "module": "previsit",
+  "schemaVersion": 1,
+  "facts": [
+    {
+      "kind": "previsit.missing_items",
+      "name": "missing",
+      "type": "Integer",
+      "nullable": false,
+      "allowedValues": [],
+      "labelSource": null,
+      "catalogFactId": null
+    }
+  ],
+  "kinds": [
+    {
+      "id": "previsit.missing_items",
+      "schemaVersion": 1,
+      "evaluationMode": "OnDemand",
+      "permissions": {
+        "read": "previsit.decisions.read",
+        "author": "previsit.decisions.author",
+        "approve": "previsit.decisions.approve",
+        "readTrace": "previsit.decisions.read_trace"
+      },
+      "outcomes": [
+        {
+          "name": "action",
+          "type": "Enum",
+          "nullable": false,
+          "labelSource": null,
+          "allowedValues": ["none", "some"]
+        }
+      ]
+    }
+  ]
+}

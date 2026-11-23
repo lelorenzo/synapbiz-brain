@@ -1,0 +1,228 @@
+{
+  "$spec": "brain.process@1",
+  "id": "visit.note_wait",
+  "version": 1,
+  "uses": [{ "$ref": "rule/visit.note_ready" }],
+  "requires": ["visit@1"],
+  "meta": {
+    "title": "Visit note wait",
+    "description": "Reads the status of the note of a visit at growing intervals until it is signed; a person chases it when two days pass, or confirms it when the practice has no connector."
+  },
+  "body": {
+    "subject": "case",
+    "stages": ["visit"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "note_status": { "type": "Code" }
+    },
+    "start": "await_note",
+    "steps": {
+      "await_note": {
+        "kind": "poll",
+        "stage": "visit",
+        "port": "records.note_status",
+        "input": { "case": "case_ref" },
+        "output": { "status": "note_status" },
+        "retry": { "maxAttempts": 3, "backoff": "exponential", "initial": "PT30S", "max": "PT5M" },
+        "rule": "visit.note_ready",
+        "facts": { "status": "note_status" },
+        "field": "ready",
+        "until": ["yes"],
+        "every": "PT1H",
+        "backoff": "exponential",
+        "max": "PT8H",
+        "maxDuration": "P2D",
+        "next": "signed",
+        "onExpired": "chase_note",
+        "onError": "chase_note",
+        "onNotAvailable": "confirm_note",
+        "onNotEntitled": "confirm_note"
+      },
+      "chase_note": {
+        "kind": "humanTask",
+        "stage": "visit",
+        "queue": "note_followup",
+        "outcomes": ["signed", "no_visit"],
+        "show": ["case_ref", "note_status"],
+        "on": { "signed": "signed", "no_visit": "cancelled" }
+      },
+      "confirm_note": {
+        "kind": "humanTask",
+        "stage": "visit",
+        "queue": "note_confirmation",
+        "outcomes": ["signed", "no_visit"],
+        "show": ["case_ref"],
+        "on": { "signed": "signed", "no_visit": "cancelled" }
+      },
+      "signed": { "kind": "end", "stage": "visit", "result": "note_signed" },
+      "cancelled": { "kind": "end", "stage": "visit", "result": "visit_cancelled" }
+    },
+    "scenarios": [
+      {
+        "name": "the note is signed at the first read",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "complete": "await_note", "output": { "status": "signed" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "note_signed",
+          "trace": ["await_note", "signed"],
+          "variables": {
+            "note_status": "signed"
+          }
+        }
+      },
+      {
+        "name": "the note is signed after two more reads, one of them with a status nobody described",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "complete": "await_note", "output": { "status": "draft" } },
+          { "advance": "PT1H" },
+          { "complete": "await_note", "output": { "status": "archived" } },
+          { "advance": "PT2H" },
+          { "complete": "await_note", "output": { "status": "signed" } }
+        ],
+        "expect": { "status": "Completed", "result": "note_signed", "trace": ["await_note", "signed"] }
+      },
+      {
+        "name": "the note is never signed and the front desk learns it was signed meanwhile",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "complete": "await_note", "output": { "status": "draft" } },
+          { "advance": "PT1H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT2H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT4H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "task": "chase_note", "outcome": "signed" }
+        ],
+        "expect": { "status": "Completed", "result": "note_signed", "trace": ["await_note", "chase_note", "signed"] }
+      },
+      {
+        "name": "the note is never signed and the visit did not happen",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "complete": "await_note", "output": { "status": "draft" } },
+          { "advance": "PT1H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT2H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT4H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "advance": "PT8H" },
+          { "complete": "await_note", "output": { "status": "awaiting_signature" } },
+          { "task": "chase_note", "outcome": "no_visit" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "visit_cancelled",
+          "trace": ["await_note", "chase_note", "cancelled"]
+        }
+      },
+      {
+        "name": "a transient failure of the read is retried inside the round",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "fail": "await_note", "error": "Transient", "code": "records.busy" },
+          { "advance": "PT30S" },
+          { "complete": "await_note", "output": { "status": "signed" } }
+        ],
+        "expect": { "status": "Completed", "result": "note_signed", "trace": ["await_note", "signed"] }
+      },
+      {
+        "name": "a read that fails for good goes to the chase task",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "fail": "await_note", "error": "Permanent", "code": "records.gone" },
+          { "task": "chase_note", "outcome": "no_visit" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "visit_cancelled",
+          "trace": ["await_note", "chase_note", "cancelled"]
+        }
+      },
+      {
+        "name": "a read that fails on every attempt goes to the chase task",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "fail": "await_note", "error": "Transient", "code": "records.busy" },
+          { "advance": "PT30S" },
+          { "fail": "await_note", "error": "Transient", "code": "records.busy" },
+          { "advance": "PT1M" },
+          { "fail": "await_note", "error": "Transient", "code": "records.busy" },
+          { "task": "chase_note", "outcome": "signed" }
+        ],
+        "expect": { "status": "Completed", "result": "note_signed", "trace": ["await_note", "chase_note", "signed"] }
+      },
+      {
+        "name": "a read without a status makes the rule fail and goes to the chase task",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "complete": "await_note", "output": { } },
+          { "task": "chase_note", "outcome": "signed" }
+        ],
+        "expect": { "status": "Completed", "result": "note_signed", "trace": ["await_note", "chase_note", "signed"] }
+      },
+      {
+        "name": "a practice with no connector confirms the note by hand",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "fail": "await_note", "error": "NotAvailable", "code": "records.no_connector" },
+          { "task": "confirm_note", "outcome": "signed" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "note_signed",
+          "trace": ["await_note", "confirm_note", "signed"]
+        }
+      },
+      {
+        "name": "a practice with no connector confirms that the visit did not happen",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "fail": "await_note", "error": "NotAvailable", "code": "records.no_connector" },
+          { "task": "confirm_note", "outcome": "no_visit" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "visit_cancelled",
+          "trace": ["await_note", "confirm_note", "cancelled"]
+        }
+      },
+      {
+        "name": "a practice not entitled to the connector confirms the note by hand",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "fail": "await_note", "error": "NotEntitled", "code": "records.not_in_plan" },
+          { "task": "confirm_note", "outcome": "signed" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "note_signed",
+          "trace": ["await_note", "confirm_note", "signed"]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "previsit.missing_items",
+  "version": 1,
+  "uses": [],
+  "requires": ["previsit@1"],
+  "meta": { "title": "Missing items decide whether the case needs a reminder" },
+  "body": {
+    "kind": "previsit.missing_items",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "nothing-missing",
+        "version": 1,
+        "legacyKey": "nothing-missing",
+        "conditions": [
+          { "fact": "missing", "op": "equals", "value": { "type": "Integer", "value": "0" } }
+        ],
+        "outcome": { "action": "none" }
+      },
+      {
+        "id": "something-missing",
+        "version": 1,
+        "legacyKey": "something-missing",
+        "conditions": [
+          { "fact": "missing", "op": "range", "value": { "type": "Integer", "value": "1" } }
+        ],
+        "outcome": { "action": "some" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "Nothing missing needs no reminder",
+        "facts": { "missing": { "type": "Integer", "value": "0" } },
+        "expect": { "row": "nothing-missing", "outcome": { "action": "none" } }
+      },
+      {
+        "name": "Three missing items need a reminder",
+        "facts": { "missing": { "type": "Integer", "value": "3" } },
+        "expect": { "row": "something-missing", "outcome": { "action": "some" } }
+      },
+      {
+        "name": "A negative count decides nothing",
+        "facts": { "missing": { "type": "Integer", "value": "-1" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

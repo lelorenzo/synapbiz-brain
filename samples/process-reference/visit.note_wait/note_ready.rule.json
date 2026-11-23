@@ -1,0 +1,62 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "visit.note_ready",
+  "version": 1,
+  "uses": [],
+  "requires": ["visit@1"],
+  "meta": { "title": "A note is ready when it is signed" },
+  "body": {
+    "kind": "visit.note_ready",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "signed",
+        "version": 1,
+        "legacyKey": "signed",
+        "conditions": [
+          { "fact": "status", "op": "equals", "value": { "type": "Code", "value": "signed" } }
+        ],
+        "outcome": { "ready": "yes" }
+      },
+      {
+        "id": "not-signed",
+        "version": 1,
+        "legacyKey": "not-signed",
+        "conditions": [
+          {
+            "fact": "status",
+            "op": "in",
+            "values": [
+              { "type": "Code", "value": "absent" },
+              { "type": "Code", "value": "draft" },
+              { "type": "Code", "value": "awaiting_signature" }
+            ]
+          }
+        ],
+        "outcome": { "ready": "no" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "A signed note is ready",
+        "facts": { "status": { "type": "Code", "value": "signed" } },
+        "expect": { "row": "signed", "outcome": { "ready": "yes" } }
+      },
+      {
+        "name": "A draft is not ready",
+        "facts": { "status": { "type": "Code", "value": "draft" } },
+        "expect": { "row": "not-signed", "outcome": { "ready": "no" } }
+      },
+      {
+        "name": "A note awaiting signature is not ready",
+        "facts": { "status": { "type": "Code", "value": "awaiting_signature" } },
+        "expect": { "row": "not-signed", "outcome": { "ready": "no" } }
+      },
+      {
+        "name": "A status nobody described decides nothing",
+        "facts": { "status": { "type": "Code", "value": "archived" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}

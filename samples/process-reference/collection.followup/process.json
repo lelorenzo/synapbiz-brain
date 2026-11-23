@@ -1,0 +1,471 @@
+{
+  "$spec": "brain.process@1",
+  "id": "collection.followup",
+  "version": 1,
+  "uses": [{ "$ref": "rule/collection.claim_progress" }, { "$ref": "rule/collection.claim_result" }],
+  "requires": ["collection@1"],
+  "meta": {
+    "title": "Collection follow-up",
+    "description": "Observes a claim through a read port and an event until it is paid, denied or written off. It never submits or changes a claim: denials and write-offs are decisions of a person."
+  },
+  "body": {
+    "subject": "case",
+    "stages": ["collection"],
+    "variables": {
+      "case_ref": { "type": "Code", "input": true },
+      "claim_status": { "type": "Code" }
+    },
+    "start": "await_submitted",
+    "steps": {
+      "await_submitted": {
+        "kind": "wait",
+        "stage": "collection",
+        "event": "claim.submitted",
+        "correlation": "case_ref",
+        "timeout": "P10D",
+        "next": "cycle",
+        "onTimeout": "overdue"
+      },
+      "overdue": {
+        "kind": "humanTask",
+        "stage": "collection",
+        "queue": "billing_followup",
+        "outcomes": ["submitted", "manual_close"],
+        "show": ["case_ref"],
+        "on": { "submitted": "cycle", "manual_close": "closed_manual" }
+      },
+      "cycle": {
+        "kind": "loop",
+        "stage": "collection",
+        "maxIterations": 3,
+        "body": "poll_claim",
+        "onExhausted": "exhausted"
+      },
+      "poll_claim": {
+        "kind": "poll",
+        "stage": "collection",
+        "port": "claims.status",
+        "input": { "case": "case_ref" },
+        "output": { "status": "claim_status" },
+        "retry": { "maxAttempts": 3, "backoff": "exponential", "initial": "PT30S", "max": "PT5M" },
+        "rule": "collection.claim_progress",
+        "facts": { "status": "claim_status" },
+        "field": "progress",
+        "until": ["settled"],
+        "every": "P1D",
+        "backoff": "exponential",
+        "max": "P7D",
+        "maxDuration": "P30D",
+        "next": "route_claim",
+        "onExpired": "stalled",
+        "onError": "stalled",
+        "onNotAvailable": "confirm",
+        "onNotEntitled": "confirm"
+      },
+      "route_claim": {
+        "kind": "decide",
+        "stage": "collection",
+        "rule": "collection.claim_result",
+        "facts": { "status": "claim_status" },
+        "route": "result",
+        "on": { "paid": "collected", "denied": "denial", "pending": "balance_wait" },
+        "onNoDecision": "stalled"
+      },
+      "denial": {
+        "kind": "humanTask",
+        "stage": "collection",
+        "queue": "denials",
+        "outcomes": ["resubmitted", "written_off"],
+        "show": ["case_ref", "claim_status"],
+        "on": { "resubmitted": "cycle", "written_off": "written_off" }
+      },
+      "balance_wait": { "kind": "timer", "stage": "collection", "after": "P7D", "next": "cycle" },
+      "stalled": {
+        "kind": "humanTask",
+        "stage": "collection",
+        "queue": "billing_followup",
+        "outcomes": ["keep_waiting", "manual_close"],
+        "show": ["case_ref", "claim_status"],
+        "on": { "keep_waiting": "cycle", "manual_close": "closed_manual" }
+      },
+      "exhausted": {
+        "kind": "humanTask",
+        "stage": "collection",
+        "queue": "billing_followup",
+        "outcomes": ["written_off", "manual_close"],
+        "show": ["case_ref", "claim_status"],
+        "on": { "written_off": "written_off", "manual_close": "closed_manual" }
+      },
+      "confirm": {
+        "kind": "humanTask",
+        "stage": "collection",
+        "queue": "billing_confirmation",
+        "outcomes": ["paid", "written_off"],
+        "show": ["case_ref"],
+        "on": { "paid": "collected", "written_off": "written_off" }
+      },
+      "collected": { "kind": "end", "stage": "collection", "result": "collected" },
+      "written_off": { "kind": "end", "stage": "collection", "result": "written_off" },
+      "closed_manual": { "kind": "end", "stage": "collection", "result": "manual_close" }
+    },
+    "scenarios": [
+      {
+        "name": "the claim is paid at the first read",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "paid" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": ["await_submitted", "cycle", "poll_claim", "route_claim", "collected"],
+          "variables": {
+            "claim_status": "paid"
+          }
+        }
+      },
+      {
+        "name": "the claim is paid after three reads",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "submitted" } },
+          { "advance": "P1D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P2D" },
+          { "complete": "poll_claim", "output": { "status": "paid" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": ["await_submitted", "cycle", "poll_claim", "route_claim", "collected"]
+        }
+      },
+      {
+        "name": "a denial is resubmitted by a person and the claim is then paid",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "denied" } },
+          { "task": "denial", "outcome": "resubmitted" },
+          { "complete": "poll_claim", "output": { "status": "paid" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": [
+            "await_submitted",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "denial",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "collected"
+          ]
+        }
+      },
+      {
+        "name": "a denial is written off by a person",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "denied" } },
+          { "task": "denial", "outcome": "written_off" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "written_off",
+          "trace": ["await_submitted", "cycle", "poll_claim", "route_claim", "denial", "written_off"]
+        }
+      },
+      {
+        "name": "a partial payment waits a week and reads again",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "partial" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "paid" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": [
+            "await_submitted",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "balance_wait",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "collected"
+          ]
+        }
+      },
+      {
+        "name": "a claim that is not submitted in time raises a task, and a person says it was",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "advance": "P10D" },
+          { "task": "overdue", "outcome": "submitted" },
+          { "complete": "poll_claim", "output": { "status": "paid" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": ["await_submitted", "overdue", "cycle", "poll_claim", "route_claim", "collected"]
+        }
+      },
+      {
+        "name": "a claim that is not submitted in time is closed by hand",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "advance": "P10D" },
+          { "task": "overdue", "outcome": "manual_close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["await_submitted", "overdue", "closed_manual"]
+        }
+      },
+      {
+        "name": "denials that come back every time use up the loop and a person writes the claim off",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "denied" } },
+          { "task": "denial", "outcome": "resubmitted" },
+          { "complete": "poll_claim", "output": { "status": "denied" } },
+          { "task": "denial", "outcome": "resubmitted" },
+          { "complete": "poll_claim", "output": { "status": "denied" } },
+          { "task": "denial", "outcome": "resubmitted" },
+          { "task": "exhausted", "outcome": "written_off" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "written_off",
+          "trace": [
+            "await_submitted",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "denial",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "denial",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "denial",
+            "cycle",
+            "exhausted",
+            "written_off"
+          ]
+        }
+      },
+      {
+        "name": "balances that stay open use up the loop and a person closes the case",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "partial" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "partial" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "partial" } },
+          { "advance": "P7D" },
+          { "task": "exhausted", "outcome": "manual_close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": [
+            "await_submitted",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "balance_wait",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "balance_wait",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "balance_wait",
+            "cycle",
+            "exhausted",
+            "closed_manual"
+          ]
+        }
+      },
+      {
+        "name": "a claim that stays in review expires the poll and a person keeps waiting",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "submitted" } },
+          { "advance": "P1D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P2D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P4D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "task": "stalled", "outcome": "keep_waiting" },
+          { "complete": "poll_claim", "output": { "status": "paid" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": [
+            "await_submitted",
+            "cycle",
+            "poll_claim",
+            "stalled",
+            "cycle",
+            "poll_claim",
+            "route_claim",
+            "collected"
+          ]
+        }
+      },
+      {
+        "name": "a claim that stays in review expires the poll and a person closes the case",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "submitted" } },
+          { "advance": "P1D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P2D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P4D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "advance": "P7D" },
+          { "complete": "poll_claim", "output": { "status": "in_review" } },
+          { "task": "stalled", "outcome": "manual_close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["await_submitted", "cycle", "poll_claim", "stalled", "closed_manual"]
+        }
+      },
+      {
+        "name": "a practice with no claims connector confirms the payment by hand",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "fail": "poll_claim", "error": "NotAvailable", "code": "claims.no_connector" },
+          { "task": "confirm", "outcome": "paid" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": ["await_submitted", "cycle", "poll_claim", "confirm", "collected"]
+        }
+      },
+      {
+        "name": "a practice with no claims connector writes the case off by hand",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "fail": "poll_claim", "error": "NotAvailable", "code": "claims.no_connector" },
+          { "task": "confirm", "outcome": "written_off" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "written_off",
+          "trace": ["await_submitted", "cycle", "poll_claim", "confirm", "written_off"]
+        }
+      },
+      {
+        "name": "a practice not entitled to the claims connector confirms by hand",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "fail": "poll_claim", "error": "NotEntitled", "code": "claims.not_in_plan" },
+          { "task": "confirm", "outcome": "paid" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": ["await_submitted", "cycle", "poll_claim", "confirm", "collected"]
+        }
+      },
+      {
+        "name": "a read that fails for good goes to a person",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "fail": "poll_claim", "error": "Permanent", "code": "claims.gone" },
+          { "task": "stalled", "outcome": "manual_close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["await_submitted", "cycle", "poll_claim", "stalled", "closed_manual"]
+        }
+      },
+      {
+        "name": "a transient failure of the read is retried",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "fail": "poll_claim", "error": "Transient", "code": "claims.busy" },
+          { "advance": "PT30S" },
+          { "complete": "poll_claim", "output": { "status": "paid" } }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "collected",
+          "trace": ["await_submitted", "cycle", "poll_claim", "route_claim", "collected"]
+        }
+      },
+      {
+        "name": "a read without a status makes the rule fail and goes to a person",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { } },
+          { "task": "stalled", "outcome": "manual_close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["await_submitted", "cycle", "poll_claim", "stalled", "closed_manual"]
+        }
+      },
+      {
+        "name": "a settled status nobody described goes to a person",
+        "start": { "at": "2027-01-04T14:00:00Z", "today": "2027-01-04", "input": { "case_ref": "c-1001" } },
+        "events": [
+          { "event": "claim.submitted", "correlation": "c-1001", "payload": { } },
+          { "complete": "poll_claim", "output": { "status": "voided" } },
+          { "task": "stalled", "outcome": "manual_close" }
+        ],
+        "expect": {
+          "status": "Completed",
+          "result": "manual_close",
+          "trace": ["await_submitted", "cycle", "poll_claim", "route_claim", "stalled", "closed_manual"]
+        }
+      }
+    ]
+  }
+}

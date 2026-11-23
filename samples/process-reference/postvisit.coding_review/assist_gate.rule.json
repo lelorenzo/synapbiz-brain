@@ -1,0 +1,65 @@
+{
+  "$spec": "brain.rule@1",
+  "id": "postvisit.assist_gate",
+  "version": 1,
+  "uses": [],
+  "requires": ["coding@1"],
+  "meta": { "title": "The assistant is asked only when the practice enabled it and the note has items" },
+  "body": {
+    "kind": "coding.assist_gate",
+    "hitPolicy": "unique",
+    "rows": [
+      {
+        "id": "enabled-with-items",
+        "version": 1,
+        "legacyKey": "enabled-with-items",
+        "conditions": [
+          { "fact": "assist_enabled", "op": "equals", "value": { "type": "Boolean", "value": true } },
+          { "fact": "items", "op": "range", "value": { "type": "Integer", "value": "1" } }
+        ],
+        "outcome": { "use": "yes" }
+      },
+      {
+        "id": "enabled-without-items",
+        "version": 1,
+        "legacyKey": "enabled-without-items",
+        "conditions": [
+          { "fact": "assist_enabled", "op": "equals", "value": { "type": "Boolean", "value": true } },
+          { "fact": "items", "op": "equals", "value": { "type": "Integer", "value": "0" } }
+        ],
+        "outcome": { "use": "no" }
+      },
+      {
+        "id": "disabled",
+        "version": 1,
+        "legacyKey": "disabled",
+        "conditions": [
+          { "fact": "assist_enabled", "op": "equals", "value": { "type": "Boolean", "value": false } }
+        ],
+        "outcome": { "use": "no" }
+      }
+    ],
+    "goldens": [
+      {
+        "name": "Enabled with items asks the assistant",
+        "facts": { "assist_enabled": { "type": "Boolean", "value": true }, "items": { "type": "Integer", "value": "4" } },
+        "expect": { "row": "enabled-with-items", "outcome": { "use": "yes" } }
+      },
+      {
+        "name": "Enabled without items does not",
+        "facts": { "assist_enabled": { "type": "Boolean", "value": true }, "items": { "type": "Integer", "value": "0" } },
+        "expect": { "row": "enabled-without-items", "outcome": { "use": "no" } }
+      },
+      {
+        "name": "Disabled never asks",
+        "facts": { "assist_enabled": { "type": "Boolean", "value": false }, "items": { "type": "Integer", "value": "4" } },
+        "expect": { "row": "disabled", "outcome": { "use": "no" } }
+      },
+      {
+        "name": "A negative count of items decides nothing",
+        "facts": { "assist_enabled": { "type": "Boolean", "value": true }, "items": { "type": "Integer", "value": "-1" } },
+        "expect": { "noDecision": true }
+      }
+    ]
+  }
+}
