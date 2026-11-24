@@ -113,7 +113,7 @@ The course of a conversation is the one the end-to-end test drives against the b
 The adapter forwards the tools and decides nothing about who may use them. A host that mounts it owns these:
 
 - **The store.** Where the approved documents come from, where drafts and proposals go, and that nothing else is written. `FileAuthoringStore` already refuses a path outside `drafts` and `proposals` (traversal, absolute paths, links). A host with its own `IAuthoringStore` must keep that contract.
-- **The catalog.** What the practice offers: ports (kind, delivery, whether they contact a person), events, queues, stage names and the fact contracts of the rules, as `brain.catalog@1` through `IAuthoringStore.ReadCatalog()`. Without one nothing is restricted.
+- **The catalog.** A process loads only against the fact contracts the catalog carries (`contracts`); a workspace without them shows its processes as unreadable. What the practice offers: ports (kind, delivery, whether they contact a person), events, queues, stage names and the fact contracts of the rules, as `brain.catalog@1` through `IAuthoringStore.ReadCatalog()`. Without ports in it a process that reads or acts is not ready (`authoring.ready.catalog_missing`).
 - **Authorization.** Who may connect and which calls they may make: the transport's authentication, and `BrainMcpOptions.Authorize` for each call. The server enforces no role; deciding that a physician may propose a rule and that a process proposal is reviewed by the product team is the host's. Because the adapter holds one set of tools, drafts and simulation sessions are shared by every connection to the same `BrainMcp`: a host that serves several people builds one set (and one store, hence one workspace) for each person, with `BrainMcp.Create`, instead of sharing one.
 - **The clock.** `AuthoringOptions.Clock`: the time a proposal carries and the expiry of simulations. The libraries never read the machine clock.
 - **Applying proposals.** The server activates nothing. A proposal is a file; applying it (a commit in a repository, an activation in the host) is a person's step outside these tools. A proposal for a process whose base moved since is refused when it is written (`authoring.proposal.base_stale`), and `FlowProposalCheck.Against` re-checks a stored proposal before the host applies it.
@@ -126,6 +126,10 @@ Every proposal file carries `needsReview`, and the answer of `flow_propose` and 
 - A **rule** proposal has `needsReview` false when the draft stays within the facts the rule already reads and the outcomes it already gives. The host may apply it when the clinical partner who owns the rule approves it. It has `needsReview` true, with `needsReviewReasons` (`kind_changed`, `hit_policy_changed`, `new_fact_read`, `new_outcome_field`, `new_outcome_value`), when it goes beyond that; the host holds it for the product team like a process proposal. A rule proposal file without the member counts as needing review.
 
 Neither the tools nor the adapter enforce this; the host and the repository do.
+
+### Simulation tokens
+
+The token of a simulation is the only handle on a case. `BrainMcp.Create` gives it 24 random bytes (`sim-` and 32 characters) unless `AuthoringOptions.SessionIds` is set. The official SDK registers one tool set for every connection of a host, so sessions are shared by the connections of one process; a host that needs them apart serves one `BrainMcp` per user. A document nested deeper than the protocol reads is refused with a coded answer and a sentence (`mcp.document_too_deep`) where the adapter can catch it.
 
 ## Not here
 

@@ -130,6 +130,7 @@ public sealed class AdapterTests
         var options = Fixtures.Options();
         await using var connection = await Fixtures.Connect(options);
         var document = JsonNode.Parse(Fixtures.NoteWait)!;
+        document["version"] = 2;
 
         var (saved, _) = await Call(connection.Client, "flow_draft_save", new JsonObject { ["id"] = "visit.note_wait", ["document"] = document }.ToJsonString());
         var (started, _) = await Call(connection.Client, "flow_draft_simulate", """{"id":"visit.note_wait","start":{"input":{"case_ref":"c-1001"}}}""");
@@ -138,6 +139,31 @@ public sealed class AdapterTests
         started["ok"]!.GetValue<bool>().Should().BeTrue();
         started["session"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
         options.Store.ListDrafts(DocumentKind.Flow).Should().Equal("visit.note_wait");
+    }
+
+    [Fact]
+    public async Task A_simulation_token_cannot_be_guessed_unless_the_host_chose_its_own_source()
+    {
+        var options = Fixtures.Options();
+        await using var connection = await Fixtures.Connect(options);
+        var document = JsonNode.Parse(Fixtures.NoteWait)!;
+        _ = await Call(connection.Client, "flow_draft_save", new JsonObject { ["id"] = "visit.note_wait", ["document"] = document }.ToJsonString());
+        var tokens = new List<string>();
+        for (var index = 0; index < 3; index++)
+        {
+            var (started, _) = await Call(connection.Client, "flow_draft_simulate", """{"id":"visit.note_wait","start":{"input":{"case_ref":"c-1001"}}}""");
+            tokens.Add(started["session"]!.GetValue<string>());
+        }
+
+        tokens.Should().OnlyHaveUniqueItems();
+        tokens.Should().OnlyContain(token => token.Length >= 30 && token.StartsWith("sim-", StringComparison.Ordinal));
+        tokens.Should().NotContain(token => System.Text.RegularExpressions.Regex.IsMatch(token, "^sim-[0-9]{1,6}$"));
+
+        var chosen = new BrainMcpOptions { Store = Fixtures.NoteStore(), Authoring = new AuthoringOptions { Clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(Fixtures.Start), SessionIds = () => "sim-host-chosen-token" } };
+        await using var own = await Fixtures.Connect(chosen);
+        _ = await Call(own.Client, "flow_draft_save", new JsonObject { ["id"] = "visit.note_wait", ["document"] = document.DeepClone() }.ToJsonString());
+        var (ownStart, _) = await Call(own.Client, "flow_draft_simulate", """{"id":"visit.note_wait","start":{"input":{"case_ref":"c-1001"}}}""");
+        ownStart["session"]!.GetValue<string>().Should().Be("sim-host-chosen-token");
     }
 
     [Fact]

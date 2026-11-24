@@ -6,6 +6,7 @@
     <AssemblyName>Synapbiz.Brain.Authoring</AssemblyName>
     <PackageId>Synapbiz.Brain.Authoring</PackageId>
     <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>Headless authoring tools for Brain flows and rules: a workspace of approved documents, drafts and proposals, a catalog of what a host offers, the tools as plain functions with a JSON Schema each (read, draft, check, simulate, propose), the flow differ with plain-language change texts, the proposal documents and the readiness checks. No model, no transport, no network.</Description>
   </PropertyGroup>
 
@@ -30,6 +31,10 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Synapbiz.Brain.Authoring.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

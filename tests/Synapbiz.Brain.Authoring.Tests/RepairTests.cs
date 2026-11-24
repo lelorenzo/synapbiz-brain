@@ -315,6 +315,26 @@ public sealed class RepairTests
         }
     }
 
+    [Fact]
+    public void A_document_nested_deeper_than_the_json_text_allows_is_a_coded_refusal_with_a_sentence()
+    {
+        foreach (var language in new[] { "en", "es" })
+        {
+            var (tools, store, _) = Rig();
+            JsonNode deep = new JsonObject { ["leaf"] = 1 };
+            for (var level = 0; level < 200; level++)
+            {
+                deep = new JsonObject { ["a"] = deep };
+            }
+
+            var answer = tools.Invoke("flow_draft_save", new JsonObject { ["id"] = NW, ["document"] = deep, ["language"] = language });
+            IsOk(answer).Should().BeFalse();
+            ErrorCode(answer).Should().StartWith("authoring.");
+            PersonTextTests.CheckSentence(answer["say"]!.GetValue<string>(), language, "too deep");
+            store.ListDrafts(DocumentKind.Flow).Should().BeEmpty();
+        }
+    }
+
     private sealed class MovingFlowStore(IAuthoringStore inner) : IAuthoringStore
     {
         public bool Moved { get; set; }

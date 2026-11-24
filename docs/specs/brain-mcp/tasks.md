@@ -27,3 +27,16 @@ Spec: [spec.md](spec.md). Version 0.7.0. M1 is the headless library; M2 is the p
 - [x] End-to-end test with a scripted MCP client: list, get, save a broken draft, read hints, fix, simulate, add scenario, propose
 - [x] Architecture test: only the MCP adapter references the SDK
 - [x] Documentation and release of version 0.7.0
+
+## Repair pass after verification
+
+- [x] Store guard: write area, links, temp files, reserved and case-twin ids
+- [x] Identity: patch of `/id`, proposal base id, differ
+- [x] Plain-language `say`: code-to-sentence table, input failures in words, walker test in both languages
+- [x] Process wording in the workbench templates and the real answers on every reference process
+- [x] Gate tests (one per readiness finding; rule `needsReview`)
+- [x] Readiness: no tests, duplicate names, catalog missing, version, stale base, gaps with reasons, labels of results, queues and choices
+- [x] Differ completeness and the safety net
+- [x] Serialization of calls, secure simulation tokens, deep-nesting refusal
+- [x] Wording fixes (waits, retries, contact, variables, moments, titles)
+- [x] Documentation: both reference pages, this spec, the changelog

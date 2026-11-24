@@ -7,6 +7,7 @@
     <AssemblyName>Synapbiz.Brain.Mcp.Tool</AssemblyName>
     <PackageId>Synapbiz.Brain.Mcp.Tool</PackageId>
     <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>brain-mcp</ToolCommandName>
     <Description>brain-mcp: serves the Brain authoring tools over the Model Context Protocol on standard input and output, for a folder of approved documents on an author's machine. A desktop or coding assistant connects to it to model and refine processes and rules as drafts and proposals. It activates nothing, holds no model and uses no network.</Description>
@@ -23,6 +24,10 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Synapbiz.Brain.Mcp.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

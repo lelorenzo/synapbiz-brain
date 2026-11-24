@@ -102,3 +102,16 @@ Any model call or vendor code. Activating or deploying a proposal. Reading live 
 5. **What a clinic may change.** Recommended: only the settings a pack exposes, within its limits, with no structure editing; a request beyond that is a support request that we turn into a new pack version (or, exceptionally, a clinic-specific variant we maintain).
 6. **How a clinic receives an improved pack.** Recommended: never by itself. Support offers the new version with the plain-language change text; someone at the clinic (or we, under the support contract) accepts it; cases already running finish on the version they started with.
 4. **What the assistant may see.** Recommended: the definitions (flows, rules, catalog) go to the assistant the person chose, under that person's own account; never case data. Flow and rule texts are business knowledge of the practice and of the product, so the person connects only an account they trust with it.
+
+## 11. Amendments after verification
+
+The first release was verified by reading and by attack (mutants of the store, the gate and the checks; a fuzzer; an assistant-eye walk of the answers). The repair pass changed the following; each item has a test that failed before it.
+
+- **Store.** The write area is exactly `<root>/drafts` or `<root>/proposals`, every component a plain folder, temp files with unique names and create-new semantics, a link at the target refused (tests for each layout; removing the area check from `WriteInside` fails seven tests).
+- **Identity.** `flow_draft_patch` refuses a change of `/id` like `flow_draft_save`; a proposal keeps the id of its base (`FlowProposalCheck`); the differ reports an id change.
+- **Words.** Every code that can reach a person maps to a bilingual sentence with labels and natural field names; schema failures name the member in words; no engine, schema or .NET text in `say`. Workbench sentences say "process", never "flow", and their code marks are written as quotes in the authoring views.
+- **Readiness.** Zero tests, duplicate test names, a missing catalog, a version that is not newer than the base and a stale base are not ready; accepted gaps are named and kept with a reason of at least ten characters; the label check covers results, queues and choices.
+- **Differ.** Reports the id, title, description, subject and AI schemas, and says "something else changed" where nothing specific is found.
+- **Gate.** One test per readiness finding kind refuses `flow_propose`; a rule proposal that gives a new outcome value has `needsReview` true.
+- **Concurrency and tokens.** Calls are serialized; tokens come from an injectable source and are random in the MCP adapter. Not done: a per-connection set (the SDK registers one set for all connections).
+- **Other.** Empty summaries are refused; lists say how many documents could not be read and why; Windows reserved ids and ids that differ only by case are refused; rule titles come from `meta.title`; an edited test expectation shows in the changes.
