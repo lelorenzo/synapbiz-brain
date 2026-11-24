@@ -35,7 +35,9 @@ internal sealed class Harness : IDisposable
         WorkbenchSession? session = null,
         bool withExport = true,
         string? place = "the demo folder",
-        IReadOnlyDictionary<string, string>? overrides = null)
+        IReadOnlyDictionary<string, string>? overrides = null,
+        IReadOnlyDictionary<string, string>? sourceLabels = null,
+        IReadOnlyDictionary<string, string>? authorityLabels = null)
     {
         Session = session ?? Session;
         Cut = Ctx.RenderComponent<RuleWorkbench>(parameters =>
@@ -45,7 +47,9 @@ internal sealed class Harness : IDisposable
                 .Add(component => component.Locale, locale)
                 .Add(component => component.Session, Session)
                 .Add(component => component.Now, Now)
-                .Add(component => component.TextOverrides, overrides);
+                .Add(component => component.TextOverrides, overrides)
+                .Add(component => component.SourceLabels, sourceLabels)
+                .Add(component => component.AuthorityLabels, authorityLabels);
             if (withExport)
             {
                 parameters.Add(component => component.OnExport, export =>

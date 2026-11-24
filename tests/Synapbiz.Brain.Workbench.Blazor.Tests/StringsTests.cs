@@ -250,7 +250,7 @@ public sealed class StringsTests
         var parameters = typeof(RuleWorkbench).GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(property => property.GetCustomAttribute<ParameterAttribute>() is not null)
             .Select(property => property.Name);
-        parameters.Should().BeEquivalentTo("Rules", "Locale", "Session", "Now", "OnExport", "TextOverrides");
+        parameters.Should().BeEquivalentTo("Rules", "Locale", "Session", "Now", "OnExport", "TextOverrides", "SourceLabels", "AuthorityLabels");
     }
 
     [Fact]

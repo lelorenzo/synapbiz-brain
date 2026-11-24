@@ -1481,6 +1481,52 @@
   font-weight: 600;
 }
 
+.wb-badge-authority {
+  margin-left: 6px;
+}
+
+.wb-claims {
+  margin-top: 4px;
+}
+
+.wb-claims-authority {
+  margin: 14px 0 0;
+}
+
+.wb-sources,
+.wb-source-diff {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-source {
+  padding: 8px 0;
+  border-top: 1px solid var(--wb-line-soft);
+}
+
+.wb-source-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.wb-source-name {
+  color: var(--wb-ink);
+}
+
+.wb-source-diff {
+  margin-top: 4px;
+  padding-left: 16px;
+  list-style: disc;
+  font-size: var(--wb-text-small);
+}
+
+.wb-source-unreadable {
+  color: var(--wb-muted);
+}
+
 .wb-shared {
   margin-top: 6px;
 }
