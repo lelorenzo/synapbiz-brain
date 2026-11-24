@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Synapbiz.Brain.Mcp.Tool</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Mcp.Tool</AssemblyName>
+    <PackageId>Synapbiz.Brain.Mcp.Tool</PackageId>
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>brain-mcp</ToolCommandName>
+    <Description>brain-mcp: serves the Brain authoring tools over the Model Context Protocol on standard input and output, for a folder of approved documents on an author's machine. A desktop or coding assistant connects to it to model and refine processes and rules as drafts and proposals. It activates nothing, holds no model and uses no network.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Synapbiz.Brain.Authoring/Synapbiz.Brain.Authoring.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Mcp/Synapbiz.Brain.Mcp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Synapbiz.Brain.Mcp.Tests" />
+  </ItemGroup>
+
+</Project>
