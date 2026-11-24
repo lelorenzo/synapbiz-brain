@@ -671,7 +671,7 @@
                             </li>
                             <li>
                                 <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><rect class="wb-node-shape wb-node-now-sample" x="2" y="2" width="48" height="24" rx="6"></rect><circle class="wb-node-here" cx="38" cy="9" r="6"></circle></svg>
-                                <span>@Rich("flow.legend.here")</span>
+                                <span>@Rich("flow.cases.legend.here")</span>
                             </li>
                             <li>
                                 <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><line class="wb-edge wb-edge-taken" x1="2" y1="14" x2="50" y2="14"></line></svg>
@@ -1262,6 +1262,9 @@
             <marker id="@arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
                 <path d="M 0 0 L 10 5 L 0 10 z" class="wb-arrow"></path>
             </marker>
+            <marker id="@(arrow + "-taken")" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" class="wb-arrow wb-arrow-taken"></path>
+            </marker>
         </defs>
         @foreach (var band in layout.Bands)
         {
@@ -1275,7 +1278,7 @@
             var lineClass = EdgeClass(line) + (live is not null && live.TakenPairs.Contains((line.From, line.To)) ? " wb-edge-taken" : string.Empty);
             var phrases = string.Join("\n", line.Routes.Select(route => WithoutCode(route.Phrase)));
             <g class="wb-edge-g">
-                <path class="@lineClass" d="@line.Path" marker-end="@("url(#" + arrow + ")")"><title>@phrases</title></path>
+                <path class="@lineClass" d="@line.Path" marker-end="@("url(#" + arrow + (lineClass.Contains("wb-edge-taken", StringComparison.Ordinal) ? "-taken" : string.Empty) + ")")"><title>@phrases</title></path>
                 @foreach (var mark in line.Marks)
                 {
                     if (live is not null)

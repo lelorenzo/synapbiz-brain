@@ -5,8 +5,10 @@
 // Spanish and English, wide and narrow, as wf-<state>-<theme>[-en][-narrow].png, and the Diagram tab of each flow in Spanish light as wf-diagram-<flow id>-light.png.
 // The process map (H3) is captured as pm-<state>-<theme>[-en][-narrow].png: the map, the list by kind, a process open beside the map, the full
 // diagram of a process with its symbols and labels, the diagram of case.lifecycle in Spanish light, and a rule with its sources and authority (the / page).
+// The live view (H3 part B) is captured as pl-<state>-<theme>[-en][-narrow].png: the map with the counts of open cases on each process and
+// phase, the list of the cases of one process, and one case over the diagram of its version. All the cases are synthetic and scripted.
 // Run the demo first:  dotnet run -c Release --urls http://127.0.0.1:5219
-// Then:                node screenshots.mjs [baseUrl] [outputFolder] [all|rules|flows|map]
+// Then:                node screenshots.mjs [baseUrl] [outputFolder] [all|rules|flows|map|live]
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
 
@@ -15,10 +17,11 @@ const { chromium } = require('playwright');
 
 const base = process.argv[2] ?? 'http://127.0.0.1:5219';
 const out = process.argv[3] ?? '/mnt/project-files/app-local/reglas/capturas';
-const only = process.argv[4] ?? 'all'; // 'all', 'rules', 'flows' or 'map' (the pm- pictures alone)
+const only = process.argv[4] ?? 'all'; // 'all', 'rules', 'flows', 'map' (the pm- pictures alone) or 'live' (the pl- pictures alone)
 const doRules = only === 'all' || only === 'rules';
 const doFlows = only === 'all' || only === 'flows';
 const doMap = only === 'all' || only === 'map';
+const doLive = only === 'all' || only === 'live';
 mkdirSync(out, { recursive: true });
 
 const text = {
@@ -57,13 +60,13 @@ const flowText = {
     tabs: { read: 'Leer', diagram: 'Diagrama', try: 'Simular', tests: 'Pruebas', review: 'Revisión' },
     like: 'Empezar como la prueba', start: 'Empezar', useAnswer: 'Usar esta respuesta', replay: 'Reproducir', next: 'Siguiente paso', fix: 'Corregir', confirm: 'Confirmar',
     note: 'Nota', reviewer: 'Su nombre', person: 'Revisor de ejemplo', noteText: '¿Es suficiente con tres recordatorios?',
-    viewList: 'Lista', viewMap: 'Mapa', openFull: 'Abrir el diagrama completo', openCard: /^Contacto previo a la visita/,
+    viewList: 'Lista', viewMap: 'Mapa', viewLive: 'En vivo', openFull: 'Abrir el diagrama completo', openCard: /^Contacto previo a la visita/,
   },
   en: {
     tabs: { read: 'Read', diagram: 'Diagram', try: 'Simulate', tests: 'Tests', review: 'Review' },
     like: 'Start like the test', start: 'Start', useAnswer: 'Use this answer', replay: 'Replay', next: 'Next step', fix: 'Needs a fix', confirm: 'Confirm',
     note: 'Note', reviewer: 'Your name', person: 'Example reviewer', noteText: 'Are three reminders enough?',
-    viewList: 'List', viewMap: 'Map', openFull: 'Open the full diagram', openCard: /^Previsit outreach/,
+    viewList: 'List', viewMap: 'Map', viewLive: 'Live', openFull: 'Open the full diagram', openCard: /^Previsit outreach/,
   },
 };
 
@@ -469,6 +472,38 @@ async function ruleClaims(theme, locale, narrow) {
   await context.close();
 }
 
+/** The live pictures: the map with counts, the list of the cases of the process with most cases, and one case over its diagram. */
+async function lives(theme, locale, narrow) {
+  const t = flowText[locale];
+  const viewport = narrow ? { width: 480, height: 900 } : { width: 1408, height: 1025 };
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 2, locale: locale === 'es' ? 'es-ES' : 'en-US' });
+  const page = await context.newPage();
+  const suffix = (locale === 'en' ? '-en' : '') + (narrow ? '-narrow' : '');
+  const snap = async (state) => {
+    await page.screenshot({ path: `${out}/pl-${state}-${theme}${suffix}.png`, fullPage: true });
+    console.log(`wrote pl-${state}-${theme}${suffix}.png`);
+  };
+  await page.goto(`${base}/flows?theme=${theme}&locale=${locale}`);
+  await page.waitForSelector('.wb-root .wb-viewbar');
+  await settle(page);
+  await page.getByRole('button', { name: t.viewLive, exact: true }).click();
+  await page.waitForSelector('.wb-live-btn');
+  await settle(page);
+  await snap('map');
+
+  await page.locator('section.wb-frame .wb-frame-h .wb-live-btn').first().click();
+  await page.waitForSelector('ul.wb-caselist li');
+  await settle(page);
+  await snap('list');
+
+  const lines = page.locator('ul.wb-caselist li button');
+  await lines.nth(Math.min(2, (await lines.count()) - 1)).click();
+  await page.waitForSelector('svg.wb-diagram-svg');
+  await settle(page);
+  await snap('case');
+  await context.close();
+}
+
 if (doMap) {
   for (const theme of ['light', 'dark']) {
     for (const locale of ['es', 'en']) {
@@ -480,6 +515,16 @@ if (doMap) {
   }
   await mapDiagram('case.lifecycle', 0);
   await mapDiagram('collection.followup', 4);
+}
+
+if (doLive) {
+  for (const theme of ['light', 'dark']) {
+    for (const locale of ['es', 'en']) {
+      await lives(theme, locale, false);
+    }
+  }
+  await lives('light', 'es', true);
+  await lives('light', 'en', true);
 }
 
 if (doFlows) {

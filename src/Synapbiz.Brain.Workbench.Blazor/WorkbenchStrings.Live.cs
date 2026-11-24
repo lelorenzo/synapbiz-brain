@@ -66,6 +66,7 @@ public static partial class WorkbenchStrings
         ("flow.cases.node.visited", "visitado, número {n}", "visited, number {n}"),
 
         ("flow.cases.legend.visited", "Paso por el que pasó el caso; el número es el orden en que entró.", "A step the case went through; the number is the order it entered in."),
+        ("flow.cases.legend.here", "El paso donde está el caso ahora.", "The step the case is on now."),
         ("flow.cases.legend.taken", "Ruta que tomó el caso.", "A route the case took."),
 
         ("flow.cases.side.label", "Datos del caso", "Facts of the case"),

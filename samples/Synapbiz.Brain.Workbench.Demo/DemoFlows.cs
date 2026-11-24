@@ -38,6 +38,7 @@ internal sealed class DemoFlows
         }
 
         Answers = new DemoAnswers(processes);
+        Live = new DemoLive(processes);
     }
 
     /// <summary>The fixed offsets of the zones the reference flows use. A real host would resolve them from a time zone database.</summary>
@@ -108,6 +109,9 @@ internal sealed class DemoFlows
 
     /// <summary>The scripted source of answers, named "Demo answers".</summary>
     public IFlowAnswerSource Answers { get; }
+
+    /// <summary>The cases the demo pretends are open: synthetic, scripted from the embedded scenarios, read only.</summary>
+    public IFlowLiveSource Live { get; }
 
     /// <summary>The flows of the list for a language; the same instances every time so the panels can keep what they computed.</summary>
     public IReadOnlyList<WorkbenchFlow> For(WorkbenchLocale locale)

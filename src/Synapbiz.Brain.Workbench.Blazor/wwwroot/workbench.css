@@ -2315,7 +2315,7 @@
 
 .wb-case-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-columns: fit-content(100%) minmax(220px, 300px);
   gap: 16px;
   align-items: start;
   margin: 10px 0 14px;
@@ -2412,4 +2412,16 @@
 
 .wb-case-legend {
   margin: 0;
+}
+
+.wb-arrow-taken {
+  fill: var(--wb-accent);
+}
+
+.wb-casepath-list li {
+  display: list-item;
+}
+
+.wb-casepath-list li > * {
+  margin-right: 8px;
 }
