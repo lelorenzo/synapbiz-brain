@@ -7,7 +7,7 @@ stage postvisit: Después de la visita
 stage collection: Cobro
 step zone_check [Decisión] Comprobar la zona del caso
   stage: Antes de la visita
-  does: Decide con la regla `lifecycle.zone_ready` usando `practice_zone`. El campo de resultado `ready` indica adónde va el flujo.
+  does: Decide con la regla `lifecycle.zone_ready` usando `practice_zone`. El campo de resultado `ready` indica adónde va el proceso.
   on:yes: Si `ready` es `yes`: ir a Etapa previa a la visita
   onNoDecision: Si la regla no da resultado: ir a Operaciones: falta la zona
   onError: Si no se puede aplicar la regla: ir a Operaciones: falta la zona

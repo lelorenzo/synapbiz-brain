@@ -167,7 +167,7 @@ public sealed class FlowSimulateRepairTests
         harness.Open(FlowWorkbenchTab.Try);
         harness.Type("case_ref", "c-1");
         harness.Press("Start");
-        harness.Find("[role=alert]").TextContent.Should().Contain("a value does not have the type the flow expects");
+        harness.Find("[role=alert]").TextContent.Should().Contain("a value does not have the type the process expects");
         harness.PanelText.Should().Contain("Start a made-up case").And.NotContain("process.variable");
         harness.Input("case_ref").GetAttribute("value").Should().Be("c-1");
     }

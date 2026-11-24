@@ -1,0 +1,253 @@
+### step added and start changed
+Qué cambió: pasos agregados: 1; rutas cambiadas: 1. La versión anterior no tenía pruebas que repetir.
+- Se agregó un paso nuevo: “pause” (Temporizador).
+- El proceso ahora empieza en “pause” en lugar de “Esperar la nota firmada”.
+
+### start changed
+Qué cambió: pasos agregados: 1; rutas cambiadas: 1. La versión anterior no tenía pruebas que repetir.
+- Se agregó un paso nuevo: “pause” (Temporizador).
+- El proceso ahora empieza en “pause” en lugar de “Esperar la nota firmada”.
+
+### step removed
+Qué cambió: pasos quitados: 1; rutas cambiadas: 2. La versión anterior no tenía pruebas que repetir.
+- Se quitó el paso “Confirmar la nota” (Tarea para una persona).
+- En el paso “Esperar la nota firmada”, cuando la conexión no está disponible: ahora va a “Reclamar la nota” en lugar de “Confirmar la nota”.
+- En el paso “Esperar la nota firmada”, cuando el plan no lo incluye: ahora va a “Reclamar la nota” en lugar de “Confirmar la nota”.
+
+### step renamed
+Qué cambió: pasos renombrados: 1. La versión anterior no tenía pruebas que repetir.
+- El paso “Reclamar la nota” cambió de nombre a “call front desk”; nada más cambió en él.
+
+### route changed
+Qué cambió: rutas cambiadas: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Esperar la nota firmada”, cuando la conexión no está disponible: ahora va a “Reclamar la nota” en lugar de “Confirmar la nota”.
+
+### route added
+Qué cambió: rutas cambiadas: 1; ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Reclamar la nota”, el límite de tiempo ahora es dentro de 1 día.
+- En el paso “Reclamar la nota”, cuando se acaba el tiempo: ahora va a “Visita cancelada”.
+
+### route removed
+Qué cambió: rutas cambiadas: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Esperar la nota firmada”, cuando el plan no lo incluye: se quitó el camino a “Confirmar la nota”.
+
+### window added
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- Se agregó la ventana de envío late: sábado, de 09:00 a 12:00 (zona de “practice zone”).
+
+### window removed
+Qué cambió: ajustes cambiados: 3. La versión anterior no tenía pruebas que repetir.
+- En “Enviar recordatorio”, este paso ya no contacta a una persona.
+- En el paso “Enviar recordatorio”, se quitó la ventana de envío; era “Horario de contacto”.
+- Se quitó la ventana de envío Horario de contacto.
+
+### window changed
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- La ventana de envío Horario de contacto cambió de lunes, martes, miércoles, jueves y viernes, de 09:00 a 18:00 (zona de “practice zone”) a lunes, martes, miércoles, jueves y viernes, de 09:00 a 17:00 (zona de “practice zone”).
+
+### trigger added
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- El proceso ahora también empieza cuando llega “practice opened”, un caso por cada “practice id”.
+
+### trigger removed
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- El proceso ya no empieza como la tarea programada “daily” con el horario “0 6 * * *” (zona de la activación).
+
+### trigger changed
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- Cambió lo que inicia el proceso: era como la tarea programada “daily” con el horario “0 6 * * *” (zona de la activación); ahora es como la tarea programada “daily” con el horario “30 7 * * *” (zona de la activación).
+
+### variable added
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- Se agregó un dato nuevo “spare” (Code).
+
+### show list shortened
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Reclamar la nota”, lo que ve la persona cambió de “case ref” y “note status” a “case ref”.
+
+### variable dropped
+Qué cambió: ajustes cambiados: 2. La versión anterior no tenía pruebas que repetir.
+- En el paso “Revisión del médico”, se quitó lo que guarda; era “code” desde “final code”.
+- Se quitó el dato “final code”.
+
+### variable changed
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- El dato “case ref” ya no se da al empezar el caso.
+
+### process id changed
+Qué cambió: otros cambios: 1. La versión anterior no tenía pruebas que repetir.
+- El identificador del proceso cambió de “visit note wait” a “visit note wait two”.
+
+### title changed
+Qué cambió: nombres cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- El título del proceso cambió de “Visit note wait” a “Visit note follow-up”.
+
+### description changed
+Qué cambió: nombres cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- La descripción del proceso cambió de “Reads the status of the note of a visit at growing intervals until it is signed; a person chases it when two days pass, or confirms it when the practice has no connector.” a “Waits for the note of the visit.”.
+
+### subject changed
+Qué cambió: otros cambios: 1. La versión anterior no tenía pruebas que repetir.
+- Aquello de lo que trata cada caso cambió de “case” a “visit”.
+
+### something else changed
+Qué cambió: otros cambios: 1. La versión anterior no tenía pruebas que repetir.
+- Cambió algo más en el proceso, en la parte del documento llamada stages.
+
+### label changed
+Qué cambió: nombres cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- El título en inglés cambió de “Visit note wait” a “Wait for the visit note”.
+
+### label added
+Qué cambió: nombres cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- El nombre del paso “signed” en inglés cambió de “Note signed” a “Signed”.
+
+### label removed
+Qué cambió: nombres cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- el paso “cancelled” perdió su nombre en español; era “Visita cancelada”.
+
+### test added
+Qué cambió: pruebas agregadas, cambiadas o quitadas: 1. Las 11 pruebas de la versión anterior se comportan como antes.
+- Se agregó una prueba nueva: “the note is signed on the second read”.
+
+### test removed
+Qué cambió: pruebas agregadas, cambiadas o quitadas: 1. Las 11 pruebas de la versión anterior se comportan como antes.
+- Se quitó la prueba “the note is never signed and the visit did not happen”.
+
+### test changed
+Qué cambió: pruebas agregadas, cambiadas o quitadas: 1. Las 11 pruebas de la versión anterior se comportan como antes.
+- Se cambió la prueba “the note is signed at the first read”.
+
+### stage
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Operaciones: problema en la visita”, la etapa cambió de “Visita” a “Antes de la visita”.
+
+### port
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Esperar la nota firmada”, el puerto cambió de “records note status” a “records note state”.
+
+### delivery
+Qué cambió: rutas cambiadas: 1; ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Enviar recordatorio”, la garantía de envío cambió de como máximo una vez a al menos una vez.
+- En el paso “Enviar recordatorio”, cuando no se sabe si salió: se quitó el camino a “Seguimiento de recepción”.
+
+### contact
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En “Enviar recordatorio”, este paso ya no contacta a una persona.
+
+### window of a step
+Qué cambió: ajustes cambiados: 2. La versión anterior no tenía pruebas que repetir.
+- En el paso “Enviar recordatorio”, la ventana de envío cambió de “Horario de contacto” a “late”.
+- Se agregó la ventana de envío late: sábado, de 09:00 a 12:00 (zona de “practice zone”).
+
+### interrupt
+Qué cambió: rutas cambiadas: 1; ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Enviar recordatorio”, el aviso que termina la espera de la ventana ahora es “case reply received”.
+- En el paso “Enviar recordatorio”, cuando llega el aviso esperado durante la espera de la ventana: ahora va a “Listo para la visita”.
+
+### retry
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En “Esperar la nota firmada”, el número de intentos pasó de 3 a 5.
+
+### collect into
+Qué cambió: ajustes cambiados: 2. La versión anterior no tenía pruebas que repetir.
+- En el paso “Buscar oportunidades de codificación”, dónde se guardan todos los resultados cambió de “opportunities” a “opportunities2”.
+- Se agregó un dato nuevo “opportunities2” (Json).
+
+### queue
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Reclamar la nota”, la cola de tareas cambió de “Seguimiento de notas” a “Confirmación de notas”.
+
+### outcomes
+Qué cambió: rutas cambiadas: 1; ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Reclamar la nota”, las opciones de la persona cambió de “Firmada” y “Sin visita” a “Firmada”, “Sin visita” y “postponed”.
+- En el paso “Reclamar la nota”, cuando el resultado es postponed: ahora va a “Visita cancelada”.
+
+### show
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Reclamar la nota”, lo que ve la persona cambió de “case ref” y “note status” a “case ref”, “note status” y “note status”.
+
+### event
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Esperar la respuesta”, el aviso que se espera cambió de “case reply received” a “case answer received”.
+
+### correlation
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Esperar la respuesta”, con qué debe coincidir el aviso cambió de “case ref” a “practice zone”.
+
+### timeout
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En “Esperar la respuesta”, la espera más larga pasó de 1 día a 2 días.
+
+### timer
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En “Esperar el saldo”, la demora pasó de 7 días a 5 días.
+
+### loop
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Ronda de recordatorios”, el límite de repeticiones cambió de hasta 3 vueltas a hasta 5 vueltas.
+
+### poll
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En “Consultar el estado del reclamo”, el tiempo entre lecturas pasó de 1 día a 12 horas.
+
+### result
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Nota firmada”, el resultado cambió de “Nota firmada” a “note is signed”.
+
+### ai
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Consultar al asistente”, el modelo y las instrucciones de IA cambió de modelo “model-a”, instrucciones “coding-suggest” versión 1, hasta 2 intentos a modelo “model-b”, instrucciones “coding-suggest” versión 1, hasta 2 intentos.
+
+### ai input schema
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En “Consultar al asistente”, lo que se envía a la IA cambió: se agregó “note”.
+
+### ai output schema
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En “Consultar al asistente”, lo que la IA puede devolver cambió: se agregó “reason”.
+
+### inputs
+Qué cambió: ajustes cambiados: 1. La versión anterior no tenía pruebas que repetir.
+- En el paso “Etapa previa a la visita”, lo que envía cambió de “case ref” desde “case ref” y “practice zone” desde “practice zone” a “case ref” desde “case ref” y “practice zone” desde “case ref”.
+
+### facts
+Qué cambió: ajustes cambiados: 2. La versión anterior no tenía pruebas que repetir.
+- En el paso “Decidir si se recuerda”, lo que entrega a la regla cambió de “missing” desde “missing” a “missing” desde “missing2”.
+- Se agregó un dato nuevo “missing2” (Integer).
+
+### outputs
+Qué cambió: ajustes cambiados: 2. La versión anterior no tenía pruebas que repetir.
+- En el paso “Revisar lo que falta”, lo que guarda cambió de “missing count” desde “missing” a “missing count” desde “missing2”.
+- Se agregó un dato nuevo “missing2” (Integer).
+
+### child
+Qué cambió: rutas cambiadas: 4; ajustes cambiados: 2. La versión anterior no tenía pruebas que repetir.
+- En el paso “Etapa de la visita”, el subproceso cambió de “visit note wait” a “practice daily refresh”.
+- En el paso “Etapa de la visita”, se quitó lo que envía; era “case ref” desde “case ref”.
+- En el paso “Etapa de la visita”, cuando el resultado es failed: ahora va a “Cerrado, sin visita”.
+- En el paso “Etapa de la visita”, cuando el resultado es refreshed: ahora va a “Etapa posterior a la visita”.
+- En el paso “Etapa de la visita”, cuando el resultado es note_signed: se quitó el camino a “Etapa posterior a la visita”.
+- En el paso “Etapa de la visita”, cuando el resultado es visit_cancelled: se quitó el camino a “Cerrado, sin visita”.
+
+### kind
+Qué cambió: rutas cambiadas: 3; ajustes cambiados: 5. La versión anterior no tenía pruebas que repetir.
+- El paso “Reclamar la nota” pasó de Tarea para una persona a Temporizador.
+- En el paso “Reclamar la nota”, se quitó la cola de tareas; era “Seguimiento de notas”.
+- En el paso “Reclamar la nota”, se quitó las opciones de la persona; era “Firmada” y “Sin visita”.
+- En el paso “Reclamar la nota”, se quitó lo que ve la persona; era “case ref” y “note status”.
+- En el paso “Reclamar la nota”, la demora ahora es después de 1 día.
+- En el paso “Reclamar la nota”, después: ahora va a “Nota firmada”.
+- En el paso “Reclamar la nota”, cuando el resultado es no_visit: se quitó el camino a “Visita cancelada”.
+- En el paso “Reclamar la nota”, cuando el resultado es signed: se quitó el camino a “Nota firmada”.
+
+### rule
+Qué cambió: rutas cambiadas: 3; ajustes cambiados: 4. La versión anterior no tenía pruebas que repetir.
+- En el paso “Comprobar la sugerencia”, la regla cambió de “postvisit suggestion check” a “postvisit assist gate”.
+- En el paso “Comprobar la sugerencia”, el campo del resultado que dirige el caso ahora es “use”.
+- En el paso “Comprobar la sugerencia”, lo que entrega a la regla cambió de “confidence” desde “confidence” a “assist enabled” desde “assist enabled” y “items” desde “items”.
+- En el paso “Comprobar la sugerencia”, se quitó lo que guarda; era “usable” desde “suggestion usable”.
+- En el paso “Comprobar la sugerencia”, cuando el resultado es no: ahora va a “Revisión del médico”.
+- En el paso “Comprobar la sugerencia”, cuando el resultado es yes: ahora va a “Revisión del médico”.
+- En el paso “Comprobar la sugerencia”, después: se quitó el camino a “Revisión del médico”.
+

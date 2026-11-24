@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Synapbiz.Brain.Mcp</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Mcp</AssemblyName>
+    <PackageId>Synapbiz.Brain.Mcp</PackageId>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Adapts the Brain authoring tools to the Model Context Protocol with the official C# SDK: one extension adds the tools (each with its JSON Schema), the guide sections as resources and the "model a process with me" prompt to an MCP server a host already builds, with the host's own store, catalog, clock and authorization. No model, no vendor, no network of its own.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Synapbiz.Brain.Authoring/Synapbiz.Brain.Authoring.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Synapbiz.Brain.Mcp.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

@@ -32,7 +32,7 @@ step ask [Respuesta de IA] Pedir una elección
   ai note: El modelo y la instrucción están fijados en el documento: `model-a`, instrucción `pick` versión 2.
   ai note: Tiene 1 intento para dar una respuesta que cumpla la forma esperada.
   ai note: A continuación la regla `conf.flag_rule` juzga la respuesta.
-  ai note: Cuando la respuesta nunca cumple la forma, la llamada falla o la IA no está disponible, el flujo no se detiene: sigue en Roto.
+  ai note: Cuando la respuesta nunca cumple la forma, la llamada falla o la IA no está disponible, el proceso no se detiene: sigue en Roto.
 step check [Lectura repetida] Revisar la elección
   stage: Ejecución
   does: Lee `records.state` una y otra vez hasta que `flag` sea `true`. Lee cada 1 minuto, durante 45 minutos como máximo. Envía `batch_ref` y `state_count`. Guarda `state_count`. Si la llamada falla por un motivo pasajero, lo intenta de nuevo, hasta 2 intentos en total.
@@ -43,7 +43,7 @@ step check [Lectura repetida] Revisar la elección
   onExpired: Si se acaba el tiempo: ir a Roto
 step judge [Decisión] Juzgar el conteo
   stage: Ejecución
-  does: Decide con la regla `conf.default_rule` usando `count`. El campo de resultado `level` indica adónde va el flujo.
+  does: Decide con la regla `conf.default_rule` usando `count`. El campo de resultado `level` indica adónde va el proceso.
   on:high: Si `level` es `high`: ir a Terminado
   on:low: Si `level` es `low`: ir a Roto
   onNoDecision: Si la regla no da resultado: ir a Terminado
@@ -56,7 +56,7 @@ step broken [Fin] Roto
   does: Cierra el caso con el resultado Roto.
 step verify [Decisión] Comprobar la elección
   stage: Ejecución
-  does: Decide con la regla `conf.flag_rule` usando `count`. El campo de resultado `flag` indica adónde va el flujo.
+  does: Decide con la regla `conf.flag_rule` usando `count`. El campo de resultado `flag` indica adónde va el proceso.
   on:false: Si `flag` es `false`: ir a Roto
   on:true: Si `flag` es `true`: ir a Revisar la elección
   onNoDecision: Si la regla no da resultado: ir a Roto

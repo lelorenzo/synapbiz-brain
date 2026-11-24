@@ -24,7 +24,10 @@
     <ProjectReference Include="../../src/Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Workbench.Blazor/Synapbiz.Brain.Workbench.Blazor.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Authoring/Synapbiz.Brain.Authoring.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Host.Postgres/Synapbiz.Brain.Host.Postgres.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Mcp/Synapbiz.Brain.Mcp.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Mcp.Tool/Synapbiz.Brain.Mcp.Tool.csproj" />
   </ItemGroup>
 
 </Project>

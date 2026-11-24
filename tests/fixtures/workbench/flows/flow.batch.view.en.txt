@@ -32,7 +32,7 @@ step ask [AI answer] Ask for a pick
   ai note: The model and the prompt are fixed in the document: `model-a`, prompt `pick` version 2.
   ai note: It gets 1 attempt to give an answer that fits the expected form.
   ai note: The rule `conf.flag_rule` judges the answer next.
-  ai note: When the answer never fits, the call fails or the AI is not available, the flow does not stop: it goes on at Broken.
+  ai note: When the answer never fits, the call fails or the AI is not available, the process does not stop: it goes on at Broken.
 step check [Repeated read] Check the pick
   stage: Run
   does: Reads `records.state` again and again until `flag` is `true`. It reads every 1 minute, for at most 45 minutes. It sends `batch_ref` and `state_count`. It keeps `state_count`. If the call fails for a passing reason it tries again, up to 2 attempts in all.
@@ -43,7 +43,7 @@ step check [Repeated read] Check the pick
   onExpired: If the time runs out: go to Broken
 step judge [Decision] Judge the count
   stage: Run
-  does: Judges with the rule `conf.default_rule` using `count`. The result field `level` says where the flow goes.
+  does: Judges with the rule `conf.default_rule` using `count`. The result field `level` says where the process goes.
   on:high: If `level` is `high`: go to Finished
   on:low: If `level` is `low`: go to Broken
   onNoDecision: If the rule gives no result: go to Finished
@@ -56,7 +56,7 @@ step broken [End] Broken
   does: Ends the case with the result Broken.
 step verify [Decision] Verify the pick
   stage: Run
-  does: Judges with the rule `conf.flag_rule` using `count`. The result field `flag` says where the flow goes.
+  does: Judges with the rule `conf.flag_rule` using `count`. The result field `flag` says where the process goes.
   on:false: If `flag` is `false`: go to Broken
   on:true: If `flag` is `true`: go to Check the pick
   onNoDecision: If the rule gives no result: go to Broken

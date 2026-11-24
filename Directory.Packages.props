@@ -11,6 +11,9 @@
     <!-- brain-spec -->
     <PackageVersion Include="JsonSchema.Net" Version="8.0.5" />
 
+    <!-- brain-mcp: the official C# SDK of the Model Context Protocol (only Synapbiz.Brain.Mcp and the brain-mcp program reference it) -->
+    <PackageVersion Include="ModelContextProtocol" Version="2.4.0" />
+
     <!-- workbench panels -->
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
     <PackageVersion Include="bunit" Version="1.38.5" />

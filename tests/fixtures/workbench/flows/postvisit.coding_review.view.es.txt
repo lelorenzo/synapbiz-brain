@@ -16,7 +16,7 @@ step find_opportunities [Decisión] Buscar oportunidades de codificación
   onError: Si no se puede aplicar la regla: ir a Revisión del médico
 step assist_gate [Decisión] Decidir si se consulta al asistente
   stage: Después de la visita
-  does: Decide con la regla `postvisit.assist_gate` usando `assist_enabled` y `items`. El campo de resultado `use` indica adónde va el flujo.
+  does: Decide con la regla `postvisit.assist_gate` usando `assist_enabled` y `items`. El campo de resultado `use` indica adónde va el proceso.
   on:no: Si `use` es `no`: ir a Revisión del médico
   on:yes: Si `use` es `yes`: ir a Consultar al asistente
   onNoDecision: Si la regla no da resultado: ir a Revisión del médico
@@ -36,7 +36,7 @@ step suggest [Respuesta de IA] Consultar al asistente
   ai note: El modelo y la instrucción están fijados en el documento: `model-a`, instrucción `coding-suggest` versión 1.
   ai note: Tiene 2 intentos para dar una respuesta que cumpla la forma esperada.
   ai note: A continuación la regla `postvisit.suggestion_check` juzga la respuesta.
-  ai note: Cuando la respuesta nunca cumple la forma, la llamada falla o la IA no está disponible, el flujo no se detiene: sigue en Revisión del médico.
+  ai note: Cuando la respuesta nunca cumple la forma, la llamada falla o la IA no está disponible, el proceso no se detiene: sigue en Revisión del médico.
 step check_suggestion [Decisión] Comprobar la sugerencia
   stage: Después de la visita
   does: Decide con la regla `postvisit.suggestion_check` usando `confidence`. Guarda `suggestion_usable`.

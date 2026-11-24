@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Synapbiz.Brain.Contracts/Synapbiz.Brain.Contracts.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Engine/Synapbiz.Brain.Engine.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Authoring/Synapbiz.Brain.Authoring.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Mcp/Synapbiz.Brain.Mcp.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Mcp.Tool/Synapbiz.Brain.Mcp.Tool.csproj" />
+  </ItemGroup>
+
+</Project>

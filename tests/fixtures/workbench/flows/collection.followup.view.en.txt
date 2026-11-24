@@ -27,7 +27,7 @@ step poll_claim [Repeated read] Check the claim status
   onExpired: If the time runs out: go to Claim stalled
 step route_claim [Decision] Route by claim status
   stage: Collection
-  does: Judges with the rule `collection.claim_result` using `claim_status`. The result field `result` says where the flow goes.
+  does: Judges with the rule `collection.claim_result` using `claim_status`. The result field `result` says where the process goes.
   on:denied: If `result` is `denied`: go to Handle the denial
   on:paid: If `result` is `paid`: go to Collected
   on:pending: If `result` is `pending`: go to Wait for the balance

@@ -1,6 +1,6 @@
 name: release
 
-# Publishes the three packages to the private GitHub Packages feed when a version tag is pushed.
+# Publishes every package of the solution (libraries and the brain-mcp tool) to the private GitHub Packages feed when a version tag is pushed.
 on:
   push:
     tags:
