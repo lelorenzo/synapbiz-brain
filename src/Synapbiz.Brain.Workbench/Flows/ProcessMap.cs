@@ -81,7 +81,12 @@ public sealed record MapChildLink(string ProcessId, string Title, bool IsMissing
 /// <param name="Process">The subprocess; for a child that is not loaded, a placeholder with the id as title and no counts.</param>
 /// <param name="IsMissing">True when the child is not among the loaded processes.</param>
 /// <param name="AlsoStartedBy">The titles of the other processes that start it (not this parent and not itself), in ordinal order of their ids: "also started by ...".</param>
-public sealed record MapChild(MapProcess Process, bool IsMissing, IReadOnlyList<string> AlsoStartedBy);
+/// <param name="Nested">The subprocesses this one starts, in document order, each with its own nested ones; a process already on the way down (a cycle) is not drawn again. Empty for a child that is not loaded.</param>
+public sealed record MapChild(MapProcess Process, bool IsMissing, IReadOnlyList<string> AlsoStartedBy, IReadOnlyList<MapChild>? Nested = null)
+{
+    /// <summary>The subprocesses this one starts (see the <c>Nested</c> parameter); never null.</summary>
+    public IReadOnlyList<MapChild> Nested { get; } = Nested ?? [];
+}
 
 /// <summary>A phase of a main process: a stage of its document, or the steps that have none.</summary>
 /// <param name="StageId">The stage id; null for the steps with no stage ("No phase").</param>
@@ -104,7 +109,12 @@ public sealed record MapMain(MapProcess Process, IReadOnlyList<string> Starts, I
 /// <summary>A scheduled task with its schedule sentences.</summary>
 /// <param name="Process">The process.</param>
 /// <param name="Schedules">One sentence per trigger.</param>
-public sealed record MapScheduled(MapProcess Process, IReadOnlyList<string> Schedules);
+/// <param name="Children">The subprocesses its steps start, in document order, each with its nested ones; none when it starts none.</param>
+public sealed record MapScheduled(MapProcess Process, IReadOnlyList<string> Schedules, IReadOnlyList<MapChild>? Children = null)
+{
+    /// <summary>The subprocesses its steps start (see the <c>Children</c> parameter); never null.</summary>
+    public IReadOnlyList<MapChild> Children { get; } = Children ?? [];
+}
 
 /// <summary>A piece more than one process uses.</summary>
 /// <param name="Use">The piece.</param>
@@ -215,7 +225,7 @@ public sealed record ProcessMap
             var all = set.Select(process => Process(ProcessOutline.From(process).Id)).ToList();
             var mains = all.Where(process => process.Kind == FlowKind.Main).Select(MainOf).ToList();
             var scheduled = all.Where(process => process.Kind == FlowKind.Scheduled)
-                .Select(process => new MapScheduled(process, process.Triggers)).ToList();
+                .Select(process => new MapScheduled(process, process.Triggers, Children(process, [.. outlines[process.Id].Steps], [process.Id]))).ToList();
             var cycles = Cycles();
             var reached = Reached(all);
             return new ProcessMap
@@ -310,10 +320,10 @@ public sealed record ProcessMap
             foreach (var stage in outline.Stages)
             {
                 var steps = outline.Steps.Where(step => string.Equals(step.Stage, stage, StringComparison.Ordinal)).ToList();
-                phases.Add(new MapPhase(stage, wording.Stage(stage), EndsWhen(outline, wording, stage, steps), Children(process, steps)));
+                phases.Add(new MapPhase(stage, wording.Stage(stage), EndsWhen(outline, wording, stage, steps), Children(process, steps, [process.Id])));
             }
 
-            var loose = Children(process, [.. outline.Steps.Where(step => step.Stage is null)]);
+            var loose = Children(process, [.. outline.Steps.Where(step => step.Stage is null)], [process.Id]);
             if (loose.Count > 0)
             {
                 phases.Add(new MapPhase(null, string.Empty, null, loose));
@@ -323,11 +333,18 @@ public sealed record ProcessMap
             return new MapMain(process, starts, phases, ends);
         }
 
-        private List<MapChild> Children(MapProcess parent, List<OutlineStep> steps)
+        // The subprocesses the steps start, each with the ones it starts in turn. "path" holds the processes on the way down from the
+        // main process or scheduled task: one of them is a cycle, which the map reports (Cycles) and does not draw again.
+        private List<MapChild> Children(MapProcess parent, List<OutlineStep> steps, IReadOnlyList<string> path)
         {
             var result = new List<MapChild>();
             foreach (var id in steps.Where(step => step.Kind == OutlineStepKind.Subprocess).Select(step => step.Process!).Distinct(StringComparer.Ordinal))
             {
+                if (path.Contains(id, StringComparer.Ordinal))
+                {
+                    continue;
+                }
+
                 if (!entries.ContainsKey(id))
                 {
                     var missing = new MapProcess
@@ -349,7 +366,7 @@ public sealed record ProcessMap
 
                 var child = Process(id);
                 var others = child.StartedBy.Where(other => !string.Equals(other, parent.Id, StringComparison.Ordinal)).Select(other => entries.TryGetValue(other, out var found) ? found.Title : other).ToList();
-                result.Add(new MapChild(child, false, others));
+                result.Add(new MapChild(child, false, others, Children(child, [.. outlines[id].Steps], [.. path, id])));
             }
 
             return result;

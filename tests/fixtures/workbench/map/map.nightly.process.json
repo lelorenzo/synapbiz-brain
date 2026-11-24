@@ -1,0 +1,62 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.nightly",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "process/map.nightly_child"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Night tidy",
+    "display": {
+      "en": {
+        "title": "Night tidy"
+      },
+      "es": {
+        "title": "Orden de la noche"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "fan",
+    "steps": {
+      "fan": {
+        "kind": "subprocess",
+        "process": "map.nightly_child",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "done",
+        "onError": "done"
+      },
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": [],
+    "triggers": [
+      {
+        "kind": "schedule",
+        "id": "night",
+        "cron": "0 2 * * *",
+        "misfire": "skip",
+        "input": {}
+      }
+    ]
+  }
+}

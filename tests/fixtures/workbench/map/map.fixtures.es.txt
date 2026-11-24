@@ -1,4 +1,4 @@
-processes: 3 main, 6 sub, 1 scheduled; rules: 2
+processes: 4 main, 9 sub, 2 scheduled; rules: 2
 == main
 Main map.front v1: Proceso de entrada
   counts: 7 steps, 0 scenarios, pass, 13 routes not tried
@@ -50,6 +50,20 @@ Main map.second v1: Segundo proceso principal
     >   uses: Recepción [PersonTask:desk]
       missing: False; also started by: Proceso de entrada
   ends: done
+== main
+Main map.third v1: Tercer proceso principal
+  counts: 2 steps, 0 scenarios, pass, 2 routes not tried
+  trigger: Empieza cuando llega `case.third`, un caso por cada `ref`.
+  starts: Empieza cuando llega `case.third`, un caso por cada `ref`.
+  phase (no phase)
+    ends when: (none)
+    > Subprocess map.wrap v1: Envoltorio
+    >   counts: 2 steps, 0 scenarios, pass, 2 routes not tried
+      missing: False; also started by: 
+      > Subprocess map.inner v1: Paso interior
+      >   counts: 1 steps, 0 scenarios, pass, 0 routes not tried
+        missing: False; also started by: 
+  ends: done
 == scheduled
 Scheduled map.cron v1: Barrido de la mañana
   counts: 3 steps, 0 scenarios, pass, 5 routes not tried
@@ -57,6 +71,19 @@ Scheduled map.cron v1: Barrido de la mañana
   uses: Sistema de registros [Connector:map.records]
   schedule: Se ejecuta todos los días a las 06:00 en la zona de la activación.
   starts process: map.notify = Aviso
+    > Subprocess map.notify v1: Aviso
+    >   counts: 2 steps, 0 scenarios, pass, 4 routes not tried
+    >   uses: `map.mailer` [Connector:map.mailer]
+      missing: False; also started by: Proceso de entrada
+== scheduled
+Scheduled map.nightly v1: Orden de la noche
+  counts: 2 steps, 0 scenarios, pass, 2 routes not tried
+  trigger: Se ejecuta todos los días a las 02:00 en la zona de la activación.
+  schedule: Se ejecuta todos los días a las 02:00 en la zona de la activación.
+  starts process: map.nightly_child = Archivo de la noche
+    > Subprocess map.nightly_child v1: Archivo de la noche
+    >   counts: 1 steps, 0 scenarios, pass, 0 routes not tried
+      missing: False; also started by: 
 == shared: Nivel por conteo [Rule:conf.default_rule] x2 by map.front, map.serve
 == shared: Sistema de registros [Connector:map.records] x2 by map.check, map.cron
 == shared: `map.mailer` [Connector:map.mailer] x2 by map.check, map.notify

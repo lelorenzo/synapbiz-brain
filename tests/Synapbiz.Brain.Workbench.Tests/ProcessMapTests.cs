@@ -193,6 +193,94 @@ public sealed class ProcessMapTests
         map.Detached.Should().BeEmpty();
     }
 
+    private static IEnumerable<(string Name, IReadOnlyList<BrainProcess> Library)> Libraries()
+    {
+        yield return ("reference", [.. FlowDocs.Reference.Select(item => item.Process)]);
+        yield return ("all documents", [.. FlowDocs.All.Select(item => item.Process)]);
+        yield return ("map fixtures", MapDocs.All);
+        yield return ("map fixtures without the front process", [.. MapDocs.All.Where(process => process.Id != "map.front")]);
+        yield return ("map fixtures without the front process and the sweep", [.. MapDocs.All.Where(process => process.Id is not ("map.front" or "map.cron"))]);
+        yield return ("map fixtures without the third process", [.. MapDocs.All.Where(process => process.Id != "map.third")]);
+        yield return ("map fixtures with a process that starts itself", MapDocs.With("map.loop_a", SelfStart));
+        yield return ("map fixtures with a cycle below a main process", MapDocs.With("map.inner", StartWrap));
+        
+    }
+
+    private static readonly string[] InnerAndWrap = ["map.inner", "map.wrap"];
+
+    internal static void StartWrap(System.Text.Json.Nodes.JsonObject document)
+    {
+        document["body"]!["start"] = "go";
+        document["body"]!["steps"]!["go"] = System.Text.Json.Nodes.JsonNode.Parse("""{"kind":"subprocess","process":"map.wrap","input":{"ref":"ref"},"next":"done","onError":"done"}""");
+        document["uses"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"$ref":"process/map.wrap"}]""");
+    }
+
+    [Theory]
+    [InlineData(WorkbenchLocale.En)]
+    [InlineData(WorkbenchLocale.Es)]
+    public void EveryProcessOfEveryLibraryAppearsSomewhereOnTheMap(WorkbenchLocale locale)
+    {
+        foreach (var (name, library) in Libraries())
+        {
+            var map = ProcessMap.From(library, locale);
+            MapDocs.Shown(map).Should().BeEquivalentTo(map.Processes.Select(process => process.Id), name);
+        }
+
+        foreach (var process in MapDocs.All)
+        {
+            var map = ProcessMap.From([process], locale);
+            MapDocs.Shown(map).Should().BeEquivalentTo(map.Processes.Select(item => item.Id), process.Id);
+        }
+    }
+
+    [Fact]
+    public void ASubprocessOnlyAScheduledTaskStartsIsDrawnUnderThatTask()
+    {
+        var map = ProcessMap.From(MapDocs.All.Where(process => process.Id != "map.front"), WorkbenchLocale.En);
+        var cron = map.Scheduled.Single(task => task.Process.Id == "map.cron");
+        cron.Children.Select(child => child.Process.Id).Should().Equal("map.notify");
+        map.Detached.Should().NotContain(process => process.Id == "map.notify");
+        var nightly = map.Scheduled.Single(task => task.Process.Id == "map.nightly");
+        nightly.Children.Select(child => child.Process.Id).Should().Equal("map.nightly_child");
+        nightly.Children[0].AlsoStartedBy.Should().BeEmpty();
+        nightly.Children[0].Nested.Should().BeEmpty();
+        map.Scheduled.Single(task => task.Process.Id == "map.cron").Children[0].AlsoStartedBy.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ASubprocessStartedOnlyByAnotherSubprocessIsNestedUnderItInDocumentOrder()
+    {
+        var map = Fixtures(WorkbenchLocale.En);
+        var third = map.Mains.Single(main => main.Process.Id == "map.third");
+        var wrap = third.Phases.SelectMany(phase => phase.Subprocesses).Should().ContainSingle().Subject;
+        wrap.Process.Id.Should().Be("map.wrap");
+        var inner = wrap.Nested.Should().ContainSingle().Subject;
+        inner.Process.Id.Should().Be("map.inner");
+        inner.Nested.Should().BeEmpty();
+        map.Detached.Select(process => process.Id).Should().NotContain(["map.wrap", "map.inner"]);
+        map.Process("map.inner")!.StartedBy.Should().Equal("map.wrap");
+    }
+
+    [Fact]
+    public void ACycleBelowAMainProcessIsReportedAndTheWayBackIsNotDrawn()
+    {
+        var map = ProcessMap.From(MapDocs.With("map.inner", StartWrap), WorkbenchLocale.En);
+        map.Cycles.Should().Contain(cycle => cycle.SequenceEqual(InnerAndWrap));
+        var wrap = map.Mains.Single(main => main.Process.Id == "map.third").Phases.SelectMany(phase => phase.Subprocesses).Single();
+        wrap.Process.Id.Should().Be("map.wrap");
+        var inner = wrap.Nested.Should().ContainSingle().Subject;
+        inner.Process.Id.Should().Be("map.inner");
+        inner.Nested.Should().BeEmpty("map.wrap is already on the way down");
+    }
+
+    [Fact]
+    public void ASubprocessThatIsNotLoadedBelowASubprocessIsACardMarkedMissing()
+    {
+        var map = ProcessMap.From(MapDocs.All.Where(process => process.Id != "map.inner"), WorkbenchLocale.En);
+        var inner = map.Mains.Single(main => main.Process.Id == "map.third").Phases.SelectMany(phase => phase.Subprocesses).Single().Nested.Should().ContainSingle().Subject;
+        (inner.Process.Id, inner.IsMissing).Should().Be(("map.inner", true));
+    }
+
     [Fact]
     public void ANullSetIsRejectedAndAnEmptyOneGivesAnEmptyMap()
     {

@@ -1,0 +1,40 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.nightly_child",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": {
+    "title": "Night archive",
+    "display": {
+      "en": {
+        "title": "Night archive"
+      },
+      "es": {
+        "title": "Archivo de la noche"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "done",
+    "steps": {
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": []
+  }
+}

@@ -100,6 +100,60 @@ internal static class MapDocs
         }
     }
 
+    private static void Nested(StringBuilder text, string indent, MapChild parent)
+    {
+        foreach (var child in parent.Nested)
+        {
+            Process(text, indent + "> ", child.Process);
+            text.Append(indent).Append("  missing: ").Append(child.IsMissing).Append("; also started by: ").Append(string.Join(" | ", child.AlsoStartedBy)).Append('\n');
+            Nested(text, indent + "  ", child);
+        }
+    }
+
+    /// <summary>Every process id a map shows somewhere: a lane, a phase, a nested card (a child that is not loaded is not a process of the map), a scheduled task's children or the detached lane.</summary>
+    internal static IReadOnlySet<string> Shown(ProcessMap map)
+    {
+        var shown = new HashSet<string>(StringComparer.Ordinal);
+
+        void Walk(MapChild child)
+        {
+            if (!child.IsMissing)
+            {
+                shown.Add(child.Process.Id);
+            }
+
+            foreach (var nested in child.Nested)
+            {
+                Walk(nested);
+            }
+        }
+
+        foreach (var main in map.Mains)
+        {
+            shown.Add(main.Process.Id);
+            foreach (var child in main.Phases.SelectMany(phase => phase.Subprocesses))
+            {
+                Walk(child);
+            }
+        }
+
+        foreach (var task in map.Scheduled)
+        {
+            shown.Add(task.Process.Id);
+            foreach (var child in task.Children)
+            {
+                Walk(child);
+            }
+        }
+
+        foreach (var process in map.Detached)
+        {
+            shown.Add(process.Id);
+        }
+
+        return shown;
+    }
+
     /// <summary>A map as text, one line per fact, so that a golden file shows every sentence and every grouping a screen would draw.</summary>
     internal static string Render(ProcessMap map)
     {
@@ -122,6 +176,7 @@ internal static class MapDocs
                 {
                     Process(text, "    > ", child.Process);
                     text.Append("      missing: ").Append(child.IsMissing).Append("; also started by: ").Append(string.Join(" | ", child.AlsoStartedBy)).Append('\n');
+                    Nested(text, "      ", child);
                 }
             }
 
@@ -140,6 +195,13 @@ internal static class MapDocs
             foreach (var child in task.Process.Starts)
             {
                 text.Append("  starts process: ").Append(child.ProcessId).Append(" = ").Append(child.Title).Append(child.IsMissing ? " (missing)" : string.Empty).Append('\n');
+            }
+
+            foreach (var child in task.Children)
+            {
+                Process(text, "    > ", child.Process);
+                text.Append("      missing: ").Append(child.IsMissing).Append("; also started by: ").Append(string.Join(" | ", child.AlsoStartedBy)).Append('\n');
+                Nested(text, "      ", child);
             }
         }
 

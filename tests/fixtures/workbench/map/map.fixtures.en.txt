@@ -1,4 +1,4 @@
-processes: 3 main, 6 sub, 1 scheduled; rules: 2
+processes: 4 main, 9 sub, 2 scheduled; rules: 2
 == main
 Main map.front v1: Front process
   counts: 7 steps, 0 scenarios, pass, 13 routes not tried
@@ -50,6 +50,20 @@ Main map.second v1: Second main process
     >   uses: Front desk [PersonTask:desk]
       missing: False; also started by: Front process
   ends: done
+== main
+Main map.third v1: Third main process
+  counts: 2 steps, 0 scenarios, pass, 2 routes not tried
+  trigger: Starts when `case.third` arrives, one case for each `ref`.
+  starts: Starts when `case.third` arrives, one case for each `ref`.
+  phase (no phase)
+    ends when: (none)
+    > Subprocess map.wrap v1: Wrapper
+    >   counts: 2 steps, 0 scenarios, pass, 2 routes not tried
+      missing: False; also started by: 
+      > Subprocess map.inner v1: Inner step
+      >   counts: 1 steps, 0 scenarios, pass, 0 routes not tried
+        missing: False; also started by: 
+  ends: done
 == scheduled
 Scheduled map.cron v1: Morning sweep
   counts: 3 steps, 0 scenarios, pass, 5 routes not tried
@@ -57,6 +71,19 @@ Scheduled map.cron v1: Morning sweep
   uses: Records system [Connector:map.records]
   schedule: Runs every day at 06:00 in the zone of the activation.
   starts process: map.notify = Notify
+    > Subprocess map.notify v1: Notify
+    >   counts: 2 steps, 0 scenarios, pass, 4 routes not tried
+    >   uses: `map.mailer` [Connector:map.mailer]
+      missing: False; also started by: Front process
+== scheduled
+Scheduled map.nightly v1: Night tidy
+  counts: 2 steps, 0 scenarios, pass, 2 routes not tried
+  trigger: Runs every day at 02:00 in the zone of the activation.
+  schedule: Runs every day at 02:00 in the zone of the activation.
+  starts process: map.nightly_child = Night archive
+    > Subprocess map.nightly_child v1: Night archive
+    >   counts: 1 steps, 0 scenarios, pass, 0 routes not tried
+      missing: False; also started by: 
 == shared: Level by count [Rule:conf.default_rule] x2 by map.front, map.serve
 == shared: Records system [Connector:map.records] x2 by map.check, map.cron
 == shared: `map.mailer` [Connector:map.mailer] x2 by map.check, map.notify
