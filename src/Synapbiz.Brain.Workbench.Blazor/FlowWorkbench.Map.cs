@@ -9,11 +9,12 @@ public sealed partial class FlowWorkbench
     private ProcessMap Map => processMap ??= ProcessMap.From(known, Locale, MapLabels, ReportOf);
 
     /// <summary>True when the map is drawn: the map view is chosen and at least one process can be read (otherwise the list says what is wrong).</summary>
-    private bool ShowMap => Session.View == FlowWorkbenchView.Map && Flows is { Count: > 0 } && known.Count > 0;
+    private bool ShowMap => EffectiveView == FlowWorkbenchView.Map && Flows is { Count: > 0 } && known.Count > 0;
 
     private bool ViewBarShown => Flows is { Count: > 0 } && known.Count > 0;
 
     private void ChooseView(FlowWorkbenchView view) => Session.View = view;
+
 
     private static string KindIcon(FlowKind kind) => kind switch
     {

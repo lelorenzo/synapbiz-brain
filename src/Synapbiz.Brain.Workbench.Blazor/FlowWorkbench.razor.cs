@@ -104,10 +104,20 @@ public sealed partial class FlowWorkbench : IDisposable
     public IReadOnlyDictionary<string, string>? TextOverrides { get; set; }
 
     /// <inheritdoc />
+    protected override async Task OnParametersSetAsync()
+    {
+        if (NeedsLiveSync)
+        {
+            await LiveSyncAsync(force: false).ConfigureAwait(true);
+        }
+    }
+
+    /// <inheritdoc />
     protected override void OnParametersSet()
     {
         ArgumentNullException.ThrowIfNull(Session);
         ArgumentNullException.ThrowIfNull(Now);
+        LiveParametersChanged();
 
         text = new UiText(Locale, TextOverrides);
         if (!ReferenceEquals(subscribedTo, Session))
@@ -132,6 +142,8 @@ public sealed partial class FlowWorkbench : IDisposable
             data.Clear();
             frameInfo.Clear();
             known = [.. (Flows ?? []).Where(flow => flow.IsReadable).Select(flow => flow.Process!)];
+            liveOverlay = null;
+            casePath = null;
             library = FlowLibrary.From(known, Locale, ReportOf);
             builtFor = Flows;
             builtLocale = Locale;
@@ -205,9 +217,10 @@ public sealed partial class FlowWorkbench : IDisposable
 
         asking?.Cancel();
         asking?.Dispose();
+        DisposeLive();
     }
 
-    private void OnSessionChanged(object? sender, EventArgs args) => _ = InvokeAsync(StateHasChanged);
+    private void OnSessionChanged(object? sender, EventArgs args) => _ = InvokeAsync(SyncAfterSessionChangeAsync);
 
     // ----- text helpers -----------------------------------------------------------------------------------------------
 

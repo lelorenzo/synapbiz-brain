@@ -11,7 +11,7 @@ public sealed class FlowStringsTests
 {
     private static readonly string[] Sources =
     [
-        "FlowWorkbench.razor", "FlowWorkbench.razor.cs", "FlowWorkbench.Map.cs", "FlowWorkbench.Try.cs", "FlowWorkbench.Review.cs", "FlowData.cs", "DiagramLayout.cs", "FlowWork.cs", "FlowWorkbenchSession.cs",
+        "FlowWorkbench.razor", "FlowWorkbench.razor.cs", "FlowWorkbench.Map.cs", "FlowWorkbench.Live.cs", "FlowWorkbench.Try.cs", "FlowWorkbench.Review.cs", "FlowData.cs", "DiagramLayout.cs", "FlowWork.cs", "FlowWorkbenchSession.cs",
     ];
 
     private static string Source(string file) => Fx.Read("src/Synapbiz.Brain.Workbench.Blazor/" + file);
@@ -146,7 +146,7 @@ public sealed class FlowStringsTests
     [Fact]
     public void ThePanelWritesNoPersonFacingTextInItsCodeEither()
     {
-        foreach (var file in new[] { "FlowWorkbench.razor.cs", "FlowWorkbench.Map.cs", "FlowWorkbench.Try.cs", "FlowWorkbench.Review.cs", "FlowData.cs", "FlowWork.cs", "FlowWorkbenchSession.cs", "DiagramLayout.cs" })
+        foreach (var file in new[] { "FlowWorkbench.razor.cs", "FlowWorkbench.Map.cs", "FlowWorkbench.Live.cs", "FlowWorkbench.Try.cs", "FlowWorkbench.Review.cs", "FlowData.cs", "FlowWork.cs", "FlowWorkbenchSession.cs", "DiagramLayout.cs" })
         {
             var code = Regex.Replace(Source(file), "^\\s*///.*$|^\\s*//.*$", string.Empty, RegexOptions.Multiline);
             var words = Regex.Matches(code, "\"([^\"\\\\\\r\\n]*)\"").Select(match => match.Groups[1].Value)
@@ -183,7 +183,7 @@ public sealed class FlowStringsTests
         var parameters = typeof(FlowWorkbench).GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(property => property.GetCustomAttribute<ParameterAttribute>() is not null)
             .Select(property => property.Name);
-        parameters.Should().BeEquivalentTo("Flows", "Locale", "Session", "Now", "Zones", "AnswerSource", "OnExport", "TextOverrides", "MapLabels", "OnOpenRule", "RuleAuthorities", "AuthorityLabels");
+        parameters.Should().BeEquivalentTo("Flows", "Locale", "Session", "Now", "Zones", "AnswerSource", "OnExport", "TextOverrides", "MapLabels", "OnOpenRule", "RuleAuthorities", "AuthorityLabels", "LiveSource", "OnOpenCase", "LiveRefreshToken");
     }
 
     [Fact]

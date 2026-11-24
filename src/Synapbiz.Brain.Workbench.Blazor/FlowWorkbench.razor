@@ -15,6 +15,10 @@
     {
         @MapLayout()
     }
+    else if (ShowLive)
+    {
+        @LiveLayout()
+    }
     else
     {
     <div class="wb-main">
@@ -152,8 +156,12 @@
     // ----- the view bar -----------------------------------------------------------------------------------------------
 
     private RenderFragment ViewBar() => @<div class="wb-viewbar" role="group" aria-label="@Plain("flow.view.label")">
-        <button type="button" class="wb-seg-part" aria-pressed="@(Session.View == FlowWorkbenchView.Map ? "true" : "false")" @onclick="() => ChooseView(FlowWorkbenchView.Map)">@Rich("flow.view.map")</button>
-        <button type="button" class="wb-seg-part" aria-pressed="@(Session.View == FlowWorkbenchView.List ? "true" : "false")" @onclick="() => ChooseView(FlowWorkbenchView.List)">@Rich("flow.view.list")</button>
+        <button type="button" class="wb-seg-part" aria-pressed="@(EffectiveView == FlowWorkbenchView.Map ? "true" : "false")" @onclick="() => ChooseView(FlowWorkbenchView.Map)">@Rich("flow.view.map")</button>
+        <button type="button" class="wb-seg-part" aria-pressed="@(EffectiveView == FlowWorkbenchView.List ? "true" : "false")" @onclick="() => ChooseView(FlowWorkbenchView.List)">@Rich("flow.view.list")</button>
+        @if (LiveSource is not null)
+        {
+            <button type="button" class="wb-seg-part" aria-pressed="@(EffectiveView == FlowWorkbenchView.Live ? "true" : "false")" @onclick="ChooseLiveViewAsync">@Rich("flow.view.live")</button>
+        }
     </div>;
 
     // ----- the map ----------------------------------------------------------------------------------------------------
@@ -204,18 +212,27 @@
         </nav>;
     }
 
-    private RenderFragment MapPanel()
+    private RenderFragment MapPanel(bool liveMode = false)
     {
         var map = Map;
         var legendId = idp + "-mapkey";
         var titleId = idp + "-map";
         return @<section class="wb-panel wb-mapview" aria-labelledby="@titleId">
             <div class="wb-ph">
-                <h2 class="wb-title" id="@titleId">@Rich("flow.map.title")</h2>
+                <h2 class="wb-title" id="@titleId">@Rich(liveMode ? "flow.cases.title" : "flow.map.title")</h2>
                 <div class="wb-meta">@MapCountsLine()</div>
-                <div class="wb-meta wb-small">@Rich("flow.map.note")</div>
+                @if (liveMode)
+                {
+                    @LiveHeader()
+                }
+                else
+                {
+                    <div class="wb-meta wb-small">@Rich("flow.map.note")</div>
+                }
             </div>
             <div class="wb-body wb-mapbody">
+                @if (!liveMode)
+                {
                 <section class="wb-mapkey" aria-labelledby="@legendId">
                     <h3 class="wb-mapkey-t" id="@legendId">@Rich("flow.mapkey.title")</h3>
                     <dl class="wb-mapkey-l">
@@ -225,7 +242,8 @@
                         }
                     </dl>
                 </section>
-                @if (map.Mains.Any(main => main.Starts.Count > 0))
+                }
+                @if (!liveMode && map.Mains.Any(main => main.Starts.Count > 0))
                 {
                     var startsId = idp + "-starts";
                     <section class="wb-lane" aria-labelledby="@startsId">
@@ -248,7 +266,7 @@
                         <h3 class="wb-lane-h" id="@mainsId">@KindsWord(FlowKind.Main)</h3>
                         @foreach (var main in map.Mains)
                         {
-                            @MainFrame(main)
+                            @MainFrame(main, liveMode)
                         }
                     </section>
                 }
@@ -260,7 +278,7 @@
                         <ul class="wb-lane-l">
                             @foreach (var task in map.Scheduled)
                             {
-                                <li>@PlainCard(task.Process, task.Schedules, "wb-schc")</li>
+                                <li>@PlainCard(task.Process, task.Schedules, "wb-schc", liveMode)</li>
                             }
                         </ul>
                     </section>
@@ -273,7 +291,7 @@
                         <ul class="wb-lane-l">
                             @foreach (var process in map.Detached)
                             {
-                                <li>@PlainCard(process, [], "wb-schc")</li>
+                                <li>@PlainCard(process, [], "wb-schc", liveMode)</li>
                             }
                         </ul>
                     </section>
@@ -282,7 +300,7 @@
                 {
                     <p class="wb-note">@Plain("flow.map.cycles", ("titles", string.Join(Plain("flow.join"), cycle.Select(TitleOfId))))</p>
                 }
-                @if (map.Shared.Count > 0)
+                @if (!liveMode && map.Shared.Count > 0)
                 {
                     var sharedId = idp + "-shared";
                     <section class="wb-lane" aria-labelledby="@sharedId">
@@ -299,7 +317,7 @@
         </section>;
     }
 
-    private RenderFragment MainFrame(MapMain main)
+    private RenderFragment MainFrame(MapMain main, bool liveMode = false)
     {
         var process = main.Process;
         var flow = FlowWithId(process.Id);
@@ -309,17 +327,35 @@
             <header class="wb-frame-h">
                 @KindMark(FlowKind.Main)
                 <h4 class="wb-frame-t" id="@headingId">
-                    <button type="button" class="@openClass" aria-label="@CardName(process, flow)" aria-current="@(IsOpen(process.Id) ? "true" : null)" @onclick="() => OpenProcess(process.Id, null)">@process.Title</button>
+                    @if (liveMode)
+                    {
+                        @process.Title
+                    }
+                    else
+                    {
+                        <button type="button" class="@openClass" aria-label="@CardName(process, flow)" aria-current="@(IsOpen(process.Id) ? "true" : null)" @onclick="() => OpenProcess(process.Id, null)">@process.Title</button>
+                    }
                 </h4>
-                <span class="wb-meta">@MapFacts(process, flow)</span>
-                @if (process.NoStartDefined)
+                @if (liveMode)
                 {
-                    <span class="@PillClass("warn")">@Rich("flow.map.noStart")</span>
+                    <span class="wb-sp"></span>
+                    @CountButton(process.Id, process.Title, null, null)
                 }
-                <span class="wb-sp"></span>
-                <button type="button" class="wb-link" @onclick="() => OpenProcess(process.Id, null, true)">@Icon("dia")@Rich("flow.map.seeDiagram")</button>
+                else
+                {
+                    <span class="wb-meta">@MapFacts(process, flow)</span>
+                    @if (process.NoStartDefined)
+                    {
+                        <span class="@PillClass("warn")">@Rich("flow.map.noStart")</span>
+                    }
+                    <span class="wb-sp"></span>
+                    <button type="button" class="wb-link" @onclick="() => OpenProcess(process.Id, null, true)">@Icon("dia")@Rich("flow.map.seeDiagram")</button>
+                }
             </header>
-            @UsesBlock(process)
+            @if (!liveMode)
+            {
+                @UsesBlock(process)
+            }
             <ol class="wb-phases">
                 @foreach (var phase in main.Phases)
                 {
@@ -331,6 +367,10 @@
                             {
                                 <small class="wb-phase-e">@Sentence(phase.EndsWhen)</small>
                             }
+                            @if (liveMode)
+                            {
+                                @CountButton(process.Id, process.Title, phase.StageId, phase.IsLoose ? Plain("flow.map.phase.none") : phase.Label)
+                            }
                         </div>
                         @if (phase.Subprocesses.Count > 0)
                         {
@@ -339,7 +379,7 @@
                                 {
                                     <li class="wb-card-li">
                                         <div class="wb-stem" aria-hidden="true"><em>@Plain("flow.map.starts")</em></div>
-                                        @SubCard(child, process.Id)
+                                        @SubCard(child, process.Id, liveMode)
                                     </li>
                                 }
                             </ul>
@@ -362,13 +402,18 @@
         </section>;
     }
 
-    private RenderFragment SubCard(MapChild child, string parentId)
+    private RenderFragment SubCard(MapChild child, string parentId, bool liveMode = false)
     {
         var process = child.Process;
         var flow = child.IsMissing ? null : FlowWithId(process.Id);
         var cardClass = "wb-card wb-k-sub" + (IsOpen(process.Id) ? " wb-sel" : string.Empty);
         return @<div class="@cardClass">
-            @if (flow is null)
+            @if (liveMode)
+            {
+                <span class="wb-card-btn">@KindMark(FlowKind.Subprocess)<span class="wb-card-t">@process.Title</span></span>
+                @CountButton(process.Id, process.Title, null, null)
+            }
+            else if (flow is null)
             {
                 <span class="wb-card-btn">@KindMark(FlowKind.Subprocess)<span class="wb-card-t">@process.Title</span><span class="wb-meta">@Plain("flow.map.notLoaded")</span></span>
             }
@@ -384,27 +429,338 @@
             {
                 <span class="wb-meta wb-also">@Plain("flow.map.alsoStartedBy", ("title", other))</span>
             }
-            @UsesBlock(process)
+            @if (!liveMode)
+            {
+                @UsesBlock(process)
+            }
         </div>;
     }
 
     /// <summary>A card of a process that sits in a lane of its own: a scheduled task with its schedule sentences, or a subprocess nothing reaches.</summary>
-    private RenderFragment PlainCard(MapProcess process, IReadOnlyList<string> sentences, string laneClass)
+    private RenderFragment PlainCard(MapProcess process, IReadOnlyList<string> sentences, string laneClass, bool liveMode = false)
     {
         var flow = FlowWithId(process.Id);
         var cardClass = laneClass + " " + KindTone(process.Kind) + (IsOpen(process.Id) ? " wb-sel" : string.Empty);
         return @<div class="@cardClass">
-            <button type="button" class="wb-card-btn" aria-label="@CardName(process, flow)" aria-current="@(IsOpen(process.Id) ? "true" : null)" @onclick="() => OpenProcess(process.Id, null)">
-                @KindMark(process.Kind)
-                <span class="wb-card-t">@process.Title</span>
-                <span class="wb-meta">@MapFacts(process, flow)</span>
-            </button>
+            @if (liveMode)
+            {
+                <span class="wb-card-btn">@KindMark(process.Kind)<span class="wb-card-t">@process.Title</span></span>
+                @CountButton(process.Id, process.Title, null, null)
+            }
+            else
+            {
+                <button type="button" class="wb-card-btn" aria-label="@CardName(process, flow)" aria-current="@(IsOpen(process.Id) ? "true" : null)" @onclick="() => OpenProcess(process.Id, null)">
+                    @KindMark(process.Kind)
+                    <span class="wb-card-t">@process.Title</span>
+                    <span class="wb-meta">@MapFacts(process, flow)</span>
+                </button>
+            }
             @foreach (var sentence in sentences)
             {
                 <span class="wb-meta">@Sentence(sentence)</span>
             }
-            @UsesBlock(process)
+            @if (!liveMode)
+            {
+                @UsesBlock(process)
+            }
         </div>;
+    }
+
+    // ----- the live view ----------------------------------------------------------------------------------------------
+
+    private RenderFragment LiveLayout()
+    {
+        var caseOpen = Session.LiveCaseRef is not null;
+        var listOpen = !caseOpen && Session.LiveScopeProcessId is not null;
+        var layoutClass = "wb-mapgrid" + (listOpen ? " wb-open" : string.Empty) + (caseOpen ? " wb-full" : string.Empty);
+        return @<div class="@layoutClass">
+            @if (caseOpen)
+            {
+                @CasePanel()
+            }
+            else
+            {
+                @MapPanel(true)
+                @if (listOpen)
+                {
+                    @CasesPanel()
+                }
+            }
+        </div>;
+    }
+
+    private RenderFragment LiveHeader()
+    {
+        var overlay = Overlay;
+        return @<div class="wb-live-bar">
+            <div class="wb-meta wb-small">@Rich("flow.cases.note")</div>
+            <div class="wb-live-row">
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@liveLoading" @onclick="RetryAsync">@Rich("flow.cases.refresh")</button>
+                <span class="wb-meta wb-live-status" role="status">
+                    @if (liveLoading)
+                    {
+                        @Rich(overlay is null ? "flow.cases.loading" : "flow.cases.updating")
+                    }
+                    else if (overlay is not null && overlay.Total.IsZero)
+                    {
+                        @Rich("flow.cases.empty")
+                    }
+                    else if (overlay is not null)
+                    {
+                        @PluralText("flow.cases.total", overlay.Total.Open)
+                    }
+                </span>
+            </div>
+            @if (liveFailed)
+            {
+                <p class="wb-note wb-live-fail" role="alert">@Rich(overlay is null ? "flow.cases.failed.none" : "flow.cases.failed")</p>
+            }
+            @if (overlay is { Unplaced.IsZero: false })
+            {
+                <p class="wb-meta">@PluralText("flow.cases.unplaced", overlay.Unplaced.Open)</p>
+            }
+            @if (overlay is { IsPartial: true })
+            {
+                <p class="wb-meta">@Rich("flow.cases.partial")</p>
+            }
+        </div>;
+    }
+
+    /// <summary>The number of open cases of a process or of one of its phases, as a button that lists them; plain words when there are none, nothing before the numbers arrive.</summary>
+    private RenderFragment CountButton(string processId, string title, string? stageId, string? phaseLabel)
+    {
+        var overlay = Overlay;
+        if (overlay is null)
+        {
+            return @<text></text>;
+        }
+
+        var phase = phaseLabel is not null;
+        var count = phase ? overlay.Phase(processId, stageId) : overlay.Process(processId);
+        if (count.IsZero)
+        {
+            return @<span class="wb-meta wb-live-none">@Plain("flow.cases.count.none")</span>;
+        }
+
+        var line = LiveCountsLine(count);
+        var name = phase
+            ? Plain("flow.cases.count.phase", ("phase", phaseLabel!), ("title", title), ("counts", line))
+            : Plain("flow.cases.count.process", ("title", title), ("counts", line));
+        var chosen = string.Equals(Session.LiveScopeProcessId, processId, StringComparison.Ordinal)
+            && (phase ? string.Equals(Session.LiveScopeStageId, stageId ?? string.Empty, StringComparison.Ordinal) : Session.LiveScopeStageId is null);
+        var buttonClass = "wb-live-btn" + (chosen ? " wb-sel" : string.Empty);
+        return @<button type="button" class="@buttonClass" aria-label="@name" aria-current="@(chosen ? "true" : null)" @onclick="() => OpenCasesAsync(processId, stageId, phase)">@line</button>;
+    }
+
+    private string PhaseName(string processId, string scope) =>
+        scope.Length == 0
+            ? Plain("flow.map.phase.none")
+            : Map.Mains.Where(main => main.Process.Id == processId).SelectMany(main => main.Phases).FirstOrDefault(phase => phase.StageId == scope)?.Label ?? scope;
+
+    private RenderFragment CasesPanel()
+    {
+        var processId = Session.LiveScopeProcessId!;
+        var scope = Session.LiveScopeStageId;
+        var title = TitleOfId(processId);
+        var heading = scope is null
+            ? Plain("flow.cases.list.title", ("title", title))
+            : Plain("flow.cases.list.titlePhase", ("title", title), ("phase", PhaseName(processId, scope)));
+        var headingId = idp + "-cases";
+        return @<section class="wb-panel wb-detail wb-side" aria-labelledby="@headingId">
+            <div class="wb-ph wb-cases-h">
+                <h2 class="wb-title" id="@headingId">@heading</h2>
+                <span class="wb-sp"></span>
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="CloseCases">@Rich("flow.cases.list.close")</button>
+            </div>
+            <div class="wb-body">
+                @if (listFailed)
+                {
+                    <p class="wb-note wb-live-fail" role="alert">@Rich("flow.cases.list.failed") <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="RetryAsync">@Rich("flow.cases.retry")</button></p>
+                }
+                else if (listLoading && listCases.Count == 0)
+                {
+                    <p class="wb-sub" role="status">@Rich("flow.cases.list.loading")</p>
+                }
+                else if (listCases.Count == 0)
+                {
+                    <p class="wb-sub" role="status">@Rich("flow.cases.list.empty")</p>
+                }
+
+                <ul class="wb-caselist" aria-label="@Plain("flow.cases.list.label")">
+                    @foreach (var line in listCases)
+                    {
+                        var caseRef = line.CaseRef;
+                        var facts = LineFacts(line, processId);
+                        <li>
+                            <button type="button" class="wb-caseline" aria-label="@Plain("flow.cases.line.open", ("ref", caseRef), ("facts", facts))" @onclick="() => OpenCaseAsync(caseRef)">
+                                <span class="wb-caseref">@Weave("flow.cases.line.ref", [], ("ref", caseRef))</span>
+                                <span class="wb-meta">@facts</span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+                @if (listNext is not null && !listFailed)
+                {
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@listLoading" @onclick="MoreCasesAsync">@Rich("flow.cases.list.more")</button>
+                }
+            </div>
+        </section>;
+    }
+
+    private RenderFragment CasePanel()
+    {
+        var caseRef = Session.LiveCaseRef!;
+        var titleId = idp + "-case";
+        return @<section class="wb-panel" aria-labelledby="@titleId">
+            <div class="wb-ph wb-cases-h">
+                <h2 class="wb-title" id="@titleId">@Plain("flow.cases.case.title", ("ref", caseRef))</h2>
+                <span class="wb-sp"></span>
+                @if (Session.LiveScopeProcessId is not null)
+                {
+                    <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="CloseCase">@Rich("flow.cases.case.back")</button>
+                }
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="CloseCases">@Rich("flow.cases.case.backMap")</button>
+            </div>
+            <div class="wb-body">
+                @if (caseFailed)
+                {
+                    <p class="wb-note wb-live-fail" role="alert">@Rich("flow.cases.case.failed") <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="RetryAsync">@Rich("flow.cases.retry")</button></p>
+                }
+                else if (caseLoading)
+                {
+                    <p class="wb-sub" role="status">@Rich("flow.cases.case.loading")</p>
+                }
+                else if (caseGone)
+                {
+                    <p class="wb-sub" role="status">@Rich("flow.cases.case.gone")</p>
+                }
+                else if (caseData is { } live)
+                {
+                    @CaseBody(live, caseRef)
+                }
+            </div>
+        </section>;
+    }
+
+    private RenderFragment CaseBody(FlowLiveCase live, string caseRef)
+    {
+        if (CaseFlow(live) is not { } flow || Data(flow) is not { } d || CasePath is not { } path)
+        {
+            return @<p class="wb-note" role="note">@Plain("flow.cases.case.noProcess", ("id", live.ProcessId))</p>;
+        }
+
+        var layout = d.LayoutFor(Plain("flow.read.noStage"));
+        return @<text>
+            <p class="wb-meta">@Plain("flow.cases.case.process", ("title", d.Entry.Title), ("version", Number(live.ProcessVersion)))</p>
+            @if (!path.IsExplained)
+            {
+                <p class="wb-note" role="note">@Plain("flow.cases.case.unexplained", ("reason", WithoutCode(path.Reason ?? string.Empty)))</p>
+            }
+            else
+            {
+                <p class="wb-meta wb-small">@Rich("flow.cases.case.hint")</p>
+                <div class="wb-case-layout" role="group" aria-label="@Plain("flow.cases.case.label")">
+                    <div class="wb-case-main">
+                        <div class="wb-diagram-scroll" role="region" aria-label="@Plain("flow.diagram.scroll")" tabindex="0">
+                            @DiagramSvg(d, layout, null, path, caseRef)
+                        </div>
+                        <ul class="wb-legend-list wb-case-legend">
+                            <li>
+                                <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><rect class="wb-node-shape wb-node-seen-sample" x="2" y="2" width="48" height="24" rx="6"></rect><circle class="wb-seen-badge" cx="12" cy="19" r="7"></circle>@SvgText(12, 19, "wb-seen-badge-t", "1")</svg>
+                                <span>@Rich("flow.cases.legend.visited")</span>
+                            </li>
+                            <li>
+                                <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><rect class="wb-node-shape wb-node-now-sample" x="2" y="2" width="48" height="24" rx="6"></rect><circle class="wb-node-here" cx="38" cy="9" r="6"></circle></svg>
+                                <span>@Rich("flow.legend.here")</span>
+                            </li>
+                            <li>
+                                <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><line class="wb-edge wb-edge-taken" x1="2" y1="14" x2="50" y2="14"></line></svg>
+                                <span>@Rich("flow.cases.legend.taken")</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <aside class="wb-case-side" aria-label="@Plain("flow.cases.side.label")">
+                        <dl class="wb-facts">
+                            <dt>@Rich("flow.cases.side.step")</dt>
+                            <dd>@(path.Side?.CurrentStep ?? Plain("flow.cases.side.none"))</dd>
+                            <dt>@Rich("flow.cases.side.why")</dt>
+                            <dd>@(path.Side?.Why is { } why ? Sentence(why) : Rich("flow.cases.side.none"))</dd>
+                            <dt>@Rich("flow.cases.side.waits")</dt>
+                            <dd>@(path.Waiting is { } waits ? Sentence(waits) : Rich("flow.cases.side.none"))</dd>
+                            <dt>@Rich("flow.cases.side.next")</dt>
+                            <dd>
+                                @if (path.Side is { Next.Count: > 0 } side)
+                                {
+                                    <ul class="wb-next">
+                                        @foreach (var phrase in side.Next)
+                                        {
+                                            <li>@Sentence(phrase)</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    @Rich("flow.cases.side.none")
+                                }
+                            </dd>
+                            <dt>@Rich("flow.cases.side.version")</dt>
+                            <dd>@Number(live.ProcessVersion)</dd>
+                        </dl>
+                    </aside>
+                </div>
+                <section class="wb-casepath" aria-labelledby="@(idp + "-path")">
+                    <h3 class="wb-h2" id="@(idp + "-path")">@Rich("flow.cases.path.title")</h3>
+                    @if (path.Steps.Count == 0)
+                    {
+                        <p class="wb-sub">@Rich("flow.cases.path.empty")</p>
+                    }
+                    else
+                    {
+                        <ol class="wb-casepath-list">
+                            @foreach (var visited in path.Steps)
+                            {
+                                <li>
+                                    <strong>@visited.Label</strong>
+                                    @if (visited.Times > 1)
+                                    {
+                                        <span class="wb-meta">@Plain("flow.cases.path.times", ("n", Number(visited.Times)))</span>
+                                    }
+                                    @if (visited.IsCurrent)
+                                    {
+                                        <span class="@PillClass("sim")">@Rich("flow.cases.path.here")</span>
+                                    }
+                                    else if (visited.Left is { } left)
+                                    {
+                                        <span class="wb-meta">@Plain("flow.cases.path.left", ("phrase", WithoutCode(left)))</span>
+                                    }
+                                </li>
+                            }
+                        </ol>
+                    }
+                </section>
+            }
+        </text>;
+    }
+
+    private string LiveNodeLabel(FlowNode node, FlowFamily family, bool current, int order)
+    {
+        var parts = new List<string> { node.Label, FamilyWord(family) };
+        if (node.IsStart)
+        {
+            parts.Add(Plain("flow.family.start"));
+        }
+
+        if (order > 0)
+        {
+            parts.Add(Plain("flow.cases.node.visited", ("n", Number(order))));
+        }
+
+        if (current)
+        {
+            parts.Add(Plain("flow.diagram.here"));
+        }
+
+        return string.Join(Plain("flow.join.label"), parts);
     }
 
     private RenderFragment UsesBlock(MapProcess process) => process.Uses.Count == 0 ? @<text></text> : @<div class="wb-uses">
@@ -893,15 +1249,128 @@
             ? work.Frames[0].Simulation.CurrentStep
             : null;
 
+    /// <summary>The SVG of a diagram. With <paramref name="live"/> it is the diagram of one case: the nodes are not buttons, the steps the case went through have a number and a thick border, the one it is on has an arrow, and the routes it took are thick.</summary>
+    private RenderFragment DiagramSvg(FlowData d, DiagramLayout layout, string? here, LiveCasePath? live, string? caseRef = null)
+    {
+        var boxes = layout.Nodes.ToDictionary(box => box.Id, StringComparer.Ordinal);
+        var arrow = idp + "-arrow";
+        var width = Px(layout.Width);
+        var height = Px(layout.Height);
+        return @<text>
+    <svg class="wb-diagram-svg" width="@width" height="@height" viewBox="0 0 @width @height" role="group" aria-label="@(live is null ? Plain("flow.diagram.label", ("title", d.Entry.Title)) : Plain("flow.cases.diagram.label", ("ref", caseRef ?? string.Empty), ("title", d.Entry.Title)))">
+        <defs>
+            <marker id="@arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" class="wb-arrow"></path>
+            </marker>
+        </defs>
+        @foreach (var band in layout.Bands)
+        {
+            <g class="wb-band-g">
+                <rect class="wb-band-bg" x="0" y="@Px(band.Y)" width="@width" height="@Px(band.Height)"></rect>
+                @SvgText(band.LabelX, band.LabelY, "wb-band-t", band.IsLoose ? Plain("flow.read.noStage") : d.View.Stages[band.Index].Label, "start")
+            </g>
+        }
+        @foreach (var line in layout.Lines)
+        {
+            var lineClass = EdgeClass(line) + (live is not null && live.TakenPairs.Contains((line.From, line.To)) ? " wb-edge-taken" : string.Empty);
+            var phrases = string.Join("\n", line.Routes.Select(route => WithoutCode(route.Phrase)));
+            <g class="wb-edge-g">
+                <path class="@lineClass" d="@line.Path" marker-end="@("url(#" + arrow + ")")"><title>@phrases</title></path>
+                @foreach (var mark in line.Marks)
+                {
+                    if (live is not null)
+                    {
+                        continue;
+                    }
+
+                    if (mark.IsCount)
+                    {
+                        <circle class="wb-count" cx="@Px(mark.X)" cy="@Px(mark.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@phrases</title></circle>
+                        @SvgText(mark.X, mark.Y, "wb-count-t", Number(line.Routes.Count))
+                    }
+                    else
+                    {
+                        <circle class="wb-untried" cx="@Px(mark.X)" cy="@Px(mark.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@Plain("flow.read.untried")</title></circle>
+                        @SvgText(mark.X, mark.Y, "wb-untried-t", "?")
+                    }
+                }
+                @if (line.LabelAt is { } labelAt)
+                {
+                    @SvgText(labelAt.X, labelAt.Y, "wb-edge-t", line.ShortLabel!, line.LabelEndsAtPoint ? "end" : "start")
+                }
+                @if (line.NumberAt is { } numberAt)
+                {
+                    <circle class="wb-numbered" cx="@Px(numberAt.X)" cy="@Px(numberAt.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@line.FullLabel</title></circle>
+                    @SvgText(numberAt.X, numberAt.Y, "wb-numbered-t", Number(line.Number))
+                }
+            </g>
+        }
+        @foreach (var node in d.Graph.Nodes)
+{
+    var box = boxes[node.Id];
+    var family = node.Family;
+    var step = node.Id;
+    if (live is not null)
+    {
+        var order = live.Steps.ToList().FindIndex(item => string.Equals(item.Id, step, StringComparison.Ordinal)) + 1;
+        var current = live.Steps.Any(item => item.IsCurrent && string.Equals(item.Id, step, StringComparison.Ordinal));
+        <g @key="step" class="@("wb-node wb-node-live wb-node-" + FamilyKey(family) + (current ? " wb-node-now" : string.Empty) + (order > 0 ? " wb-node-seen" : string.Empty))" role="img" aria-label="@LiveNodeLabel(node, family, current, order)">
+            <title>@node.Label</title>
+            @NodeShape(family, box.X, box.Y, box.Width, box.Height)
+            @NodeIcon(family, box.X, box.Y, box.Height)
+            @for (var position = 0; position < box.Lines.Count; position++)
+            {
+                @SvgText(box.X + (box.Width / 2) + TextShift(family), box.Y + (box.Height / 2) + LineOffset(box.Lines.Count, position), "wb-node-t", box.Lines[position])
+            }
+            @if (node.IsStart)
+            {
+                <circle class="wb-node-start" cx="@Px(box.X + 12)" cy="@Px(box.Y + 12)" r="5"></circle>
+            }
+            @if (order > 0)
+            {
+                <circle class="wb-seen-badge" cx="@Px(box.X + 12)" cy="@Px(box.Y + box.Height - 12)" r="9"></circle>
+                @SvgText(box.X + 12, box.Y + box.Height - 12, "wb-seen-badge-t", Number(order))
+            }
+            @if (current)
+            {
+                <circle class="wb-node-here" cx="@Px(box.X + box.Width - 14)" cy="@Px(box.Y + 12)" r="8"></circle>
+                @SvgText(box.X + box.Width - 14, box.Y + 12, "wb-node-here-t", "▶")
+            }
+        </g>
+        continue;
+    }
+
+    var open = string.Equals(Session.SelectedStepId, step, StringComparison.Ordinal);
+    var now = here == step;
+    <g @key="step" class="@("wb-node wb-node-" + FamilyKey(family) + (now ? " wb-node-now" : string.Empty))" role="button" tabindex="0" aria-pressed="@(open ? "true" : "false")" aria-label="@NodeLabel(node, family, now)" @onclick="() => ToggleCard(step)" @onkeydown="args => OnNodeKeyDown(args, step)" @ref="refs[NodeRef(step)]">
+        @{ Seen(NodeRef(step)); }
+        <title>@node.Label</title>
+        @NodeShape(family, box.X, box.Y, box.Width, box.Height)
+        @NodeIcon(family, box.X, box.Y, box.Height)
+        @for (var position = 0; position < box.Lines.Count; position++)
+        {
+            @SvgText(box.X + (box.Width / 2) + TextShift(family), box.Y + (box.Height / 2) + LineOffset(box.Lines.Count, position), "wb-node-t", box.Lines[position])
+        }
+        @if (node.IsStart)
+        {
+            <circle class="wb-node-start" cx="@Px(box.X + 12)" cy="@Px(box.Y + 12)" r="5"></circle>
+        }
+        @if (now)
+        {
+            <circle class="wb-node-here" cx="@Px(box.X + box.Width - 14)" cy="@Px(box.Y + 12)" r="8"></circle>
+            @SvgText(box.X + box.Width - 14, box.Y + 12, "wb-node-here-t", "▶")
+        }
+    </g>
+}
+</svg>
+        </text>;
+    }
+
     private RenderFragment DiagramPanel(FlowData d, FlowWork work)
     {
         var layout = d.LayoutFor(Plain("flow.read.noStage"));
         var here = TryStepId(work);
         var selected = Session.SelectedStepId is { } id ? d.View.Steps.FirstOrDefault(step => step.Id == id) : null;
-        var boxes = layout.Nodes.ToDictionary(box => box.Id, StringComparer.Ordinal);
-        var arrow = idp + "-arrow";
-        var width = Px(layout.Width);
-        var height = Px(layout.Height);
         var untriedCount = d.Coverage.NeverTaken.Count;
         var hasLoose = layout.Bands.Any(band => band.IsLoose);
 
@@ -918,77 +1387,7 @@
             <div class="wb-diagram-wrap">
             <div class="wb-diagram-layout">
                 <div class="wb-diagram-scroll" role="region" aria-label="@Plain("flow.diagram.scroll")" tabindex="0">
-                    <svg class="wb-diagram-svg" width="@width" height="@height" viewBox="0 0 @width @height" role="group" aria-label="@Plain("flow.diagram.label", ("title", d.Entry.Title))">
-                        <defs>
-                            <marker id="@arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-                                <path d="M 0 0 L 10 5 L 0 10 z" class="wb-arrow"></path>
-                            </marker>
-                        </defs>
-                        @foreach (var band in layout.Bands)
-                        {
-                            <g class="wb-band-g">
-                                <rect class="wb-band-bg" x="0" y="@Px(band.Y)" width="@width" height="@Px(band.Height)"></rect>
-                                @SvgText(band.LabelX, band.LabelY, "wb-band-t", band.IsLoose ? Plain("flow.read.noStage") : d.View.Stages[band.Index].Label, "start")
-                            </g>
-                        }
-                        @foreach (var line in layout.Lines)
-                        {
-                            var lineClass = EdgeClass(line);
-                            var phrases = string.Join("\n", line.Routes.Select(route => WithoutCode(route.Phrase)));
-                            <g class="wb-edge-g">
-                                <path class="@lineClass" d="@line.Path" marker-end="@("url(#" + arrow + ")")"><title>@phrases</title></path>
-                                @foreach (var mark in line.Marks)
-                                {
-                                    if (mark.IsCount)
-                                    {
-                                        <circle class="wb-count" cx="@Px(mark.X)" cy="@Px(mark.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@phrases</title></circle>
-                                        @SvgText(mark.X, mark.Y, "wb-count-t", Number(line.Routes.Count))
-                                    }
-                                    else
-                                    {
-                                        <circle class="wb-untried" cx="@Px(mark.X)" cy="@Px(mark.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@Plain("flow.read.untried")</title></circle>
-                                        @SvgText(mark.X, mark.Y, "wb-untried-t", "?")
-                                    }
-                                }
-                                @if (line.LabelAt is { } labelAt)
-                                {
-                                    @SvgText(labelAt.X, labelAt.Y, "wb-edge-t", line.ShortLabel!, line.LabelEndsAtPoint ? "end" : "start")
-                                }
-                                @if (line.NumberAt is { } numberAt)
-                                {
-                                    <circle class="wb-numbered" cx="@Px(numberAt.X)" cy="@Px(numberAt.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@line.FullLabel</title></circle>
-                                    @SvgText(numberAt.X, numberAt.Y, "wb-numbered-t", Number(line.Number))
-                                }
-                            </g>
-                        }
-                        @foreach (var node in d.Graph.Nodes)
-                        {
-                            var box = boxes[node.Id];
-                            var family = node.Family;
-                            var step = node.Id;
-                            var open = string.Equals(Session.SelectedStepId, step, StringComparison.Ordinal);
-                            var now = here == step;
-                            <g @key="step" class="@("wb-node wb-node-" + FamilyKey(family) + (now ? " wb-node-now" : string.Empty))" role="button" tabindex="0" aria-pressed="@(open ? "true" : "false")" aria-label="@NodeLabel(node, family, now)" @onclick="() => ToggleCard(step)" @onkeydown="args => OnNodeKeyDown(args, step)" @ref="refs[NodeRef(step)]">
-                                @{ Seen(NodeRef(step)); }
-                                <title>@node.Label</title>
-                                @NodeShape(family, box.X, box.Y, box.Width, box.Height)
-                                @NodeIcon(family, box.X, box.Y, box.Height)
-                                @for (var position = 0; position < box.Lines.Count; position++)
-                                {
-                                    @SvgText(box.X + (box.Width / 2) + TextShift(family), box.Y + (box.Height / 2) + LineOffset(box.Lines.Count, position), "wb-node-t", box.Lines[position])
-                                }
-                                @if (node.IsStart)
-                                {
-                                    <circle class="wb-node-start" cx="@Px(box.X + 12)" cy="@Px(box.Y + 12)" r="5"></circle>
-                                }
-                                @if (now)
-                                {
-                                    <circle class="wb-node-here" cx="@Px(box.X + box.Width - 14)" cy="@Px(box.Y + 12)" r="8"></circle>
-                                    @SvgText(box.X + box.Width - 14, box.Y + 12, "wb-node-here-t", "▶")
-                                }
-                            </g>
-                        }
-                    </svg>
+                    @DiagramSvg(d, layout, here, null)
                 </div>
                 @if (selected is not null)
                 {

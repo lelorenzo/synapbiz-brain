@@ -18,6 +18,9 @@ public sealed class FlowWorkbenchSession
     private bool processOpen;
     private bool fullDiagram;
     private string? openedFromId;
+    private string? liveScopeProcessId;
+    private string? liveScopeStageId;
+    private string? liveCaseRef;
 
     /// <summary>Raised after any change of the session, whoever made it.</summary>
     public event EventHandler? Changed;
@@ -65,7 +68,7 @@ public sealed class FlowWorkbenchSession
         }
     }
 
-    /// <summary>The view that is shown: the map (the default) or the list.</summary>
+    /// <summary>The view that is shown: the map (the default), the list or, when the host gives a live source, the live map.</summary>
     public FlowWorkbenchView View
     {
         get => view;
@@ -127,6 +130,48 @@ public sealed class FlowWorkbenchSession
         }
     }
 
+    /// <summary>The id of the process whose open cases are listed in the live view; null when no list is open.</summary>
+    internal string? LiveScopeProcessId
+    {
+        get => liveScopeProcessId;
+        set
+        {
+            if (!string.Equals(liveScopeProcessId, value, StringComparison.Ordinal))
+            {
+                liveScopeProcessId = value;
+                Touch();
+            }
+        }
+    }
+
+    /// <summary>The stage (phase) the live list is narrowed to; null lists the cases of the whole process.</summary>
+    internal string? LiveScopeStageId
+    {
+        get => liveScopeStageId;
+        set
+        {
+            if (!string.Equals(liveScopeStageId, value, StringComparison.Ordinal))
+            {
+                liveScopeStageId = value;
+                Touch();
+            }
+        }
+    }
+
+    /// <summary>The opaque reference of the case shown over its diagram in the live view; null when none is.</summary>
+    internal string? LiveCaseRef
+    {
+        get => liveCaseRef;
+        set
+        {
+            if (!string.Equals(liveCaseRef, value, StringComparison.Ordinal))
+            {
+                liveCaseRef = value;
+                Touch();
+            }
+        }
+    }
+
     /// <summary>The reviewer's name, as it is written in an exported review. Never null.</summary>
     public string Reviewer
     {
@@ -160,6 +205,9 @@ public sealed class FlowWorkbenchSession
         processOpen = false;
         fullDiagram = false;
         openedFromId = null;
+        liveScopeProcessId = null;
+        liveScopeStageId = null;
+        liveCaseRef = null;
         Touch();
     }
 
