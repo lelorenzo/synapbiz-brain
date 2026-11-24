@@ -46,5 +46,5 @@ public sealed class AuthoringTools
     /// <param name="name">The tool name.</param>
     /// <param name="input">The input object.</param>
     public JsonObject Invoke(string name, JsonNode? input) =>
-        Find(name)?.Invoke(input) ?? Results.Refuse(Synapbiz.Brain.Workbench.WorkbenchLocale.En, "tool.unknown", [("tool", name)], "There is no tool with this name. The tools are: " + string.Join(", ", All.Select(tool => tool.Name)) + ".");
+        Find(name)?.Invoke(input) ?? Results.Refuse(AuthoringJson.Text((input as JsonObject)?["language"]) == "es" ? Synapbiz.Brain.Workbench.WorkbenchLocale.Es : Synapbiz.Brain.Workbench.WorkbenchLocale.En, "tool.unknown", [("tool", name)], "There is no tool with this name. The tools are: " + string.Join(", ", All.Select(tool => tool.Name)) + ".");
 }

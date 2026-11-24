@@ -291,6 +291,30 @@ public sealed class RepairTests
         ProposalText.Flow(proposal, WorkbenchLocale.Es).Should().MatchRegex(@"Las pruebas recorren \d+ de \d+ rutas\.");
     }
 
+    [Fact]
+    public void A_rule_is_named_by_its_title_and_never_by_its_id()
+    {
+        var (tools, _, _) = Rig();
+        var say = tools.Invoke("rule_get", Obj("""{"id":"visit.note_ready"}"""))["say"]!.GetValue<string>();
+        say.Should().Contain("“A note is ready when it is signed”").And.NotContain("visit.note_ready");
+        tools.Invoke("rule_list", new JsonObject())["rules"]!.AsArray()[1]!["title"]!.GetValue<string>().Should().NotContain(".");
+    }
+
+    [Fact]
+    public void Editing_the_expected_result_of_a_test_shows_in_the_changes_in_both_languages()
+    {
+        foreach (var language in new[] { "en", "es" })
+        {
+            var (tools, _, _) = Rig();
+            var edited = tools.Invoke("rule_draft_edit", Obj("{\"id\":\"visit.note_ready\",\"language\":\"" + language + "\",\"edits\":[{\"op\":\"setCaseExpectation\",\"case\":\"A draft is not ready\",\"row\":\"signed\",\"outcome\":{\"ready\":\"yes\"}}]}"));
+            IsOk(edited).Should().BeTrue(edited.ToJsonString());
+            var listed = edited["changes"]!["testsChanged"]!.AsArray();
+            listed.Should().ContainSingle();
+            listed[0]!.GetValue<string>().Should().Contain("A draft is not ready");
+            edited["say"]!.GetValue<string>().Should().Contain(language == "en" ? "expected result changed" : "resultado esperado");
+        }
+    }
+
     private sealed class MovingFlowStore(IAuthoringStore inner) : IAuthoringStore
     {
         public bool Moved { get; set; }

@@ -16,6 +16,7 @@ internal static partial class AuthoringText
         T("change.count.routes", "routes changed: {n}", "rutas cambiadas: {n}");
         T("change.count.settings", "settings changed: {n}", "ajustes cambiados: {n}");
         T("change.count.tests", "tests added, changed or removed: {n}", "pruebas agregadas, cambiadas o quitadas: {n}");
+        T("change.rule.test_expect", "A test’s expected result changed: {name}.", "Cambió el resultado esperado de una prueba: {name}.");
         T("change.count.other", "other changes: {n}", "otros cambios: {n}");
         T("change.id", "The id of the process changed from {old} to {new}.", "El identificador del proceso cambió de {old} a {new}.");
         T("change.title", "The title of the process changed from {old} to {new}.", "El título del proceso cambió de {old} a {new}.");

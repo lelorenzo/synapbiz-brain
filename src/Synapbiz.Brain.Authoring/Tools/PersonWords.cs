@@ -14,6 +14,17 @@ namespace Synapbiz.Brain.Authoring;
 /// </summary>
 internal static partial class PersonWords
 {
+    /// <summary>The title of a rule as a person reads it: its label in the asked language, else <c>meta.title</c>, else the words of its id.</summary>
+    internal static string RuleTitle(BrainRule rule, RuleView view)
+    {
+        if (!string.Equals(view.Title, rule.Id, StringComparison.Ordinal))
+        {
+            return view.Title;
+        }
+
+        return AuthoringJson.Text(rule.Meta["title"]) is { Length: > 0 } title ? title : WorkbenchText.Humanize(rule.Id);
+    }
+
     [GeneratedRegex("`([^`]+)`")]
     private static partial Regex CodeSpan();
 

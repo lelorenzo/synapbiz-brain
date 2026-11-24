@@ -102,7 +102,7 @@ internal static partial class AuthoringText
     {
         T("refuse.input.invalid", "The request was not valid. {say}", "La petición no era válida. {say}");
         T("refuse.workspace.store_failed", "The workspace could not do that: its folder is not set up the way the tools need. The host must check it.", "El espacio de trabajo no pudo hacerlo: su carpeta no está preparada como necesitan las herramientas. El anfitrión debe revisarla.");
-        T("refuse.workspace.id_invalid", "That name is not valid. Use letters, digits, underscores, dots and hyphens, starting with a letter, a digit or an underscore, in at most 120 characters, and without a reserved name.", "Ese nombre no es válido. Usa letras, dígitos, guiones bajos, puntos y guiones, empezando por una letra, un dígito o un guion bajo, en 120 caracteres como máximo y sin un nombre reservado.");
+        T("refuse.workspace.id_invalid", "That name is not valid. Use letters, digits, underscores, dots and hyphens, starting with a letter, a digit or an underscore, in at most 120 characters, without a reserved name, and not the same as another name apart from capital letters.", "Ese nombre no es válido. Usa letras, dígitos, guiones bajos, puntos y guiones, empezando por una letra, un dígito o un guion bajo, en 120 caracteres como máximo, sin un nombre reservado y sin que sea igual a otro nombre salvo por las mayúsculas.");
         T("refuse.tool.unknown", "There is no such tool.", "No existe esa herramienta.");
         T("refuse.catalog.invalid", "The catalog of this workspace cannot be read; the host must fix it.", "No se puede leer el catálogo de este espacio de trabajo; el anfitrión debe corregirlo.");
         T("refuse.draft.not_found", "There is no draft called {id}.", "No hay ningún borrador llamado {id}.");
@@ -115,7 +115,7 @@ internal static partial class AuthoringText
         T("refuse.scenario.source", "Give either a simulation or a written test, not both and not neither.", "Da una simulación o una prueba escrita, ni las dos ni ninguna.");
         T("refuse.scenario.draft_not_loaded", "Brain does not accept the draft {id} yet, so a test cannot be added. Fix its errors first.", "Brain todavía no acepta el borrador {id}, así que no se puede añadir una prueba. Corrige antes sus errores.");
         T("refuse.scenario.name_taken", "A test called {name} already exists.", "Ya existe una prueba llamada {name}.");
-        T("refuse.scenario.invalid", "That test does not fit the process. {what}", "Esa prueba no encaja con el proceso. {what}");
+        T("refuse.scenario.invalid", "{what}", "{what}");
         T("refuse.scenario.not_writable", "That simulation cannot be turned into a test. {what}", "Esa simulación no se puede convertir en una prueba. {what}");
         T("refuse.simulation.not_found", "That simulation is not running any more; it may have expired. Start a new one.", "Esa simulación ya no está en marcha; puede que haya caducado. Empieza otra.");
         T("refuse.simulation.draft_changed", "The draft changed after that simulation started. Run the case again on the current draft.", "El borrador cambió después de empezar esa simulación. Repite el caso con el borrador actual.");

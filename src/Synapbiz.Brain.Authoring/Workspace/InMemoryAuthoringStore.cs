@@ -58,6 +58,11 @@ public sealed class InMemoryAuthoringStore : IAuthoringStore
     {
         StoreIds.Require(id, nameof(id));
         ArgumentNullException.ThrowIfNull(draft);
+        if (ListApproved(kind).Concat(ListDrafts(kind)).Any(other => StoreIds.DiffersOnlyByCase(other, id)))
+        {
+            throw new ArgumentException("The id differs only in capital letters from one that exists.", nameof(id));
+        }
+
         drafts[(kind, id)] = draft;
     }
 
@@ -76,6 +81,11 @@ public sealed class InMemoryAuthoringStore : IAuthoringStore
     {
         StoreIds.Require(name, nameof(name));
         ArgumentNullException.ThrowIfNull(json);
+        if (proposals.Keys.Any(other => StoreIds.DiffersOnlyByCase(other, name)))
+        {
+            throw new ArgumentException("The name differs only in capital letters from one that exists.", nameof(name));
+        }
+
         if (!proposals.TryAdd(name, json))
         {
             throw new AuthoringStoreException("A proposal with that name exists already.");

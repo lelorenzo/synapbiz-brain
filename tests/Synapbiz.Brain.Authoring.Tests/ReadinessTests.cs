@@ -61,6 +61,19 @@ public sealed class ReadinessTests
         findings[0].TextEs.Should().Contain("español");
     }
 
+    [Theory]
+    [InlineData("results", "note_signed", "The result")]
+    [InlineData("queues", "note_followup", "The task queue")]
+    [InlineData("outcomes", "signed", "The choice")]
+    public void A_result_a_queue_or_a_choice_a_person_sees_needs_a_name_in_both_languages(string group, string id, string start)
+    {
+        var report = Check(NW, "[{\"op\":\"remove\",\"path\":\"/meta/display/es/" + group + "/" + id + "\"}]");
+        var findings = Findings(report, ReadinessChecks.LabelMissing);
+        findings.Should().ContainSingle();
+        findings[0].TextEn.Should().StartWith(start).And.Contain("Spanish");
+        findings[0].TextEs.Should().Contain("español");
+    }
+
     [Fact]
     public void A_route_no_test_takes_fails_unless_the_author_excuses_it_with_a_reason()
     {

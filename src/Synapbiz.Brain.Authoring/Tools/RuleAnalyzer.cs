@@ -50,7 +50,7 @@ internal static class RuleAnalyzer
         var labels = RuleLabels.FromMeta(rule.Meta, locale);
         var view = RuleDescriber.Describe(rule, locale, labels);
         var tests = RuleTester.Run(rule);
-        data["view"] = ViewJson(view);
+        data["view"] = ViewJson(rule, view);
         data["tests"] = TestsJson(tests);
 
         var before = draft.Base is null ? null : context.ApprovedRule(catalog, draft.Base.Id)?.Rule;
@@ -60,8 +60,11 @@ internal static class RuleAnalyzer
         if (before is not null)
         {
             var changes = RuleChangeDescriber.Describe(before, rule, RuleLabels.FromMeta(before.Meta, locale), labels, locale);
-            data["changes"] = ChangesJson(changes);
-            change = changes.Summary;
+            var edited = ExpectationEdits(before, rule, locale);
+            var node = ChangesJson(changes);
+            node["testsChanged"] = new JsonArray([.. edited.Select(sentence => (JsonNode?)JsonValue.Create(sentence))]);
+            data["changes"] = node;
+            change = string.Join(" ", new[] { changes.Summary }.Concat(edited));
             reasons = RuleReviewNeed.Reasons(before, rule);
         }
 
@@ -69,7 +72,7 @@ internal static class RuleAnalyzer
         data["needsReviewReasons"] = new JsonArray([.. reasons.Select(reason => (JsonNode?)new JsonObject { ["code"] = reason, ["say"] = AuthoringText.Text(locale, "rule.review." + reason) })]);
         var ready = tests.FailedCount == 0;
         data["ready"] = ready;
-        var title = FlowChangeDescriber.Quote(view.Title);
+        var title = FlowChangeDescriber.Quote(PersonWords.RuleTitle(rule, view));
         var say = ready
             ? AuthoringText.Text(locale, "say.rule.ready", ("title", title), ("pass", AuthoringText.Number(tests.PassedCount)), ("total", AuthoringText.Number(tests.Cases.Count)))
             : AuthoringText.Text(locale, "say.rule.failing", ("title", title), ("n", AuthoringText.Number(tests.FailedCount)), ("name", FlowChangeDescriber.Quote(tests.Cases.First(item => !item.Passed).Name)));
@@ -86,7 +89,7 @@ internal static class RuleAnalyzer
         return new RuleAnalysis(data, say, rule, before, ready, reasons);
     }
 
-    internal static JsonObject ViewJson(RuleView view)
+    internal static JsonObject ViewJson(BrainRule rule, RuleView view)
     {
         JsonObject Row(RowView row) => new()
         {
@@ -101,7 +104,7 @@ internal static class RuleAnalyzer
         {
             ["id"] = view.Id,
             ["version"] = view.Version,
-            ["title"] = view.Title,
+            ["title"] = PersonWords.RuleTitle(rule, view),
             ["kind"] = view.Kind,
             ["hitPolicy"] = Views.Camel(view.HitPolicy.ToString()),
             ["facts"] = new JsonArray([.. view.Facts.Select(fact => (JsonNode?)new JsonObject
@@ -144,6 +147,15 @@ internal static class RuleAnalyzer
             ["failure"] = item.Failure is null ? null : new JsonObject { ["code"] = item.Failure.Code, ["message"] = item.Failure.Message },
         })]),
     };
+
+    /// <summary>One sentence for each test of the rule whose expected result was edited: a person has to see that a test was bent to fit, not only the rows.</summary>
+    internal static IReadOnlyList<string> ExpectationEdits(BrainRule before, BrainRule after, WorkbenchLocale locale)
+    {
+        var earlier = before.Goldens.ToDictionary(golden => golden.Name, golden => AuthoringJson.CompactText(Expected(golden.Expected)), StringComparer.Ordinal);
+        return [.. after.Goldens
+            .Where(golden => earlier.TryGetValue(golden.Name, out var was) && !string.Equals(was, AuthoringJson.CompactText(Expected(golden.Expected)), StringComparison.Ordinal))
+            .Select(golden => AuthoringText.Text(locale, "change.rule.test_expect", ("name", FlowChangeDescriber.Quote(golden.Name))))];
+    }
 
     private static JsonNode? Expected(GoldenExpectation expected) => expected switch
     {

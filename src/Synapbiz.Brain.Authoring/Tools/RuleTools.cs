@@ -143,7 +143,7 @@ internal static class RuleTools
                 ["id"] = item.Id,
                 ["version"] = rule.Version,
                 ["contentHash"] = RuleReviewJson.ContentHash(item.Text),
-                ["title"] = view.Title,
+                ["title"] = PersonWords.RuleTitle(rule, view),
                 ["kind"] = view.Kind,
                 ["hitPolicy"] = Views.Camel(view.HitPolicy.ToString()),
                 ["rows"] = view.Rows.Count,
@@ -196,9 +196,9 @@ internal static class RuleTools
 
         var view = RuleDescriber.Describe(rule, locale, RuleLabels.FromMeta(rule.Meta, locale));
         var tests = RuleTester.Run(rule);
-        data["view"] = RuleAnalyzer.ViewJson(view);
+        data["view"] = RuleAnalyzer.ViewJson(rule, view);
         data["tests"] = RuleAnalyzer.TestsJson(tests);
-        var say = AuthoringText.Text(locale, "say.rule.get", ("title", FlowChangeDescriber.Quote(view.Title)), ("version", AuthoringText.Number(rule.Version)), ("rows", AuthoringText.Number(view.Rows.Count)), ("pass", AuthoringText.Number(tests.PassedCount)), ("total", AuthoringText.Number(tests.Cases.Count)));
+        var say = AuthoringText.Text(locale, "say.rule.get", ("title", FlowChangeDescriber.Quote(PersonWords.RuleTitle(rule, view))), ("version", AuthoringText.Number(rule.Version)), ("rows", AuthoringText.Number(view.Rows.Count)), ("pass", AuthoringText.Number(tests.PassedCount)), ("total", AuthoringText.Number(tests.Cases.Count)));
         return Results.Ok(say, data);
     }
 

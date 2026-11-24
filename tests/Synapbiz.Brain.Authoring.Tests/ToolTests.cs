@@ -218,6 +218,8 @@ public sealed class ToolTests
             var say = answer["say"]!.GetValue<string>();
             say.Should().NotBeNullOrWhiteSpace();
             say.Should().NotContain("{", "no placeholder is left in a sentence");
+            PersonTextTests.CheckSentence(say, name.Contains("bad language", StringComparison.Ordinal) ? "en" : language, name);
+            PersonTextTests.ComesFromTheTable(say, language, name);
 
         }
     }

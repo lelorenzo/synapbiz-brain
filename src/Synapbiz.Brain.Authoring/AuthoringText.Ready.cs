@@ -55,6 +55,9 @@ internal static partial class AuthoringText
         T("portkind.ai", "AI answers", "respuestas de IA");
         T("delivery.either", "either way", "de cualquier forma");
         T("ready.finding.label.step", "The step {step} has no name in {language}.", "El paso {step} no tiene nombre en {language}.");
+        T("ready.finding.label.result", "The result {name} has no name in {language}.", "El resultado {name} no tiene nombre en {language}.");
+        T("ready.finding.label.queue", "The task queue {name} has no name in {language}.", "La cola de tareas {name} no tiene nombre en {language}.");
+        T("ready.finding.label.outcome", "The choice {name} has no name in {language}.", "La opción {name} no tiene nombre en {language}.");
         T("ready.finding.label.stage", "The stage {stage} has no name in {language}.", "La etapa {stage} no tiene nombre en {language}.");
         T("ready.finding.untested", "No test goes through this route of the step {step}: {route}, it goes to {target}.", "Ninguna prueba recorre esta ruta del paso {step}: {route}, va a {target}.");
         T("ready.finding.contact.once", "The step {step} contacts a person but could be sent more than once; it must go out at most once.", "El paso {step} contacta a una persona pero podría enviarse más de una vez; debe salir como máximo una vez.");

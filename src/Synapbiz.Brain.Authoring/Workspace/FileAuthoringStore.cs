@@ -72,6 +72,7 @@ public sealed class FileAuthoringStore : IAuthoringStore
         lock (gate)
         {
             string[] folder = ["drafts", ApprovedFolder(kind)];
+            RequireNoCaseTwin(id, [.. ListApproved(kind), .. ListDrafts(kind)]);
             WriteInside(folder, id + ".draft.json", DraftEnvelope.Write(kind, id, draft), overwrite: true);
             WriteInside(folder, id + ".json", draft.Text, overwrite: true);
         }
@@ -105,8 +106,17 @@ public sealed class FileAuthoringStore : IAuthoringStore
         ArgumentNullException.ThrowIfNull(json);
         lock (gate)
         {
+            RequireNoCaseTwin(name, ListProposals());
             WriteInside(["proposals"], name + ".json", json, overwrite: false);
             return "proposals/" + name + ".json";
+        }
+    }
+
+    private static void RequireNoCaseTwin(string id, IEnumerable<string> existing)
+    {
+        if (existing.Any(other => StoreIds.DiffersOnlyByCase(other, id)))
+        {
+            throw new ArgumentException("The id differs only in capital letters from one that exists.", nameof(id));
         }
     }
 
@@ -171,7 +181,7 @@ public sealed class FileAuthoringStore : IAuthoringStore
 
     private static string? ReadInside(string path, string allowedFolder)
     {
-        if (!File.Exists(path))
+        if (!File.Exists(path) || !HasExactName(path))
         {
             return null;
         }
@@ -182,6 +192,14 @@ public sealed class FileAuthoringStore : IAuthoringStore
         }
 
         return File.ReadAllText(path, Encoding.UTF8);
+    }
+
+    // A file system that ignores case finds "Visit.json" for "visit.json"; an id is the same only in the same case.
+    private static bool HasExactName(string path)
+    {
+        var folder = Path.GetDirectoryName(path);
+        var name = Path.GetFileName(path);
+        return folder is not null && Directory.EnumerateFiles(folder).Any(entry => string.Equals(Path.GetFileName(entry), name, StringComparison.Ordinal));
     }
 
     private static bool IsLink(string path)

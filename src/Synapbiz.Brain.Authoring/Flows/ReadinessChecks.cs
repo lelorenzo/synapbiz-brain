@@ -211,6 +211,19 @@ public static class ReadinessChecks
             {
                 findings.Add(Both(LabelMissing, null, null, "ready.finding.label.stage", locale => [("stage", FlowChangeDescriber.Quote(FlowWords.For(process, locale).Stage(stage))), ("language", AuthoringText.Text(locale, "language." + language))]));
             }
+
+            // What a person is shown: the results the cases end with, the queues of the tasks and the choices a person makes.
+            Missing(texts, "results", outline.Steps.Select(step => step.Result), "result", (words, id) => words.Result(id));
+            Missing(texts, "queues", outline.Steps.Select(step => step.Queue), "queue", (words, id) => words.Queue(id));
+            Missing(texts, "outcomes", outline.Steps.SelectMany(step => step.Outcomes ?? []), "outcome", (words, id) => words.Outcome(id));
+
+            void Missing(JsonObject? display, string group, IEnumerable<string?> ids, string kind, Func<FlowWords, string, string> label)
+            {
+                foreach (var id in ids.OfType<string>().Distinct(StringComparer.Ordinal).Where(id => string.IsNullOrWhiteSpace(AuthoringJson.Text((display?[group] as JsonObject)?[id]))))
+                {
+                    findings.Add(Both(LabelMissing, null, null, "ready.finding.label." + kind, locale => [("name", FlowChangeDescriber.Quote(label(FlowWords.For(process, locale), id))), ("language", AuthoringText.Text(locale, "language." + language))]));
+                }
+            }
         }
 
         return findings;

@@ -195,7 +195,7 @@ internal static class ProposalTools
     }
 
     private static string ChangeSummary(Synapbiz.Brain.Spec.BrainRule before, Synapbiz.Brain.Spec.BrainRule after, WorkbenchLocale locale) =>
-        RuleChangeDescriber.Describe(before, after, RuleLabels.FromMeta(before.Meta, locale), RuleLabels.FromMeta(after.Meta, locale), locale).Summary;
+        string.Join(" ", new[] { RuleChangeDescriber.Describe(before, after, RuleLabels.FromMeta(before.Meta, locale), RuleLabels.FromMeta(after.Meta, locale), locale).Summary }.Concat(RuleAnalyzer.ExpectationEdits(before, after, locale)));
 
     private static JsonObject ListProposals(ToolContext context, JsonObject input, WorkbenchLocale locale)
     {
@@ -243,7 +243,7 @@ internal static class ProposalTools
         var text = context.Store.ReadProposal(name);
         if (text is null)
         {
-            return Results.Refuse(locale, "proposal.not_found", [("name", name)], "There is no proposal with this name. Call proposal_list to see the names.");
+            return Results.Refuse(locale, "proposal.not_found", [("name", FlowChangeDescriber.Quote(name))], "There is no proposal with this name. Call proposal_list to see the names.");
         }
 
         var summary = Summarize(name, text);
