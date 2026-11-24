@@ -282,7 +282,7 @@
                         <ul class="wb-lane-l">
                             @foreach (var task in map.Scheduled)
                             {
-                                <li>@PlainCard(task.Process, task.Schedules, "wb-schc", liveMode)</li>
+                                <li>@PlainCard(task.Process, task.Schedules, "wb-schc", liveMode, task.Children)</li>
                             }
                         </ul>
                     </section>
@@ -360,7 +360,7 @@
             {
                 @UsesBlock(process)
             }
-            <ol class="wb-phases">
+            <ol class="@("wb-phases" + (main.Phases.Count > 4 ? " wb-many" : string.Empty))">
                 @foreach (var phase in main.Phases)
                 {
                     var number = main.Phases.ToList().IndexOf(phase) + 1;
@@ -437,11 +437,23 @@
             {
                 @UsesBlock(process)
             }
+            @NestedCards(child.Nested, process.Id, liveMode)
         </div>;
     }
 
+    /// <summary>The subprocesses a subprocess or a scheduled task starts: the same cards, one level down, each behind the "starts" stem.</summary>
+    private RenderFragment NestedCards(IReadOnlyList<MapChild> children, string parentId, bool liveMode) => children.Count == 0 ? @<text></text> : @<ul class="wb-cards wb-nested">
+        @foreach (var nested in children)
+        {
+            <li class="wb-card-li">
+                <div class="wb-stem" aria-hidden="true"><em>@Plain("flow.map.starts")</em></div>
+                @SubCard(nested, parentId, liveMode)
+            </li>
+        }
+    </ul>;
+
     /// <summary>A card of a process that sits in a lane of its own: a scheduled task with its schedule sentences, or a subprocess nothing reaches.</summary>
-    private RenderFragment PlainCard(MapProcess process, IReadOnlyList<string> sentences, string laneClass, bool liveMode = false)
+    private RenderFragment PlainCard(MapProcess process, IReadOnlyList<string> sentences, string laneClass, bool liveMode = false, IReadOnlyList<MapChild>? children = null)
     {
         var flow = FlowWithId(process.Id);
         var cardClass = laneClass + " " + KindTone(process.Kind) + (IsOpen(process.Id) ? " wb-sel" : string.Empty);
@@ -467,6 +479,7 @@
             {
                 @UsesBlock(process)
             }
+            @NestedCards(children ?? [], process.Id, liveMode)
         </div>;
     }
 
@@ -587,7 +600,7 @@
                 }
                 else if (listCases.Count == 0)
                 {
-                    <p class="wb-sub" role="status">@Rich("flow.cases.list.empty")</p>
+                    <p class="wb-sub" role="status">@Rich(listNext is null ? "flow.cases.list.empty" : "flow.cases.list.noneYet")</p>
                 }
 
                 <ul class="wb-caselist" aria-label="@Plain("flow.cases.list.label")">
@@ -619,6 +632,7 @@
             <div class="wb-ph wb-cases-h">
                 <h2 class="wb-title" id="@titleId">@Plain("flow.cases.case.title", ("ref", caseRef))</h2>
                 <span class="wb-sp"></span>
+                <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" disabled="@(liveLoading || caseLoading)" @onclick="RetryAsync">@Rich("flow.cases.refresh")</button>
                 @if (Session.LiveScopeProcessId is not null)
                 {
                     <button type="button" class="wb-btn wb-btn-secondary wb-btn-sm" @onclick="CloseCase">@Rich("flow.cases.case.back")</button>
@@ -1235,16 +1249,7 @@
         return line.IsHappyPath ? "wb-edge" : "wb-edge wb-edge-side";
     }
 
-    /// <summary>How far, in pixels, a line of a node's label is from the middle of the node: none for a lone line, above and below for two.</summary>
-    private static int LineOffset(int lines, int position)
-    {
-        if (lines == 1)
-        {
-            return 0;
-        }
-
-        return position == 0 ? -8 : 8;
-    }
+    private static int LineOffset(int lines, int position) => DiagramLayout.LineOffset(lines, position);
 
     private string FamilyWord(FlowFamily family) => Plain("flow.family." + FamilyKey(family));
 
@@ -1340,8 +1345,8 @@
             }
             @if (current)
             {
-                <circle class="wb-node-here" cx="@Px(box.X + box.Width - 14)" cy="@Px(box.Y + 12)" r="8"></circle>
-                @SvgText(box.X + box.Width - 14, box.Y + 12, "wb-node-here-t", "▶")
+                <circle class="wb-node-here" cx="@Px(box.X + box.Width - DiagramLayout.HereInset)" cy="@Px(box.Y + DiagramLayout.HereInset)" r="@Px(DiagramLayout.HereRadius)"></circle>
+                @SvgText(box.X + box.Width - DiagramLayout.HereInset, box.Y + DiagramLayout.HereInset, "wb-node-here-t", "▶")
             }
         </g>
         continue;
@@ -1364,8 +1369,8 @@
         }
         @if (now)
         {
-            <circle class="wb-node-here" cx="@Px(box.X + box.Width - 14)" cy="@Px(box.Y + 12)" r="8"></circle>
-            @SvgText(box.X + box.Width - 14, box.Y + 12, "wb-node-here-t", "▶")
+            <circle class="wb-node-here" cx="@Px(box.X + box.Width - DiagramLayout.HereInset)" cy="@Px(box.Y + DiagramLayout.HereInset)" r="@Px(DiagramLayout.HereRadius)"></circle>
+            @SvgText(box.X + box.Width - DiagramLayout.HereInset, box.Y + DiagramLayout.HereInset, "wb-node-here-t", "▶")
         }
     </g>
 }

@@ -162,7 +162,10 @@ public sealed partial class FlowWorkbench
         return source.Token;
     }
 
-    private string? WantedListKey => Session.LiveScopeProcessId is { } id ? id + "|" + Session.LiveScopeStageId : null;
+    // The whole process and the steps with no stage (an empty stage id) are two different lists: the key tells them apart.
+    private string? WantedListKey => Session.LiveScopeProcessId is { } id ? id + "|" + ScopeMark(Session.LiveScopeStageId) : null;
+
+    private static string ScopeMark(string? stage) => stage is null ? "*" : "#" + stage;
 
     private string? WantedCaseKey => Session.LiveCaseRef;
 
@@ -254,12 +257,15 @@ public sealed partial class FlowWorkbench
         try
         {
             var wanted = StageSteps(processId);
+
+            // A scope of one step is asked of the source itself, so that a page is not full of cases on other steps.
+            var onlyStep = wanted is { Count: 1 } ? wanted.Single() : null;
             var found = new List<FlowLiveCaseLine>();
             var after = append ? listNext : null;
             var next = after;
             for (var pages = 0; pages < LiveMaxPagesPerClick && found.Count < LivePageSize; pages++)
             {
-                var page = await source.ListCasesAsync(new FlowLiveCaseQuery(processId, null, LivePageSize, next), token).ConfigureAwait(true);
+                var page = await source.ListCasesAsync(new FlowLiveCaseQuery(processId, onlyStep, LivePageSize, next), token).ConfigureAwait(true);
                 if (generation != listGeneration)
                 {
                     return;

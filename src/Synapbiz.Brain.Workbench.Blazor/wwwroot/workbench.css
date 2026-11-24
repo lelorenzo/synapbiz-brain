@@ -1189,6 +1189,19 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+  min-width: 0;
+}
+
+/* The map answers to its own width, not the window's: a process open beside it leaves the map a column of about 900 px at a 1400 px window. */
+.wb-mapview {
+  min-width: 0;
+  container-type: inline-size;
+  container-name: wbmap;
+}
+
+.wb-mapbody,
+.wb-lane {
+  min-width: 0;
 }
 
 .wb-mapgrid.wb-open {
@@ -1357,12 +1370,20 @@
 .wb-phases {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(200px, 1fr);
+  grid-auto-columns: minmax(0, 1fr);
   align-items: start;
+  min-width: 0;
   margin-top: 12px;
 }
 
 .wb-phase {
+  min-width: 0;
+}
+
+.wb-cards,
+.wb-card-li,
+.wb-card,
+.wb-frame {
   min-width: 0;
 }
 
@@ -1403,6 +1424,51 @@
 
 .wb-cards {
   padding: 0 8px 8px;
+}
+
+/* The subprocesses a subprocess or a scheduled task starts: the same cards one level down, inside the card that starts them. */
+.wb-nested {
+  padding: 0;
+}
+
+.wb-nested .wb-card-li {
+  margin-top: 4px;
+}
+
+/* Phases stack whenever the map column is narrow, however wide the window is (a process open beside the map). */
+@container wbmap (max-width: 900px) {
+  .wb-phases {
+    grid-auto-flow: row;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .wb-phase {
+    display: block;
+    grid-row: auto;
+  }
+
+  .wb-phase + .wb-phase .wb-phase-h {
+    border-left: 1px solid var(--wb-line);
+  }
+}
+
+/* Five phases or more need more room before they sit side by side. */
+@container wbmap (max-width: 1240px) {
+  .wb-phases.wb-many {
+    grid-auto-flow: row;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .wb-phases.wb-many > .wb-phase {
+    display: block;
+    grid-row: auto;
+  }
+
+  .wb-phases.wb-many > .wb-phase + .wb-phase .wb-phase-h {
+    border-left: 1px solid var(--wb-line);
+  }
 }
 
 .wb-stem {

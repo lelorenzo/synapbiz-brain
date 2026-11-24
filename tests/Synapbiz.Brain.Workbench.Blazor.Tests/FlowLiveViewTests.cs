@@ -433,7 +433,7 @@ public sealed class FlowLiveViewTests
 
         var names = harness.FindAll("section button").Select(Text).Distinct().ToList();
 
-        names.Should().OnlyContain(name => name == "Back to the cases" || name == "Back to the live map" || name == "Try again");
+        names.Should().OnlyContain(name => name == "Back to the cases" || name == "Back to the live map" || name == "Try again" || name == "Refresh");
         harness.FindAll("input, select, textarea").Should().BeEmpty();
     }
 

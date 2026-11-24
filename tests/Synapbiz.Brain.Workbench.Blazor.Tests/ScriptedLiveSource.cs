@@ -28,6 +28,9 @@ internal sealed class ScriptedLiveSource : IFlowLiveSource
 
     internal int PageSize { get; set; } = 25;
 
+    /// <summary>Every query the list was asked, in order.</summary>
+    internal List<FlowLiveCaseQuery> Queries { get; } = [];
+
     /// <summary>Every open case the replays of the reference documents are in after half their commands, with an opaque reference of the form <c>case-&lt;n&gt;</c>.</summary>
     internal static ScriptedLiveSource Reference(int copies = 1)
     {
@@ -82,6 +85,7 @@ internal sealed class ScriptedLiveSource : IFlowLiveSource
     public Task<FlowLiveCasePage> ListCasesAsync(FlowLiveCaseQuery query, CancellationToken cancellationToken = default)
     {
         ListCalls++;
+        Queries.Add(query);
         if (FailList)
         {
             throw new InvalidOperationException("scripted failure");

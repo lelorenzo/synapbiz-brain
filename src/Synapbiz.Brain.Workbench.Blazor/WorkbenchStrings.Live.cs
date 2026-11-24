@@ -36,6 +36,7 @@ public static partial class WorkbenchStrings
         ("flow.cases.list.close", "Cerrar la lista", "Close the list"),
         ("flow.cases.list.more", "Mostrar más casos", "Show more cases"),
         ("flow.cases.list.empty", "No hay casos abiertos aquí.", "No open cases here."),
+        ("flow.cases.list.noneYet", "Ninguno entre los casos leídos hasta ahora.", "None among the cases read so far."),
         ("flow.cases.list.loading", "Cargando la lista de casos…", "Loading the list of cases…"),
         ("flow.cases.list.failed", "No se pudo cargar la lista de casos.", "The list of cases could not be loaded."),
         ("flow.cases.line.ref", "Caso {ref}", "Case {ref}"),
