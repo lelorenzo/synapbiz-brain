@@ -50,6 +50,10 @@
                     </select>
                 </div>
                 <nav class="wb-list" aria-label="@Plain("flow.list.aria")">
+                    @if (SharedGroup is { } sharedGroup)
+                    {
+                        <p class="wb-group-once">@sharedGroup</p>
+                    }
                     @foreach (var section in KindSections())
                     {
                         <section class="wb-kind-section" aria-labelledby="@(idp + "-k" + section.Ordinal)">
@@ -233,15 +237,15 @@
             <div class="wb-body wb-mapbody">
                 @if (!liveMode)
                 {
-                <section class="wb-mapkey" aria-labelledby="@legendId">
-                    <h3 class="wb-mapkey-t" id="@legendId">@Rich("flow.mapkey.title")</h3>
+                <details class="wb-mapkey" open="@(!Session.ProcessOpen)">
+                    <summary class="wb-mapkey-t" id="@legendId">@Rich("flow.mapkey.title")</summary>
                     <dl class="wb-mapkey-l">
                         @foreach (var item in MapKey())
                         {
                             <div class="wb-mapkey-i"><dt class="@item.Tone">@Icon(item.Icon)@item.Word</dt><dd class="wb-meta">@item.Description</dd></div>
                         }
                     </dl>
-                </section>
+                </details>
                 }
                 @if (!liveMode && map.Mains.Any(main => main.Starts.Count > 0))
                 {
@@ -1202,7 +1206,7 @@
     private const int NodeIconSize = 15;
 
     /// <summary>How far to the right of the middle of a step its text is written, to leave room for the symbol.</summary>
-    private static int TextShift(FlowFamily family) => NodeSymbol(family) is null ? 0 : 10;
+    private static int TextShift(FlowFamily family) => DiagramLayout.TextShift(family);
 
     private RenderFragment NodeIcon(FlowFamily family, int x, int y, int height) => builder =>
     {

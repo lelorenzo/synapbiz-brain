@@ -114,7 +114,7 @@ public sealed class FlowDiagramIconsTests
             var box = layout.Nodes.Single(item => item.Id == graph.Nodes[position].Id);
             var middle = box.X + (box.Width / 2);
             var texts = nodes[position].QuerySelectorAll("text.wb-node-t").Select(text => int.Parse(text.GetAttribute("x")!, System.Globalization.CultureInfo.InvariantCulture));
-            texts.Should().OnlyContain(x => x == middle + (SymbolOf(graph.Nodes[position].Family).Length == 0 ? 0 : 10), graph.Nodes[position].Id);
+            texts.Should().OnlyContain(x => x == middle + DiagramLayout.TextShift(graph.Nodes[position].Family), graph.Nodes[position].Id);
         }
     }
 }

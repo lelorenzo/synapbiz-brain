@@ -427,6 +427,31 @@ public sealed class FlowDiagramGeometryTests
         first.Nodes.Should().OnlyContain(box => box.Lines.Count >= 1 && box.Lines.Count <= 2 && box.Lines.All(text => text.Length <= DiagramLayout.LineChars));
     }
 
+    [Theory]
+    [MemberData(nameof(EveryDocumentInBothLanguages))]
+    public void TheTextOfAStepNeverTouchesItsSymbolOrTheFoldedCornerOfAPersonStep(string name, WorkbenchLocale locale)
+    {
+        const int symbolRight = 9 + 15;
+        const int foldWidth = 14;
+        var (layout, graph) = Of(name, locale);
+        var families = graph.Nodes.ToDictionary(node => node.Id, node => node.Family, StringComparer.Ordinal);
+        foreach (var box in layout.Nodes)
+        {
+            var family = families[box.Id];
+            var textShift = DiagramLayout.TextShift(family);
+            var width = box.Lines.Max(line => line.Length) * DiagramLayout.CharWidth;
+            var middle = box.X + (box.Width / 2) + textShift;
+            var left = middle - (width / 2);
+            var right = middle + (width / 2);
+            if (family != FlowFamily.End)
+            {
+                left.Should().BeGreaterThanOrEqualTo(box.X + symbolRight + 4, name + "/" + box.Id + " text touches the symbol");
+            }
+
+            right.Should().BeLessThanOrEqualTo(box.X + box.Width - (family == FlowFamily.Person ? foldWidth + 2 : 4), name + "/" + box.Id + " text touches the edge or the folded corner");
+        }
+    }
+
     [Fact]
     public void ALabelIsBrokenAtTheSpaceNearestTheMiddleAndOnlyTheLongOnesAreCut()
     {

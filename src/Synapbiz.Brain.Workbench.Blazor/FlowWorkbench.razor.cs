@@ -341,6 +341,7 @@ public sealed partial class FlowWorkbench : IDisposable
     private List<KindSection> KindSections()
     {
         var flows = Flows ?? [];
+        var shared = SharedGroup;
         var sections = new List<KindSection>();
         FlowKind?[] order = [FlowKind.Main, FlowKind.Subprocess, FlowKind.Scheduled, null];
         foreach (var kind in order)
@@ -353,9 +354,10 @@ public sealed partial class FlowWorkbench : IDisposable
                     continue;
                 }
 
-                if (groups.Count == 0 || !string.Equals(groups[^1].Heading, flows[index].Group, StringComparison.Ordinal))
+                var heading = shared is not null ? null : flows[index].Group;
+                if (groups.Count == 0 || !string.Equals(groups[^1].Heading, heading, StringComparison.Ordinal))
                 {
-                    groups.Add(new ListGroup(groups.Count + 1, flows[index].Group, []));
+                    groups.Add(new ListGroup(groups.Count + 1, heading, []));
                 }
 
                 groups[^1].Entries.Add(new ListEntry(flows[index], index));
@@ -368,6 +370,19 @@ public sealed partial class FlowWorkbench : IDisposable
         }
 
         return sections;
+    }
+
+    /// <summary>
+    /// The host's group heading when every process of the list has the same one: it is written once above the list and not repeated under each
+    /// kind. Null when the groups differ or any process has none.
+    /// </summary>
+    private string? SharedGroup
+    {
+        get
+        {
+            var flows = Flows ?? [];
+            return flows.Count > 0 && flows[0].Group is { } first && flows.All(flow => string.Equals(flow.Group, first, StringComparison.Ordinal)) ? first : null;
+        }
     }
 
     /// <summary>The kind of a process; null when it could not be read.</summary>

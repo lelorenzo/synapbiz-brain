@@ -153,10 +153,11 @@ internal sealed record DiagramLayout(
     /// longer than a line is broken inside). A label that does not fit two lines ends with an ellipsis.
     /// </summary>
     /// <param name="label">The full label.</param>
-    internal static (IReadOnlyList<string> Lines, bool IsCut) Wrap(string label)
+    /// <param name="chars">The most characters a line may have.</param>
+    internal static (IReadOnlyList<string> Lines, bool IsCut) Wrap(string label, int chars = LineChars)
     {
         var text = string.Join(' ', label.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        if (text.Length <= LineChars)
+        if (text.Length <= chars)
         {
             return ([text], false);
         }
@@ -165,30 +166,50 @@ internal sealed record DiagramLayout(
         var spaces = Enumerable.Range(0, text.Length).Where(index => text[index] == ' ').OrderBy(index => Math.Abs(index - middle)).ThenBy(index => index).ToList();
         foreach (var at in spaces)
         {
-            if (at <= LineChars && text.Length - at - 1 <= LineChars)
+            if (at <= chars && text.Length - at - 1 <= chars)
             {
                 return ([text[..at], text[(at + 1)..]], false);
             }
         }
 
-        if (text.Length <= 2 * LineChars)
+        if (text.Length <= 2 * chars)
         {
-            var cut = text[..LineChars];
-            return ([cut, text[LineChars..]], false);
+            var cut = text[..chars];
+            return ([cut, text[chars..]], false);
         }
 
         // Too long for two lines: the first line takes whole words while they fit, the second ends with an ellipsis.
-        var firstEnd = text.LastIndexOf(' ', Math.Min(LineChars, text.Length - 1));
+        var firstEnd = text.LastIndexOf(' ', Math.Min(chars, text.Length - 1));
         if (firstEnd <= 0)
         {
-            firstEnd = LineChars;
+            firstEnd = chars;
         }
 
         var first = text[..firstEnd];
         var rest = text[firstEnd..].TrimStart();
-        var second = rest.Length <= LineChars ? rest : rest[..(LineChars - 1)] + "…";
+        var second = rest.Length <= chars ? rest : rest[..(chars - 1)] + "…";
         return ([first, second], true);
     }
+
+    /// <summary>
+    /// How many characters a line of a node's label may have: a step with a symbol writes to the right of it, so its text box is narrower, and
+    /// a person step also writes further left to keep clear of its folded corner.
+    /// </summary>
+    internal static int TextChars(FlowFamily family) => family switch
+    {
+        FlowFamily.End => LineChars,
+        _ => SymbolChars,
+    };
+
+    internal const int SymbolChars = 20;
+
+    /// <summary>How far to the right of the middle of a step its text is written, to leave room for its symbol; a person step keeps its text further left, clear of the folded corner.</summary>
+    internal static int TextShift(FlowFamily family) => family switch
+    {
+        FlowFamily.End => 0,
+        FlowFamily.Person => 6,
+        _ => 10,
+    };
 
     internal static string N(int value) => value.ToString(CultureInfo.InvariantCulture);
 
@@ -728,7 +749,7 @@ internal sealed record DiagramLayout(
 
             var nodes = graph.Nodes.Select(node =>
             {
-                var (lines, cut) = Wrap(node.Label);
+                var (lines, cut) = Wrap(node.Label, TextChars(node.Family));
                 var at = band[node.Id];
                 return new NodeBox(node.Id, columnX[column[node.Id]], rowTop[(at, row[node.Id])], NodeWidth, NodeHeight, at, row[node.Id], column[node.Id], lines, cut);
             }).ToList();
