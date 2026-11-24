@@ -33,58 +33,78 @@ What changed: routes changed: 1. The earlier version had no tests to replay.
 
 ### window added
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- A delivery window late was added: Saturday, 09:00 to 12:00 (zone from `practice_zone`).
+- A delivery window late was added: Saturday, 09:00 to 12:00 (zone from “practice zone”).
 
 ### window removed
 What changed: settings changed: 3. The earlier version had no tests to replay.
-- In the step “Send reminder”, whether it contacts a person changed from yes to no.
+- In “Send reminder”, this step no longer contacts a person.
 - In the step “Send reminder”, the delivery window was removed; it was “Contact hours”.
 - The delivery window Contact hours was removed.
 
 ### window changed
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- The delivery window Contact hours changed from Monday, Tuesday, Wednesday, Thursday and Friday, 09:00 to 18:00 (zone from `practice_zone`) to Monday, Tuesday, Wednesday, Thursday and Friday, 09:00 to 17:00 (zone from `practice_zone`).
+- The delivery window Contact hours changed from Monday, Tuesday, Wednesday, Thursday and Friday, 09:00 to 18:00 (zone from “practice zone”) to Monday, Tuesday, Wednesday, Thursday and Friday, 09:00 to 17:00 (zone from “practice zone”).
 
 ### trigger added
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- The process now also starts when `practice.opened` arrives, one case for each `practice_id`.
+- The process now also starts when “practice opened” arrives, one case for each “practice id”.
 
 ### trigger removed
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- The process no longer starts as the scheduled task `daily` on the schedule `0 6 * * *` (zone of the activation).
+- The process no longer starts as the scheduled task “daily” on the schedule “0 6 * * *” (zone of the activation).
 
 ### trigger changed
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- What starts the process changed: it was as the scheduled task `daily` on the schedule `0 6 * * *` (zone of the activation); it is now as the scheduled task `daily` on the schedule `30 7 * * *` (zone of the activation).
+- What starts the process changed: it was as the scheduled task “daily” on the schedule “0 6 * * *” (zone of the activation); it is now as the scheduled task “daily” on the schedule “30 7 * * *” (zone of the activation).
 
 ### variable added
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- A new piece of information `spare` was added (Code).
+- A new piece of information “spare” was added (Code).
 
 ### show list shortened
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Chase the note”, what the person sees changed from `case_ref` and `note_status` to `case_ref`.
+- In the step “Chase the note”, what the person sees changed from “case ref” and “note status” to “case ref”.
 
 ### variable dropped
 What changed: settings changed: 2. The earlier version had no tests to replay.
-- In the step “Physician review”, what it keeps was removed; it was `code` from `final_code`.
-- The piece of information `final_code` was removed.
+- In the step “Physician review”, what it keeps was removed; it was “code” from “final code”.
+- The piece of information “final code” was removed.
 
 ### variable changed
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- The piece of information `case_ref` changed from Code, given when the case starts to Code.
+- The piece of information “case ref” is no longer given when the case starts.
+
+### process id changed
+What changed: other changes: 1. The earlier version had no tests to replay.
+- The id of the process changed from “visit note wait” to “visit note wait two”.
+
+### title changed
+What changed: labels changed: 1. The earlier version had no tests to replay.
+- The title of the process changed from “Visit note wait” to “Visit note follow-up”.
+
+### description changed
+What changed: labels changed: 1. The earlier version had no tests to replay.
+- The description of the process changed from “Reads the status of the note of a visit at growing intervals until it is signed; a person chases it when two days pass, or confirms it when the practice has no connector.” to “Waits for the note of the visit.”.
+
+### subject changed
+What changed: other changes: 1. The earlier version had no tests to replay.
+- What each case is about changed from “case” to “visit”.
+
+### something else changed
+What changed: other changes: 1. The earlier version had no tests to replay.
+- Something else changed in the process, in the part of the document called stages.
 
 ### label changed
 What changed: labels changed: 1. The earlier version had no tests to replay.
-- The name of the title in English changed from “Visit note wait” to “Wait for the visit note”.
+- The title in English changed from “Visit note wait” to “Wait for the visit note”.
 
 ### label added
 What changed: labels changed: 1. The earlier version had no tests to replay.
-- The name of the step `signed` in English changed from “Note signed” to “Signed”.
+- The name of the step “signed” in English changed from “Note signed” to “Signed”.
 
 ### label removed
 What changed: labels changed: 1. The earlier version had no tests to replay.
-- the step `cancelled` lost its name in Spanish; it was “Visita cancelada”.
+- the step “cancelled” lost its name in Spanish; it was “Visita cancelada”.
 
 ### test added
 What changed: tests added, changed or removed: 1. All 11 tests of the earlier version still behave as before.
@@ -104,7 +124,7 @@ What changed: settings changed: 1. The earlier version had no tests to replay.
 
 ### port
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Wait for the signed note”, the port changed from `records.note_status` to `records.note_state`.
+- In the step “Wait for the signed note”, the port changed from “records note status” to “records note state”.
 
 ### delivery
 What changed: routes changed: 1; settings changed: 1. The earlier version had no tests to replay.
@@ -113,26 +133,26 @@ What changed: routes changed: 1; settings changed: 1. The earlier version had no
 
 ### contact
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Send reminder”, whether it contacts a person changed from yes to no.
+- In “Send reminder”, this step no longer contacts a person.
 
 ### window of a step
 What changed: settings changed: 2. The earlier version had no tests to replay.
 - In the step “Send reminder”, the delivery window changed from “Contact hours” to “late”.
-- A delivery window late was added: Saturday, 09:00 to 12:00 (zone from `practice_zone`).
+- A delivery window late was added: Saturday, 09:00 to 12:00 (zone from “practice zone”).
 
 ### interrupt
 What changed: routes changed: 1; settings changed: 1. The earlier version had no tests to replay.
-- In the step “Send reminder”, the event that ends the wait for the window is now `case.reply_received`.
+- In the step “Send reminder”, the event that ends the wait for the window is now “case reply received”.
 - In the step “Send reminder”, when the awaited event arrives during the window wait: it now goes to “Ready for the visit”.
 
 ### retry
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Wait for the signed note”, the retry policy changed from up to 3 attempts (wait doubles each time, first wait 30 seconds) to up to 5 attempts (wait doubles each time, first wait 30 seconds).
+- In “Wait for the signed note”, the number of attempts went from 3 to 5.
 
 ### collect into
 What changed: settings changed: 2. The earlier version had no tests to replay.
-- In the step “Find coding opportunities”, where every result is kept changed from `opportunities` to `opportunities2`.
-- A new piece of information `opportunities2` was added (Json).
+- In the step “Find coding opportunities”, where every result is kept changed from “opportunities” to “opportunities2”.
+- A new piece of information “opportunities2” was added (Json).
 
 ### queue
 What changed: settings changed: 1. The earlier version had no tests to replay.
@@ -145,23 +165,23 @@ What changed: routes changed: 1; settings changed: 1. The earlier version had no
 
 ### show
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Chase the note”, what the person sees changed from `case_ref` and `note_status` to `case_ref`, `note_status` and `note_status`.
+- In the step “Chase the note”, what the person sees changed from “case ref” and “note status” to “case ref”, “note status” and “note status”.
 
 ### event
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Wait for the reply”, the awaited event changed from `case.reply_received` to `case.answer_received`.
+- In the step “Wait for the reply”, the awaited event changed from “case reply received” to “case answer received”.
 
 ### correlation
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Wait for the reply”, what the event must match changed from `case_ref` to `practice_zone`.
+- In the step “Wait for the reply”, what the event must match changed from “case ref” to “practice zone”.
 
 ### timeout
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Wait for the reply”, the time limit changed from within 1 day to within 2 days.
+- In “Wait for the reply”, the longest wait went from 1 day to 2 days.
 
 ### timer
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Wait for the balance”, the delay changed from after 7 days to after 5 days.
+- In “Wait for the balance”, the delay went from 7 days to 5 days.
 
 ### loop
 What changed: settings changed: 1. The earlier version had no tests to replay.
@@ -169,7 +189,7 @@ What changed: settings changed: 1. The earlier version had no tests to replay.
 
 ### poll
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Check the claim status”, the repeated read changed from every 1 day for at most 30 days (wait doubles each time) until `progress` is `settled` to every 12 hours for at most 30 days (wait doubles each time) until `progress` is `settled`.
+- In “Check the claim status”, the time between reads went from 1 day to 12 hours.
 
 ### result
 What changed: settings changed: 1. The earlier version had no tests to replay.
@@ -177,26 +197,34 @@ What changed: settings changed: 1. The earlier version had no tests to replay.
 
 ### ai
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Ask the assistant”, the AI model and prompt changed from model `model-a`, instructions `coding-suggest` version 1, up to 2 attempts to model `model-b`, instructions `coding-suggest` version 1, up to 2 attempts.
+- In the step “Ask the assistant”, the AI model and prompt changed from model “model-a”, instructions “coding-suggest” version 1, up to 2 attempts to model “model-b”, instructions “coding-suggest” version 1, up to 2 attempts.
+
+### ai input schema
+What changed: settings changed: 1. The earlier version had no tests to replay.
+- In “Ask the assistant”, what the AI is sent changed: “note” was added.
+
+### ai output schema
+What changed: settings changed: 1. The earlier version had no tests to replay.
+- In “Ask the assistant”, what the AI may return changed: “reason” was added.
 
 ### inputs
 What changed: settings changed: 1. The earlier version had no tests to replay.
-- In the step “Pre-visit stage”, what it sends changed from `case_ref` from `case_ref` and `practice_zone` from `practice_zone` to `case_ref` from `case_ref` and `practice_zone` from `case_ref`.
+- In the step “Pre-visit stage”, what it sends changed from “case ref” from “case ref” and “practice zone” from “practice zone” to “case ref” from “case ref” and “practice zone” from “case ref”.
 
 ### facts
 What changed: settings changed: 2. The earlier version had no tests to replay.
-- In the step “Decide on a reminder”, what it gives the rule changed from `missing` from `missing` to `missing` from `missing2`.
-- A new piece of information `missing2` was added (Integer).
+- In the step “Decide on a reminder”, what it gives the rule changed from “missing” from “missing” to “missing” from “missing2”.
+- A new piece of information “missing2” was added (Integer).
 
 ### outputs
 What changed: settings changed: 2. The earlier version had no tests to replay.
-- In the step “Check what is missing”, what it keeps changed from `missing_count` from `missing` to `missing_count` from `missing2`.
-- A new piece of information `missing2` was added (Integer).
+- In the step “Check what is missing”, what it keeps changed from “missing count” from “missing” to “missing count” from “missing2”.
+- A new piece of information “missing2” was added (Integer).
 
 ### child
 What changed: routes changed: 4; settings changed: 2. The earlier version had no tests to replay.
-- In the step “Visit stage”, the subprocess changed from `visit.note_wait` to `practice.daily_refresh`.
-- In the step “Visit stage”, what it sends was removed; it was `case_ref` from `case_ref`.
+- In the step “Visit stage”, the subprocess changed from “visit note wait” to “practice daily refresh”.
+- In the step “Visit stage”, what it sends was removed; it was “case ref” from “case ref”.
 - In the step “Visit stage”, when the result is failed: it now goes to “Closed, no visit”.
 - In the step “Visit stage”, when the result is refreshed: it now goes to “Post-visit stage”.
 - In the step “Visit stage”, when the result is note_signed: the way to “Post-visit stage” was removed.
@@ -207,7 +235,7 @@ What changed: routes changed: 3; settings changed: 5. The earlier version had no
 - The step “Chase the note” changed from Task for a person to Timer.
 - In the step “Chase the note”, the task queue was removed; it was “Note follow-up”.
 - In the step “Chase the note”, the choices of the person was removed; it was “Signed” and “No visit”.
-- In the step “Chase the note”, what the person sees was removed; it was `case_ref` and `note_status`.
+- In the step “Chase the note”, what the person sees was removed; it was “case ref” and “note status”.
 - In the step “Chase the note”, the delay is now after 1 day.
 - In the step “Chase the note”, afterwards: it now goes to “Note signed”.
 - In the step “Chase the note”, when the result is no_visit: the way to “Visit cancelled” was removed.
@@ -215,10 +243,10 @@ What changed: routes changed: 3; settings changed: 5. The earlier version had no
 
 ### rule
 What changed: routes changed: 3; settings changed: 4. The earlier version had no tests to replay.
-- In the step “Check the suggestion”, the rule changed from `postvisit.suggestion_check` to `postvisit.assist_gate`.
-- In the step “Check the suggestion”, the result field that routes the case is now `use`.
-- In the step “Check the suggestion”, what it gives the rule changed from `confidence` from `confidence` to `assist_enabled` from `assist_enabled` and `items` from `items`.
-- In the step “Check the suggestion”, what it keeps was removed; it was `usable` from `suggestion_usable`.
+- In the step “Check the suggestion”, the rule changed from “postvisit suggestion check” to “postvisit assist gate”.
+- In the step “Check the suggestion”, the result field that routes the case is now “use”.
+- In the step “Check the suggestion”, what it gives the rule changed from “confidence” from “confidence” to “assist enabled” from “assist enabled” and “items” from “items”.
+- In the step “Check the suggestion”, what it keeps was removed; it was “usable” from “suggestion usable”.
 - In the step “Check the suggestion”, when the result is no: it now goes to “Physician review”.
 - In the step “Check the suggestion”, when the result is yes: it now goes to “Physician review”.
 - In the step “Check the suggestion”, afterwards: the way to “Physician review” was removed.

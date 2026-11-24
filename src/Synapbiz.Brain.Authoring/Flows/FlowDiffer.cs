@@ -69,6 +69,21 @@ public enum FlowChangeKind
 
     /// <summary>A label (the title, or the name of a stage, step, result, queue, outcome, event or window) changed in a language.</summary>
     LabelChanged = 20,
+
+    /// <summary>The id of the process is not the same in the two documents.</summary>
+    ProcessIdChanged = 21,
+
+    /// <summary><c>meta.title</c> changed.</summary>
+    TitleChanged = 22,
+
+    /// <summary><c>meta.description</c> changed.</summary>
+    DescriptionChanged = 23,
+
+    /// <summary><c>body.subject</c> (what each case is about) changed.</summary>
+    SubjectChanged = 24,
+
+    /// <summary>The documents differ, but in nothing the differ names; <see cref="FlowChange.Pointers"/> says where.</summary>
+    SomethingElseChanged = 25,
 }
 
 /// <summary>What about a step changed.</summary>
@@ -151,6 +166,12 @@ public enum FlowAspect
 
     /// <summary>The kind of the step.</summary>
     Kind = 25,
+
+    /// <summary>The description of what an AI step is sent (its input schema).</summary>
+    AiInputSchema = 26,
+
+    /// <summary>The description of what an AI step may return (its output schema).</summary>
+    AiOutputSchema = 27,
 }
 
 /// <summary>One change between two flow documents, as data. <see cref="Before"/> and <see cref="After"/> hold the values of the outline (a string, a <see cref="TimeSpan"/>, an outline record, a trigger declaration or a list of names); null means absent.</summary>
@@ -169,6 +190,9 @@ public sealed record FlowChange(FlowChangeKind Kind, string Subject)
 
     /// <summary>For a label change, the language.</summary>
     public string? Language { get; init; }
+
+    /// <summary>For <see cref="FlowChangeKind.SomethingElseChanged"/>, the JSON Pointers of the places that differ (at most ten).</summary>
+    public IReadOnlyList<string>? Pointers { get; init; }
 
     /// <summary>The earlier value; null when there was none.</summary>
     public object? Before { get; init; }
@@ -193,13 +217,35 @@ public static class FlowDiffer
     /// <summary>Compares the two documents. A removed step and an added step that are the same in everything but their id and routes are one rename.</summary>
     /// <param name="before">The earlier document.</param>
     /// <param name="after">The later document.</param>
-    public static FlowDiff Diff(BrainProcess before, BrainProcess after)
+    public static FlowDiff Diff(BrainProcess before, BrainProcess after) => Diff(before, after, null, null);
+
+    /// <summary>
+    /// Compares the two documents and, as a safety net, when the texts of the two documents are given and are not equal (leaving the version aside)
+    /// but nothing specific was found, adds one change that says something else changed and where.
+    /// </summary>
+    /// <param name="before">The earlier document.</param>
+    /// <param name="after">The later document.</param>
+    /// <param name="beforeDocument">The earlier document as plain JSON, or null.</param>
+    /// <param name="afterDocument">The later document as plain JSON, or null.</param>
+    public static FlowDiff Diff(BrainProcess before, BrainProcess after, JsonObject? beforeDocument, JsonObject? afterDocument)
     {
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
         var old = ProcessOutline.From(before);
         var now = ProcessOutline.From(after);
         var changes = new List<FlowChange>();
+        if (!string.Equals(before.Id, after.Id, StringComparison.Ordinal))
+        {
+            changes.Add(new FlowChange(FlowChangeKind.ProcessIdChanged, after.Id) { Before = before.Id, After = after.Id });
+        }
+
+        if (!string.Equals(before.Subject, after.Subject, StringComparison.Ordinal))
+        {
+            changes.Add(new FlowChange(FlowChangeKind.SubjectChanged, after.Subject) { Before = before.Subject, After = after.Subject });
+        }
+
+        MetaText(changes, before.Meta, after.Meta, "title", FlowChangeKind.TitleChanged);
+        MetaText(changes, before.Meta, after.Meta, "description", FlowChangeKind.DescriptionChanged);
 
         var removed = old.Steps.Where(step => now.Step(step.Id) is null).ToList();
         var added = now.Steps.Where(step => old.Step(step.Id) is null).ToList();
@@ -232,7 +278,70 @@ public static class FlowDiffer
         Variables(changes, old, now);
         Scenarios(changes, old, now);
         Labels(changes, before.Meta, after.Meta);
+        if (changes.Count == 0 && beforeDocument is not null && afterDocument is not null)
+        {
+            var places = Unexplained(beforeDocument, afterDocument);
+            if (places.Count > 0)
+            {
+                changes.Add(new FlowChange(FlowChangeKind.SomethingElseChanged, string.Empty) { Pointers = places });
+            }
+        }
+
         return new FlowDiff(changes);
+    }
+
+    private static void MetaText(List<FlowChange> changes, JsonObject before, JsonObject after, string member, FlowChangeKind kind)
+    {
+        var was = AuthoringJson.Text(before[member]);
+        var now = AuthoringJson.Text(after[member]);
+        if (!string.Equals(was, now, StringComparison.Ordinal))
+        {
+            changes.Add(new FlowChange(kind, member) { Before = was, After = now });
+        }
+    }
+
+    /// <summary>The places (JSON Pointers, at most ten) where two documents differ, leaving the version aside; empty when they are the same.</summary>
+    /// <param name="before">The earlier document.</param>
+    /// <param name="after">The later document.</param>
+    internal static IReadOnlyList<string> Unexplained(JsonObject before, JsonObject after)
+    {
+        var left = (JsonObject)before.DeepClone();
+        var right = (JsonObject)after.DeepClone();
+        _ = left.Remove("version");
+        _ = right.Remove("version");
+        var places = new List<string>();
+        Compare(string.Empty, left, right, places);
+        return places;
+    }
+
+    private static void Compare(string pointer, JsonNode? left, JsonNode? right, List<string> places)
+    {
+        if (places.Count >= 10 || JsonNode.DeepEquals(left, right))
+        {
+            return;
+        }
+
+        if (left is JsonObject a && right is JsonObject b)
+        {
+            foreach (var name in a.Select(pair => pair.Key).Concat(b.Select(pair => pair.Key)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+            {
+                Compare(AuthoringJson.Pointer(pointer, name), a[name], b[name], places);
+            }
+
+            return;
+        }
+
+        if (left is JsonArray x && right is JsonArray y && x.Count == y.Count)
+        {
+            for (var index = 0; index < x.Count; index++)
+            {
+                Compare(AuthoringJson.Pointer(pointer, index), x[index], y[index], places);
+            }
+
+            return;
+        }
+
+        places.Add(pointer.Length == 0 ? "/" : pointer);
     }
 
     private static Dictionary<string, string> Renames(List<OutlineStep> removed, List<OutlineStep> added)
@@ -403,6 +512,16 @@ public static class FlowDiffer
         if (step.Model is not null)
         {
             yield return (FlowAspect.Ai, step, Invariant($"{step.Model}|{step.PromptId}|{step.PromptVersion}|{step.MaxAttempts}"));
+        }
+
+        if (step.InputSchemaJson is not null)
+        {
+            yield return (FlowAspect.AiInputSchema, step.InputSchemaJson, step.InputSchemaJson);
+        }
+
+        if (step.OutputSchemaJson is not null)
+        {
+            yield return (FlowAspect.AiOutputSchema, step.OutputSchemaJson, step.OutputSchemaJson);
         }
 
         if (step.Inputs.Count > 0)

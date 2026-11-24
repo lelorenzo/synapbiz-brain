@@ -170,9 +170,9 @@ public sealed class ReadinessTests
     }
 
     [Fact]
-    public void The_codes_are_the_seven_checks_of_the_specification_plus_the_loader()
+    public void The_codes_are_the_seven_checks_of_the_specification_plus_the_loader_and_what_makes_a_draft_proposable()
     {
-        ReadinessChecks.Codes.Should().HaveCount(8);
+        ReadinessChecks.Codes.Should().HaveCount(14);
         ReadinessChecks.Codes.Should().OnlyHaveUniqueItems();
         ReadinessChecks.Codes.Should().OnlyContain(code => code.StartsWith("authoring.ready.", StringComparison.Ordinal));
     }

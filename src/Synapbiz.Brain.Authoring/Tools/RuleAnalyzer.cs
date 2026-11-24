@@ -42,11 +42,7 @@ internal static class RuleAnalyzer
         if (loaded.Rule is not { } rule)
         {
             data["ready"] = false;
-            var message = string.Empty;
-            if (loaded.Errors.Count > 0)
-            {
-                message = locale == WorkbenchLocale.Es ? loaded.Errors[0].MessageEs : loaded.Errors[0].MessageEn;
-            }
+            var message = loaded.Errors.Count > 0 ? PersonWords.Error(locale, loaded.Errors[0], document) : string.Empty;
 
             return new RuleAnalysis(data, AuthoringText.Text(locale, "say.rule.refused", ("n", AuthoringText.Number(loaded.Errors.Count)), ("first", message)), null, null, false, []);
         }

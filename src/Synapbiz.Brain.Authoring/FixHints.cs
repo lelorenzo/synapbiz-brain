@@ -96,6 +96,21 @@ public static class FixHints
         ["process.display.invalid"] = "Write meta.display.<en|es> with a title and the groups stages, steps, results, queues, outcomes, events and windows, each label 1 to 120 characters.",
         ["process.display.unknown_id"] = "Label an id the flow has, or remove the label.",
 
+        // A proposal and the readiness of a draft.
+        ["authoring.proposal.needs_review_false"] = "A process proposal always needs review; the file was edited by hand. Write the proposal again with flow_propose.",
+        ["authoring.proposal.hash_mismatch"] = "The document in the proposal is not the one its hash names; write the proposal again with flow_propose.",
+        ["authoring.proposal.document_invalid"] = "Brain does not accept the document of the proposal; fix the draft and propose again.",
+        ["authoring.proposal.identity_mismatch"] = "A proposal keeps the id of the approved process it comes from, and its document must carry that id and the version the proposal names. Make the draft again from the approved process.",
+        ["authoring.proposal.tests_failing"] = "Make every test of the draft pass, then propose again.",
+        ["authoring.proposal.base_stale"] = "The approved process changed after the draft was based on it. Save the draft again with `basedOn` set to the process id, which re-bases it on the current version, check the changes list, and propose again.",
+        ["authoring.proposal.version_not_newer"] = "Raise `version` in the document above the version of the approved process, save the draft again and propose again.",
+        ["authoring.ready.no_scenarios"] = "Add at least one test with flow_draft_add_scenario (from a simulation or written in full).",
+        ["authoring.ready.scenario_names_duplicated"] = "Rename one of the tests that share a name.",
+        ["authoring.ready.catalog_missing"] = "The host has not given the workspace a catalog (catalog.json). Ask the host for one that lists the ports the process uses; without it connectors and contact safety cannot be checked.",
+        ["authoring.ready.version_not_newer"] = "Raise `version` in the document above the version of the approved process and save the draft again.",
+        ["authoring.ready.base_stale"] = "Save the draft again with `basedOn` set to the process id; that re-bases it on the current approved version. Then compare the changes list with what you meant.",
+        ["authoring.ready.base_mismatch"] = "A proposal keeps the process it comes from. Make the draft with the id of the approved process, or leave `basedOn` out for a new process.",
+
         // Running a case.
         ["process.state.malformed"] = "The saved state cannot be read; start a new simulation.",
         ["process.input.unknown"] = "Start the case only with variables declared with input: true.",

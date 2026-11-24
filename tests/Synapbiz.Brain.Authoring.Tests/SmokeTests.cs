@@ -20,7 +20,7 @@ public sealed class SmokeTests
         IsOk(flow).Should().BeTrue(flow.ToJsonString());
         var rule = Call(tools, "rule_get", Obj("""{"id":"visit.note_ready"}"""));
         IsOk(rule).Should().BeTrue(rule.ToJsonString());
-        var saved = Call(tools, "flow_draft_save", new JsonObject { ["id"] = "visit.note_wait", ["document"] = Obj(NoteWait) });
+        var saved = Call(tools, "flow_draft_save", new JsonObject { ["id"] = "visit.note_wait", ["document"] = NoteWaitChanged(document => document["version"] = 2) });
         IsOk(saved).Should().BeTrue(saved.ToJsonString());
         saved["ready"]!.GetValue<bool>().Should().BeTrue(saved.ToJsonString());
     }

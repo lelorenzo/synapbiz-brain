@@ -20,6 +20,8 @@ internal static partial class AuthoringText
         AddChanges();
         AddReady();
         AddTools();
+        AddErrors();
+        AddPeople();
     }
 
     /// <summary>The keys whose Spanish text is, on purpose, the English text: separators, punctuation and the word "no".</summary>
@@ -34,6 +36,8 @@ internal static partial class AuthoringText
     internal static IReadOnlyCollection<string> SpanishKeys => Spanish.Keys;
 
     internal static string Template(WorkbenchLocale locale, string key) => Table(locale)[key];
+
+    internal static bool Has(string key) => English.ContainsKey(key);
 
     internal static string Text(WorkbenchLocale locale, string key, params (string Name, string Value)[] parameters)
     {

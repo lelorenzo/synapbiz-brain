@@ -34,50 +34,65 @@ public sealed class AuthoringTool
     /// <summary>The JSON Schema (draft 2020-12) of the input object.</summary>
     public JsonObject InputSchema { get; }
 
-    /// <summary>Runs the tool. Never throws for any input; every refusal is a coded answer.</summary>
+    /// <summary>Runs the tool. Never throws for any input; every refusal is a coded answer. Calls are served one at a time, so a call always sees the whole result of the one before it.</summary>
     /// <param name="input">The input object; null counts as an empty object.</param>
     public JsonObject Invoke(JsonNode? input)
     {
         var arguments = input ?? new JsonObject();
         var language = AuthoringJson.Locale((arguments as JsonObject)?["language"]) ?? WorkbenchLocale.En;
-        var problems = Validate(arguments);
-        if (problems.Count > 0)
+        lock (context.Gate)
         {
-            return Results.Refuse(language, "input.invalid", [("tool", Name), ("detail", problems[0])], "Fix the input so it matches the input schema of the tool: " + string.Join(" ", problems.Take(5)));
-        }
+            try
+            {
+                var problems = Validate(arguments, language);
+                if (problems.Count > 0)
+                {
+                    return Results.Refuse(
+                        language,
+                        "input.invalid",
+                        [("say", problems[0].Sentence)],
+                        "Fix the input so it matches the input schema of the tool: " + string.Join(" ", problems.Take(5).Select(problem => problem.Pointer + " " + problem.Message)),
+                        new JsonObject { ["tool"] = Name, ["problems"] = new JsonArray([.. problems.Take(10).Select(problem => (JsonNode?)new JsonObject { ["pointer"] = problem.Pointer, ["rule"] = problem.Rule, ["detail"] = problem.Message })]) });
+                }
 
-        try
-        {
-            return run(context, (JsonObject)arguments, language);
-        }
-        catch (AuthoringStoreException error)
-        {
-            return Results.Refuse(language, "workspace.store_failed", [("detail", error.Message)], "The workspace refused the request: " + error.Message);
-        }
-        catch (ArgumentException error)
-        {
-            return Results.Refuse(language, "workspace.id_invalid", [("detail", error.Message)], "An id is not valid: " + error.Message);
+                return run(context, (JsonObject)arguments, language);
+            }
+            catch (AuthoringStoreException error)
+            {
+                return Results.Refuse(language, "workspace.store_failed", [], "The workspace refused the request: " + error.Message, new JsonObject { ["detail"] = error.Message });
+            }
+            catch (ArgumentException error)
+            {
+                return Results.Refuse(language, "workspace.id_invalid", [], "An id is not valid: " + error.Message, new JsonObject { ["detail"] = error.Message });
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                return Results.Refuse(language, "workspace.store_failed", [], "The workspace could not be read or written: " + error.GetType().Name + ".", new JsonObject { ["detail"] = error.GetType().Name });
+            }
+            catch (Exception error) when (error is JsonException or InvalidOperationException && error.Message.Contains("depth", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Refuse(language, "input.too_deep", [], "A document is nested more deeply than the protocol allows. Flatten it.", new JsonObject { ["detail"] = error.GetType().Name });
+            }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not InsufficientExecutionStackException)
+            {
+                return Results.Refuse(language, "tool.failed", [], "The tool failed unexpectedly (" + error.GetType().Name + "). Try again; if it persists, report it to the host.", new JsonObject { ["detail"] = error.GetType().Name });
+            }
         }
     }
 
-    private List<string> Validate(JsonNode arguments)
+    private List<InputWords.InputProblem> Validate(JsonNode arguments, WorkbenchLocale language)
     {
-        var result = schema.Evaluate(JsonSerializer.SerializeToElement(arguments), new EvaluationOptions { OutputFormat = OutputFormat.List });
-        if (result.IsValid)
+        JsonElement element;
+        try
         {
-            return [];
+            element = JsonSerializer.SerializeToElement(arguments);
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException)
+        {
+            return [new InputWords.InputProblem(AuthoringText.Text(language, "input.too_deep"), string.Empty, "depth", error.GetType().Name)];
         }
 
-        var found = new List<string>();
-        foreach (var detail in (result.Details ?? []).Where(item => !item.IsValid && item.Errors is not null))
-        {
-            var where = detail.InstanceLocation.ToString();
-            foreach (var message in detail.Errors!.Values)
-            {
-                found.Add((where.Length == 0 ? "The input" : where) + ": " + message);
-            }
-        }
-
-        return found.Count == 0 ? ["The input does not match the schema."] : found;
+        var result = schema.Evaluate(element, new EvaluationOptions { OutputFormat = OutputFormat.List });
+        return result.IsValid ? [] : InputWords.Read(result, InputSchema, arguments, language);
     }
 }

@@ -55,6 +55,11 @@ public sealed class FlowDifferTests
         new("show list shortened", NW, """[{"op":"remove","path":"/body/steps/chase_note/show/1"}]""", FlowChangeKind.StepChanged),
         new("variable dropped", PC, """[{"op":"remove","path":"/body/variables/final_code"},{"op":"remove","path":"/body/steps/physician_review/output"}]""", FlowChangeKind.VariableRemoved),
         new("variable changed", NW, """[{"op":"replace","path":"/body/variables/case_ref/input","value":false},{"op":"add","path":"/body/variables/case_ref/initial","value":"c-0"}]""", FlowChangeKind.VariableChanged),
+        new("process id changed", NW, """[{"op":"replace","path":"/id","value":"visit.note_wait_two"}]""", FlowChangeKind.ProcessIdChanged),
+        new("title changed", NW, """[{"op":"replace","path":"/meta/title","value":"Visit note follow-up"}]""", FlowChangeKind.TitleChanged),
+        new("description changed", NW, """[{"op":"replace","path":"/meta/description","value":"Waits for the note of the visit."}]""", FlowChangeKind.DescriptionChanged),
+        new("subject changed", NW, """[{"op":"replace","path":"/body/subject","value":"visit"}]""", FlowChangeKind.SubjectChanged),
+        new("something else changed", NW, """[{"op":"add","path":"/body/stages/-","value":"extra"}]""", FlowChangeKind.SomethingElseChanged),
         new("label changed", NW, """[{"op":"replace","path":"/meta/display/en/title","value":"Wait for the visit note"}]""", FlowChangeKind.LabelChanged),
         new("label added", NW, """[{"op":"add","path":"/meta/display/en/steps/signed","value":"Signed"}]""", FlowChangeKind.LabelChanged),
         new("label removed", NW, """[{"op":"remove","path":"/meta/display/es/steps/cancelled"}]""", FlowChangeKind.LabelChanged),
@@ -82,6 +87,8 @@ public sealed class FlowDifferTests
         new("poll", CF, """[{"op":"replace","path":"/body/steps/poll_claim/every","value":"PT12H"}]""", FlowChangeKind.StepChanged, FlowAspect.Poll),
         new("result", NW, """[{"op":"replace","path":"/body/steps/signed/result","value":"note_is_signed"}]""", FlowChangeKind.StepChanged, FlowAspect.Result),
         new("ai", PC, """[{"op":"replace","path":"/body/steps/suggest/model","value":"model-b"}]""", FlowChangeKind.StepChanged, FlowAspect.Ai),
+        new("ai input schema", PC, """[{"op":"add","path":"/body/steps/suggest/inputSchema/properties/note","value":{"type":"string"}}]""", FlowChangeKind.StepChanged, FlowAspect.AiInputSchema),
+        new("ai output schema", PC, """[{"op":"add","path":"/body/steps/suggest/outputSchema/properties/reason","value":{"type":"string"}}]""", FlowChangeKind.StepChanged, FlowAspect.AiOutputSchema),
         new("inputs", CL, """[{"op":"remove","path":"/body/steps/visit/input/case_ref"},{"op":"add","path":"/body/steps/visit/input/case_ref","value":"case_ref"},{"op":"replace","path":"/body/steps/previsit/input/practice_zone","value":"case_ref"}]""", FlowChangeKind.StepChanged, FlowAspect.Inputs),
         new("facts", PV, """[{"op":"add","path":"/body/variables/missing2","value":{"type":"Integer"}},{"op":"replace","path":"/body/steps/assess/facts/missing","value":"missing2"}]""", FlowChangeKind.StepChanged, FlowAspect.Facts),
         new("outputs", PV, """[{"op":"add","path":"/body/variables/missing2","value":{"type":"Integer"}},{"op":"replace","path":"/body/steps/check/output/missing_count","value":"missing2"}]""", FlowChangeKind.StepChanged, FlowAspect.Outputs),
@@ -100,7 +107,7 @@ public sealed class FlowDifferTests
     {
         var pair = Pairs.Single(item => item.Name == name);
         var (before, after) = Load(pair);
-        var diff = FlowDiffer.Diff(before, after);
+        var diff = FlowDiffer.Diff(before, after, Document(pair, null), Document(pair, pair.Patch));
         diff.Changes.Should().Contain(change => change.Kind == pair.Kind, "the pair {0} is meant to show {1}; it shows {2}", name, pair.Kind, string.Join(", ", diff.Changes.Select(change => change.Kind + "/" + change.Aspect)));
         if (pair.Aspect is { } aspect)
         {
@@ -116,7 +123,7 @@ public sealed class FlowDifferTests
         foreach (var pair in Pairs)
         {
             var (before, after) = Load(pair);
-            foreach (var change in FlowDiffer.Diff(before, after).Changes)
+            foreach (var change in FlowDiffer.Diff(before, after, Document(pair, null), Document(pair, pair.Patch)).Changes)
             {
                 _ = kinds.Add(change.Kind);
                 if (change.Aspect is { } aspect)
@@ -148,7 +155,7 @@ public sealed class FlowDifferTests
             foreach (var pair in Pairs)
             {
                 var (before, after) = Load(pair);
-                var view = FlowChangeDescriber.Describe(before, after, locale);
+                var view = FlowChangeDescriber.Describe(before, after, locale, Document(pair, null), Document(pair, pair.Patch));
                 _ = text.Append("### ").Append(pair.Name).Append('\n').Append(view.Summary).Append('\n');
                 foreach (var item in view.Items)
                 {
@@ -192,6 +199,9 @@ public sealed class FlowDifferTests
         view.Behaviour.Should().Contain(item => item.Kind == FlowBehaviourKind.NoLongerApplies && item.Scenario.Contains("confirms the note by hand", StringComparison.Ordinal));
         view.TestsReplayed.Should().Be(before.RunScenarios().Results.Count);
     }
+
+    private static System.Text.Json.Nodes.JsonObject? Document(Pair pair, string? patch) =>
+        AuthoringJson.TryObject(ReferenceDocs.Changed(pair.Doc, patch, !pair.KeepTests));
 
     private static (BrainProcess Before, BrainProcess After) Load(Pair pair) =>
         (ReferenceDocs.Load(pair.Doc, null, !pair.KeepTests), ReferenceDocs.Load(pair.Doc, pair.Patch, !pair.KeepTests));

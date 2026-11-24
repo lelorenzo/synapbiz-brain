@@ -39,6 +39,13 @@ public sealed record ReadinessReport(IReadOnlyList<ReadinessCheckResult> Checks)
     public IReadOnlyList<ReadinessFinding> Findings => [.. Checks.SelectMany(check => check.Findings)];
 }
 
+/// <summary>What the readiness checks need to know about the approved process a draft came from.</summary>
+/// <param name="Id">The id of the approved process.</param>
+/// <param name="Version">Its version when the draft was based on it.</param>
+/// <param name="CurrentVersion">The version of the approved process now; null when it can no longer be read.</param>
+/// <param name="Stale">True when the approved process is no longer the one the draft was based on.</param>
+public sealed record ReadinessBase(string Id, long Version, long? CurrentVersion, bool Stale);
+
 /// <summary>The checks beyond the loader that decide whether a draft is "ready to propose".</summary>
 public static class ReadinessChecks
 {
@@ -66,9 +73,27 @@ public static class ReadinessChecks
     /// <summary>The document names something outside the catalog.</summary>
     public const string OutsideCatalog = "authoring.ready.outside_catalog";
 
+    /// <summary>The process has no test at all.</summary>
+    public const string NoScenarios = "authoring.ready.no_scenarios";
+
+    /// <summary>Two tests have the same name.</summary>
+    public const string ScenarioNamesDuplicated = "authoring.ready.scenario_names_duplicated";
+
+    /// <summary>The process has steps that read, act, poll or ask an AI, and no catalog was given to check them against.</summary>
+    public const string CatalogMissing = "authoring.ready.catalog_missing";
+
+    /// <summary>The version of the draft is not greater than the version of the approved process it comes from.</summary>
+    public const string VersionNotNewer = "authoring.ready.version_not_newer";
+
+    /// <summary>The approved process changed after the draft was based on it.</summary>
+    public const string BaseStale = "authoring.ready.base_stale";
+
+    /// <summary>The draft is another process than the approved one it was based on.</summary>
+    public const string BaseMismatch = "authoring.ready.base_mismatch";
+
     /// <summary>The codes of the checks, in the order they run.</summary>
     public static IReadOnlyList<string> Codes { get; } =
-        [LoaderErrors, ScenarioFailing, LabelMissing, RouteUntested, ContactUnsafe, AiWithoutFallback, WaitWithoutTimeout, OutsideCatalog];
+        [LoaderErrors, ScenarioFailing, NoScenarios, ScenarioNamesDuplicated, LabelMissing, RouteUntested, ContactUnsafe, CatalogMissing, AiWithoutFallback, WaitWithoutTimeout, OutsideCatalog, VersionNotNewer, BaseStale, BaseMismatch];
 
     /// <summary>What a check requires, as one sentence.</summary>
     /// <param name="code">The code of the check.</param>
@@ -87,6 +112,7 @@ public static class ReadinessChecks
     /// <param name="gaps">What the author accepted knowingly.</param>
     /// <param name="catalog">The catalog.</param>
     /// <param name="catalogProblems">What the catalog check found.</param>
+    /// <param name="baseInfo">The approved process the draft came from; null for a new process.</param>
     public static ReadinessReport Run(
         JsonObject? document,
         IReadOnlyList<BrainSpecError> errors,
@@ -94,7 +120,8 @@ public static class ReadinessChecks
         FlowScenarioReport? report,
         IReadOnlyList<KnownGap> gaps,
         AuthoringCatalog catalog,
-        IReadOnlyList<CatalogProblem> catalogProblems)
+        IReadOnlyList<CatalogProblem> catalogProblems,
+        ReadinessBase? baseInfo = null)
     {
         ArgumentNullException.ThrowIfNull(errors);
         ArgumentNullException.ThrowIfNull(gaps);
@@ -104,23 +131,69 @@ public static class ReadinessChecks
         return new ReadinessReport(
         [
             new(LoaderErrors, [.. errors.Select(error => LoaderFinding(error, document))]),
-            new(ScenarioFailing, report is null ? [] : [.. report.Scenarios.Where(result => !result.Passed).Select(ScenarioFinding)]),
+            new(ScenarioFailing, report is null ? [] : [.. report.Scenarios.Where(result => !result.Passed).Select(result => ScenarioFinding(process!, result))]),
+            new(NoScenarios, report is { Scenarios.Count: 0 } ? [Both(NoScenarios, null, null, "ready.finding.noscenarios", _ => [])] : []),
+            new(ScenarioNamesDuplicated, report is null ? [] : DuplicateNames(report)),
             new(LabelMissing, process is null ? [] : Labels(process, outline!)),
             new(RouteUntested, report is null ? [] : Untested(process!, outline!, report, gaps)),
             new(ContactUnsafe, outline is null ? [] : Contacts(process!, outline, catalog)),
+            new(CatalogMissing, outline is null ? [] : NoCatalog(outline, catalog)),
             new(AiWithoutFallback, outline is null ? [] : AiFallbacks(process!, outline)),
             new(WaitWithoutTimeout, outline is null ? [] : Waits(process!, outline, gaps)),
             new(OutsideCatalog, [.. catalogProblems.Select(problem => CatalogFinding(problem, document))]),
+            new(VersionNotNewer, process is null || baseInfo is null || baseInfo.CurrentVersion is not { } current || process.Version > current ? [] : [Both(VersionNotNewer, null, null, "ready.finding.version", _ => [("current", AuthoringText.Number(current))])]),
+            new(BaseStale, baseInfo is { Stale: true } ? [Both(BaseStale, null, null, "ready.finding.stale", _ => [])] : []),
+            new(BaseMismatch, process is null || baseInfo is null || string.Equals(baseInfo.Id, process.Id, StringComparison.Ordinal) ? [] : [Both(BaseMismatch, null, null, "ready.finding.basemismatch", _ => [("base", FlowChangeDescriber.Quote(baseInfo.Id)), ("id", FlowChangeDescriber.Quote(process.Id))])]),
         ]);
     }
 
-    private static ReadinessFinding LoaderFinding(BrainSpecError error, JsonObject? document) =>
-        new(LoaderErrors, null, null,
-            AuthoringText.Text(WorkbenchLocale.En, "ready.finding.loader", ("where", PathWords.Describe(error.Path, document, WorkbenchLocale.En)), ("message", error.MessageEn)),
-            AuthoringText.Text(WorkbenchLocale.Es, "ready.finding.loader", ("where", PathWords.Describe(error.Path, document, WorkbenchLocale.Es)), ("message", error.MessageEs)));
+    /// <summary>The gaps the author accepted that still excuse something: a route no test takes, or a wait with no time limit.</summary>
+    /// <param name="process">The loaded process.</param>
+    /// <param name="report">Its tests and coverage.</param>
+    /// <param name="gaps">What the author accepted knowingly.</param>
+    public static IReadOnlyList<KnownGap> Applied(BrainProcess process, FlowScenarioReport report, IReadOnlyList<KnownGap> gaps)
+    {
+        ArgumentNullException.ThrowIfNull(process);
+        ArgumentNullException.ThrowIfNull(report);
+        ArgumentNullException.ThrowIfNull(gaps);
+        var outline = ProcessOutline.From(process);
+        return [.. gaps.Where(gap =>
+            (gap.Check == KnownGap.RouteUntested && report.Coverage.NeverTaken.Any(route => route.Step == gap.Step && route.Label == gap.Route))
+            || (gap.Check == KnownGap.WaitWithoutTimeout && outline.Steps.Any(step => step.Id == gap.Step && step.Kind == OutlineStepKind.Wait && step.Timeout is null)))];
+    }
 
-    private static ReadinessFinding ScenarioFinding(FlowScenarioResult result) =>
-        Both(ScenarioFailing, null, null, "ready.finding.scenario", locale => [("name", FlowChangeDescriber.Quote(result.Name)), ("reason", result.Failure ?? string.Empty)]);
+    /// <summary>One accepted gap in words, with the labels of the process.</summary>
+    /// <param name="process">The loaded process.</param>
+    /// <param name="gap">The gap.</param>
+    /// <param name="locale">The language.</param>
+    public static string GapWords(BrainProcess process, KnownGap gap, WorkbenchLocale locale)
+    {
+        ArgumentNullException.ThrowIfNull(process);
+        ArgumentNullException.ThrowIfNull(gap);
+        var step = FlowChangeDescriber.Quote(FlowWords.For(process, locale).Step(gap.Step));
+        if (gap.Check == KnownGap.WaitWithoutTimeout || gap.Route is null)
+        {
+            return AuthoringText.Text(locale, "gap.wait", ("step", step));
+        }
+
+        return AuthoringText.Text(locale, "gap.route", ("step", step), ("route", RouteWords(ProcessOutline.From(process), process, gap.Step, gap.Route, locale)));
+    }
+
+    private static List<ReadinessFinding> DuplicateNames(FlowScenarioReport report) =>
+        [.. report.Scenarios.GroupBy(result => result.Name, StringComparer.Ordinal).Where(group => group.Count() > 1)
+            .Select(group => Both(ScenarioNamesDuplicated, null, null, "ready.finding.scenarionames", _ => [("name", FlowChangeDescriber.Quote(group.Key))]))];
+
+    // A process that reads, acts, polls or asks an AI uses connectors; with no catalog nothing says they exist or whether they contact a person.
+    private static List<ReadinessFinding> NoCatalog(ProcessOutline outline, AuthoringCatalog catalog) =>
+        catalog.Ports is null && outline.Steps.Any(step => step.Kind is OutlineStepKind.Read or OutlineStepKind.Action or OutlineStepKind.Poll or OutlineStepKind.Ai)
+            ? [Both(CatalogMissing, null, null, "ready.finding.nocatalog", _ => [])]
+            : [];
+
+    private static ReadinessFinding LoaderFinding(BrainSpecError error, JsonObject? document) =>
+        Both(LoaderErrors, null, null, "ready.finding.loader", locale => [("sentence", PersonWords.Error(locale, error, document))]);
+
+    private static ReadinessFinding ScenarioFinding(BrainProcess process, FlowScenarioResult result) =>
+        Both(ScenarioFailing, null, null, "ready.finding.scenario", locale => [("name", FlowChangeDescriber.Quote(result.Name)), ("reason", PersonWords.ScenarioFailure(locale, result.Failure, process))]);
 
     private static List<ReadinessFinding> Labels(BrainProcess process, ProcessOutline outline)
     {
@@ -276,11 +349,22 @@ public static class ReadinessChecks
     internal static ReadinessFinding CatalogFinding(CatalogProblem problem, JsonObject? document) =>
         Both(OutsideCatalog, problem.Step, null, CatalogKey(problem), locale =>
         [
-            ("name", "`" + problem.Name + "`"),
+            ("name", FlowChangeDescriber.Quote(problem.Name)),
             ("where", PathWords.Describe(problem.Path, document, locale)),
-            ("available", problem.Available.Count == 0 ? AuthoringText.Text(locale, "ready.none") : AuthoringText.Join(locale, [.. problem.Available.Select(name => "`" + name + "`")])),
-            ("detail", problem.Detail ?? string.Empty),
+            ("available", problem.Available.Count == 0 ? AuthoringText.Text(locale, "ready.none") : AuthoringText.Join(locale, [.. problem.Available.Select(FlowChangeDescriber.Quote)])),
+            ("detail", DetailWords(problem, locale)),
         ]);
+
+    private static string DetailWords(CatalogProblem problem, WorkbenchLocale locale)
+    {
+        if (problem.Detail is null)
+        {
+            return string.Empty;
+        }
+
+        var key = (problem.Code == CatalogCheck.PortKind ? "portkind." : "delivery.") + problem.Detail;
+        return AuthoringText.Has(key) ? AuthoringText.Text(locale, key) : FlowChangeDescriber.Quote(problem.Detail);
+    }
 
     private static ReadinessFinding Both(string code, string? step, string? route, string key, Func<WorkbenchLocale, (string, string)[]> values) =>
         new(code, step, route, AuthoringText.Text(WorkbenchLocale.En, key, values(WorkbenchLocale.En)), AuthoringText.Text(WorkbenchLocale.Es, key, values(WorkbenchLocale.Es)));

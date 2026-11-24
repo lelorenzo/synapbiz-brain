@@ -22,10 +22,12 @@ internal sealed class SimulationSessions
     private readonly TimeProvider clock;
     private readonly TimeSpan lifetime;
     private readonly int capacity;
+    private readonly Func<string>? ids;
     private int counter;
 
-    internal SimulationSessions(TimeProvider clock, TimeSpan lifetime, int capacity)
+    internal SimulationSessions(TimeProvider clock, TimeSpan lifetime, int capacity, Func<string>? ids = null)
     {
+        this.ids = ids;
         this.clock = clock;
         this.lifetime = lifetime;
         this.capacity = capacity;
@@ -54,8 +56,13 @@ internal sealed class SimulationSessions
                 return null;
             }
 
-            counter++;
-            var token = "sim-" + counter.ToString(CultureInfo.InvariantCulture);
+            string token;
+            do
+            {
+                counter++;
+                token = ids is null ? "sim-" + counter.ToString(CultureInfo.InvariantCulture) : ids();
+            }
+            while (sessions.ContainsKey(token));
             var session = new SimulationSession(token, draftId, draftHash, simulation, clock.GetUtcNow());
             sessions[token] = session;
             return session;

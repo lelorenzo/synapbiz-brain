@@ -31,6 +31,12 @@ public sealed class JsonPatchException : Exception
 
     /// <summary>The JSON Pointer the failing operation names, when it has one.</summary>
     public string? Path { get; init; }
+
+    /// <summary>
+    /// What went wrong, as a short code the tools turn into a sentence: <c>not_object</c>, <c>no_path</c>, <c>no_value</c>, <c>no_from</c>, <c>unknown_op</c>,
+    /// <c>into_itself</c>, <c>test_failed</c>, <c>missing</c>, <c>bad_pointer</c>, <c>bad_position</c>, <c>whole_document</c> or <c>not_container</c>.
+    /// </summary>
+    public string Reason { get; init; } = "missing";
 }
 
 /// <summary>
@@ -60,11 +66,11 @@ public static class JsonPatch
     {
         if (item is not JsonObject operation)
         {
-            throw Fail(index, null, "The operation is not an object.");
+            throw Fail(index, null, "The operation is not an object.", "not_object");
         }
 
         var op = AuthoringJson.Text(operation["op"]);
-        var path = AuthoringJson.Text(operation["path"]) ?? throw Fail(index, null, "The operation has no `path`.");
+        var path = AuthoringJson.Text(operation["path"]) ?? throw Fail(index, null, "The operation has no `path`.", "no_path");
         try
         {
             return op switch
@@ -75,27 +81,27 @@ public static class JsonPatch
                 "move" => Move(root, operation, index, path),
                 "copy" => Add(root, path, Read(root, From(operation, index, path)).DeepClone()),
                 "test" => Test(root, path, Value(operation, index, path)),
-                _ => throw Fail(index, path, "The operation `" + op + "` is not one of add, remove, replace, move, copy, test."),
+                _ => throw Fail(index, path, "The operation `" + op + "` is not one of add, remove, replace, move, copy, test.", "unknown_op"),
             };
         }
         catch (JsonPatchException error) when (error.Index < 0)
         {
-            throw Fail(index, path, error.Message);
+            throw Fail(index, path, error.Message, error.Reason);
         }
     }
 
     private static JsonNode? Value(JsonObject operation, int index, string path) =>
-        operation.ContainsKey("value") ? operation["value"]?.DeepClone() : throw Fail(index, path, "The operation has no `value`.");
+        operation.ContainsKey("value") ? operation["value"]?.DeepClone() : throw Fail(index, path, "The operation has no `value`.", "no_value");
 
     private static string From(JsonObject operation, int index, string path) =>
-        AuthoringJson.Text(operation["from"]) ?? throw Fail(index, path, "The operation has no `from`.");
+        AuthoringJson.Text(operation["from"]) ?? throw Fail(index, path, "The operation has no `from`.", "no_from");
 
     private static JsonNode Move(JsonNode root, JsonObject operation, int index, string path)
     {
         var from = From(operation, index, path);
         if (path.StartsWith(from + '/', StringComparison.Ordinal))
         {
-            throw Fail(index, path, "A value cannot be moved into itself.");
+            throw Fail(index, path, "A value cannot be moved into itself.", "into_itself");
         }
 
         var removed = Read(root, from);
@@ -108,7 +114,7 @@ public static class JsonPatch
         var actual = TryRead(root, path);
         if (!JsonNode.DeepEquals(actual, expected))
         {
-            throw new JsonPatchException("The value at `" + path + "` is not the one the test expects.");
+            throw new JsonPatchException("The value at `" + path + "` is not the one the test expects.") { Reason = "test_failed" };
         }
 
         return root;
@@ -118,7 +124,7 @@ public static class JsonPatch
     {
         if (path.Length == 0)
         {
-            return value ?? throw new JsonPatchException("The document cannot be replaced by null.");
+            return value ?? throw new JsonPatchException("The document cannot be replaced by null.") { Reason = "whole_document" };
         }
 
         _ = Read(root, path);
@@ -131,7 +137,7 @@ public static class JsonPatch
     {
         if (path.Length == 0)
         {
-            return value ?? throw new JsonPatchException("The document cannot be replaced by null.");
+            return value ?? throw new JsonPatchException("The document cannot be replaced by null.") { Reason = "whole_document" };
         }
 
         var (parent, key) = Parent(root, path);
@@ -143,7 +149,7 @@ public static class JsonPatch
     {
         if (path.Length == 0)
         {
-            throw new JsonPatchException("The whole document cannot be removed.");
+            throw new JsonPatchException("The whole document cannot be removed.") { Reason = "whole_document" };
         }
 
         removed = Read(root, path);
@@ -157,7 +163,7 @@ public static class JsonPatch
                 list.RemoveAt(ArrayIndex(list, key, allowEnd: false));
                 break;
             default:
-                throw new JsonPatchException("The path `" + path + "` does not name a member.");
+                throw new JsonPatchException("The path `" + path + "` does not name a member.") { Reason = "not_container" };
         }
 
         return root;
@@ -178,7 +184,7 @@ public static class JsonPatch
                 list[ArrayIndex(list, key, allowEnd: false)] = value;
                 break;
             default:
-                throw new JsonPatchException("The parent of `" + key + "` is not an object or an array.");
+                throw new JsonPatchException("The parent of `" + key + "` is not an object or an array.") { Reason = "not_container" };
         }
     }
 
@@ -187,7 +193,7 @@ public static class JsonPatch
         var plain = key.Length > 0 && key.All(char.IsAsciiDigit) && (key.Length == 1 || key[0] != '0');
         if (!plain || !int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var position) || position > list.Count || (position == list.Count && !allowEnd))
         {
-            throw new JsonPatchException("`" + key + "` is not a position in the array.");
+            throw new JsonPatchException("`" + key + "` is not a position in the array.") { Reason = "bad_position" };
         }
 
         return position;
@@ -239,12 +245,26 @@ public static class JsonPatch
 
         if (path[0] != '/')
         {
-            throw new JsonPatchException("The path `" + path + "` is not a JSON Pointer: it must be empty or start with a slash.");
+            throw new JsonPatchException("The path `" + path + "` is not a JSON Pointer: it must be empty or start with a slash.") { Reason = "bad_pointer" };
         }
 
-        return [.. path[1..].Split('/').Select(token => token.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal))];
+        return [.. path[1..].Split('/').Select(Unescape)];
     }
 
-    private static JsonPatchException Fail(int index, string? path, string message) =>
-        new("Operation " + (index + 1).ToString(CultureInfo.InvariantCulture) + ": " + message) { Index = index, Path = path };
+    // RFC 6901: after a tilde only 0 or 1 may follow.
+    private static string Unescape(string token)
+    {
+        for (var index = 0; index < token.Length; index++)
+        {
+            if (token[index] == '~' && (index + 1 >= token.Length || token[index + 1] is not ('0' or '1')))
+            {
+                throw new JsonPatchException("`" + token + "` has a tilde that is not followed by 0 or 1; write ~0 for a tilde and ~1 for a slash.") { Reason = "bad_pointer" };
+            }
+        }
+
+        return token.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
+    }
+
+    private static JsonPatchException Fail(int index, string? path, string message, string reason = "missing") =>
+        new("Operation " + (index + 1).ToString(CultureInfo.InvariantCulture) + ": " + message) { Index = index, Path = path, Reason = reason };
 }

@@ -19,6 +19,13 @@ public sealed record AuthoringOptions
 
     /// <summary>The largest document text a tool accepts, in characters.</summary>
     public int MaxDocumentLength { get; init; } = 1_000_000;
+
+    /// <summary>
+    /// Where the tokens of simulation sessions come from: a function that returns a new unguessable text of at most 36 characters on every call.
+    /// The library never uses <c>Random</c> or <c>Guid</c> itself; the MCP adapter supplies a cryptographic source. When null, tokens are the
+    /// plain numbered <c>sim-1</c>, <c>sim-2</c>, which is only fit for tests and for a program that serves one trusted person.
+    /// </summary>
+    public Func<string>? SessionIds { get; init; }
 }
 
 /// <summary>An approved or draft rule as loaded: its text, the rule and the loader errors.</summary>
@@ -42,8 +49,11 @@ internal sealed class ToolContext
     {
         Store = store;
         Options = options;
-        Sessions = new SimulationSessions(options.Clock, options.SimulationLifetime, options.MaxSimulations);
+        Sessions = new SimulationSessions(options.Clock, options.SimulationLifetime, options.MaxSimulations, options.SessionIds);
     }
+
+    /// <summary>Held for the whole of a tool call, so calls run one at a time and a call reads what the one before it wrote.</summary>
+    internal object Gate { get; } = new();
 
     internal IAuthoringStore Store { get; }
 

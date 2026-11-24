@@ -21,6 +21,9 @@ public sealed record KnownGap(string Check, string Step, string? Route, string R
 
     /// <summary>A <c>wait</c> step has no timeout and the author says why.</summary>
     public const string WaitWithoutTimeout = "wait_without_timeout";
+
+    /// <summary>The shortest reason a gap may give, in characters; a shorter one is refused.</summary>
+    public const int MinimumReasonLength = 10;
 }
 
 /// <summary>A draft as the store keeps it: the full document text, what it came from and what its author said about it.</summary>

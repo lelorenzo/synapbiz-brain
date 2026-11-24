@@ -153,7 +153,9 @@ internal static class FlowTools
             });
         }
 
-        var say = AuthoringText.Text(locale, "say.flow.list", ("n", AuthoringText.Number(entries.Count)), ("d", AuthoringText.Number(drafts.Count)));
+        var firstBroken = approved.FirstOrDefault(item => item.Process is null && item.Errors.Count > 0);
+        var brokenSentence = firstBroken is null ? string.Empty : " " + AuthoringText.Text(locale, "say.list.broken", ("k", AuthoringText.Number(broken.Count)), ("id", FlowChangeDescriber.Quote(firstBroken.Id)), ("first", PersonWords.Error(locale, firstBroken.Errors[0], AuthoringJson.TryObject(firstBroken.Text))));
+        var say = AuthoringText.Text(locale, "say.flow.list", ("n", AuthoringText.Number(entries.Count)), ("d", AuthoringText.Number(drafts.Count)), ("broken", brokenSentence));
         return Results.Ok(say, new JsonObject { ["flows"] = flows, ["notLoading"] = broken, ["drafts"] = drafts });
     }
 
@@ -196,7 +198,7 @@ internal static class FlowTools
         {
             result["loaded"] = false;
             result["errors"] = FlowAnalyzer.ErrorsJson(approved.Errors, AuthoringJson.TryObject(approved.Text), locale);
-            return Results.Ok(AuthoringText.Text(locale, "say.flow.notloading", ("id", id)), result);
+            return Results.Ok(AuthoringText.Text(locale, "say.flow.notloading", ("id", id), ("first", approved.Errors.Count > 0 ? PersonWords.Error(locale, approved.Errors[0], AuthoringJson.TryObject(approved.Text)) : string.Empty)), result);
         }
 
         var known = context.ApprovedFlows(catalog).Select(item => item.Process).OfType<BrainProcess>().ToList();
@@ -249,6 +251,11 @@ internal static class FlowTools
         }
 
         var gaps = input["knownGaps"] is JsonArray listed ? ReadGaps(listed) : existing?.KnownGaps ?? [];
+        if (GapProblem(gaps, locale) is { } gapRefusal)
+        {
+            return gapRefusal;
+        }
+
         var draft = new StoredDraft(text, baseDraft, gaps);
         context.Store.WriteDraft(DocumentKind.Flow, id, draft);
         return Answer(context, catalog, id, draft, locale, null);
@@ -282,7 +289,7 @@ internal static class FlowTools
         }
         catch (JsonPatchException error)
         {
-            return Results.Refuse(locale, "patch.failed", [("n", AuthoringText.Number(error.Index + 1)), ("detail", error.Message)], "A patch operation failed and nothing was changed: " + error.Message, new JsonObject { ["failedOperation"] = error.Index, ["failedPath"] = error.Path });
+            return Results.Refuse(locale, "patch.failed", [("n", AuthoringText.Number(error.Index + 1)), ("reason", PersonWords.PatchReason(locale, error, AuthoringJson.TryObject(existing.Text)))], "A patch operation failed and nothing was changed: " + error.Message, new JsonObject { ["failedOperation"] = error.Index, ["failedPath"] = error.Path, ["detail"] = error.Message });
         }
 
         var text = patched is JsonObject ? AuthoringJson.Format(patched) : AuthoringJson.CompactText(patched);
@@ -291,7 +298,17 @@ internal static class FlowTools
             return Results.Refuse(locale, "draft.too_large", [("max", AuthoringText.Number(context.Options.MaxDocumentLength))], "The patched document is longer than this workspace accepts.");
         }
 
+        if (DocumentIdProblem(id, text) is { } mismatch)
+        {
+            return Results.Refuse(locale, "draft.id_mismatch", [("id", id), ("found", mismatch)], "The patch changed the `id` member of the document, and the draft id and the `id` of the document must stay the same. Nothing was saved; leave `/id` as it is.");
+        }
+
         var gaps = input["knownGaps"] is JsonArray listed ? ReadGaps(listed) : existing.KnownGaps;
+        if (GapProblem(gaps, locale) is { } gapRefusal)
+        {
+            return gapRefusal;
+        }
+
         var draft = existing with { Text = text, KnownGaps = gaps };
         context.Store.WriteDraft(DocumentKind.Flow, id, draft);
         return Answer(context, catalog, id, draft, locale, null);
@@ -352,7 +369,7 @@ internal static class FlowTools
         var problems = ProcessOutline.CheckScenario(process, scenario);
         if (problems.Count > 0)
         {
-            return Results.Refuse(locale, "scenario.invalid", [("detail", locale == WorkbenchLocale.Es ? problems[0].MessageEs : problems[0].MessageEn)], "The scenario does not fit the document: " + string.Join("; ", problems.Take(5).Select(problem => problem.Path + " " + problem.MessageEn)), new JsonObject { ["errors"] = FlowAnalyzer.ErrorsJson(problems, scenario, locale) });
+            return Results.Refuse(locale, "scenario.invalid", [("what", PersonWords.ScenarioProblem(locale, problems[0], scenario))], "The scenario does not fit the document: " + string.Join("; ", problems.Take(5).Select(problem => problem.Path + " " + problem.MessageEn)), new JsonObject { ["errors"] = FlowAnalyzer.ErrorsJson(problems, scenario, locale) });
         }
 
         var body = (JsonObject)document["body"]!;
@@ -384,7 +401,17 @@ internal static class FlowTools
         }
         catch (Exception error) when (error is ArgumentException or InvalidOperationException)
         {
-            return (null, Results.Refuse(locale, "scenario.not_writable", [("detail", error.Message)], "This simulation cannot be written as a test: " + error.Message));
+            var reason = "other";
+            if (!session.Simulation.Started)
+            {
+                reason = "notstarted";
+            }
+            else if (error is ArgumentException)
+            {
+                reason = "name";
+            }
+
+            return (null, Results.Refuse(locale, "scenario.not_writable", [("what", AuthoringText.Text(locale, "scenario.notwritable." + reason))], "This simulation cannot be written as a test: " + error.Message, new JsonObject { ["detail"] = error.Message }));
         }
     }
 
@@ -426,6 +453,19 @@ internal static class FlowTools
 
         var version = AuthoringJson.Whole(AuthoringJson.TryObject(text)?["version"]) ?? 0;
         return new DraftBase(id, version, AuthoringJson.Hash(DocumentKind.Flow, text));
+    }
+
+    private static JsonObject? GapProblem(IReadOnlyList<KnownGap> gaps, WorkbenchLocale locale)
+    {
+        foreach (var gap in gaps)
+        {
+            if (gap.Reason.Trim().Length < KnownGap.MinimumReasonLength)
+            {
+                return Results.Refuse(locale, "gaps.reason_short", [("min", AuthoringText.Number(KnownGap.MinimumReasonLength))], "Every known gap needs a reason of at least " + AuthoringText.Number(KnownGap.MinimumReasonLength) + " characters that says why it is accepted. Nothing was saved.", new JsonObject { ["step"] = gap.Step, ["check"] = gap.Check });
+            }
+        }
+
+        return null;
     }
 
     private static List<KnownGap> ReadGaps(JsonArray listed) =>

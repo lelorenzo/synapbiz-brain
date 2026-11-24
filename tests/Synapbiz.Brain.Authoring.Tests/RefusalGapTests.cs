@@ -26,16 +26,16 @@ public sealed class RefusalGapTests
     }
 
     [Fact]
-    public void A_ready_draft_that_does_not_raise_the_version_is_refused_as_inconsistent()
+    public void A_draft_that_does_not_raise_the_version_is_not_ready_and_is_refused_as_not_ready()
     {
         var (tools, store, _) = Rig();
         var saved = Call(tools, "flow_draft_save", new JsonObject { ["id"] = "visit.note_wait", ["document"] = NoteWaitChanged(_ => { }) });
         IsOk(saved).Should().BeTrue();
-        saved["ready"]!.GetValue<bool>().Should().BeTrue("the unchanged document is ready, so the refusal below is the proposal's own check");
+        saved["ready"]!.GetValue<bool>().Should().BeFalse("ready means proposable, and an unchanged version cannot be proposed");
         var answer = Call(tools, "flow_propose", Obj("""{"id":"visit.note_wait","summary":"No change of version.","requestedBy":"Front desk lead"}"""));
         IsOk(answer).Should().BeFalse();
-        ErrorCode(answer).Should().Be("authoring.proposal.inconsistent");
-        answer["problems"]!.AsArray().Select(problem => problem!["code"]!.GetValue<string>()).Should().Contain("authoring.proposal.version_not_newer");
+        ErrorCode(answer).Should().Be("authoring.proposal.not_ready");
+        answer["reasons"]!.AsArray().Select(reason => reason!.GetValue<string>()).Should().Contain(reason => reason.Contains("greater than the current one (1)", StringComparison.Ordinal));
         store.ProposalNames.Should().BeEmpty("a refused proposal writes nothing");
     }
 }

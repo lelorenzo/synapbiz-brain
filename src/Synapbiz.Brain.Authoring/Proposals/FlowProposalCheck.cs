@@ -34,7 +34,8 @@ public static class FlowProposalCheck
     /// <param name="proposal">The proposal.</param>
     /// <param name="context">What the document is loaded against.</param>
     /// <param name="approvedText">The text of the approved document with the id of the proposal now, or null when there is none or it is not known.</param>
-    public static IReadOnlyList<WorkbenchError> Against(FlowProposal proposal, ProcessLoadContext context, string? approvedText = null)
+    /// <param name="baseId">The id of the approved document the proposal was made from, or null when it has no base. A proposal keeps the id of its base.</param>
+    public static IReadOnlyList<WorkbenchError> Against(FlowProposal proposal, ProcessLoadContext context, string? approvedText = null, string? baseId = null)
     {
         ArgumentNullException.ThrowIfNull(proposal);
         ArgumentNullException.ThrowIfNull(context);
@@ -65,6 +66,11 @@ public static class FlowProposalCheck
             {
                 findings.Add(new WorkbenchError(ErrorTests, "/tests", "A test of the document does not pass."));
             }
+        }
+
+        if (baseId is not null && !string.Equals(baseId, proposal.ProcessId, StringComparison.Ordinal))
+        {
+            findings.Add(new WorkbenchError(ErrorIdentity, "/process/id", "The proposal is for another process than the approved one it was made from."));
         }
 
         if (proposal.BaseVersion is { } baseVersion && proposal.Version <= baseVersion)

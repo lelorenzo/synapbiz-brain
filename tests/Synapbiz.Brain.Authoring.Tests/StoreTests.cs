@@ -151,8 +151,10 @@ public sealed class StoreTests : IDisposable
         Directory.GetFileSystemEntries(workspace.Outside).Should().BeEmpty();
     }
 
+    private static readonly string[] ApprovedFolders = ["flows", "rules"];
+
     private Dictionary<string, string> ApprovedSnapshot() =>
-        new[] { "flows", "rules" }.SelectMany(folder => Directory.GetFiles(Path.Combine(workspace.Root, folder)))
+        ApprovedFolders.SelectMany(folder => Directory.GetFiles(Path.Combine(workspace.Root, folder)))
             .Append(Path.Combine(workspace.Root, "catalog.json"))
             .ToDictionary(path => Path.GetRelativePath(workspace.Root, path), File.ReadAllText);
 

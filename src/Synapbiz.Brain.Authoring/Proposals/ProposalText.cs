@@ -15,7 +15,7 @@ public static class ProposalText
         ArgumentNullException.ThrowIfNull(proposal);
         var text = new StringBuilder();
         var key = proposal.BaseVersion is null ? "proposal.flow.head.new" : "proposal.flow.head";
-        text.AppendLine(AuthoringText.Text(locale, key, ("id", "`" + proposal.ProcessId + "`"), ("version", AuthoringText.Number(proposal.Version))));
+        text.AppendLine(AuthoringText.Text(locale, key, ("id", FlowChangeDescriber.Quote(proposal.ProcessId)), ("version", AuthoringText.Number(proposal.Version))));
         text.AppendLine(Who(proposal.Author, proposal.CreatedAt, locale));
         text.AppendLine(AuthoringText.Text(locale, "proposal.why", ("summary", proposal.Summary)));
         var changes = proposal.Changes(locale);
@@ -39,9 +39,14 @@ public static class ProposalText
 
         text.AppendLine();
         text.AppendLine(AuthoringText.Text(locale, "proposal.tests", ("pass", AuthoringText.Number(proposal.Tests.Count(test => test.Passed))), ("total", AuthoringText.Number(proposal.Tests.Count)), ("covered", AuthoringText.Number(proposal.CoveredRoutes)), ("routes", AuthoringText.Number(proposal.TotalRoutes))));
+        var document = AuthoringJson.TryObject(proposal.DocumentJson);
         foreach (var gap in proposal.KnownGaps)
         {
-            text.AppendLine("- " + AuthoringText.Text(locale, "proposal.gap", ("step", "`" + gap.Step + "`"), ("reason", gap.Reason)));
+            var step = FlowChangeDescriber.Quote(PathWords.StepLabel(document, locale, gap.Step));
+            var what = gap.Route is { } route && gap.Check == KnownGap.RouteUntested
+                ? AuthoringText.Text(locale, "proposal.gap.route", ("step", step), ("route", Route(route, locale)))
+                : AuthoringText.Text(locale, "proposal.gap.wait", ("step", step));
+            text.AppendLine("- " + AuthoringText.Text(locale, "proposal.gap", ("what", what), ("reason", gap.Reason)));
         }
 
         text.AppendLine();
@@ -58,7 +63,7 @@ public static class ProposalText
         ArgumentNullException.ThrowIfNull(file);
         var proposal = file.Proposal;
         var text = new StringBuilder();
-        text.AppendLine(AuthoringText.Text(locale, "proposal.rule.head", ("id", "`" + proposal.RuleId + "`"), ("version", AuthoringText.Number(proposal.BaseVersion + 1))));
+        text.AppendLine(AuthoringText.Text(locale, "proposal.rule.head", ("id", FlowChangeDescriber.Quote(proposal.RuleId)), ("version", AuthoringText.Number(proposal.BaseVersion + 1))));
         text.AppendLine(Who(proposal.Author, proposal.CreatedAt, locale));
         text.AppendLine(AuthoringText.Text(locale, "proposal.why", ("summary", proposal.Note)));
         text.AppendLine();
@@ -76,6 +81,17 @@ public static class ProposalText
 
         text.Append(AuthoringText.Text(locale, "proposal.nothing"));
         return text.ToString();
+    }
+
+    // A route label of a step in words: the fixed ones by their sentence, a value of the result as the value.
+    private static string Route(string label, WorkbenchLocale locale)
+    {
+        if (label.StartsWith("on:", StringComparison.Ordinal))
+        {
+            return AuthoringText.Text(locale, "route.on", ("value", FlowChangeDescriber.Quote(WorkbenchText.Humanize(label[3..]))));
+        }
+
+        return AuthoringText.Has("route." + label) ? AuthoringText.Text(locale, "route." + label) : AuthoringText.Text(locale, "route.next");
     }
 
     private static string Who(string author, DateTimeOffset at, WorkbenchLocale locale) =>

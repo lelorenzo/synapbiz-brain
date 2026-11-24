@@ -70,6 +70,11 @@ internal static class ProposalTools
             return refusal!;
         }
 
+        if (EmptySummary(input) is { } emptied)
+        {
+            return Results.Refuse(locale, emptied.Code, [], emptied.Hint);
+        }
+
         var id = AuthoringJson.Text(input["id"])!;
         var draft = context.Store.ReadDraft(DocumentKind.Flow, id);
         if (draft is null)
@@ -109,33 +114,38 @@ internal static class ProposalTools
             TotalRoutes = report.Coverage.TotalRoutes,
             CoveredRoutes = report.Coverage.CoveredRoutes,
             NeverTaken = [.. report.Coverage.NeverTaken.Select(route => new FlowProposalRoute(route.Step, route.Label))],
-            KnownGaps = draft.KnownGaps,
+            KnownGaps = analysis.AppliedGaps,
         };
 
         var approvedText = draft.Base is null ? context.Store.ReadApproved(DocumentKind.Flow, id) : context.Store.ReadApproved(DocumentKind.Flow, draft.Base.Id);
-        var problems = FlowProposalCheck.Against(proposal, context.FlowContext(catalog, id), approvedText);
+        var problems = FlowProposalCheck.Against(proposal, context.FlowContext(catalog, id), approvedText, draft.Base?.Id);
         if (problems.Count > 0)
         {
             var first = problems[0];
-            return Results.Refuse(locale, "proposal.inconsistent", [("code", first.Code)], first.Message + " " + (FixHints.For(first.Code) ?? string.Empty), new JsonObject { ["problems"] = new JsonArray([.. problems.Select(problem => (JsonNode?)new JsonObject { ["code"] = problem.Code, ["path"] = problem.Path, ["message"] = problem.Message, ["hint"] = FixHints.For(problem.Code) })]) });
+            return Results.Refuse(locale, "proposal.inconsistent", [("what", PersonWords.Error(locale, first.Code, AuthoringText.Text(locale, "path.in.header")))], first.Message + " " + (FixHints.For(first.Code) ?? string.Empty), new JsonObject { ["problems"] = new JsonArray([.. problems.Select(problem => (JsonNode?)new JsonObject { ["code"] = problem.Code, ["path"] = problem.Path, ["message"] = problem.Message, ["hint"] = FixHints.For(problem.Code) })]) });
         }
 
         var name = FreeName(context, FlowPrefix + process.Id + ".v" + AuthoringText.Number(process.Version));
         var location = context.Store.WriteProposal(name, FlowProposalJson.Serialize(proposal));
         var text = ProposalText.Flow(proposal, locale);
         var data = new JsonObject { ["proposal"] = new JsonObject { ["name"] = name, ["location"] = location, ["kind"] = "process", ["id"] = process.Id, ["version"] = process.Version, ["needsReview"] = true, ["applied"] = false }, ["text"] = text };
-        return Results.Ok(AuthoringText.Text(locale, "say.propose.flow", ("id", "`" + process.Id + "`"), ("location", location)), data);
+        return Results.Ok(AuthoringText.Text(locale, "say.propose.flow", ("id", FlowChangeDescriber.Quote(process.Id)), ("location", location)), data);
     }
+
+    private static (string Code, string Hint)? EmptySummary(JsonObject input) =>
+        string.IsNullOrWhiteSpace(AuthoringJson.Text(input["summary"]))
+            ? ("summary.empty", "`summary` must say why the change is wanted; it cannot be empty or only spaces. Ask the person, then call the tool again.")
+            : null;
 
     private static FlowProposalChanges ChangesIn(ToolContext context, AuthoringCatalog catalog, StoredDraft draft, BrainProcess process, WorkbenchLocale locale)
     {
-        var before = draft.Base is null ? null : context.ApprovedFlow(catalog, draft.Base.Id)?.Process;
-        if (before is null)
+        var approved = draft.Base is null ? null : context.ApprovedFlow(catalog, draft.Base.Id);
+        if (approved?.Process is not { } before)
         {
             return new FlowProposalChanges(FlowChangeDescriber.DescribeAdded(process, locale), [], []);
         }
 
-        var view = FlowChangeDescriber.Describe(before, process, locale);
+        var view = FlowChangeDescriber.Describe(before, process, locale, AuthoringJson.TryObject(approved.Text), AuthoringJson.TryObject(draft.Text));
         return new FlowProposalChanges(view.Summary, [.. view.Items.Select(item => item.Text)], [.. view.Behaviour.Select(item => item.Text)]);
     }
 
@@ -145,6 +155,11 @@ internal static class ProposalTools
         if (catalog is null)
         {
             return refusal!;
+        }
+
+        if (EmptySummary(input) is { } emptied)
+        {
+            return Results.Refuse(locale, emptied.Code, [], emptied.Hint);
         }
 
         var id = AuthoringJson.Text(input["id"])!;
@@ -176,7 +191,7 @@ internal static class ProposalTools
             ["text"] = ProposalText.Rule(file, locale),
         };
         var key = file.NeedsReview ? "say.propose.rule.review" : "say.propose.rule.clinic";
-        return Results.Ok(AuthoringText.Text(locale, key, ("id", "`" + id + "`"), ("location", location)), data);
+        return Results.Ok(AuthoringText.Text(locale, key, ("id", FlowChangeDescriber.Quote(id)), ("location", location)), data);
     }
 
     private static string ChangeSummary(Synapbiz.Brain.Spec.BrainRule before, Synapbiz.Brain.Spec.BrainRule after, WorkbenchLocale locale) =>

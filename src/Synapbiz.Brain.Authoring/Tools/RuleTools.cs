@@ -152,7 +152,9 @@ internal static class RuleTools
         }
 
         var drafts = new JsonArray([.. context.Store.ListDrafts(DocumentKind.Rule).Select(id => (JsonNode?)new JsonObject { ["id"] = id })]);
-        var say = AuthoringText.Text(locale, "say.rule.list", ("n", AuthoringText.Number(rules.Count)), ("d", AuthoringText.Number(drafts.Count)));
+        var firstBroken = context.ApprovedRules(catalog).FirstOrDefault(item => item.Rule is null && item.Errors.Count > 0);
+        var broken = firstBroken is null ? string.Empty : " " + AuthoringText.Text(locale, "say.list.broken", ("k", AuthoringText.Number(notLoading.Count)), ("id", FlowChangeDescriber.Quote(firstBroken.Id)), ("first", PersonWords.Error(locale, firstBroken.Errors[0], AuthoringJson.TryObject(firstBroken.Text))));
+        var say = AuthoringText.Text(locale, "say.rule.list", ("n", AuthoringText.Number(rules.Count)), ("d", AuthoringText.Number(drafts.Count)), ("broken", broken));
         return Results.Ok(say, new JsonObject { ["rules"] = rules, ["notLoading"] = notLoading, ["drafts"] = drafts });
     }
 
@@ -189,7 +191,7 @@ internal static class RuleTools
         if (approved.Rule is not { } rule)
         {
             data["errors"] = FlowAnalyzer.ErrorsJson(approved.Errors, AuthoringJson.TryObject(approved.Text), locale);
-            return Results.Ok(AuthoringText.Text(locale, "say.rule.notloading", ("id", id)), data);
+            return Results.Ok(AuthoringText.Text(locale, "say.rule.notloading", ("id", id), ("first", approved.Errors.Count > 0 ? PersonWords.Error(locale, approved.Errors[0], AuthoringJson.TryObject(approved.Text)) : string.Empty)), data);
         }
 
         var view = RuleDescriber.Describe(rule, locale, RuleLabels.FromMeta(rule.Meta, locale));
@@ -217,7 +219,7 @@ internal static class RuleTools
 
         if (approved.Rule is not { } baseRule)
         {
-            return Results.Refuse(locale, "rule.not_loading", [("id", id)], "The approved rule does not load against the catalog, so it cannot be edited: " + string.Join("; ", approved.Errors.Take(3).Select(error => error.Code + " " + error.Path)));
+            return Results.Refuse(locale, "rule.not_loading", [("id", id), ("first", PersonWords.Error(locale, approved.Errors[0], AuthoringJson.TryObject(approved.Text)))], "The approved rule does not load against the catalog, so it cannot be edited: " + string.Join("; ", approved.Errors.Take(3).Select(error => error.Code + " " + error.Path)));
         }
 
         var existing = context.Store.ReadDraft(DocumentKind.Rule, id);
@@ -227,14 +229,14 @@ internal static class RuleTools
         if (read.Problem is { } problem)
         {
             var number = read.Index - kept.Count + 1;
-            return Results.Refuse(locale, "rule.edit_invalid", [("n", AuthoringText.Number(number)), ("detail", problem)], "Edit " + (read.Index >= kept.Count ? number.ToString(CultureInfo.InvariantCulture) : "kept from an earlier call") + " cannot be used: " + problem);
+            return Results.Refuse(locale, "rule.edit_invalid", [("n", AuthoringText.Number(number)), ("what", PersonWords.EditProblemSentence(locale, read.Why!, RuleLabels.FromMeta(baseRule.Meta, locale)))], "Edit " + (read.Index >= kept.Count ? number.ToString(CultureInfo.InvariantCulture) : "kept from an earlier call") + " cannot be used: " + problem);
         }
 
         var drafted = RuleDrafter.Apply(approved.Text, read.Edits);
         if (drafted.DraftJson is not { } text)
         {
             var error = drafted.Errors[0];
-            return Results.Refuse(locale, "rule.edit_failed", [("detail", error.Message)], "An edit could not be applied (" + error.Code + " at " + error.Path + "): " + error.Message + (FixHints.For(error.Code) is { } hint ? " " + hint : string.Empty), new JsonObject { ["failedAt"] = error.Path, ["failedCode"] = error.Code });
+            return Results.Refuse(locale, "rule.edit_failed", [("what", PersonWords.Error(locale, error.Code, PathWords.Describe(error.Path, AuthoringJson.TryObject(approved.Text), locale)))], "An edit could not be applied (" + error.Code + " at " + error.Path + "): " + error.Message + (FixHints.For(error.Code) is { } hint ? " " + hint : string.Empty), new JsonObject { ["failedAt"] = error.Path, ["failedCode"] = error.Code, ["detail"] = error.Message });
         }
 
         var draft = new StoredDraft(text, new DraftBase(id, baseRule.Version, AuthoringJson.Hash(DocumentKind.Rule, approved.Text)), [], AuthoringJson.CompactText(combined));
@@ -262,20 +264,23 @@ internal static class RuleTools
         }
         catch (FormatException error)
         {
-            return Results.Refuse(locale, "rule.facts_invalid", [("detail", error.Message)], error.Message);
+            return Results.Refuse(locale, "rule.facts_invalid", [("what", AuthoringText.Text(locale, "edit.needscalar"))], error.Message, new JsonObject { ["detail"] = error.Message });
         }
 
+        var labels = RuleLabels.FromMeta(rule.Meta, locale);
         var unknown = texts.Keys.Where(name => rule.Kind.Facts.All(fact => fact.Name != name)).Order(StringComparer.Ordinal).ToList();
         if (unknown.Count > 0)
         {
-            return Results.Refuse(locale, "rule.facts_invalid", [("detail", string.Join(", ", unknown))], "The rule has no fact called " + string.Join(", ", unknown) + ". Its facts are " + string.Join(", ", rule.Kind.Facts.Select(fact => fact.Name)) + ".");
+            var known = AuthoringText.Join(locale, [.. rule.Kind.Facts.Select(fact => PersonWords.FactName(fact.Name, labels))]);
+            return Results.Refuse(locale, "rule.facts_invalid", [("what", AuthoringText.Text(locale, "facts.unknown", ("names", AuthoringText.Join(locale, [.. unknown.Select(name => PersonWords.FactName(name, labels))])), ("known", known)))], "The rule has no fact called " + string.Join(", ", unknown) + ". Its facts are " + string.Join(", ", rule.Kind.Facts.Select(fact => fact.Name)) + ".", new JsonObject { ["detail"] = string.Join(", ", unknown) });
         }
 
         var parsed = FactInput.ParseAll(rule.Kind, texts);
         if (!parsed.IsValid)
         {
             var details = string.Join("; ", parsed.Errors.Select(pair => pair.Key + ": " + pair.Value));
-            return Results.Refuse(locale, "rule.facts_invalid", [("detail", details)], "A fact value does not fit its type: " + details, new JsonObject { ["factErrors"] = new JsonObject(parsed.Errors.Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, pair.Value))) });
+            var sentences = parsed.Errors.Select(pair => PersonWords.Error(locale, pair.Value, AuthoringText.Text(locale, "where.fact", ("name", PersonWords.FactName(pair.Key, labels))))).ToList();
+            return Results.Refuse(locale, "rule.facts_invalid", [("what", string.Join(" ", sentences))], "A fact value does not fit its type: " + details, new JsonObject { ["factErrors"] = new JsonObject(parsed.Errors.Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key, pair.Value))) });
         }
 
         DateOnly asOf;
@@ -283,7 +288,7 @@ internal static class RuleTools
         {
             if (!DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out asOf))
             {
-                return Results.Refuse(locale, "rule.facts_invalid", [("detail", day)], "`asOf` must be a date written yyyy-MM-dd.");
+                return Results.Refuse(locale, "rule.facts_invalid", [("what", AuthoringText.Text(locale, "facts.asof"))], "`asOf` must be a date written yyyy-MM-dd.", new JsonObject { ["detail"] = day });
             }
         }
         else
@@ -300,7 +305,7 @@ internal static class RuleTools
     {
         if (result.Failure is { } failure)
         {
-            return AuthoringText.Text(locale, "say.rule.sim.failed", ("detail", failure.Message));
+            return AuthoringText.Text(locale, "say.rule.sim.failed", ("what", PersonWords.Error(locale, failure.Code, AuthoringText.Text(locale, "where.facts"))));
         }
 
         if (result.Outcome is Decided decided)
@@ -392,7 +397,7 @@ internal static class RuleTools
             var loadedDraft = BrainRuleLoader.Load(draft.Text, catalog.Contracts);
             if (loadedDraft.Rule is null)
             {
-                refusal = Results.Refuse(locale, "rule.not_loading", [("id", id)], "The draft does not load: " + string.Join("; ", loadedDraft.Errors.Take(3).Select(error => error.Code + " " + error.Path)));
+                refusal = Results.Refuse(locale, "rule.not_loading", [("id", id), ("first", PersonWords.Error(locale, loadedDraft.Errors[0], AuthoringJson.TryObject(draft.Text)))], "The draft does not load: " + string.Join("; ", loadedDraft.Errors.Take(3).Select(error => error.Code + " " + error.Path)));
             }
 
             return loadedDraft.Rule;
@@ -407,7 +412,7 @@ internal static class RuleTools
 
         if (approved.Rule is null)
         {
-            refusal = Results.Refuse(locale, "rule.not_loading", [("id", id)], "The approved rule does not load against the catalog: " + string.Join("; ", approved.Errors.Take(3).Select(error => error.Code + " " + error.Path)));
+            refusal = Results.Refuse(locale, "rule.not_loading", [("id", id), ("first", PersonWords.Error(locale, approved.Errors[0], AuthoringJson.TryObject(approved.Text)))], "The approved rule does not load against the catalog: " + string.Join("; ", approved.Errors.Take(3).Select(error => error.Code + " " + error.Path)));
         }
 
         return approved.Rule;

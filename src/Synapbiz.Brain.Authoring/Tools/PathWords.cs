@@ -19,7 +19,7 @@ internal static class PathWords
         if (parts[0] == "body" && parts.Count >= 3 && parts[1] == "steps")
         {
             var step = T("path.in.step", ("step", FlowChangeDescriber.Quote(Label(document, tag, "steps", parts[2]))));
-            return parts.Count > 3 ? step + " " + T("path.member", ("member", Humanize(parts[3]))) : step;
+            return parts.Count > 3 && MemberWords(parts[3], locale) is { } member ? step + T("path.member", ("member", member)) : step;
         }
 
         if (parts[0] == "body" && parts.Count >= 3 && parts[1] == "windows")
@@ -29,7 +29,7 @@ internal static class PathWords
 
         if (parts[0] == "body" && parts.Count >= 3 && parts[1] == "variables")
         {
-            return T("path.in.variable", ("variable", "`" + parts[2] + "`"));
+            return T("path.in.variable", ("variable", FlowChangeDescriber.Quote(Humanize(parts[2]))));
         }
 
         if (parts[0] == "body" && parts.Count >= 3 && parts[1] == "scenarios" && int.TryParse(parts[2], out var index))
@@ -51,10 +51,24 @@ internal static class PathWords
         };
     }
 
+    // A member of a step in words, or null when it has none: the identifier of a member never reaches a person.
+    private static string? MemberWords(string member, WorkbenchLocale locale)
+    {
+        if (AuthoringText.Has("aspect." + member))
+        {
+            return AuthoringText.Text(locale, "aspect." + member);
+        }
+
+        return AuthoringText.Has("route." + member) ? AuthoringText.Text(locale, "path.route", ("when", AuthoringText.Text(locale, "route." + member))) : null;
+    }
+
     private static List<string> Segments(string path) =>
         [.. path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(part => part.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal))];
 
     private static string Humanize(string name) => WorkbenchText.Humanize(name);
+
+    /// <summary>The name of a step as the document labels it in a language, else its identifier written as words.</summary>
+    internal static string StepLabel(JsonObject? document, WorkbenchLocale locale, string id) => Label(document, AuthoringJson.Tag(locale), "steps", id);
 
     private static string Label(JsonObject? document, string language, string group, string id)
     {

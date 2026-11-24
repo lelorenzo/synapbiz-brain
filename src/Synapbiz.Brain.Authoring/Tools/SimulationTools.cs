@@ -141,13 +141,24 @@ internal static class SimulationTools
         }
 
         FlowSimulation simulation;
+        FlowSimulationSetup setup;
         try
         {
-            simulation = FlowSimulation.Start(process, Setup(context, catalog, start));
+            setup = Setup(context, catalog, start);
+            simulation = FlowSimulation.Start(process, setup);
+        }
+        catch (AuthoringProblemException problem)
+        {
+            return Results.Refuse(locale, "simulation.start_invalid", [("what", AuthoringText.Text(locale, "start." + problem.Code, [.. problem.Values]))], "The start could not be read: " + problem.Code + ".", new JsonObject { ["detail"] = problem.Code });
         }
         catch (Exception error) when (error is ArgumentException or FormatException)
         {
-            return Results.Refuse(locale, "simulation.start_invalid", [("detail", error.Message)], "The start could not be read: " + error.Message);
+            return Results.Refuse(locale, "simulation.start_invalid", [("what", AuthoringText.Text(locale, "start.other"))], "The start could not be read: " + error.Message, new JsonObject { ["detail"] = error.Message });
+        }
+
+        if (!simulation.Started)
+        {
+            return Results.Refuse(locale, "simulation.start_invalid", [("what", NotStarted(process, setup, simulation.StartCode, locale))], "The interpreter rejected the start with " + simulation.StartCode + ".", new JsonObject { ["detail"] = simulation.StartCode });
         }
 
         var stored = context.Sessions.Add(id, AuthoringJson.Hash(DocumentKind.Flow, FlowAnalyzer.FormatOrText(draft.Text)), simulation);
@@ -161,18 +172,39 @@ internal static class SimulationTools
 
     private static FlowSimulationSetup Setup(ToolContext context, AuthoringCatalog catalog, JsonObject start)
     {
-        var at = AuthoringJson.Text(start["at"]) is { } text
-            ? DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.None)
-            : context.Options.Clock.GetUtcNow();
-        var today = AuthoringJson.Text(start["today"]) is { } day
-            ? DateOnly.ParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture)
-            : FlowSimulationSetup.TodayOf(at);
+        DateTimeOffset at;
+        if (AuthoringJson.Text(start["at"]) is { } text)
+        {
+            at = DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : throw new AuthoringProblemException("at", null, "at");
+        }
+        else
+        {
+            at = context.Options.Clock.GetUtcNow();
+        }
+
+        DateOnly today;
+        if (AuthoringJson.Text(start["today"]) is { } day)
+        {
+            today = DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDay) ? parsedDay : throw new AuthoringProblemException("today", null, "today");
+        }
+        else
+        {
+            today = FlowSimulationSetup.TodayOf(at);
+        }
+
         var zones = new Dictionary<string, TimeSpan>(StringComparer.Ordinal);
         if (start["zones"] is JsonObject offsets)
         {
             foreach (var (zone, offset) in offsets)
             {
-                zones[zone] = TimeSpan.ParseExact(AuthoringJson.Text(offset) ?? string.Empty, @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None) * (AuthoringJson.Text(offset)?.StartsWith('-') == true ? -1 : 1);
+                var written = AuthoringJson.Text(offset) ?? string.Empty;
+                var digits = written.TrimStart('+', '-');
+                if (!TimeSpan.TryParseExact(digits, @"hh\:mm", CultureInfo.InvariantCulture, TimeSpanStyles.None, out var span) || written.Length - digits.Length > 1)
+                {
+                    throw new AuthoringProblemException("zone", null, "zone", ("zone", FlowChangeDescriber.Quote(zone)));
+                }
+
+                zones[zone] = span * (written.StartsWith('-') ? -1 : 1);
             }
         }
 
@@ -184,6 +216,47 @@ internal static class SimulationTools
             Zones = zones,
             ChildProcesses = [.. context.ApprovedFlows(catalog).Select(item => item.Process).OfType<BrainProcess>()],
         };
+    }
+
+    internal static string VarTypeKey(string type) => type switch
+    {
+        "Code" => "vartype.code",
+        "Enum" => "vartype.enum",
+        "Boolean" => "vartype.boolean",
+        "Integer" => "vartype.integer",
+        "Decimal" => "vartype.decimal",
+        "Money" => "vartype.money",
+        "Date" => "vartype.date",
+        "Reference" => "vartype.reference",
+        "Instant" => "vartype.instant",
+        _ => "vartype.json",
+    };
+
+    // Which input made the interpreter refuse to start a case: a value for something the process does not take, or a value of the wrong kind.
+    private static string NotStarted(BrainProcess process, FlowSimulationSetup setup, string? code, WorkbenchLocale locale)
+    {
+        var inputs = ProcessOutline.From(process).Variables.Where(variable => variable.IsInput).ToList();
+        var given = (AuthoringJson.TryObject(setup.InputJson) ?? []).ToList();
+        var extra = given.Where(pair => inputs.All(variable => variable.Name != pair.Key)).Select(pair => FlowChangeDescriber.Quote(WorkbenchText.Humanize(pair.Key))).ToList();
+        var allowed = inputs.Count == 0
+            ? AuthoringText.Text(locale, "start.noinputs")
+            : AuthoringText.Join(locale, [.. inputs.Select(variable => FlowChangeDescriber.Quote(WorkbenchText.Humanize(variable.Name)))]);
+        if (extra.Count > 0)
+        {
+            return AuthoringText.Text(locale, "start.extra", ("names", AuthoringText.Join(locale, extra)), ("allowed", allowed));
+        }
+
+        foreach (var (name, value) in given)
+        {
+            var alone = setup with { InputJson = new JsonObject { [name] = value?.DeepClone() }.ToJsonString() };
+            if (!FlowSimulation.Start(process, alone).Started)
+            {
+                var variable = inputs.First(item => item.Name == name);
+                return AuthoringText.Text(locale, "start.type", ("name", FlowChangeDescriber.Quote(WorkbenchText.Humanize(name))), ("kind", AuthoringText.Text(locale, VarTypeKey(variable.Type))));
+            }
+        }
+
+        return PersonWords.Runtime(locale, code, null);
     }
 
     private static IReadOnlyList<FlowSimulationEntry> Run(FlowSimulation simulation, JsonObject command, WorkbenchLocale locale, out JsonObject? refusal)
@@ -203,7 +276,7 @@ internal static class SimulationTools
                 case "event":
                     return simulation.SendEvent(Required(command, "name"), AuthoringJson.Text(command["correlation"]), command["payload"] is JsonObject payload ? AuthoringJson.CompactText(payload) : null);
                 case "advance":
-                    return simulation.AdvanceBy(XmlConvert.ToTimeSpan(Required(command, "duration")));
+                    return simulation.AdvanceBy(Duration(Required(command, "duration")));
                 case "child":
                     return simulation.CompleteChild(Resolve<OutstandingChild>(simulation, command["child"]), Required(command, "result"));
                 case "childFail":
@@ -214,10 +287,28 @@ internal static class SimulationTools
                     return simulation.Resume();
             }
         }
+        catch (AuthoringProblemException problem)
+        {
+            refusal = Results.Refuse(locale, "simulation.command_failed", [("what", AuthoringText.Text(locale, "command." + problem.Code, problem.Values.Select(value => (value.Item1, value.Item1 == "waits" ? Waiting(simulation, locale) : value.Item2)).ToArray()))], "The command could not be carried out (" + problem.Code + ").", new JsonObject { ["detail"] = problem.Code });
+            return [];
+        }
         catch (Exception error) when (error is ArgumentException or InvalidOperationException or FormatException or OverflowException)
         {
-            refusal = Results.Refuse(locale, "simulation.command_failed", [("detail", error.Message)], "The command could not be carried out: " + error.Message);
+            var code = error is FormatException or OverflowException ? "duration" : "other";
+            refusal = Results.Refuse(locale, "simulation.command_failed", [("what", AuthoringText.Text(locale, "command." + code))], "The command could not be carried out: " + error.Message, new JsonObject { ["detail"] = error.Message });
             return [];
+        }
+    }
+
+    private static TimeSpan Duration(string text)
+    {
+        try
+        {
+            return XmlConvert.ToTimeSpan(text);
+        }
+        catch (Exception error) when (error is FormatException or OverflowException)
+        {
+            throw new AuthoringProblemException("duration", null, "duration");
         }
     }
 
@@ -227,7 +318,7 @@ internal static class SimulationTools
         var wanted = AuthoringJson.Text(reference);
         if (wanted is null)
         {
-            throw new ArgumentException("The command needs the id (or the step) of what it answers.");
+            throw new AuthoringProblemException("needtarget", null, "needtarget");
         }
 
         var matches = simulation.Outstanding.OfType<T>().Where(item => item.Id == wanted || item.Step == wanted).ToList();
@@ -238,21 +329,28 @@ internal static class SimulationTools
 
         if (matches.Count > 1)
         {
-            throw new InvalidOperationException("More than one thing matches; use the id.");
+            throw new AuthoringProblemException("ambiguous", null, "ambiguous");
         }
 
-        var waiting = string.Join(", ", simulation.Outstanding.Select(item => item.Id + " (" + item.Step + ")"));
-        throw new InvalidOperationException("The case is not waiting for that. It waits for: " + (waiting.Length == 0 ? "nothing" : waiting) + ".");
+        throw new AuthoringProblemException("notwaiting", null, "notwaiting", ("waits", string.Empty));
+    }
+
+    // What the case waits for, in words.
+    private static string Waiting(FlowSimulation simulation, WorkbenchLocale locale)
+    {
+        var words = FlowWords.For(simulation.Process, locale);
+        var waits = simulation.Outstanding.Select(item => Wait(item, words, locale)).ToList();
+        return waits.Count == 0 ? AuthoringText.Text(locale, "say.sim.nothing") : AuthoringText.Join(locale, waits);
     }
 
     private static string Object(JsonNode? node, string name)
     {
-        return node is JsonObject value ? AuthoringJson.CompactText(value) : throw new ArgumentException("The command needs `" + name + "` as an object.");
+        return node is JsonObject value ? AuthoringJson.CompactText(value) : throw new AuthoringProblemException("needobject", null, "needobject", ("member", FlowChangeDescriber.Quote(name)));
     }
 
     private static string Required(JsonObject command, string name)
     {
-        return AuthoringJson.Text(command[name]) is { Length: > 0 } text ? text : throw new ArgumentException("The command needs `" + name + "`.");
+        return AuthoringJson.Text(command[name]) is { Length: > 0 } text ? text : throw new AuthoringProblemException("needmember", null, "needmember", ("member", FlowChangeDescriber.Quote(name)));
     }
 
     private static JsonObject State(SimulationSession session, IReadOnlyList<FlowSimulationEntry> entries, WorkbenchLocale locale)
@@ -273,6 +371,11 @@ internal static class SimulationTools
             if (entry.Disposition != AdvanceDisposition.Applied)
             {
                 var sentence = AuthoringText.Text(locale, entry.Disposition == AdvanceDisposition.Ignored ? "say.sim.ignored" : "say.sim.refused");
+                if (entry.Disposition != AdvanceDisposition.Ignored)
+                {
+                    sentence += " " + PersonWords.Runtime(locale, entry.Code, simulation.CurrentStep is { } here ? words.Step(here) : null);
+                }
+
                 sentences.Add(sentence);
                 happened.Add(new JsonObject { ["kind"] = entry.Disposition == AdvanceDisposition.Ignored ? "ignored" : "refused", ["code"] = entry.Code, ["hint"] = entry.Code is null ? null : FixHints.For(entry.Code), ["say"] = sentence });
             }
@@ -354,12 +457,12 @@ internal static class SimulationTools
         var step = FlowChangeDescriber.Quote(words.Step(item.Step));
         return item switch
         {
-            OutstandingEffect effect => AuthoringText.Text(locale, "say.sim.out.effect", ("step", step), ("port", "`" + effect.Port + "`")),
+            OutstandingEffect effect => AuthoringText.Text(locale, "say.sim.out.effect", ("step", step), ("port", FlowChangeDescriber.Quote(effect.Port))),
             OutstandingTask task => AuthoringText.Text(locale, "say.sim.out.task", ("queue", FlowChangeDescriber.Quote(words.Queue(task.Queue))), ("outcomes", AuthoringText.Join(locale, [.. task.Outcomes.Select(outcome => FlowChangeDescriber.Quote(words.Outcome(outcome)))], "join.or"))),
             OutstandingWait wait => AuthoringText.Text(locale, "say.sim.out.event", ("event", FlowChangeDescriber.Quote(words.Event(wait.Event)))),
             OutstandingTimer timer => AuthoringText.Text(locale, "say.sim.out.timer", ("due", timer.Due.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture))),
             OutstandingWindow window => AuthoringText.Text(locale, "say.sim.out.window", ("at", window.OpensAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture))),
-            OutstandingChild child => AuthoringText.Text(locale, "say.sim.out.child", ("process", "`" + child.ProcessId + "`")),
+            OutstandingChild child => AuthoringText.Text(locale, "say.sim.out.child", ("process", FlowChangeDescriber.Quote(child.ProcessId))),
             _ => string.Empty,
         };
     }

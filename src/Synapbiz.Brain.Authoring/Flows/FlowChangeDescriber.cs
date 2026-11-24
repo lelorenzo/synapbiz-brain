@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Synapbiz.Brain.Process;
 using Synapbiz.Brain.Workbench;
 using Synapbiz.Brain.Workbench.Flows;
@@ -8,7 +9,11 @@ namespace Synapbiz.Brain.Authoring;
 /// <param name="Kind">The kind of change.</param>
 /// <param name="Subject">The id the change is about.</param>
 /// <param name="Text">One sentence for a person; it names things by their labels.</param>
-public sealed record FlowChangeItem(FlowChangeKind Kind, string Subject, string Text);
+public sealed record FlowChangeItem(FlowChangeKind Kind, string Subject, string Text)
+{
+    /// <summary>For a change nothing names, the JSON Pointers of the places that differ; empty otherwise.</summary>
+    public IReadOnlyList<string> Pointers { get; init; } = [];
+}
 
 /// <summary>What happened to one test, in plain language.</summary>
 /// <param name="Scenario">The name of the test.</param>
@@ -38,12 +43,14 @@ public static class FlowChangeDescriber
     /// <param name="before">The earlier document.</param>
     /// <param name="after">The later document.</param>
     /// <param name="locale">The language of the sentences.</param>
-    public static FlowChangeView Describe(BrainProcess before, BrainProcess after, WorkbenchLocale locale)
+    /// <param name="beforeDocument">The earlier document as plain JSON, so that a change nothing names is still reported; or null.</param>
+    /// <param name="afterDocument">The later document as plain JSON; or null.</param>
+    public static FlowChangeView Describe(BrainProcess before, BrainProcess after, WorkbenchLocale locale, JsonObject? beforeDocument = null, JsonObject? afterDocument = null)
     {
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
-        var diff = FlowDiffer.Diff(before, after);
-        return Describe(before, after, diff, FlowBehaviour.Compare(before, after, diff), locale);
+        var diff = FlowDiffer.Diff(before, after, beforeDocument, afterDocument);
+        return Describe(before, after, diff, FlowBehaviour.Compare(before, after, diff), locale, afterDocument);
     }
 
     /// <summary>Describes a difference and a behaviour comparison that were already computed.</summary>
@@ -52,14 +59,15 @@ public static class FlowChangeDescriber
     /// <param name="diff">The difference.</param>
     /// <param name="behaviour">The replay of the tests.</param>
     /// <param name="locale">The language of the sentences.</param>
-    public static FlowChangeView Describe(BrainProcess before, BrainProcess after, FlowDiff diff, IReadOnlyList<FlowBehaviourChange> behaviour, WorkbenchLocale locale)
+    /// <param name="document">The later document as plain JSON, used to say where in words; or null.</param>
+    public static FlowChangeView Describe(BrainProcess before, BrainProcess after, FlowDiff diff, IReadOnlyList<FlowBehaviourChange> behaviour, WorkbenchLocale locale, JsonObject? document = null)
     {
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(behaviour);
-        var writer = new Writer(before, after, locale);
-        var items = diff.Changes.Select(change => new FlowChangeItem(change.Kind, change.Subject, writer.Sentence(change))).ToList();
+        var writer = new Writer(before, after, locale, document);
+        var items = diff.Changes.Select(change => new FlowChangeItem(change.Kind, change.Subject, writer.Sentence(change)) { Pointers = change.Pointers ?? [] }).ToList();
         var different = behaviour.Where(change => change.Kind != FlowBehaviourKind.Same).ToList();
         var lines = different.Select(change => new FlowBehaviourItem(change.Scenario, change.Kind, writer.Sentence(change))).ToList();
         return new FlowChangeView(
@@ -103,7 +111,8 @@ public static class FlowChangeDescriber
         Count(parts, locale, "settings", diff.Changes.Count(change => change.Kind is FlowChangeKind.StepChanged or FlowChangeKind.WindowAdded or FlowChangeKind.WindowChanged or FlowChangeKind.WindowRemoved
             or FlowChangeKind.TriggerAdded or FlowChangeKind.TriggerChanged or FlowChangeKind.TriggerRemoved or FlowChangeKind.VariableAdded or FlowChangeKind.VariableChanged or FlowChangeKind.VariableRemoved));
         Count(parts, locale, "tests", diff.Changes.Count(change => change.Kind is FlowChangeKind.ScenarioAdded or FlowChangeKind.ScenarioChanged or FlowChangeKind.ScenarioRemoved));
-        Count(parts, locale, "labels", diff.Changes.Count(change => change.Kind == FlowChangeKind.LabelChanged));
+        Count(parts, locale, "labels", diff.Changes.Count(change => change.Kind is FlowChangeKind.LabelChanged or FlowChangeKind.TitleChanged or FlowChangeKind.DescriptionChanged));
+        Count(parts, locale, "other", diff.Changes.Count(change => change.Kind is FlowChangeKind.ProcessIdChanged or FlowChangeKind.SubjectChanged or FlowChangeKind.SomethingElseChanged));
         var head = AuthoringText.Text(locale, "change.summary.some", ("n", AuthoringText.Number(diff.Changes.Count)), ("parts", string.Join("; ", parts)));
         var tail = AuthoringText.Text(locale, "change.summary.notests");
         if (replayed > 0)
@@ -124,7 +133,7 @@ public static class FlowChangeDescriber
         }
     }
 
-    private sealed class Writer(BrainProcess before, BrainProcess after, WorkbenchLocale locale)
+    private sealed class Writer(BrainProcess before, BrainProcess after, WorkbenchLocale locale, JsonObject? document)
     {
         private readonly FlowWords wordsBefore = FlowWords.For(before, locale);
         private readonly FlowWords wordsAfter = FlowWords.For(after, locale);
@@ -149,11 +158,16 @@ public static class FlowChangeDescriber
             FlowChangeKind.TriggerChanged => T("change.trigger.changed", ("old", TriggerWords((ProcessTriggerDeclaration)change.Before!)), ("new", TriggerWords((ProcessTriggerDeclaration)change.After!))),
             FlowChangeKind.VariableAdded => T("change.variable.added", ("variable", Code(change.Subject)), ("what", VariableWords((OutlineVariable)change.After!))),
             FlowChangeKind.VariableRemoved => T("change.variable.removed", ("variable", Code(change.Subject))),
-            FlowChangeKind.VariableChanged => T("change.variable.changed", ("variable", Code(change.Subject)), ("old", VariableWords((OutlineVariable)change.Before!)), ("new", VariableWords((OutlineVariable)change.After!))),
+            FlowChangeKind.VariableChanged => VariableChanged(change),
             FlowChangeKind.ScenarioAdded => T("change.test.added", ("name", Quote(change.Subject))),
             FlowChangeKind.ScenarioRemoved => T("change.test.removed", ("name", Quote(change.Subject))),
             FlowChangeKind.ScenarioChanged => T("change.test.changed", ("name", Quote(change.Subject))),
             FlowChangeKind.LabelChanged => Label(change),
+            FlowChangeKind.ProcessIdChanged => T("change.id", ("old", Code((string)change.Before!)), ("new", Code((string)change.After!))),
+            FlowChangeKind.TitleChanged => T("change.title", ("old", Text(change.Before)), ("new", Text(change.After))),
+            FlowChangeKind.DescriptionChanged => T("change.description", ("old", Text(change.Before)), ("new", Text(change.After))),
+            FlowChangeKind.SubjectChanged => T("change.subject", ("old", Quote(WorkbenchText.Humanize((string)change.Before!))), ("new", Quote(WorkbenchText.Humanize((string)change.After!)))),
+            FlowChangeKind.SomethingElseChanged => T("change.else", ("where", AuthoringText.Join(locale, [.. (change.Pointers ?? []).Select(pointer => PathWords.Describe(pointer, document, locale)).Distinct(StringComparer.Ordinal)]))),
             _ => throw new ArgumentOutOfRangeException(nameof(change), change.Kind, "Unknown kind of change."),
         };
 
@@ -195,12 +209,78 @@ public static class FlowChangeDescriber
             };
         }
 
+        private string Text(object? value) => value is string text && text.Length > 0 ? Quote(text) : T("text.empty");
+
+        private string VariableChanged(FlowChange change)
+        {
+            var was = (OutlineVariable)change.Before!;
+            var now = (OutlineVariable)change.After!;
+            var variable = Code(change.Subject);
+            if (was.Type == now.Type)
+            {
+                return T(now.IsInput ? "change.variable.input" : "change.variable.noinput", ("variable", variable));
+            }
+
+            return T("change.variable.type", ("variable", variable), ("old", VariableWords(was)), ("new", VariableWords(now)));
+        }
+
+        private string? Partial(FlowChange change, string step)
+        {
+            switch (change.Aspect)
+            {
+                case FlowAspect.Contact:
+                    return T(change.After is true ? "change.contact.on" : "change.contact.off", ("step", step));
+                case FlowAspect.Timeout when change.Before is OutlineTimeout { Duration: { } a } && change.After is OutlineTimeout { Duration: { } b }:
+                    return T("change.timeout.duration", ("step", step), ("old", Duration(a)), ("new", Duration(b)));
+                case FlowAspect.Timer when change.Before is OutlineTimer { After: { } a } && change.After is OutlineTimer { After: { } b }:
+                    return T("change.timer.duration", ("step", step), ("old", Duration(a)), ("new", Duration(b)));
+                case FlowAspect.Poll when change.Before is OutlinePoll was && change.After is OutlinePoll now:
+                    return PollPartial(was, now, step);
+                case FlowAspect.Retry when change.Before is OutlineRetry { MaxAttempts: > 1 } first && change.After is OutlineRetry { MaxAttempts: > 1 } second
+                    && first.Backoff == second.Backoff && first.Initial == second.Initial:
+                    return T("change.retry.attempts", ("step", step), ("old", AuthoringText.Number(first.MaxAttempts)), ("new", AuthoringText.Number(second.MaxAttempts)));
+                case FlowAspect.AiInputSchema or FlowAspect.AiOutputSchema:
+                    return SchemaChanged(change, step);
+                default:
+                    return null;
+            }
+        }
+
+        private string? PollPartial(OutlinePoll was, OutlinePoll now, string step)
+        {
+            if (was.Field != now.Field || !was.Until.SequenceEqual(now.Until) || was.Backoff != now.Backoff || was.Max != now.Max)
+            {
+                return null;
+            }
+
+            if (was.Every != now.Every && was.MaxDuration == now.MaxDuration)
+            {
+                return T("change.poll.every", ("step", step), ("old", Duration(was.Every)), ("new", Duration(now.Every)));
+            }
+
+            return was.Every == now.Every && was.MaxDuration != now.MaxDuration
+                ? T("change.poll.total", ("step", step), ("old", Duration(was.MaxDuration)), ("new", Duration(now.MaxDuration)))
+                : null;
+        }
+
+        private string SchemaChanged(FlowChange change, string step)
+        {
+            var what = T(change.Aspect == FlowAspect.AiInputSchema ? "aspect.aiInputSchema" : "aspect.aiOutputSchema");
+            var delta = SchemaWords.Delta(change.Before as string, change.After as string, locale);
+            return T("change.ai.schema", ("step", step), ("what", what), ("delta", delta));
+        }
+
         private string StepChanged(FlowChange change)
         {
             var step = Step(change.Subject, true);
             if (change.Aspect == FlowAspect.Kind)
             {
                 return T("change.step.kind", ("step", step), ("old", KindName((OutlineStepKind)change.Before!)), ("new", KindName((OutlineStepKind)change.After!)));
+            }
+
+            if (Partial(change, step) is { } partial)
+            {
+                return partial;
             }
 
             var aspect = T("aspect." + char.ToLowerInvariant(change.Aspect!.Value.ToString()[0]) + change.Aspect.Value.ToString()[1..]);
@@ -227,6 +307,7 @@ public static class FlowChangeDescriber
             FlowAspect.Outcomes => AuthoringText.Join(locale, [.. ((IReadOnlyList<string>)value).Select(outcome => Quote(wordsAfter.Outcome(outcome)))]),
             FlowAspect.Show => AuthoringText.Join(locale, [.. ((IReadOnlyList<string>)value).Select(Code)]),
             FlowAspect.Interrupt => Code(((OutlineInterrupt)value).Event),
+            FlowAspect.AiInputSchema or FlowAspect.AiOutputSchema => T("text.empty"),
             FlowAspect.Timeout => When((OutlineTimeout)value),
             FlowAspect.Timer => TimerWords((OutlineTimer)value),
             FlowAspect.Retry => RetryWords((OutlineRetry)value),
@@ -288,7 +369,7 @@ public static class FlowChangeDescriber
             T("poll.some", ("every", Duration(poll.Every)), ("total", Duration(poll.MaxDuration)), ("backoff", T("backoff." + poll.Backoff)), ("field", Code(poll.Field)), ("values", AuthoringText.Join(locale, [.. poll.Until.Select(Code)], "join.or")));
 
         private string AiWords(OutlineStep step) =>
-            T("ai.some", ("model", Code(step.Model!)), ("prompt", Code(step.PromptId!)), ("version", AuthoringText.Number(step.PromptVersion ?? 0)), ("n", AuthoringText.Number(step.MaxAttempts ?? 1)));
+            T((step.MaxAttempts ?? 1) <= 1 ? "ai.one" : "ai.some", ("model", Quote(step.Model!)), ("prompt", Quote(step.PromptId!)), ("version", AuthoringText.Number(step.PromptVersion ?? 0)), ("n", AuthoringText.Number(step.MaxAttempts ?? 1)));
 
         private string WindowWords(OutlineWindow window)
         {
@@ -311,18 +392,30 @@ public static class FlowChangeDescriber
         {
             var language = change.Language is "en" or "es" ? T("language." + change.Language) : change.Language!;
             var id = change.Subject;
-            var kind = change.Group == "title" ? "title" : change.Group![..^1];
-            var subject = T("label.group." + kind, ("id", Code(id)));
-            if (change.Before is string was && change.After is string text)
+            if (change.Group == "title")
             {
-                return T("change.label.changed", ("subject", subject), ("language", language), ("old", Quote(was)), ("new", Quote(text)));
+                if (change.Before is string earlier && change.After is string later)
+                {
+                    return T("change.label.title.changed", ("language", language), ("old", Quote(earlier)), ("new", Quote(later)));
+                }
+
+                return change.After is string given
+                    ? T("change.label.title.added", ("language", language), ("new", Quote(given)))
+                    : T("change.label.title.removed", ("language", language), ("old", Quote((string)change.Before!)));
             }
 
+            var kind = change.Group![..^1];
+            if (change.Before is string was && change.After is string text)
+            {
+                return T("change.label.changed", ("subject", T("label.group.of." + kind, ("id", Code(id)))), ("language", language), ("old", Quote(was)), ("new", Quote(text)));
+            }
+
+            var subject = T("label.group." + kind, ("id", Code(id)));
             return change.After is string added
                 ? T("change.label.added", ("subject", subject), ("language", language), ("new", Quote(added)))
                 : T("change.label.removed", ("subject", subject), ("language", language), ("old", Quote((string)change.Before!)));
         }
 
-        private static string Code(string id) => "`" + id + "`";
+        private static string Code(string id) => Quote(WorkbenchText.Humanize(id));
     }
 }
