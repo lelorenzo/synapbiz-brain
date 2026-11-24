@@ -95,5 +95,5 @@ public static class ProposalText
     }
 
     private static string Who(string author, DateTimeOffset at, WorkbenchLocale locale) =>
-        AuthoringText.Text(locale, "proposal.by", ("author", author), ("date", at.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC"));
+        AuthoringText.Text(locale, "proposal.by", ("author", author), ("date", AuthoringText.Moment(locale, at)));
 }

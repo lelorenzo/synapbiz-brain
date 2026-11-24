@@ -65,6 +65,24 @@ internal static partial class AuthoringText
         return head + Text(locale, joiner) + items[^1];
     }
 
+    /// <summary>A moment as a person says it, with its zone: "January 4, 2027 at 14:00 (UTC)".</summary>
+    internal static string Moment(WorkbenchLocale locale, DateTimeOffset moment)
+    {
+        var spanish = locale == WorkbenchLocale.Es;
+        var culture = CultureInfo.GetCultureInfo(spanish ? "es-ES" : "en-US");
+        var offset = moment.Offset;
+        var zone = "UTC";
+        if (offset != TimeSpan.Zero)
+        {
+            var minutes = offset.Minutes == 0 ? string.Empty : ":" + Math.Abs(offset.Minutes).ToString("00", CultureInfo.InvariantCulture);
+            zone = "UTC" + (offset < TimeSpan.Zero ? "-" : "+") + Math.Abs(offset.Hours).ToString(CultureInfo.InvariantCulture) + minutes;
+        }
+
+        var date = moment.ToString(spanish ? "d 'de' MMMM 'de' yyyy" : "MMMM d, yyyy", culture);
+        var time = moment.ToString("HH:mm", CultureInfo.InvariantCulture);
+        return date + (spanish ? " a las " : " at ") + time + " (" + zone + ")";
+    }
+
     internal static string Number(long value) => value.ToString(CultureInfo.InvariantCulture);
 
     internal static string Duration(WorkbenchLocale locale, TimeSpan span)

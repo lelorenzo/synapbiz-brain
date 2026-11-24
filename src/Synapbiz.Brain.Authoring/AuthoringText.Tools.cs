@@ -20,7 +20,7 @@ internal static partial class AuthoringText
         T("say.flow.list", "Approved processes: {n}. Drafts in progress: {d}.{broken}", "Procesos aprobados: {n}. Borradores en curso: {d}.{broken}");
         T("say.flow.get", "The process {title} (version {version}) has {steps} steps; {pass} of its {total} tests pass.", "El proceso {title} (versión {version}) tiene {steps} pasos; {pass} de sus {total} pruebas pasan.");
         T("say.flow.notloading", "The approved process {id} is not accepted by Brain. The first problem: {first}", "Brain no acepta el proceso aprobado {id}. El primer problema: {first}");
-        T("say.list.broken", "{k} could not be read by Brain and are not listed above. The first, {id}: {first}", "Brain no pudo leer {k} y no aparecen en la lista. El primero, {id}: {first}");
+        T("say.list.broken", "Documents that Brain could not read, and that are not listed above: {k}. The first one, {id}: {first}", "Documentos que Brain no pudo leer y que no aparecen arriba: {k}. El primero, {id}: {first}");
         T("say.draft.refused", "Brain does not accept this draft yet. Problems found: {n}. The first: {first}", "Brain todavía no acepta este borrador. Problemas encontrados: {n}. El primero: {first}");
         T("say.draft.tests", "{pass} of {total} tests pass.", "{pass} de {total} pruebas pasan.");
         T("say.draft.ready", "The draft of {title} is ready to propose. {tests}", "El borrador de {title} está listo para proponer. {tests}");
@@ -41,8 +41,8 @@ internal static partial class AuthoringText
         T("say.sim.out.effect", "the answer of {port} for {step}", "la respuesta de {port} para {step}");
         T("say.sim.out.task", "a person in {queue} to choose {outcomes}", "que una persona en {queue} elija {outcomes}");
         T("say.sim.out.event", "the event {event}", "el evento {event}");
-        T("say.sim.out.timer", "time to pass until {due}", "que pase el tiempo hasta {due}");
-        T("say.sim.out.window", "the delivery window to open at {at}", "que se abra la ventana de envío a las {at}");
+        T("say.sim.out.timer", "time to pass until {due}", "que pase el tiempo hasta el {due}");
+        T("say.sim.out.window", "the delivery window to open on {at}", "que se abra la ventana de envío el {at}");
         T("say.sim.out.child", "the subprocess {process} to finish", "que termine el subproceso {process}");
         T("say.sim.completed", "The case ended with the result {result}.", "El caso terminó con el resultado {result}.");
         T("say.sim.cancelled", "The case was cancelled.", "El caso se canceló.");
@@ -88,7 +88,7 @@ internal static partial class AuthoringText
         T("proposal.why", "Why: {summary}", "Motivo: {summary}");
         T("proposal.changes", "What changes:", "Qué cambia:");
         T("proposal.behaviour", "What happens to the tests of the earlier version:", "Qué pasa con las pruebas de la versión anterior:");
-        T("proposal.tests", "Tests: {pass} of {total} pass. {covered} of {routes} routes are taken by a test.", "Pruebas: {pass} de {total} pasan. Una prueba recorre {covered} de {routes} rutas.");
+        T("proposal.tests", "Tests: {pass} of {total} pass. The tests take {covered} of {routes} routes.", "Pruebas: {pass} de {total} pasan. Las pruebas recorren {covered} de {routes} rutas.");
         T("proposal.gap", "Accepted knowingly {what}. Why: {reason}", "Aceptado a sabiendas {what}. Motivo: {reason}");
         T("proposal.gap.route", "at {step}, for the route taken {route}, which no test takes", "en {step}, para la ruta que se toma {route}, que ninguna prueba recorre");
         T("proposal.gap.wait", "at {step}, for the wait without a time limit", "en {step}, para la espera sin límite de tiempo");

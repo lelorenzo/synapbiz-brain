@@ -460,8 +460,8 @@ internal static class SimulationTools
             OutstandingEffect effect => AuthoringText.Text(locale, "say.sim.out.effect", ("step", step), ("port", FlowChangeDescriber.Quote(effect.Port))),
             OutstandingTask task => AuthoringText.Text(locale, "say.sim.out.task", ("queue", FlowChangeDescriber.Quote(words.Queue(task.Queue))), ("outcomes", AuthoringText.Join(locale, [.. task.Outcomes.Select(outcome => FlowChangeDescriber.Quote(words.Outcome(outcome)))], "join.or"))),
             OutstandingWait wait => AuthoringText.Text(locale, "say.sim.out.event", ("event", FlowChangeDescriber.Quote(words.Event(wait.Event)))),
-            OutstandingTimer timer => AuthoringText.Text(locale, "say.sim.out.timer", ("due", timer.Due.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture))),
-            OutstandingWindow window => AuthoringText.Text(locale, "say.sim.out.window", ("at", window.OpensAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture))),
+            OutstandingTimer timer => AuthoringText.Text(locale, "say.sim.out.timer", ("due", AuthoringText.Moment(locale, timer.Due))),
+            OutstandingWindow window => AuthoringText.Text(locale, "say.sim.out.window", ("at", AuthoringText.Moment(locale, window.OpensAt))),
             OutstandingChild child => AuthoringText.Text(locale, "say.sim.out.child", ("process", FlowChangeDescriber.Quote(child.ProcessId))),
             _ => string.Empty,
         };

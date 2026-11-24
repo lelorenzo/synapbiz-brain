@@ -48,9 +48,16 @@ internal sealed class BrainMcpTool : McpServerTool
     {
         ArgumentNullException.ThrowIfNull(request);
         var arguments = new JsonObject();
-        foreach (var (name, value) in request.Params?.Arguments ?? new Dictionary<string, JsonElement>())
+        try
         {
-            arguments[name] = JsonSerializer.SerializeToNode(value);
+            foreach (var (name, value) in request.Params?.Arguments ?? new Dictionary<string, JsonElement>())
+            {
+                arguments[name] = JsonSerializer.SerializeToNode(value);
+            }
+        }
+        catch (Exception problem) when (problem is JsonException or InvalidOperationException or ArgumentException)
+        {
+            return BrainMcpAnswers.ToResult(BrainMcpAnswers.TooDeep(Language(new JsonObject { ["language"] = request.Params?.Arguments?.TryGetValue("language", out var asked) == true && asked.ValueKind == JsonValueKind.String ? asked.GetString() : options.DefaultLanguage })));
         }
 
         if (!arguments.ContainsKey("language"))
@@ -83,6 +90,18 @@ internal static class BrainMcpAnswers
             IsError = (bool?)answer["ok"] != true,
         };
     }
+
+    /// <summary>The answer when a document is nested deeper than the protocol reads.</summary>
+    internal static JsonObject TooDeep(string language) => new()
+    {
+        ["ok"] = false,
+        ["error"] = new JsonObject
+        {
+            ["code"] = "mcp.document_too_deep",
+            ["hint"] = "A value is nested deeper than the protocol allows (64 levels). Send a flatter document or fewer nested levels.",
+        },
+        ["say"] = language == "es" ? "El documento tiene demasiados niveles anidados para enviarlo. Pide al asistente que lo simplifique." : "The document has too many nested levels to send. Ask the assistant to simplify it.",
+    };
 
     /// <summary>The answer when the host's authorization says no: the same shape as a refusal of a tool.</summary>
     internal static JsonObject NotAuthorized(string language, string kind, string name) => new()
