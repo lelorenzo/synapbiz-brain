@@ -16,7 +16,7 @@ step find_opportunities [Decision] Find coding opportunities
   onError: If the rule cannot be applied: go to Physician review
 step assist_gate [Decision] Decide whether to ask the assistant
   stage: After the visit
-  does: Judges with the rule `postvisit.assist_gate` using `assist_enabled` and `items`. The result field `use` says where the flow goes.
+  does: Judges with the rule `postvisit.assist_gate` using `assist_enabled` and `items`. The result field `use` says where the process goes.
   on:no: If `use` is `no`: go to Physician review
   on:yes: If `use` is `yes`: go to Ask the assistant
   onNoDecision: If the rule gives no result: go to Physician review
@@ -36,7 +36,7 @@ step suggest [AI answer] Ask the assistant
   ai note: The model and the prompt are fixed in the document: `model-a`, prompt `coding-suggest` version 1.
   ai note: It gets 2 attempts to give an answer that fits the expected form.
   ai note: The rule `postvisit.suggestion_check` judges the answer next.
-  ai note: When the answer never fits, the call fails or the AI is not available, the flow does not stop: it goes on at Physician review.
+  ai note: When the answer never fits, the call fails or the AI is not available, the process does not stop: it goes on at Physician review.
 step check_suggestion [Decision] Check the suggestion
   stage: After the visit
   does: Judges with the rule `postvisit.suggestion_check` using `confidence`. It keeps `suggestion_usable`.

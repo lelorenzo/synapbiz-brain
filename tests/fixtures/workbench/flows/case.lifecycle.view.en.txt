@@ -7,7 +7,7 @@ stage postvisit: After the visit
 stage collection: Collection
 step zone_check [Decision] Check the zone of the case
   stage: Before the visit
-  does: Judges with the rule `lifecycle.zone_ready` using `practice_zone`. The result field `ready` says where the flow goes.
+  does: Judges with the rule `lifecycle.zone_ready` using `practice_zone`. The result field `ready` says where the process goes.
   on:yes: If `ready` is `yes`: go to Pre-visit stage
   onNoDecision: If the rule gives no result: go to Operations: zone missing
   onError: If the rule cannot be applied: go to Operations: zone missing

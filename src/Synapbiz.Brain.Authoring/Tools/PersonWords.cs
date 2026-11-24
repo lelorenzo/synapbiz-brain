@@ -14,6 +14,19 @@ namespace Synapbiz.Brain.Authoring;
 /// </summary>
 internal static partial class PersonWords
 {
+    [GeneratedRegex("`([^`]+)`")]
+    private static partial Regex CodeSpan();
+
+    [GeneratedRegex("^[a-z][a-z_.]*$")]
+    private static partial Regex PlainId();
+
+    /// <summary>
+    /// A sentence of the workbench that marks names with backticks (its screen shows them as code), as a person reads it: every marked name is put
+    /// in quotes, and an identifier made only of lower-case words (<c>claim_status</c>, <c>records.note_status</c>) is written as the words it is made of.
+    /// </summary>
+    internal static string Plain(string? sentence) =>
+        sentence is null ? string.Empty : CodeSpan().Replace(sentence, match => FlowChangeDescriber.Quote(PlainId().IsMatch(match.Groups[1].Value) ? WorkbenchText.Humanize(match.Groups[1].Value) : match.Groups[1].Value));
+
     /// <summary>The sentence for a code of the loaders and the interpreter, with a phrase that says where.</summary>
     internal static string Error(WorkbenchLocale locale, string code, string where)
     {

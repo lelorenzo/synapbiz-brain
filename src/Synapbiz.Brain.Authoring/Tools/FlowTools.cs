@@ -208,7 +208,7 @@ internal static class FlowTools
         result["version"] = process.Version;
         result["description"] = Views.Description(view);
         result["diagram"] = Views.Diagram(FlowGraph.From(process, locale, known));
-        result["scenarios"] = Views.Scenarios(report);
+        result["scenarios"] = Views.Scenarios(report, process, locale);
         result["coverage"] = Views.Coverage(report.Coverage, []);
         var say = AuthoringText.Text(locale, "say.flow.get", ("title", FlowChangeDescriber.Quote(view.Title)), ("version", AuthoringText.Number(process.Version)), ("steps", AuthoringText.Number(view.Steps.Count)), ("pass", AuthoringText.Number(report.Scenarios.Count(item => item.Passed))), ("total", AuthoringText.Number(report.Scenarios.Count)));
         return Results.Ok(say, result);

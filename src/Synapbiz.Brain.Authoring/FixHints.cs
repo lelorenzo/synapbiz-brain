@@ -11,7 +11,7 @@ public static class FixHints
         // The document as a whole.
         ["spec.json.invalid"] = "Send text that is valid JSON with finite numbers and no repeated member name in any object.",
         ["spec.structure.envelope"] = "Give the document `$spec` (for example brain.process@1), a stable `id` of letters, digits, '_', '.' and '-', and the members version, uses, requires, meta and body.",
-        ["spec.structure.unknown_format"] = "Set `$spec` to brain.process@1 for a flow or brain.rule@1 for a rule.",
+        ["spec.structure.unknown_format"] = "Set `$spec` to brain.process@1 for a process or brain.rule@1 for a rule.",
         ["spec.structure.schema"] = "The value at this path breaks the format: compare it with the format reference in brain_guide and fix the member, its type or a member that is not allowed.",
         ["spec.semantics.node"] = "Fix the node at this path: its id or version is not valid.",
         ["spec.semantics.duplicate_id"] = "Give every node of the document its own id.",
@@ -79,7 +79,7 @@ public static class FixHints
         ["process.ai.schema_invalid"] = "Give inputSchema and outputSchema as self-contained JSON Schema objects.",
         ["process.cycle.unbounded"] = "Send the route that goes back through a loop step so that the repetition has a limit.",
         ["process.duration.invalid"] = "Write an ISO 8601 duration of at least one second and at most 3660 days, such as PT30S, PT24H or P3D.",
-        ["process.scenario.invalid"] = "Fix the test: it names a step, variable or event the flow does not have, or is malformed (flow_draft_add_scenario checks one before saving it).",
+        ["process.scenario.invalid"] = "Fix the test: it names a step, variable or event the process does not have, or is malformed (flow_draft_add_scenario checks one before saving it).",
         ["process.action.window_required"] = "Add `window` with the name of a window declared under body.windows, or remove `contact`.",
         ["process.action.interrupt_requires_window"] = "Add `window` to the action or remove `interruptBy`.",
         ["process.window.invalid"] = "Write the window with an IANA zone or {\"variable\": ...}, distinct days from mon to sun, and from/to as HH:mm with from before to.",
@@ -94,7 +94,7 @@ public static class FixHints
         ["process.trigger.variable_not_input"] = "Mark the variable with input: true.",
         ["process.poll.too_many_rounds"] = "Lengthen `every`, use exponential backoff or shorten `maxDuration`: more than 10000 rounds fit.",
         ["process.display.invalid"] = "Write meta.display.<en|es> with a title and the groups stages, steps, results, queues, outcomes, events and windows, each label 1 to 120 characters.",
-        ["process.display.unknown_id"] = "Label an id the flow has, or remove the label.",
+        ["process.display.unknown_id"] = "Label an id the process has, or remove the label.",
 
         // A proposal and the readiness of a draft.
         ["authoring.proposal.needs_review_false"] = "A process proposal always needs review; the file was edited by hand. Write the proposal again with flow_propose.",
@@ -114,7 +114,7 @@ public static class FixHints
         // Running a case.
         ["process.state.malformed"] = "The saved state cannot be read; start a new simulation.",
         ["process.input.unknown"] = "Start the case only with variables declared with input: true.",
-        ["process.definition.mismatch"] = "The case belongs to another version of the flow; start a new simulation.",
+        ["process.definition.mismatch"] = "The case belongs to another version of the process; start a new simulation.",
         ["process.trigger.stale"] = "The case is not waiting for that; look at what it waits for and answer that.",
         ["process.event.not_accepted"] = "Send an event the case is waiting for, or add the event to `accepts`.",
         ["process.task.outcome_unknown"] = "Choose one of the outcomes the task offers.",
@@ -163,7 +163,7 @@ public static class FixHints
         ["workbench.flow_review.unknown_format"] = "Use the format brain.process-review@1.",
         ["workbench.flow_review.malformed"] = "Fix the member at this path.",
         ["workbench.flow_review.stale"] = "The review is for another version of the flow.",
-        ["workbench.flow_review.target_unknown"] = "Mark something the flow has.",
+        ["workbench.flow_review.target_unknown"] = "Mark something the process has.",
         ["workbench.flow_review.scenario_invalid"] = "Fix the proposed test so it is valid for the flow.",
         ["workbench.flow_review.scenario_not_object"] = "Send the proposed test as a JSON object.",
         ["workbench.review.json_invalid"] = "Send a JSON document.",

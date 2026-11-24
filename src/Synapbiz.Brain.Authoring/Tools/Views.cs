@@ -35,11 +35,11 @@ internal static class Views
             ["kind"] = Camel(step.Kind.ToString()),
             ["kindName"] = step.KindName,
             ["stage"] = step.StageLabel,
-            ["sentence"] = step.Sentence,
+            ["sentence"] = PersonWords.Plain(step.Sentence),
             ["routes"] = new JsonArray([.. step.Routes.Select(route => (JsonNode?)new JsonObject
             {
                 ["label"] = route.Label,
-                ["phrase"] = route.Phrase,
+                ["phrase"] = PersonWords.Plain(route.Phrase),
                 ["target"] = route.Target,
                 ["targetLabel"] = route.TargetLabel,
             })]),
@@ -62,17 +62,18 @@ internal static class Views
             ["from"] = edge.From,
             ["to"] = edge.To,
             ["label"] = edge.Label,
-            ["phrase"] = edge.Phrase,
+            ["phrase"] = PersonWords.Plain(edge.Phrase),
             ["happyPath"] = edge.IsHappyPath,
             ["backEdge"] = edge.IsBackEdge,
         })]),
     };
 
-    internal static JsonArray Scenarios(FlowScenarioReport report) =>
+    internal static JsonArray Scenarios(FlowScenarioReport report, BrainProcess process, WorkbenchLocale locale) =>
         new([.. report.Scenarios.Select(result => (JsonNode?)new JsonObject
         {
             ["name"] = result.Name,
             ["passed"] = result.Passed,
+            ["say"] = result.Passed ? null : PersonWords.ScenarioFailure(locale, result.Failure, process),
             ["failure"] = result.Failure,
             ["trace"] = Strings(result.Trace),
         })]);

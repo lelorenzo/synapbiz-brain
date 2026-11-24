@@ -15,7 +15,7 @@ step check [Lectura] Revisar lo que falta
   onNotAvailable: Si la conexión no está disponible: ir a Seguimiento final de recepción
 step assess [Decisión] Decidir si se recuerda
   stage: Antes de la visita
-  does: Decide con la regla `previsit.missing_items` usando `missing`. El campo de resultado `action` indica adónde va el flujo.
+  does: Decide con la regla `previsit.missing_items` usando `missing`. El campo de resultado `action` indica adónde va el proceso.
   on:none: Si `action` es `none`: ir a Listo para la visita
   on:some: Si `action` es `some`: ir a Enviar recordatorio
   onNoDecision: Si la regla no da resultado: ir a Seguimiento de recepción

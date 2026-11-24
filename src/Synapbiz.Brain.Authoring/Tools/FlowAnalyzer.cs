@@ -49,7 +49,7 @@ internal static class FlowAnalyzer
             data["description"] = Views.Description(FlowDescriber.Describe(process, locale, known));
             data["diagram"] = Views.Diagram(FlowGraph.From(process, locale, known));
             changes = Changes(context, catalog, draft, process, locale, data);
-            data["scenarios"] = Views.Scenarios(report!);
+            data["scenarios"] = Views.Scenarios(report!, process, locale);
             data["coverage"] = Views.Coverage(report!.Coverage, draft.KnownGaps);
         }
 

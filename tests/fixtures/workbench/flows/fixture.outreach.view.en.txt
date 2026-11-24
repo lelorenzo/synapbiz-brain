@@ -14,7 +14,7 @@ step check [Read] check
   onError: If it fails: go to escalate
 step assess [Decision] assess
   stage: -
-  does: Judges with the rule `previsit.missing_items` using `missing`. The result field `action` says where the flow goes.
+  does: Judges with the rule `previsit.missing_items` using `missing`. The result field `action` says where the process goes.
   on:none: If `action` is `none`: go to done
   on:remind: If `action` is `remind`: go to send
   onNoDecision: If the rule gives no result: go to escalate

@@ -14,7 +14,7 @@ step check [Lectura] check
   onError: Si falla: ir a escalate
 step assess [Decisión] assess
   stage: -
-  does: Decide con la regla `previsit.missing_items` usando `missing`. El campo de resultado `action` indica adónde va el flujo.
+  does: Decide con la regla `previsit.missing_items` usando `missing`. El campo de resultado `action` indica adónde va el proceso.
   on:none: Si `action` es `none`: ir a done
   on:remind: Si `action` es `remind`: ir a send
   onNoDecision: Si la regla no da resultado: ir a escalate
