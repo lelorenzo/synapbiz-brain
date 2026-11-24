@@ -21,7 +21,7 @@ bash tools/parity/check-source-drift.sh <source-checkout>
 dotnet build Synapbiz.Brain.sln -c Release
 dotnet test  Synapbiz.Brain.sln -c Release --no-build --collect:"XPlat Code Coverage"
 NUVORA_ROOT=<source-checkout> dotnet test Synapbiz.Brain.Parity.sln -c Release
-dotnet pack  Synapbiz.Brain.sln -c Release --no-build -o artifacts     # ten packages
+dotnet pack  Synapbiz.Brain.sln -c Release --no-build -o artifacts     # eleven packages
 ```
 
 The drift guard and the live parity solution need a checkout of the source repository at the commit pinned in `tools/parity/SOURCE.lock`; the default solution and CI do not.

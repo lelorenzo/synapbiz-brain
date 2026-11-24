@@ -43,14 +43,29 @@ Two markings are always drawn: the simulation band and pill on Simulate and Test
 | `OnOpenRule` | `EventCallback<string>` | Raised with a rule id when the reader chooses a rule chip, so the host can show the rule in `RuleWorkbench`. Not handled: the chip is plain text. |
 | `RuleAuthorities` | `IReadOnlyDictionary<string, string>?` | The authority code each rule states (`RuleClaims.From(rule.Meta).Authority`), by rule id. The map has only the process documents, so the host reads its rules and passes this. |
 | `AuthorityLabels` | `IReadOnlyDictionary<string, string>?` | The label of each authority code. A rule whose code has no label gets no badge. |
+| `LiveSource` | `IFlowLiveSource?` | The host's source of the cases open now. Null: the Live view is not drawn at all (no button, no call). Set: the view bar offers "Live". The component only reads. |
+| `OnOpenCase` | `EventCallback<string>` | Raised with the opaque reference of a case when the reader chooses it in the list. The path is drawn whether or not it is handled. |
+| `LiveRefreshToken` | `object?` | A value the host changes to make the live view read again; compared with `Equals`. `Refresh()` does the same from code. |
 
 `Session.View` (`FlowWorkbenchView.Map` or `List`, default Map), `Session.ProcessOpen` and `Session.FullDiagram` keep the view, the process open beside the map and whether its diagram is shown in full. The list order is by kind, so the process selected by default is the first one the list shows, not the first of `Flows`.
+
+## Live
+
+Live (since 0.8.0, [spec](../specs/flow-workbench/spec-h3-map-live.md) section 4; the headless model is in [flow-workbench](flow-workbench.md#live-cases-over-the-map-and-one-case-over-its-diagram)) is a third view, `FlowWorkbenchView.Live`, offered only when `LiveSource` is set:
+
+- **The map with counts.** The map of the processes without the legend and the chips; each main process, phase, subprocess card and scheduled task carries a button with its number of open cases and how many wait for a person ("3 cases, 1 waiting for a person"), or the words "no cases". The header says the total, that nothing updates by itself, and has a "Refresh" button. Cases on a step the document does not have are said apart; a source that stopped counting is said to give a minimum.
+- **The list.** A count opens the opaque references of its cases in a side panel (a phase lists only the cases on the steps of that phase), 25 at a time with "Show more cases". Choosing one raises `OnOpenCase` and shows its path.
+- **One case over its diagram.** The diagram of the version the case runs on (the highest loaded version when that one is not loaded, which `LiveCasePath` then says it cannot explain) with the visited steps drawn with a thick border and a number for the order, the step the case is on with an arrow, and the routes it took in thick strokes: cues that do not depend on colour. Beside it a column with the step, why the case is there, what it waits for, what can happen next and the version. Under it, the same path as an ordered list in text. A history the document cannot explain is replaced by a sentence that says why. Nothing in the view acts on a case.
+- **Loading, empty and failure.** "Loading the open cases…", "No open cases." and, when the source throws, a sentence in an alert that keeps the numbers already drawn and offers "Try again". An answer that arrives after a newer request is ignored.
+- **No polling.** The component reads when the source, `LiveRefreshToken` or the view changes, when the reader chooses something, on the "Refresh" button and on `Refresh()`.
+
+Strings are under `flow.cases.` (English and Spanish, in `WorkbenchStrings.Live.cs`); the styles are the `wb-live-*`, `wb-case*` and `wb-seen-*` rules, which read only existing tokens.
 
 ## Types
 
 - `WorkbenchFlow`: `Key` (required, stable, unique, never shown), `Group`, `Process` (`BrainProcess?`; null makes the flow unreadable), `FallbackTitle`, `StateLine`, `SourceLine`. There is no text of the document: the content hash of a review comes from the loaded process.
 - `FlowWorkbenchSession`: selected flow, tab and step (the step is cleared when the flow changes); per flow the marks and notes, the proposed tests, the current try-out and the replay; `Reviewer`; `UnexportedFlowCount`; `Clear()`; `Changed`.
-- `FlowWorkbenchView`: `Map` and `List`.
+- `FlowWorkbenchView`: `Map`, `List` and (with a `LiveSource`) `Live`.
 - `FlowWorkbenchTab`: `Read`, `Diagram`, `Try` (shown as "Simulate"), `Tests`, `Review`.
 - `FlowWorkbenchExport` and `FlowWorkbenchExportFile` (`SuggestedName`, `Json`, `Review`): one file for each flow with a mark, a note or a proposed test, named `review-<flow id>-v<version>.json`.
 
@@ -100,5 +115,7 @@ The styles are `wb-*` classes in `wwwroot/workbench.css` and read only `--wb-*` 
 ## Demo and screenshots
 
 `samples/Synapbiz.Brain.Workbench.Demo` serves the page `/flows` with the six reference flows (query parameters `theme=light|dark` and `locale=es|en`). Its answer source is called "Demo answers": it takes the first non-failing answer of the embedded tests. Start it as described in [rule-workbench-panels](rule-workbench-panels.md#demo-and-screenshots) and run `node screenshots.mjs <url> <folder> flows` (the fourth argument is `all`, `rules`, `flows` or `map`). It writes `wf-list`, `wf-read`, `wf-diagram`, `wf-try` (mid-run, the Simulate tab), `wf-replay` (a test replayed one command) and `wf-review` in Spanish light, `-dark`, `-narrow` and `-dark-narrow`, and in English `-light-en` and `-light-en-narrow`, and `wf-diagram-<flow id>-light` for the Diagram tab of each of the six flows (Spanish, light, wide), as PNG files. The demo is not packable.
+
+Since 0.8.0 the page also gives the component a scripted, in-memory live source (`DemoLive`: open cases made by replaying the embedded scenarios, with synthetic references such as `demo-0037`, nothing that names or looks like a person), and the argument `live` writes `pl-map` (the map with counts), `pl-list` (the cases of one process) and `pl-case` (one case over its diagram), light and dark, Spanish and English, wide, and narrow in the light theme.
 
 Since 0.8.0 the page also takes the host parameters of the map (synthetic labels, authorities and a no-op `OnOpenRule`), and the argument `map` writes `pm-map`, `pm-list` (the list by kind), `pm-open` (a process open beside the map), `pm-diagram` (the full diagram with its symbols and labels) and `pm-rule-sources` (the rule page `/` with the sources and authority of the intake rule, from synthetic source records) in Spanish and English, light and dark, wide and `-narrow`, and `pm-diagram-case.lifecycle-light` and `pm-diagram-collection.followup-light`. The flow pictures `wf-*` now choose the List view first, because the map is the default.

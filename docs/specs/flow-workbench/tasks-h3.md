@@ -1,6 +1,6 @@
 # Tasks: H3, the process map and Live
 
-Spec: [spec-h3-map-live.md](spec-h3-map-live.md). Part A is the wording, the kinds, the map, the diagram vocabulary and the sources of a rule (version 0.8.0). Part B (Live, section 4 of the spec) is open.
+Spec: [spec-h3-map-live.md](spec-h3-map-live.md). Part A is the wording, the kinds, the map, the diagram vocabulary and the sources of a rule (version 0.8.0). Part B (Live, section 4 of the spec) is done, with the polish list, and the version is 0.8.0.
 
 ## 1. Wording
 
@@ -22,10 +22,16 @@ Spec: [spec-h3-map-live.md](spec-h3-map-live.md). Part A is the wording, the kin
 - [x] `RuleClaims`, `meta.sources` accepted by the loader, `rule_list` filters, `rule_get`, the differ and `claims_changed`
 - [x] `RuleWorkbench`: sources block, authority badge, `SourceLabels`, `AuthorityLabels`; `FlowWorkbench`: `RuleAuthorities`, `AuthorityLabels`
 
-## 4. Live (open)
+## 4. Live
 
-- [ ] The Live tab: counts, the path of a case replayed from a scripted history, an unexplained history, no source
-- [ ] An optional live source parameter of `FlowWorkbench` (the component is ready for it: nothing in part A assumes there is none)
+- [x] Headless: `IFlowLiveSource`, `ProcessMapLive`, `LiveCasePath`, the path of every prefix of every scripted history of the six reference documents in both languages, an unexplained history, no source
+- [x] The adapter over the cockpit queries, in the new package `Synapbiz.Brain.Workbench.Postgres` (mapping table in `process-host-postgres.md`), integration tests and an architecture test
+- [x] The Live view of `FlowWorkbench`: optional `LiveSource`, `OnOpenCase`, `LiveRefreshToken`, `Refresh()`, counts, list, one case over its diagram, loading, empty and failure states, both languages
+- [x] Demo (`/flows`) with a scripted synthetic source; `screenshots.mjs live` writes the `pl-*` pictures
+
+## Polish
+
+- [x] Group heading once when every process has the same group; subprocess cards at the same height; node text clear of the symbol and the folded corner; legend closed while a process is open; `pm-*` pictures regenerated
 
 ## Demo and screenshots
 
@@ -34,4 +40,4 @@ Spec: [spec-h3-map-live.md](spec-h3-map-live.md). Part A is the wording, the kin
 ## Documents and release
 
 - [x] `docs/reference/flow-workbench-panels.md`, `flow-workbench.md`, `rule-workbench-panels.md`, `brain-authoring.md`, `docs/architecture/overview.md`, `docs/consuming.md`, `CHANGELOG.md`
-- [ ] Version 0.8.0 in `Directory.Build.props` (not bumped here: the release is after part B)
+- [x] Version 0.8.0 in `Directory.Build.props`

@@ -65,7 +65,7 @@ public sealed class FlowLiveTests
                 path.Routes.Count.Should().BeLessThanOrEqualTo(Math.Max(0, entered.Count - 1));
                 var open = live.Status is ProcessStatus.Running or ProcessStatus.Waiting or ProcessStatus.Suspended;
                 path.CurrentStep.Should().Be(open ? live.CurrentStep : null);
-                path.Steps.Where(step => step.IsCurrent).Select(step => step.Id).Should().Equal(path.CurrentStep is null ? [] : [path.CurrentStep]);
+                path.Steps.Where(step => step.IsCurrent).Select(step => step.Id).Should().Equal(path.CurrentStep is null ? Array.Empty<string>() : new[] { path.CurrentStep });
                 path.Waiting.Should().NotBeNullOrWhiteSpace();
                 path.Side!.Version.Should().Be(outline.Version);
                 path.Side.CurrentStep.Should().Be(path.CurrentStep is null ? null : FlowWords.For(process, locale, Children).Step(path.CurrentStep));
