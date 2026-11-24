@@ -72,6 +72,7 @@ public static partial class WorkbenchStrings
         ("read.optional", "opcional", "optional"),
         ("read.sources", "Fuentes que sigue", "Sources it follows"),
         ("read.authority", "Autoridad: {label}", "Authority: {label}"),
+        ("read.authority.label", "Autoridad", "Authority"),
         ("read.source.version", "versión {version}", "version {version}"),
         ("read.source.unreadable", "Entrada de fuente que no se puede leer", "Source entry not readable"),
         ("read.source.differences", "En qué se diferencia de la fuente", "How it differs from the source"),

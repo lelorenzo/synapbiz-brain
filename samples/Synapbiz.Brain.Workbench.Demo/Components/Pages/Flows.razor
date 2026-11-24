@@ -4,11 +4,12 @@
 @using Synapbiz.Brain.Workbench.Blazor
 @inject FlowWorkbenchSession Session
 @inject DemoFlows Demo
+@inject NavigationManager Navigation
 
 <div class="demo" data-theme="@ThemeName">
     <DemoHeader Page="flows" Theme="@ThemeName" Locale="@LocaleName" />
     <main class="demo-main">
-        <FlowWorkbench Flows="Demo.For(Locale)" Locale="Locale" Session="Session" Now="Clock" Zones="Demo.Zones" AnswerSource="Demo.Answers" OnExport="SaveNowhere" />
+        <FlowWorkbench Flows="Demo.For(Locale)" Locale="Locale" Session="Session" Now="Clock" Zones="Demo.Zones" AnswerSource="Demo.Answers" OnExport="SaveNowhere" MapLabels="DemoFlows.MapLabels(Locale)" RuleAuthorities="Demo.RuleAuthorities" AuthorityLabels="DemoFlows.AuthorityLabels(Locale)" OnOpenRule="OpenRule" />
     </main>
 </div>
 
@@ -26,6 +27,9 @@
     private string LocaleName => Locale == WorkbenchLocale.Es ? "es" : "en";
 
     private static DateTimeOffset Clock() => DateTimeOffset.UtcNow;
+
+    /// <summary>The demo has no rule screen for the rules of the reference flows: it goes to the rule panel with its own example rules.</summary>
+    private void OpenRule(string id) => Navigation.NavigateTo($"/?theme={ThemeName}&locale={LocaleName}");
 
     /// <summary>The demo saves nothing: it names a fixed place and writes no file.</summary>
     private Task<string?> SaveNowhere(FlowWorkbenchExport export) =>

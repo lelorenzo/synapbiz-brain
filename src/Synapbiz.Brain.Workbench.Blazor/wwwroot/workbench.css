@@ -1340,6 +1340,7 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(200px, 1fr);
+  align-items: start;
   margin-top: 12px;
 }
 
@@ -1348,7 +1349,6 @@
 }
 
 .wb-phase-h {
-  height: 100%;
   padding: 8px 10px;
   border: 1px solid var(--wb-line);
   background: var(--wb-surface-head);
@@ -1483,6 +1483,21 @@
 
 .wb-badge-authority {
   margin-left: 6px;
+}
+
+.wb-chips li {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.wb-chip {
+  flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.wb-chip .wb-badge {
+  white-space: nowrap;
 }
 
 .wb-claims {

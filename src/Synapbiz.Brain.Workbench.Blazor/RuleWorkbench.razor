@@ -436,7 +436,7 @@
     private RenderFragment SourcesFragment(RuleClaims claims, string? authority) => @<section class="wb-claims" aria-labelledby="@(idp + "-sources")">
         @if (authority is not null)
         {
-            <p class="wb-sub wb-claims-authority">@Plain("read.authority", ("label", authority)) @AuthorityBadge(authority)</p>
+            <p class="wb-sub wb-claims-authority">@Plain("read.authority.label")@(": ")@AuthorityBadge(authority)</p>
         }
         @if (claims.Sources.Count > 0)
         {

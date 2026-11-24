@@ -3,8 +3,10 @@
 // the draft in Read, the test cases that change, the Changes tab and the discard dialog).
 // The flow panels (the /flows page) are captured too: the list, Read, Diagram, Simulate in the middle of a run, a replay and Review, in
 // Spanish and English, wide and narrow, as wf-<state>-<theme>[-en][-narrow].png, and the Diagram tab of each flow in Spanish light as wf-diagram-<flow id>-light.png.
+// The process map (H3) is captured as pm-<state>-<theme>[-en][-narrow].png: the map, the list by kind, a process open beside the map, the full
+// diagram of a process with its symbols and labels, the diagram of case.lifecycle in Spanish light, and a rule with its sources and authority (the / page).
 // Run the demo first:  dotnet run -c Release --urls http://127.0.0.1:5219
-// Then:                node screenshots.mjs [baseUrl] [outputFolder] [all|rules|flows]
+// Then:                node screenshots.mjs [baseUrl] [outputFolder] [all|rules|flows|map]
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
 
@@ -13,9 +15,10 @@ const { chromium } = require('playwright');
 
 const base = process.argv[2] ?? 'http://127.0.0.1:5219';
 const out = process.argv[3] ?? '/mnt/project-files/app-local/reglas/capturas';
-const only = process.argv[4] ?? 'all'; // 'all', 'rules' or 'flows'
-const doRules = only !== 'flows';
-const doFlows = only !== 'rules';
+const only = process.argv[4] ?? 'all'; // 'all', 'rules', 'flows' or 'map' (the pm- pictures alone)
+const doRules = only === 'all' || only === 'rules';
+const doFlows = only === 'all' || only === 'flows';
+const doMap = only === 'all' || only === 'map';
 mkdirSync(out, { recursive: true });
 
 const text = {
@@ -54,11 +57,13 @@ const flowText = {
     tabs: { read: 'Leer', diagram: 'Diagrama', try: 'Simular', tests: 'Pruebas', review: 'Revisión' },
     like: 'Empezar como la prueba', start: 'Empezar', useAnswer: 'Usar esta respuesta', replay: 'Reproducir', next: 'Siguiente paso', fix: 'Corregir', confirm: 'Confirmar',
     note: 'Nota', reviewer: 'Su nombre', person: 'Revisor de ejemplo', noteText: '¿Es suficiente con tres recordatorios?',
+    viewList: 'Lista', viewMap: 'Mapa', openFull: 'Abrir el diagrama completo', openCard: /^Contacto previo a la visita/,
   },
   en: {
     tabs: { read: 'Read', diagram: 'Diagram', try: 'Simulate', tests: 'Tests', review: 'Review' },
     like: 'Start like the test', start: 'Start', useAnswer: 'Use this answer', replay: 'Replay', next: 'Next step', fix: 'Needs a fix', confirm: 'Confirm',
     note: 'Note', reviewer: 'Your name', person: 'Example reviewer', noteText: 'Are three reminders enough?',
+    viewList: 'List', viewMap: 'Map', openFull: 'Open the full diagram', openCard: /^Previsit outreach/,
   },
 };
 
@@ -304,7 +309,15 @@ async function flows(theme, locale, narrow) {
     await settle(page);
   };
 
-  // The first flow of the list is previsit.outreach.
+  // The map is the first view now; the list is chosen here. The list is by kind, so previsit.outreach is its second entry (the main process is first).
+  await page.getByRole('button', { name: t.viewList, exact: true }).click();
+  await settle(page);
+  if (narrow) {
+    await page.locator('select.wb-list-select').selectOption({ index: 1 });
+  } else {
+    await page.locator('ul.wb-rules .wb-rule').nth(1).click();
+  }
+  await settle(page);
   await snap('list');
 
   await tab('read');
@@ -363,12 +376,15 @@ if (doRules) {
 
 /** The Diagram tab of every reference flow, in Spanish and the light theme, wide. */
 async function diagrams() {
-  const ids = ['previsit.outreach', 'visit.note_wait', 'postvisit.coding_review', 'collection.followup', 'case.lifecycle', 'practice.daily_refresh'];
+  // The order of the list by kind: the main process, the subprocesses, the scheduled task.
+  const ids = ['case.lifecycle', 'previsit.outreach', 'visit.note_wait', 'postvisit.coding_review', 'collection.followup', 'practice.daily_refresh'];
   const t = flowText.es;
   const context = await browser.newContext({ viewport: { width: 1408, height: 1025 }, deviceScaleFactor: 2, locale: 'es-ES' });
   const page = await context.newPage();
   await page.goto(`${base}/flows?theme=light&locale=es`);
   await page.waitForSelector('.wb-root .wb-tabs');
+  await settle(page);
+  await page.getByRole('button', { name: t.viewList, exact: true }).click();
   await settle(page);
   await page.getByRole('tab', { name: t.tabs.diagram }).click();
   await settle(page);
@@ -380,6 +396,90 @@ async function diagrams() {
   }
 
   await context.close();
+}
+
+/** The process map pictures: wide (1408) or narrow (480) in one language and theme. */
+async function maps(theme, locale, narrow) {
+  const t = flowText[locale];
+  const viewport = narrow ? { width: 480, height: 900 } : { width: 1408, height: 1025 };
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 2, locale: locale === 'es' ? 'es-ES' : 'en-US' });
+  const page = await context.newPage();
+  const suffix = (locale === 'en' ? '-en' : '') + (narrow ? '-narrow' : '');
+  const snap = async (state) => {
+    await page.screenshot({ path: `${out}/pm-${state}-${theme}${suffix}.png`, fullPage: true });
+    console.log(`wrote pm-${state}-${theme}${suffix}.png`);
+  };
+  await page.goto(`${base}/flows?theme=${theme}&locale=${locale}`);
+  await page.waitForSelector('.wb-root .wb-viewbar');
+  await settle(page);
+  await snap('map');
+
+  await page.getByRole('button', { name: t.viewList, exact: true }).click();
+  await settle(page);
+  await snap('list');
+
+  await page.getByRole('button', { name: t.viewMap, exact: true }).click();
+  await settle(page);
+  await page.locator('button.wb-card-btn').filter({ hasText: locale === 'es' ? 'Contacto previo' : 'Pre-visit' }).first().click();
+  await settle(page);
+  await snap('open');
+
+  await page.getByRole('button', { name: t.openFull }).first().click();
+  await settle(page);
+  await snap('diagram');
+  await context.close();
+}
+
+/** The diagram of the flow with the most routes, which is the one that shows a numbered mark if any does (Spanish, light, wide). */
+async function mapDiagram(id, index) {
+  const context = await browser.newContext({ viewport: { width: 1408, height: 1025 }, deviceScaleFactor: 2, locale: 'es-ES' });
+  const page = await context.newPage();
+  await page.goto(`${base}/flows?theme=light&locale=es`);
+  await page.waitForSelector('.wb-root .wb-viewbar');
+  await settle(page);
+  await page.getByRole('button', { name: 'Lista', exact: true }).click();
+  await settle(page);
+  await page.locator('ul.wb-rules .wb-rule').nth(index).click();
+  await settle(page);
+  await page.getByRole('tab', { name: 'Diagrama' }).click();
+  await settle(page);
+  await page.screenshot({ path: `${out}/pm-diagram-${id}-light.png`, fullPage: true });
+  console.log(`wrote pm-diagram-${id}-light.png`);
+  await context.close();
+}
+
+/** A rule with its sources and authority, on the rule page (the intake rule, the second of the list). */
+async function ruleClaims(theme, locale, narrow) {
+  const viewport = narrow ? { width: 480, height: 900 } : { width: 1408, height: 1025 };
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 2, locale: locale === 'es' ? 'es-ES' : 'en-US' });
+  const page = await context.newPage();
+  await page.goto(`${base}/?theme=${theme}&locale=${locale}`);
+  await page.waitForSelector('.wb-root .wb-rule', { state: 'attached' });
+  await settle(page);
+  if (narrow) {
+    await page.locator('select.wb-list-select').selectOption({ index: 1 });
+  } else {
+    await page.locator('.wb-rule').nth(1).click();
+  }
+  await settle(page);
+  const suffix = (locale === 'en' ? '-en' : '') + (narrow ? '-narrow' : '');
+  await page.locator('section.wb-claims').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/pm-rule-sources-${theme}${suffix}.png`, fullPage: true });
+  console.log(`wrote pm-rule-sources-${theme}${suffix}.png`);
+  await context.close();
+}
+
+if (doMap) {
+  for (const theme of ['light', 'dark']) {
+    for (const locale of ['es', 'en']) {
+      for (const narrow of [false, true]) {
+        await maps(theme, locale, narrow);
+        await ruleClaims(theme, locale, narrow);
+      }
+    }
+  }
+  await mapDiagram('case.lifecycle', 0);
+  await mapDiagram('collection.followup', 4);
 }
 
 if (doFlows) {

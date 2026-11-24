@@ -33,6 +33,12 @@ Two markings are always drawn: the simulation band and pill on Simulate and Test
 | `Now` | `Func<DateTimeOffset>` (required) | The host's clock. The library has none: the date of a simulation and the time of an export come from here. |
 | `OnExport` | `Func<WorkbenchExport, Task<string?>>?` | Saves an export and returns the place to name in "saved to {place}", or `null` to say it without a place. When the parameter is not set, the export button is not drawn. |
 | `TextOverrides` | `IReadOnlyDictionary<string, string>?` | Replaces fixed strings by key for the current locale; see [String keys](#string-keys). |
+| `SourceLabels` | `IReadOnlyDictionary<string, string>?` | Since 0.8.0. The label of each source a rule cites in `meta.sources[].source`, in the language of `Locale`. A source with no label is shown as code. |
+| `AuthorityLabels` | `IReadOnlyDictionary<string, string>?` | Since 0.8.0. The label of each authority code a rule states in `meta.authority`. A code with no label gets no badge. |
+
+### Sources and authority (0.8.0)
+
+A rule may state, in its open `meta` object, the sources it follows and its authority; the panel only shows what the document says and names no source of its own (`RuleClaims.From(rule.Meta)` reads it for a host as well). `meta.sources` is an array of entries `{ "source", "version", "relation": "implements" | "adapts" | "informed_by", "differences": [{ "en", "es" }] }` and `meta.authority` a code such as `payment_condition`, `payer_measured`, `recommendation` or `local_preference`. The Read tab ends with a block "Sources it follows": one line for each entry with the host's label (or the id as code), the version and the relation as a fixed phrase ("implements", "adapts", "is informed by"), and the differences as a list in the language of the panel. An entry with an unknown relation or a wrong shape, or a `sources` member that is not an array, is shown as "Source entry not readable" and the rest is shown. The authority is a badge on the list line and on the Read tab when the host gives a label for its code. A change in `meta.sources` or `meta.authority` between two revisions is listed in plain words by the change view and makes a rule proposal need review (`claims_changed`).
 
 ### `WorkbenchRule`
 

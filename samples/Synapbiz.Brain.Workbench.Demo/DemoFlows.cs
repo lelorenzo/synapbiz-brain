@@ -49,6 +49,63 @@ internal sealed class DemoFlows
         ["America/Los_Angeles"] = TimeSpan.FromHours(-8),
     };
 
+    /// <summary>The authority each rule of the reference flows states, by rule id. The codes are the demo's; a host reads them from its rules with <c>RuleClaims.From(rule.Meta).Authority</c>.</summary>
+    public IReadOnlyDictionary<string, string> RuleAuthorities { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["collection.claim_progress"] = "payment_condition",
+        ["collection.claim_result"] = "payer_measured",
+        ["postvisit.opportunities"] = "recommendation",
+        ["previsit.missing_items"] = "local_preference",
+    };
+
+    /// <summary>The label of each authority code of the demo, for a language.</summary>
+    /// <param name="locale">The language.</param>
+    internal static IReadOnlyDictionary<string, string> AuthorityLabelsFor(WorkbenchLocale locale) => locale == WorkbenchLocale.Es
+        ? new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["payment_condition"] = "Condición de pago",
+            ["payer_measured"] = "Medida por el pagador",
+            ["recommendation"] = "Recomendación",
+            ["local_preference"] = "Preferencia local",
+        }
+        : new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["payment_condition"] = "Payment condition",
+            ["payer_measured"] = "Payer measured",
+            ["recommendation"] = "Recommendation",
+            ["local_preference"] = "Local preference",
+        };
+
+    /// <summary>The label of each authority code, for a language.</summary>
+    /// <param name="locale">The language.</param>
+    public static IReadOnlyDictionary<string, string> AuthorityLabels(WorkbenchLocale locale) => AuthorityLabelsFor(locale);
+
+    /// <summary>
+    /// The names the map shows for the rules and connectors of the reference flows, for a language (keys from <c>ProcessMap.LabelKey</c>).
+    /// Two connectors and one rule are left out on purpose, so that the map also shows a name it has no label for, as code.
+    /// </summary>
+    /// <param name="locale">The language.</param>
+    public static IReadOnlyDictionary<string, string> MapLabels(WorkbenchLocale locale)
+    {
+        var es = locale == WorkbenchLocale.Es;
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["rule:lifecycle.zone_ready"] = es ? "Siguiente fase del caso" : "Next phase of the case",
+            ["rule:previsit.missing_items"] = es ? "Qué falta para la visita" : "What is missing for the visit",
+            ["rule:visit.note_ready"] = es ? "La nota está lista" : "The note is ready",
+            ["rule:postvisit.opportunities"] = es ? "Oportunidades de codificación" : "Coding opportunities",
+            ["rule:postvisit.suggestion_check"] = es ? "Aceptar la propuesta" : "Accept the proposal",
+            ["rule:collection.claim_progress"] = es ? "Avance del reclamo" : "Claim progress",
+            ["rule:collection.claim_result"] = es ? "Encaminar el reclamo" : "Route the claim",
+            ["connector:intake.requirements"] = es ? "Requisitos de ingreso" : "Intake requirements",
+            ["connector:messaging.reminder"] = es ? "Mensaje al paciente" : "Message to the patient",
+            ["connector:records.note_status"] = es ? "Historia clínica" : "Medical record",
+            ["connector:records.note_facts"] = es ? "Datos de la nota" : "Note facts",
+            ["connector:claims.status"] = es ? "Estado del reclamo" : "Claim status",
+            ["queue:front_desk"] = es ? "Recepción" : "Front desk",
+        };
+    }
+
     /// <summary>The scripted source of answers, named "Demo answers".</summary>
     public IFlowAnswerSource Answers { get; }
 
