@@ -8,7 +8,7 @@ using Synapbiz.Brain.Workbench.Flows;
 namespace Synapbiz.Brain.Workbench.Blazor;
 
 /// <summary>
-/// The flow workbench: a list of flows and, for the selected flow, five tabs to read it in plain language, see it as a diagram, try it
+/// The process workbench: a map of the processes and a list of them grouped by kind and, for the selected process, five tabs to read it in plain language, see it as a diagram, try it
 /// with a made-up case on a virtual clock, see which routes the tests cover, and review it and export the review. Every sentence,
 /// graph, simulation step, coverage figure and review document comes from the headless <c>Synapbiz.Brain.Workbench.Flows</c> library;
 /// the panels add presentation only. Nothing here edits a flow. The host styles it with the <c>--wb-*</c> custom properties of
@@ -34,6 +34,8 @@ public sealed partial class FlowWorkbench : IDisposable
     private UiText text = new(WorkbenchLocale.En, null);
     private string? pendingFocus;
     private IReadOnlyList<WorkbenchFlow>? builtFor;
+    private IReadOnlyDictionary<string, string>? builtLabels;
+    private ProcessMap? processMap;
     private WorkbenchLocale builtLocale;
     private IReadOnlyList<FlowEntry> library = [];
     private List<BrainProcess> known = [];
@@ -74,6 +76,29 @@ public sealed partial class FlowWorkbench : IDisposable
     [Parameter]
     public Func<FlowWorkbenchExport, Task<string?>>? OnExport { get; set; }
 
+    /// <summary>
+    /// The host's labels for what the processes use, for the current language, by key: <c>rule:</c>, <c>connector:</c>, <c>queue:</c> or
+    /// <c>ai:</c> and the name as the document writes it. A label the document gives itself (<c>meta.display</c>) wins; a name with no
+    /// label at all is shown as code.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? MapLabels { get; set; }
+
+    /// <summary>
+    /// Raised with the id of a rule when the reader chooses its chip on the map, so the host can switch to <c>RuleWorkbench</c>. When it
+    /// has no handler the chip is not a link.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnOpenRule { get; set; }
+
+    /// <summary>The authority code a rule states in <c>meta.authority</c>, by rule id (for example from <c>RuleClaims.From(rule.Meta).Authority</c>); a rule that is not listed has no badge.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? RuleAuthorities { get; set; }
+
+    /// <summary>The host's label for each authority code, in the current language. A code with no label draws no badge on the chip of a rule.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? AuthorityLabels { get; set; }
+
     /// <summary>Replaces fixed strings by key for the current locale. The markings ignore an empty replacement.</summary>
     [Parameter]
     public IReadOnlyDictionary<string, string>? TextOverrides { get; set; }
@@ -94,6 +119,12 @@ public sealed partial class FlowWorkbench : IDisposable
 
             Session.Changed += OnSessionChanged;
             subscribedTo = Session;
+        }
+
+        if (!ReferenceEquals(builtLabels, MapLabels) || !ReferenceEquals(builtFor, Flows) || builtLocale != Locale)
+        {
+            processMap = null;
+            builtLabels = MapLabels;
         }
 
         if (!ReferenceEquals(builtFor, Flows) || builtLocale != Locale)
@@ -287,22 +318,50 @@ public sealed partial class FlowWorkbench : IDisposable
 
     private sealed record ListGroup(int Ordinal, string? Heading, List<ListEntry> Entries);
 
-    private List<ListGroup> FlowGroups()
+    /// <summary>The processes of one kind (or the ones that could not be read, with no kind), under the host's own headings.</summary>
+    private sealed record KindSection(int Ordinal, FlowKind? Kind, List<ListGroup> Groups);
+
+    /// <summary>
+    /// The list by kind: main processes, subprocesses, scheduled tasks, then the processes that could not be read. Inside a kind the
+    /// processes keep the host's order and the host's group headings stay as a second level, drawn each time the group changes.
+    /// </summary>
+    private List<KindSection> KindSections()
     {
-        var groups = new List<ListGroup>();
         var flows = Flows ?? [];
-        for (var index = 0; index < flows.Count; index++)
+        var sections = new List<KindSection>();
+        FlowKind?[] order = [FlowKind.Main, FlowKind.Subprocess, FlowKind.Scheduled, null];
+        foreach (var kind in order)
         {
-            if (groups.Count == 0 || !string.Equals(groups[^1].Heading, flows[index].Group, StringComparison.Ordinal))
+            var groups = new List<ListGroup>();
+            for (var index = 0; index < flows.Count; index++)
             {
-                groups.Add(new ListGroup(groups.Count + 1, flows[index].Group, []));
+                if (KindOf(flows[index]) != kind)
+                {
+                    continue;
+                }
+
+                if (groups.Count == 0 || !string.Equals(groups[^1].Heading, flows[index].Group, StringComparison.Ordinal))
+                {
+                    groups.Add(new ListGroup(groups.Count + 1, flows[index].Group, []));
+                }
+
+                groups[^1].Entries.Add(new ListEntry(flows[index], index));
             }
 
-            groups[^1].Entries.Add(new ListEntry(flows[index], index));
+            if (groups.Count > 0)
+            {
+                sections.Add(new KindSection(sections.Count + 1, kind, groups));
+            }
         }
 
-        return groups;
+        return sections;
     }
+
+    /// <summary>The kind of a process; null when it could not be read.</summary>
+    private FlowKind? KindOf(WorkbenchFlow flow) => Data(flow)?.Entry.Kind;
+
+    /// <summary>The processes in the order the list shows them, as positions in <see cref="Flows"/>.</summary>
+    private List<int> DisplayOrder() => [.. KindSections().SelectMany(section => section.Groups).SelectMany(group => group.Entries).Select(entry => entry.Index)];
 
     private WorkbenchFlow? SelectedFlow
     {
@@ -310,7 +369,12 @@ public sealed partial class FlowWorkbench : IDisposable
         {
             var flows = Flows ?? [];
             var chosen = flows.FirstOrDefault(flow => string.Equals(flow.Key, Session.SelectedFlowKey, StringComparison.Ordinal));
-            return chosen ?? (flows.Count > 0 ? flows[0] : null);
+            if (chosen is not null || flows.Count == 0)
+            {
+                return chosen;
+            }
+
+            return flows[DisplayOrder() is [var first, ..] ? first : 0];
         }
     }
 
@@ -371,12 +435,13 @@ public sealed partial class FlowWorkbench : IDisposable
             return;
         }
 
-        var current = Math.Max(0, Flows.ToList().FindIndex(flow => string.Equals(flow.Key, SelectedFlow?.Key, StringComparison.Ordinal)));
-        var next = Math.Clamp(current + (args.Key == "ArrowDown" ? 1 : -1), 0, Flows.Count - 1);
+        var shown = DisplayOrder();
+        var current = Math.Max(0, shown.FindIndex(index => string.Equals(Flows[index].Key, SelectedFlow?.Key, StringComparison.Ordinal)));
+        var next = Math.Clamp(current + (args.Key == "ArrowDown" ? 1 : -1), 0, shown.Count - 1);
         if (next != current)
         {
-            pendingFocus = FlowRef(next);
-            SelectFlow(Flows[next].Key);
+            pendingFocus = FlowRef(shown[next]);
+            SelectFlow(Flows[shown[next]].Key);
         }
     }
 
@@ -395,6 +460,11 @@ public sealed partial class FlowWorkbench : IDisposable
         if (d.Entry.Triggers.Count > 0)
         {
             return d.Entry.Triggers[0] + (d.Entry.Triggers.Count > 1 ? Plain("flow.list.moreTriggers", ("n", Number(d.Entry.Triggers.Count - 1))) : string.Empty);
+        }
+
+        if (d.Entry.NoStartDefined)
+        {
+            return Plain("flow.map.noStart");
         }
 
         return d.Entry.StartedBy.Count > 0

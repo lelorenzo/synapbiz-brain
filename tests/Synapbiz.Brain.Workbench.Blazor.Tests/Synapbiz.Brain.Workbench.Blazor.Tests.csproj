@@ -22,6 +22,7 @@
     <!-- The flow documents the headless tests run on (the six reference documents and the fixtures), compiled here as they are. -->
     <Compile Include="../Synapbiz.Brain.Workbench.Tests/FlowDocs.cs" Link="FlowTests/FlowDocs.cs" />
     <Compile Include="../Synapbiz.Brain.Workbench.Tests/TestFiles.cs" Link="FlowTests/TestFiles.cs" />
+    <Compile Include="../Synapbiz.Brain.Workbench.Tests/MapDocs.cs" Link="FlowTests/MapDocs.cs" />
   </ItemGroup>
 
   <ItemGroup>

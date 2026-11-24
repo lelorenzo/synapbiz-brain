@@ -1080,6 +1080,512 @@
   font-weight: 500;
 }
 
+/* ----- process map, kinds and icons --------------------------------------------------------------------------------------- */
+
+.wb-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.wb-i {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wb-viewbar {
+  display: inline-flex;
+  margin: 0 0 12px;
+  border: 1px solid var(--wb-control-edge);
+  border-radius: var(--wb-radius-sm);
+  overflow: hidden;
+}
+
+.wb-kind {
+  margin: 14px 18px 6px;
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wb-ink-2);
+}
+
+.wb-kindmark,
+.wb-mapkey-i dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 6px;
+  border-radius: var(--wb-radius-sm);
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+}
+
+.wb-kindmark.wb-k-main,
+.wb-mapkey-i dt.wb-k-main {
+  color: var(--wb-kind-main);
+  background: var(--wb-kind-main-soft);
+}
+
+.wb-kindmark.wb-k-sub,
+.wb-mapkey-i dt.wb-k-sub {
+  color: var(--wb-kind-sub);
+  background: var(--wb-kind-sub-soft);
+}
+
+.wb-kindmark.wb-k-sch,
+.wb-mapkey-i dt.wb-k-sch {
+  color: var(--wb-kind-scheduled);
+  background: var(--wb-kind-scheduled-soft);
+}
+
+.wb-start > .wb-i,
+.wb-mapkey-i dt.wb-k-ev {
+  color: var(--wb-kind-event);
+  background: var(--wb-kind-event-soft);
+}
+
+.wb-chip.wb-k-rule,
+.wb-mapkey-i dt.wb-k-rule {
+  color: var(--wb-kind-rule);
+  background: var(--wb-kind-rule-soft);
+}
+
+.wb-chip.wb-k-con,
+.wb-mapkey-i dt.wb-k-con {
+  color: var(--wb-kind-connector);
+  background: var(--wb-kind-connector-soft);
+}
+
+.wb-chip.wb-k-per,
+.wb-mapkey-i dt.wb-k-per {
+  color: var(--wb-kind-person);
+  background: var(--wb-kind-person-soft);
+}
+
+.wb-chip.wb-k-ai,
+.wb-mapkey-i dt.wb-k-ai {
+  color: var(--wb-kind-ai);
+  background: var(--wb-kind-ai-soft);
+}
+
+.wb-mapgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.wb-mapgrid.wb-open {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 480px);
+}
+
+.wb-mapgrid.wb-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.wb-side {
+  align-self: start;
+}
+
+.wb-mapbody {
+  padding-top: 12px;
+}
+
+.wb-mapkey {
+  padding: 10px 12px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface-head);
+}
+
+.wb-mapkey-t,
+.wb-lane-h {
+  margin: 0 0 6px;
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wb-ink-2);
+}
+
+.wb-lane-h {
+  margin-top: 18px;
+}
+
+.wb-mapkey-l {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.wb-mapkey-i {
+  margin: 0;
+}
+
+.wb-mapkey-i dd {
+  margin: 4px 0 0;
+}
+
+.wb-mapkey-i dt {
+  border: 1px solid var(--wb-line);
+}
+
+.wb-starts,
+.wb-lane-l,
+.wb-cards,
+.wb-chips,
+.wb-end-l,
+.wb-phases,
+.wb-crumb-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-start {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.wb-arr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--wb-ink-2);
+  font-size: var(--wb-text-small);
+}
+
+.wb-frame {
+  margin-top: 8px;
+  padding: 12px 14px 14px;
+  border: 2px solid var(--wb-kind-main);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface);
+}
+
+.wb-frame-h {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wb-frame-h .wb-meta {
+  margin-top: 0;
+}
+
+.wb-frame-t {
+  margin: 0;
+  font-size: var(--wb-text-title);
+  font-weight: 700;
+}
+
+.wb-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-frame-btn {
+  display: inline;
+  width: auto;
+  font-size: inherit;
+  font-weight: 700;
+}
+
+.wb-card-t {
+  font-weight: 700;
+}
+
+.wb-card-btn .wb-meta {
+  margin-top: 0;
+}
+
+.wb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--wb-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wb-phases {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(200px, 1fr);
+  margin-top: 12px;
+}
+
+.wb-phase {
+  min-width: 0;
+}
+
+.wb-phase-h {
+  height: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--wb-line);
+  background: var(--wb-surface-head);
+  font-weight: 600;
+}
+
+.wb-phase + .wb-phase .wb-phase-h {
+  border-left: 0;
+}
+
+.wb-phase-t {
+  display: block;
+}
+
+.wb-phase-e {
+  display: block;
+  font-weight: 400;
+  color: var(--wb-ink-2);
+  font-size: var(--wb-text-label);
+}
+
+.wb-cards {
+  padding: 0 8px 8px;
+}
+
+.wb-stem {
+  position: relative;
+  height: 26px;
+}
+
+.wb-stem::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 4px;
+  border-left: 2px solid var(--wb-kind-sub);
+}
+
+.wb-stem::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 4px);
+  bottom: 0;
+  border: 5px solid transparent;
+  border-top-color: var(--wb-kind-sub);
+  border-bottom: 0;
+}
+
+.wb-stem em {
+  position: absolute;
+  left: calc(50% + 8px);
+  top: 4px;
+  font-style: normal;
+  font-size: var(--wb-text-label);
+  color: var(--wb-ink-2);
+}
+
+.wb-card {
+  padding: 10px 12px;
+  border: 1.5px solid var(--wb-kind-sub);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface);
+}
+
+.wb-card.wb-sel,
+.wb-schc.wb-sel,
+.wb-frame-btn.wb-sel {
+  border-color: var(--wb-selected-edge);
+  background: var(--wb-selected);
+}
+
+.wb-also {
+  display: block;
+  margin-top: 4px;
+}
+
+.wb-uses {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--wb-line);
+}
+
+.wb-uses .wb-meta {
+  margin-top: 0;
+}
+
+.wb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.wb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius-sm);
+  font-size: var(--wb-text-small);
+}
+
+.wb-chip .wb-i {
+  width: 13px;
+  height: 13px;
+}
+
+.wb-chip-btn {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wb-badge {
+  padding: 0 6px;
+  border: 1px solid var(--wb-neutral-edge);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-neutral-bg);
+  color: var(--wb-neutral-ink);
+  font-size: var(--wb-text-label);
+  font-weight: 600;
+}
+
+.wb-shared {
+  margin-top: 6px;
+}
+
+.wb-shared-i {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wb-shared-i .wb-meta {
+  margin-top: 0;
+}
+
+.wb-ends {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.wb-ends .wb-meta {
+  margin-top: 0;
+}
+
+.wb-end-l {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wb-end {
+  padding: 4px 14px;
+  border: 2px solid var(--wb-ink);
+  border-radius: 999px;
+  background: var(--wb-surface);
+  font-size: var(--wb-text-label);
+}
+
+.wb-schc {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--wb-kind-scheduled);
+  border-radius: var(--wb-radius);
+  background: var(--wb-kind-scheduled-soft);
+}
+
+.wb-schc .wb-card-btn {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  width: auto;
+  gap: 10px;
+}
+
+.wb-schc .wb-meta {
+  margin-top: 0;
+}
+
+.wb-crumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--wb-line);
+  background: var(--wb-surface-head);
+  font-size: var(--wb-text-small);
+}
+
+.wb-crumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wb-crumb-list li + li::before {
+  content: "\203a";
+  margin-right: 6px;
+  color: var(--wb-muted);
+}
+
+.wb-crumb-list li[aria-current="page"] {
+  font-weight: 700;
+}
+
+.wb-crumb-btn {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wb-ink-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wb-back {
+  display: none;
+}
+
 /* ----- narrow screens and motion ------------------------------------------------------------------------------------------ */
 
 @media (max-width: 1100px) {
@@ -1093,6 +1599,27 @@
 
   .wb-list-select-wrap {
     display: block;
+  }
+
+  .wb-mapgrid.wb-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wb-mapgrid.wb-open .wb-mapview {
+    display: none;
+  }
+
+  .wb-phases {
+    grid-auto-flow: row;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .wb-phase + .wb-phase .wb-phase-h {
+    border-left: 1px solid var(--wb-line);
+  }
+
+  .wb-back {
+    display: inline-flex;
   }
 }
 
@@ -1288,7 +1815,10 @@
   list-style: none;
 }
 
-.wb-group-section {
+.wb-group-section,
+.wb-lane,
+.wb-card-li,
+.wb-kind-section {
   margin: 0;
 }
 

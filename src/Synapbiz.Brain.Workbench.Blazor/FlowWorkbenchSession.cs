@@ -14,6 +14,10 @@ public sealed class FlowWorkbenchSession
     private FlowWorkbenchTab selectedTab;
     private string? selectedStepId;
     private string reviewer = string.Empty;
+    private FlowWorkbenchView view;
+    private bool processOpen;
+    private bool fullDiagram;
+    private string? openedFromId;
 
     /// <summary>Raised after any change of the session, whoever made it.</summary>
     public event EventHandler? Changed;
@@ -61,6 +65,68 @@ public sealed class FlowWorkbenchSession
         }
     }
 
+    /// <summary>The view that is shown: the map (the default) or the list.</summary>
+    public FlowWorkbenchView View
+    {
+        get => view;
+        set
+        {
+            if (view != value)
+            {
+                view = value;
+                Touch();
+            }
+        }
+    }
+
+    /// <summary>True when, in the map, a process is open beside it. The list always shows the selected process, whatever this says.</summary>
+    public bool ProcessOpen
+    {
+        get => processOpen;
+        set
+        {
+            if (processOpen != value)
+            {
+                processOpen = value;
+                if (!value)
+                {
+                    fullDiagram = false;
+                    openedFromId = null;
+                }
+
+                Touch();
+            }
+        }
+    }
+
+    /// <summary>True when the diagram of the open process has the whole width and the map is hidden.</summary>
+    public bool FullDiagram
+    {
+        get => fullDiagram;
+        set
+        {
+            if (fullDiagram != value)
+            {
+                fullDiagram = value;
+                Touch();
+            }
+        }
+    }
+
+    /// <summary>The id of the process whose phase the open process was chosen from, for the breadcrumb; null when it was not chosen from a phase.</summary>
+    internal string? OpenedFromId
+    {
+        get => openedFromId;
+        set
+        {
+            if (!string.Equals(openedFromId, value, StringComparison.Ordinal))
+            {
+                openedFromId = value;
+                Touch();
+            }
+        }
+    }
+
     /// <summary>The reviewer's name, as it is written in an exported review. Never null.</summary>
     public string Reviewer
     {
@@ -90,6 +156,10 @@ public sealed class FlowWorkbenchSession
         selectedStepId = null;
         selectedTab = FlowWorkbenchTab.Read;
         reviewer = string.Empty;
+        view = FlowWorkbenchView.Map;
+        processOpen = false;
+        fullDiagram = false;
+        openedFromId = null;
         Touch();
     }
 

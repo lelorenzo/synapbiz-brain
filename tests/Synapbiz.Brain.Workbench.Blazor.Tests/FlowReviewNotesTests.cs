@@ -192,6 +192,7 @@ public sealed class FlowReviewNotesTests
         using var harness = new FlowHarness();
         harness.Ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         harness.Session.Reviewer = "Sam";
+        harness.Session.View = FlowWorkbenchView.List;
         var cut = harness.Ctx.RenderComponent<FlowWorkbench>(parameters => parameters
             .Add(component => component.Flows, FlowHarness.Reference())
             .Add(component => component.Session, harness.Session)

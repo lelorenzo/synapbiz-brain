@@ -395,7 +395,7 @@ public static partial class WorkbenchStrings
         ("row.restoreFor", "Restaurar la fila {n}", "Restore row {n}"),
     ];
 
-    private static readonly (string Key, string Es, string En)[] Table = [.. CoreTable, .. FlowTable()];
+    private static readonly (string Key, string Es, string En)[] Table = [.. CoreTable, .. FlowTable(), .. MapTable()];
 
     private static readonly Dictionary<string, (string Es, string En)> ByKey = Table.ToDictionary(
         entry => entry.Key, entry => (entry.Es, entry.En), StringComparer.Ordinal);

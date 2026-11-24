@@ -68,7 +68,10 @@ public sealed class FlowMountingTests
         using var harness = new FlowHarness();
         var flows = FlowHarness.Reference();
         harness.Render([.. flows.Take(2), new WorkbenchFlow { Key = "x", Group = "Other group", Process = flows[2].Process }]);
-        harness.FindAll("h3.wb-group").Select(heading => heading.TextContent).Should().Equal("Reference flows", "Other group");
+        // Since 0.8.0 the list is grouped by kind first (an h3), and the host's group headings are the second level (an h4).
+        // None of these three is started by a loaded process, so all of them are main processes.
+        harness.FindAll("h3.wb-kind").Select(heading => heading.TextContent).Should().Equal("Main processes");
+        harness.FindAll("h4.wb-group").Select(heading => heading.TextContent).Should().Equal("Reference flows", "Other group");
         harness.FindAll("button.wb-rule").Should().HaveCount(3);
         harness.Find("button.wb-rule[aria-current=true]").Should().NotBeNull();
     }
@@ -92,11 +95,13 @@ public sealed class FlowMountingTests
         using var harness = new FlowHarness();
         var flows = FlowHarness.Reference();
         harness.Render(flows);
+
+        // The list shows the main process first, then the four subprocesses, then the scheduled task: the second line is the first reference flow.
         harness.FindAll("button.wb-rule")[1].Click();
-        harness.Session.SelectedFlowKey.Should().Be(flows[1].Key);
+        harness.Session.SelectedFlowKey.Should().Be(flows[0].Key);
         var focus = harness.FocusCount;
         harness.FindAll("button.wb-rule")[1].KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "ArrowDown" });
-        harness.Session.SelectedFlowKey.Should().Be(flows[2].Key);
+        harness.Session.SelectedFlowKey.Should().Be(flows[1].Key);
         harness.FocusCount.Should().BeGreaterThan(focus);
     }
 
