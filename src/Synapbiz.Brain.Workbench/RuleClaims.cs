@@ -85,15 +85,14 @@ public sealed record RuleClaims
         _ => throw new ArgumentOutOfRangeException(nameof(relation), relation, "Unknown relation."),
     });
 
-    /// <summary>True when the sources or the authority of the two documents differ (the text of the members, as canonical JSON, is compared).</summary>
+    /// <summary>True when the sources or the authority of the two documents differ. The parsed values are compared, so the order of the members of an entry (<c>source</c>, <c>version</c> and so on) does not matter; the order of the entries and of the differences does.</summary>
     /// <param name="before">The <c>meta</c> of the earlier revision.</param>
     /// <param name="after">The <c>meta</c> of the later revision.</param>
     public static bool Differ(JsonObject before, JsonObject after)
     {
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
-        return !string.Equals(Canonical(before["sources"]), Canonical(after["sources"]), StringComparison.Ordinal)
-            || !string.Equals(Canonical(before["authority"]), Canonical(after["authority"]), StringComparison.Ordinal);
+        return !JsonNode.DeepEquals(before["sources"], after["sources"]) || !JsonNode.DeepEquals(before["authority"], after["authority"]);
     }
 
     /// <summary>
@@ -168,8 +167,6 @@ public sealed record RuleClaims
     }
 
     private static string Code(string value) => "`" + value + "`";
-
-    private static string Canonical(JsonNode? node) => node is null ? string.Empty : node.ToJsonString();
 
     private static string? ReadAuthority(JsonNode? node) =>
         node is JsonValue value && value.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : null;

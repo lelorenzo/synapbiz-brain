@@ -59,6 +59,9 @@ internal static partial class AuthoringText
         T("say.rule.ready", "The draft of the rule {title} is accepted and its tests pass ({pass} of {total}).", "El borrador de la regla {title} se acepta y sus pruebas pasan ({pass} de {total}).");
         T("say.rule.failing", "The draft of the rule {title} is accepted, but some of its tests do not pass (how many: {n}). The first: {name}.", "El borrador de la regla {title} se acepta, pero algunas de sus pruebas no pasan (cuántas: {n}). La primera: {name}.");
         T("rule.source.unreadable", "source entry not readable", "entrada de fuente no legible");
+        T("say.rule.sources.unreadable.one", "One source entry of this rule cannot be read (see its sources).", "Una entrada de fuente de esta regla no se puede leer (véanse sus fuentes).");
+        T("say.rule.sources.unreadable.other", "{n} source entries of this rule cannot be read (see its sources).", "{n} entradas de fuente de esta regla no se pueden leer (véanse sus fuentes).");
+        T("say.rule.list.unreadable", "Rules with a source entry that cannot be read: {ids}.", "Reglas con una entrada de fuente que no se puede leer: {ids}.");
         T("say.rule.list.source", "Rules that cite the source {source}: {n}.", "Reglas que citan la fuente {source}: {n}.");
         T("say.rule.list.authority", "Rules that state the authority {authority}: {n}.", "Reglas que declaran la autoridad {authority}: {n}.");
         T("say.rule.list.both", "Rules that cite the source {source} and state the authority {authority}: {n}.", "Reglas que citan la fuente {source} y declaran la autoridad {authority}: {n}.");

@@ -89,6 +89,17 @@ internal static class RuleAnalyzer
         return new RuleAnalysis(data, say, rule, before, ready, reasons);
     }
 
+    /// <summary>The number of entries of <c>meta.sources</c> that cannot be read.</summary>
+    internal static int UnreadableSources(BrainRule rule) => RuleClaims.From(rule.Meta).Sources.Count(entry => !entry.IsReadable);
+
+    /// <summary>A sentence, with a leading space, that says in words how many source entries of the rule cannot be read; empty when all can.</summary>
+    internal static string UnreadableSentence(BrainRule rule, WorkbenchLocale locale) => UnreadableSources(rule) switch
+    {
+        0 => string.Empty,
+        1 => " " + AuthoringText.Text(locale, "say.rule.sources.unreadable.one"),
+        var count => " " + AuthoringText.Text(locale, "say.rule.sources.unreadable.other", ("n", AuthoringText.Number(count))),
+    };
+
     /// <summary>The sources a rule cites, one object for each entry of <c>meta.sources</c>: readable entries with their words, the rest as <c>readable: false</c>.</summary>
     internal static JsonArray SourcesJson(BrainRule rule, WorkbenchLocale locale) => new([.. RuleClaims.From(rule.Meta).Sources.Select(entry => entry.Source is not { } cited
         ? (JsonNode?)new JsonObject { ["readable"] = false, ["index"] = entry.Index, ["say"] = AuthoringText.Text(locale, "rule.source.unreadable") }

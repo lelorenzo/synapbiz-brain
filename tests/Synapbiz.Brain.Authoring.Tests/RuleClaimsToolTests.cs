@@ -126,6 +126,34 @@ public sealed class RuleClaimsToolTests
         sources[0]!["differences"]!.AsArray().Single()!.GetValue<string>().Should().Be("Usa un umbral menor.");
         sources[1]!["readable"]!.GetValue<bool>().Should().BeFalse();
         sources[1]!["say"]!.GetValue<string>().Should().Be("entrada de fuente no legible");
+        answer["say"]!.GetValue<string>().Should().EndWith("Una entrada de fuente de esta regla no se puede leer (véanse sus fuentes).");
+        tools.Invoke("rule_get", Obj("""{"id":"visit.note_ready"}"""))["say"]!.GetValue<string>().Should().EndWith("One source entry of this rule cannot be read (see its sources).");
+        tools.Invoke("rule_get", Obj("""{"id":"intake-routing"}"""))["say"]!.GetValue<string>().Should().NotContain("cannot be read");
+    }
+
+    [Fact]
+    public void Rule_list_says_in_words_which_rules_have_a_source_entry_that_cannot_be_read()
+    {
+        var tools = Tools();
+
+        var all = tools.Invoke("rule_list", new JsonObject());
+        all["say"]!.GetValue<string>().Should().Contain("Rules with a source entry that cannot be read: “visit.note_ready”.");
+        var ready = all["rules"]!.AsArray().Single(item => item!["id"]!.GetValue<string>() == "visit.note_ready")!;
+        ready["unreadableSources"]!.GetValue<int>().Should().Be(1);
+        ready["sources"]!.AsArray().Should().HaveCount(1, "only the readable ones are named");
+        all["rules"]!.AsArray().Single(item => item!["id"]!.GetValue<string>() == "intake-routing")!["unreadableSources"]!.GetValue<int>().Should().Be(0);
+
+        tools.Invoke("rule_list", Obj("""{"language":"es"}"""))["say"]!.GetValue<string>().Should().Contain("Reglas con una entrada de fuente que no se puede leer:");
+        tools.Invoke("rule_list", Obj("""{"authority":"payment_condition"}"""))["say"]!.GetValue<string>().Should().NotContain("cannot be read");
+    }
+
+    [Fact]
+    public void A_source_entry_with_the_members_in_another_order_is_not_a_change_that_needs_review()
+    {
+        var one = Rule(WithMeta(IntakeRule, """{"sources":[{"source":"a","version":"1","relation":"adapts","differences":[{"en":"x","es":"y"}]}]}"""), IntakeContract);
+        var reordered = Rule(WithMeta(IntakeRule, """{"sources":[{"differences":[{"es":"y","en":"x"}],"relation":"adapts","version":"1","source":"a"}]}"""), IntakeContract);
+
+        RuleReviewNeed.Reasons(one, reordered).Should().BeEmpty();
     }
 
     [Fact]

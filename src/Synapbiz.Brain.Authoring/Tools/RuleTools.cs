@@ -133,6 +133,7 @@ internal static class RuleTools
 
         var rules = new JsonArray();
         var notLoading = new JsonArray();
+        var unreadable = new List<string>();
         var source = AuthoringJson.Text(input["source"])?.Trim();
         var authority = AuthoringJson.Text(input["authority"])?.Trim();
         source = string.IsNullOrEmpty(source) ? null : source;
@@ -165,13 +166,23 @@ internal static class RuleTools
                 ["tests"] = rule.Goldens.Count,
                 ["authority"] = claims.Authority,
                 ["sources"] = new JsonArray([.. claims.Readable.Select(cited => (JsonNode?)JsonValue.Create(cited.Source))]),
+                ["unreadableSources"] = claims.Sources.Count(entry => !entry.IsReadable),
             });
+            if (claims.Sources.Any(entry => !entry.IsReadable))
+            {
+                unreadable.Add(item.Id);
+            }
         }
 
         var drafts = new JsonArray([.. context.Store.ListDrafts(DocumentKind.Rule).Select(id => (JsonNode?)new JsonObject { ["id"] = id })]);
         var firstBroken = context.ApprovedRules(catalog).FirstOrDefault(item => item.Rule is null && item.Errors.Count > 0);
         var broken = firstBroken is null ? string.Empty : " " + AuthoringText.Text(locale, "say.list.broken", ("k", AuthoringText.Number(notLoading.Count)), ("id", FlowChangeDescriber.Quote(firstBroken.Id)), ("first", PersonWords.Error(locale, firstBroken.Errors[0], AuthoringJson.TryObject(firstBroken.Text))));
         var say = AuthoringText.Text(locale, "say.rule.list", ("n", AuthoringText.Number(rules.Count)), ("d", AuthoringText.Number(drafts.Count)), ("broken", broken));
+        if (unreadable.Count > 0)
+        {
+            say += " " + AuthoringText.Text(locale, "say.rule.list.unreadable", ("ids", string.Join(", ", unreadable.Select(FlowChangeDescriber.Quote))));
+        }
+
         if (source is not null || authority is not null)
         {
             var key = (source, authority) switch
@@ -206,7 +217,7 @@ internal static class RuleTools
             var analysis = RuleAnalyzer.Analyze(context, catalog, id, draft, locale);
             analysis.Data["source"] = "draft";
             analysis.Data["document"] = AuthoringJson.TryParse(draft.Text);
-            return Results.Ok(analysis.Say, analysis.Data);
+            return Results.Ok(analysis.Say + (analysis.Rule is { } drafted ? RuleAnalyzer.UnreadableSentence(drafted, locale) : string.Empty), analysis.Data);
         }
 
         var approved = context.ApprovedRule(catalog, id);
@@ -226,7 +237,7 @@ internal static class RuleTools
         var tests = RuleTester.Run(rule);
         data["view"] = RuleAnalyzer.ViewJson(rule, view, locale);
         data["tests"] = RuleAnalyzer.TestsJson(tests);
-        var say = AuthoringText.Text(locale, "say.rule.get", ("title", FlowChangeDescriber.Quote(PersonWords.RuleTitle(rule, view))), ("version", AuthoringText.Number(rule.Version)), ("rows", AuthoringText.Number(view.Rows.Count)), ("pass", AuthoringText.Number(tests.PassedCount)), ("total", AuthoringText.Number(tests.Cases.Count)));
+        var say = AuthoringText.Text(locale, "say.rule.get", ("title", FlowChangeDescriber.Quote(PersonWords.RuleTitle(rule, view))), ("version", AuthoringText.Number(rule.Version)), ("rows", AuthoringText.Number(view.Rows.Count)), ("pass", AuthoringText.Number(tests.PassedCount)), ("total", AuthoringText.Number(tests.Cases.Count))) + RuleAnalyzer.UnreadableSentence(rule, locale);
         return Results.Ok(say, data);
     }
 

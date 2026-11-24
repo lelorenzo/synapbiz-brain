@@ -182,4 +182,31 @@ public sealed class RuleClaimsTests
         var withRows = RuleChangeDescriber.Describe(TestFiles.LoadIntake("intake.first.rule.json"), v2, labels, labels, WorkbenchLocale.En);
         withRows.ClaimChanges.Should().BeEmpty();
     }
+
+    [Fact]
+    public void A_change_of_the_authority_alone_is_a_difference_and_the_same_authority_is_not()
+    {
+        var before = Meta("""{"title":"a","authority":"recommendation"}""");
+
+        RuleClaims.Differ(before, Meta("""{"title":"a","authority":"payer_measured"}""")).Should().BeTrue();
+        RuleClaims.Differ(before, Meta("""{"title":"a"}""")).Should().BeTrue();
+        RuleClaims.Differ(Meta("""{"title":"a"}"""), before).Should().BeTrue();
+        RuleClaims.Differ(before, Meta("""{"title":"b","authority":"recommendation"}""")).Should().BeFalse("only the claims count");
+        RuleClaims.Changes(before, Meta("""{"title":"a","authority":"payer_measured"}"""), WorkbenchLocale.En)
+            .Should().Equal("The authority of the rule changed from `recommendation` to `payer_measured`.");
+    }
+
+    [Fact]
+    public void The_order_of_the_members_of_a_source_entry_does_not_make_a_difference_but_a_value_does()
+    {
+        var one = Meta("""{"sources":[{"source":"a","version":"1","relation":"adapts","differences":[{"en":"x","es":"y"}]}]}""");
+        var reordered = Meta("""{"sources":[{"differences":[{"es":"y","en":"x"}],"relation":"adapts","version":"1","source":"a"}]}""");
+        var other = Meta("""{"sources":[{"differences":[{"es":"z","en":"x"}],"relation":"adapts","version":"1","source":"a"}]}""");
+        var swapped = Meta("""{"sources":[{"source":"a","version":"1","relation":"implements"},{"source":"b","version":"1","relation":"implements"}]}""");
+        var swappedBack = Meta("""{"sources":[{"source":"b","version":"1","relation":"implements"},{"source":"a","version":"1","relation":"implements"}]}""");
+
+        RuleClaims.Differ(one, reordered).Should().BeFalse();
+        RuleClaims.Differ(one, other).Should().BeTrue();
+        RuleClaims.Differ(swapped, swappedBack).Should().BeTrue("the order of the entries is the document's");
+    }
 }
