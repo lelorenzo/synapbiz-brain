@@ -52,6 +52,18 @@ internal static partial class SentenceTemplates
         ["change.moves.many"] = "Moves {n} rows.",
         ["change.hitPolicy"] = "The hit policy changes.",
         ["change.noResult"] = "no result",
+        ["claims.relation.implements"] = "implements",
+        ["claims.relation.adapts"] = "adapts",
+        ["claims.relation.informed_by"] = "is informed by",
+        ["claims.source.added"] = "The rule now cites the source {source}, version {version}, which it {relation}.",
+        ["claims.source.removed"] = "The rule no longer cites the source {source}.",
+        ["claims.source.version"] = "The rule follows the source {source} in version {now} instead of version {was}.",
+        ["claims.source.relation"] = "The rule {now} the source {source} where it used to {was}.",
+        ["claims.source.differences"] = "The differences from the source {source} changed.",
+        ["claims.authority.set"] = "The rule now states its authority: {authority}.",
+        ["claims.authority.cleared"] = "The rule no longer states its authority ({authority}).",
+        ["claims.authority.changed"] = "The authority of the rule changed from {was} to {now}.",
+        ["claims.other"] = "What the rule says about its sources changed.",
         ["change.outcomes"] = "; ",
     };
 
@@ -98,8 +110,31 @@ internal static partial class SentenceTemplates
         ["change.moves.many"] = "Mueve {n} filas.",
         ["change.hitPolicy"] = "Cambia la política de coincidencia.",
         ["change.noResult"] = "sin resultado",
+        ["claims.relation.implements"] = "implementa",
+        ["claims.relation.adapts"] = "adapta",
+        ["claims.relation.informed_by"] = "se inspira en",
+        ["claims.source.added"] = "La regla ahora cita la fuente {source}, versión {version}, que {relation}.",
+        ["claims.source.removed"] = "La regla ya no cita la fuente {source}.",
+        ["claims.source.version"] = "La regla sigue la fuente {source} en la versión {now} en lugar de la versión {was}.",
+        ["claims.source.relation"] = "La regla {now} la fuente {source} donde antes {was}.",
+        ["claims.source.differences"] = "Cambiaron las diferencias con la fuente {source}.",
+        ["claims.authority.set"] = "La regla ahora declara su autoridad: {authority}.",
+        ["claims.authority.cleared"] = "La regla ya no declara su autoridad ({authority}).",
+        ["claims.authority.changed"] = "La autoridad de la regla cambió de {was} a {now}.",
+        ["claims.other"] = "Cambió lo que la regla dice sobre sus fuentes.",
         ["change.outcomes"] = "; ",
     };
+
+    /// <summary>The keys of the English table, for the tests that read every template.</summary>
+    internal static IReadOnlyCollection<string> EnglishKeys => English.Keys;
+
+    /// <summary>The keys of the Spanish table, for the tests that read every template.</summary>
+    internal static IReadOnlyCollection<string> SpanishKeys => Spanish.Keys;
+
+    /// <summary>The raw template of a key in a language, placeholders unfilled; for the tests.</summary>
+    /// <param name="locale">The language.</param>
+    /// <param name="key">The key.</param>
+    internal static string Template(WorkbenchLocale locale, string key) => Table(locale)[key];
 
     /// <summary>The template of <paramref name="key"/> in the locale, with its <c>{name}</c> placeholders filled from <paramref name="parameters"/>.</summary>
     internal static string Text(WorkbenchLocale locale, string key, params (string Name, string Value)[] parameters)

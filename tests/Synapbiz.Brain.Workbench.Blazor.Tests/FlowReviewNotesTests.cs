@@ -176,14 +176,14 @@ public sealed class FlowReviewNotesTests
         var listed = FlowHarness.Reference().Where(flow => flow.Key != "visit.note_wait").ToList();
         harness.Cut.SetParametersAndRender(parameters => parameters.Add(component => component.Flows, listed));
         harness.Open(FlowWorkbenchTab.Review);
-        harness.PanelText.Should().Contain("1 flow with unexported work is no longer in the list.");
+        harness.PanelText.Should().Contain("1 process with unexported work is no longer in the list.");
         harness.Press("Export the review");
         harness.Exports.Should().HaveCount(1);
         harness.Exports[0].Files.Should().ContainSingle().Which.SuggestedName.Should().Contain("previsit.outreach");
         harness.Session.UnexportedFlowCount.Should().Be(1);
         harness.Session.Work("previsit.outreach").HasUnexportedChanges.Should().BeFalse();
         harness.Session.Work("visit.note_wait").HasUnexportedChanges.Should().BeTrue();
-        harness.PanelText.Should().Contain("1 flow with unexported work is no longer in the list.");
+        harness.PanelText.Should().Contain("1 process with unexported work is no longer in the list.");
     }
 
     [Fact]
@@ -192,6 +192,7 @@ public sealed class FlowReviewNotesTests
         using var harness = new FlowHarness();
         harness.Ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         harness.Session.Reviewer = "Sam";
+        harness.Session.View = FlowWorkbenchView.List;
         var cut = harness.Ctx.RenderComponent<FlowWorkbench>(parameters => parameters
             .Add(component => component.Flows, FlowHarness.Reference())
             .Add(component => component.Session, harness.Session)

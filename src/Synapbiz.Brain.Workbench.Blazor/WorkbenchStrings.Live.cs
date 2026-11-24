@@ -1,0 +1,81 @@
+namespace Synapbiz.Brain.Workbench.Blazor;
+
+public static partial class WorkbenchStrings
+{
+    /// <summary>The strings of the live view (cases counted over the map, the list of cases, one case over its diagram), every key under the prefix <c>flow.cases.</c> (and the view's own name), in Spanish and English.</summary>
+    private static (string Key, string Es, string En)[] LiveTable() =>
+    [
+        ("flow.view.live", "En vivo", "Live"),
+
+        ("flow.cases.title", "Procesos en vivo", "Live processes"),
+        ("flow.cases.note", "Los casos abiertos ahora, contados sobre el mapa. No se actualiza solo: use Actualizar.", "The cases open now, counted over the map. It does not update by itself: use Refresh."),
+        ("flow.cases.refresh", "Actualizar", "Refresh"),
+        ("flow.cases.loading", "Cargando los casos abiertos…", "Loading the open cases…"),
+        ("flow.cases.updating", "Actualizando…", "Updating…"),
+        ("flow.cases.failed", "La fuente de casos no respondió. Se muestra lo que se tenía.", "The source of cases did not answer. What was drawn before is still shown."),
+        ("flow.cases.failed.none", "La fuente de casos no respondió y no hay cifras que mostrar.", "The source of cases did not answer and there are no numbers to show."),
+        ("flow.cases.retry", "Intentar de nuevo", "Try again"),
+        ("flow.cases.empty", "No hay casos abiertos.", "No open cases."),
+        ("flow.cases.total.one", "{n} caso abierto en total", "{n} open case in all"),
+        ("flow.cases.total.other", "{n} casos abiertos en total", "{n} open cases in all"),
+        ("flow.cases.unplaced.one", "{n} caso está en un paso que el documento no tiene, o aún no entró en ninguno.", "{n} case is on a step the document does not have, or has not entered one yet."),
+        ("flow.cases.unplaced.other", "{n} casos están en un paso que el documento no tiene, o aún no entraron en ninguno.", "{n} cases are on a step the document does not have, or have not entered one yet."),
+        ("flow.cases.partial", "Estas cifras son un mínimo: la fuente dejó de contar.", "These numbers are a minimum: the source stopped counting."),
+
+        ("flow.cases.count.open.one", "{n} caso", "{n} case"),
+        ("flow.cases.count.open.other", "{n} casos", "{n} cases"),
+        ("flow.cases.count.waiting.one", "{n} esperando a una persona", "{n} waiting for a person"),
+        ("flow.cases.count.waiting.other", "{n} esperando a una persona", "{n} waiting for a person"),
+        ("flow.cases.count.none", "sin casos", "no cases"),
+        ("flow.cases.count.process", "Ver los casos de {title}: {counts}", "Show the cases of {title}: {counts}"),
+        ("flow.cases.count.phase", "Ver los casos de la fase {phase} de {title}: {counts}", "Show the cases in the phase {phase} of {title}: {counts}"),
+
+        ("flow.cases.list.label", "Casos abiertos", "Open cases"),
+        ("flow.cases.list.title", "Casos abiertos de {title}", "Open cases of {title}"),
+        ("flow.cases.list.titlePhase", "Casos abiertos de {title}, fase {phase}", "Open cases of {title}, phase {phase}"),
+        ("flow.cases.list.close", "Cerrar la lista", "Close the list"),
+        ("flow.cases.list.more", "Mostrar más casos", "Show more cases"),
+        ("flow.cases.list.empty", "No hay casos abiertos aquí.", "No open cases here."),
+        ("flow.cases.list.noneYet", "Ninguno entre los casos leídos hasta ahora.", "None among the cases read so far."),
+        ("flow.cases.list.loading", "Cargando la lista de casos…", "Loading the list of cases…"),
+        ("flow.cases.list.failed", "No se pudo cargar la lista de casos.", "The list of cases could not be loaded."),
+        ("flow.cases.line.ref", "Caso {ref}", "Case {ref}"),
+        ("flow.cases.line.on", "en {step}", "on {step}"),
+        ("flow.cases.line.notStarted", "aún no entró en un paso", "has not entered a step yet"),
+        ("flow.cases.line.waiting", "espera a una persona", "waits for a person"),
+        ("flow.cases.line.since", "desde {time}", "since {time}"),
+        ("flow.cases.line.version", "versión {version}", "version {version}"),
+        ("flow.cases.line.open", "Abrir el caso {ref}: {facts}", "Open the case {ref}: {facts}"),
+
+        ("flow.cases.case.label", "Un caso sobre el diagrama", "One case over the diagram"),
+        ("flow.cases.case.title", "Caso {ref}", "Case {ref}"),
+        ("flow.cases.case.process", "{title}, versión {version}", "{title}, version {version}"),
+        ("flow.cases.case.back", "Volver a los casos", "Back to the cases"),
+        ("flow.cases.case.backMap", "Volver al mapa en vivo", "Back to the live map"),
+        ("flow.cases.case.loading", "Cargando el caso…", "Loading the case…"),
+        ("flow.cases.case.failed", "No se pudo cargar el caso.", "The case could not be loaded."),
+        ("flow.cases.case.gone", "La fuente ya no tiene este caso: puede haber terminado.", "The source no longer has this case: it may have ended."),
+        ("flow.cases.case.noProcess", "El proceso {id} de este caso no está cargado en el taller.", "The process {id} of this case is not loaded in the workbench."),
+        ("flow.cases.case.unexplained", "No se puede mostrar el recorrido sobre el diagrama. {reason}", "The path cannot be shown over the diagram. {reason}"),
+        ("flow.cases.case.hint", "Cada paso por el que pasó el caso lleva un número de orden y un borde grueso, el paso actual lleva una flecha y las rutas que tomó van en trazo grueso.", "Each step the case went through has a number for the order and a thick border, the step it is on has an arrow and the routes it took are drawn thick."),
+        ("flow.cases.diagram.label", "Recorrido del caso {ref} sobre el diagrama de {title}", "Path of the case {ref} over the diagram of {title}"),
+        ("flow.cases.path.title", "Recorrido del caso", "Path of the case"),
+        ("flow.cases.path.empty", "El caso aún no entró en ningún paso.", "The case has not entered a step yet."),
+        ("flow.cases.path.times", "pasó {n} veces", "entered {n} times"),
+        ("flow.cases.path.here", "aquí ahora", "here now"),
+        ("flow.cases.path.left", "salió así: {phrase}", "left by: {phrase}"),
+        ("flow.cases.node.visited", "visitado, número {n}", "visited, number {n}"),
+
+        ("flow.cases.legend.visited", "Paso por el que pasó el caso; el número es el orden en que entró.", "A step the case went through; the number is the order it entered in."),
+        ("flow.cases.legend.here", "El paso donde está el caso ahora.", "The step the case is on now."),
+        ("flow.cases.legend.taken", "Ruta que tomó el caso.", "A route the case took."),
+
+        ("flow.cases.side.label", "Datos del caso", "Facts of the case"),
+        ("flow.cases.side.step", "Paso actual", "Step it is on"),
+        ("flow.cases.side.why", "Por qué está aquí", "Why it is here"),
+        ("flow.cases.side.waits", "Qué espera", "What it waits for"),
+        ("flow.cases.side.next", "Qué puede pasar después", "What can happen next"),
+        ("flow.cases.side.version", "Versión del proceso", "Version of the process"),
+        ("flow.cases.side.none", "Ninguno", "None"),
+    ];
+}

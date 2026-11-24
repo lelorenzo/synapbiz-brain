@@ -22,6 +22,19 @@ public enum FlowWorkbenchTab
     Review = 4,
 }
 
+/// <summary>The views of the process workbench.</summary>
+public enum FlowWorkbenchView
+{
+    /// <summary>The process map: main processes with their phases and the subprocesses each phase starts, scheduled tasks, shared pieces. The default.</summary>
+    Map = 0,
+
+    /// <summary>The list of processes, grouped by kind.</summary>
+    List = 1,
+
+    /// <summary>The map with the open cases counted on each process and phase, and the path of one case over its diagram. Offered only when the host gives a live source.</summary>
+    Live = 2,
+}
+
 /// <summary>One flow of the list, as the host supplies it.</summary>
 public sealed record WorkbenchFlow
 {

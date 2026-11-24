@@ -120,6 +120,15 @@
   padding: 12px 18px;
 }
 
+.wb-group-once {
+  margin: 12px 18px 0;
+  font-size: var(--wb-text-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wb-muted);
+}
+
 .wb-group {
   margin: 14px 18px 6px;
   font-size: var(--wb-text-label);
@@ -1080,6 +1089,661 @@
   font-weight: 500;
 }
 
+/* ----- process map, kinds and icons --------------------------------------------------------------------------------------- */
+
+.wb-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.wb-i {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wb-viewbar {
+  display: inline-flex;
+  margin: 0 0 12px;
+  border: 1px solid var(--wb-control-edge);
+  border-radius: var(--wb-radius-sm);
+  overflow: hidden;
+}
+
+.wb-kind {
+  margin: 14px 18px 6px;
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wb-ink-2);
+}
+
+.wb-kindmark,
+.wb-mapkey-i dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 6px;
+  border-radius: var(--wb-radius-sm);
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+}
+
+.wb-kindmark.wb-k-main,
+.wb-mapkey-i dt.wb-k-main {
+  color: var(--wb-kind-main);
+  background: var(--wb-kind-main-soft);
+}
+
+.wb-kindmark.wb-k-sub,
+.wb-mapkey-i dt.wb-k-sub {
+  color: var(--wb-kind-sub);
+  background: var(--wb-kind-sub-soft);
+}
+
+.wb-kindmark.wb-k-sch,
+.wb-mapkey-i dt.wb-k-sch {
+  color: var(--wb-kind-scheduled);
+  background: var(--wb-kind-scheduled-soft);
+}
+
+.wb-start > .wb-i,
+.wb-mapkey-i dt.wb-k-ev {
+  color: var(--wb-kind-event);
+  background: var(--wb-kind-event-soft);
+}
+
+.wb-chip.wb-k-rule,
+.wb-mapkey-i dt.wb-k-rule {
+  color: var(--wb-kind-rule);
+  background: var(--wb-kind-rule-soft);
+}
+
+.wb-chip.wb-k-con,
+.wb-mapkey-i dt.wb-k-con {
+  color: var(--wb-kind-connector);
+  background: var(--wb-kind-connector-soft);
+}
+
+.wb-chip.wb-k-per,
+.wb-mapkey-i dt.wb-k-per {
+  color: var(--wb-kind-person);
+  background: var(--wb-kind-person-soft);
+}
+
+.wb-chip.wb-k-ai,
+.wb-mapkey-i dt.wb-k-ai {
+  color: var(--wb-kind-ai);
+  background: var(--wb-kind-ai-soft);
+}
+
+.wb-mapgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+/* The map answers to its own width, not the window's: a process open beside it leaves the map a column of about 900 px at a 1400 px window. */
+.wb-mapview {
+  min-width: 0;
+  container-type: inline-size;
+  container-name: wbmap;
+}
+
+.wb-mapbody,
+.wb-lane {
+  min-width: 0;
+}
+
+.wb-mapgrid.wb-open {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 480px);
+}
+
+.wb-mapgrid.wb-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.wb-side {
+  align-self: start;
+}
+
+.wb-mapbody {
+  padding-top: 12px;
+}
+
+.wb-mapkey {
+  padding: 10px 12px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface-head);
+}
+
+.wb-mapkey-t,
+.wb-lane-h {
+  margin: 0 0 6px;
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wb-ink-2);
+}
+
+.wb-lane-h {
+  margin-top: 18px;
+}
+
+.wb-mapkey > summary {
+  margin: 0;
+  cursor: pointer;
+}
+
+.wb-mapkey[open] > summary {
+  margin-bottom: 6px;
+}
+
+.wb-mapkey-l {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.wb-mapkey-i {
+  margin: 0;
+}
+
+.wb-mapkey-i dd {
+  margin: 4px 0 0;
+}
+
+.wb-mapkey-i dt {
+  border: 1px solid var(--wb-line);
+}
+
+.wb-starts,
+.wb-lane-l,
+.wb-cards,
+.wb-chips,
+.wb-end-l,
+.wb-phases,
+.wb-crumb-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-start {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.wb-arr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--wb-ink-2);
+  font-size: var(--wb-text-small);
+}
+
+.wb-frame {
+  margin-top: 8px;
+  padding: 12px 14px 14px;
+  border: 2px solid var(--wb-kind-main);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface);
+}
+
+.wb-frame-h {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wb-frame-h .wb-meta {
+  margin-top: 0;
+}
+
+.wb-frame-t {
+  margin: 0;
+  font-size: var(--wb-text-title);
+  font-weight: 700;
+}
+
+.wb-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-frame-btn {
+  display: inline;
+  width: auto;
+  font-size: inherit;
+  font-weight: 700;
+}
+
+.wb-card-t {
+  font-weight: 700;
+}
+
+.wb-card-btn .wb-meta {
+  margin-top: 0;
+}
+
+.wb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--wb-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wb-phases {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.wb-phase {
+  min-width: 0;
+}
+
+.wb-cards,
+.wb-card-li,
+.wb-card,
+.wb-frame {
+  min-width: 0;
+}
+
+/* The cards of the subprocesses start at the same height in every phase: each phase spans the two rows of the grid (its header, its cards). */
+@supports (grid-template-rows: subgrid) {
+  .wb-phases {
+    grid-template-rows: auto 1fr;
+  }
+
+  .wb-phase {
+    display: grid;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+  }
+}
+
+.wb-phase-h {
+  padding: 8px 10px;
+  border: 1px solid var(--wb-line);
+  background: var(--wb-surface-head);
+  font-weight: 600;
+}
+
+.wb-phase + .wb-phase .wb-phase-h {
+  border-left: 0;
+}
+
+.wb-phase-t {
+  display: block;
+}
+
+.wb-phase-e {
+  display: block;
+  font-weight: 400;
+  color: var(--wb-ink-2);
+  font-size: var(--wb-text-label);
+}
+
+.wb-cards {
+  padding: 0 8px 8px;
+}
+
+/* The subprocesses a subprocess or a scheduled task starts: the same cards one level down, inside the card that starts them. */
+.wb-nested {
+  padding: 0;
+}
+
+.wb-nested .wb-card-li {
+  margin-top: 4px;
+}
+
+/* Phases stack whenever the map column is narrow, however wide the window is (a process open beside the map). */
+@container wbmap (max-width: 900px) {
+  .wb-phases {
+    grid-auto-flow: row;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .wb-phase {
+    display: block;
+    grid-row: auto;
+  }
+
+  .wb-phase + .wb-phase .wb-phase-h {
+    border-left: 1px solid var(--wb-line);
+  }
+}
+
+/* Five phases or more need more room before they sit side by side. */
+@container wbmap (max-width: 1240px) {
+  .wb-phases.wb-many {
+    grid-auto-flow: row;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .wb-phases.wb-many > .wb-phase {
+    display: block;
+    grid-row: auto;
+  }
+
+  .wb-phases.wb-many > .wb-phase + .wb-phase .wb-phase-h {
+    border-left: 1px solid var(--wb-line);
+  }
+}
+
+.wb-stem {
+  position: relative;
+  height: 26px;
+}
+
+.wb-stem::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 4px;
+  border-left: 2px solid var(--wb-kind-sub);
+}
+
+.wb-stem::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 4px);
+  bottom: 0;
+  border: 5px solid transparent;
+  border-top-color: var(--wb-kind-sub);
+  border-bottom: 0;
+}
+
+.wb-stem em {
+  position: absolute;
+  left: calc(50% + 8px);
+  top: 4px;
+  font-style: normal;
+  font-size: var(--wb-text-label);
+  color: var(--wb-ink-2);
+}
+
+.wb-card {
+  padding: 10px 12px;
+  border: 1.5px solid var(--wb-kind-sub);
+  border-radius: var(--wb-radius);
+  background: var(--wb-surface);
+}
+
+.wb-card.wb-sel,
+.wb-schc.wb-sel,
+.wb-frame-btn.wb-sel {
+  border-color: var(--wb-selected-edge);
+  background: var(--wb-selected);
+}
+
+.wb-also {
+  display: block;
+  margin-top: 4px;
+}
+
+.wb-uses {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--wb-line);
+}
+
+.wb-uses .wb-meta {
+  margin-top: 0;
+}
+
+.wb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.wb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius-sm);
+  font-size: var(--wb-text-small);
+}
+
+.wb-chip .wb-i {
+  width: 13px;
+  height: 13px;
+}
+
+.wb-chip-btn {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wb-badge {
+  padding: 0 6px;
+  border: 1px solid var(--wb-neutral-edge);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-neutral-bg);
+  color: var(--wb-neutral-ink);
+  font-size: var(--wb-text-label);
+  font-weight: 600;
+}
+
+.wb-badge-authority {
+  margin-left: 6px;
+}
+
+.wb-chips li {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.wb-chip {
+  flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.wb-chip .wb-badge {
+  white-space: nowrap;
+}
+
+.wb-claims {
+  margin-top: 4px;
+}
+
+.wb-claims-authority {
+  margin: 14px 0 0;
+}
+
+.wb-sources,
+.wb-source-diff {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-source {
+  padding: 8px 0;
+  border-top: 1px solid var(--wb-line-soft);
+}
+
+.wb-source-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.wb-source-name {
+  color: var(--wb-ink);
+}
+
+.wb-source-diff {
+  margin-top: 4px;
+  padding-left: 16px;
+  list-style: disc;
+  font-size: var(--wb-text-small);
+}
+
+.wb-source-unreadable {
+  color: var(--wb-muted);
+}
+
+.wb-shared {
+  margin-top: 6px;
+}
+
+.wb-shared-i {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wb-shared-i .wb-meta {
+  margin-top: 0;
+}
+
+.wb-ends {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.wb-ends .wb-meta {
+  margin-top: 0;
+}
+
+.wb-end-l {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wb-end {
+  padding: 4px 14px;
+  border: 2px solid var(--wb-ink);
+  border-radius: 999px;
+  background: var(--wb-surface);
+  font-size: var(--wb-text-label);
+}
+
+.wb-schc {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--wb-kind-scheduled);
+  border-radius: var(--wb-radius);
+  background: var(--wb-kind-scheduled-soft);
+}
+
+.wb-schc .wb-card-btn {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  width: auto;
+  gap: 10px;
+}
+
+.wb-schc .wb-meta {
+  margin-top: 0;
+}
+
+.wb-crumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--wb-line);
+  background: var(--wb-surface-head);
+  font-size: var(--wb-text-small);
+}
+
+.wb-crumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wb-crumb-list li + li::before {
+  content: "\203a";
+  margin-right: 6px;
+  color: var(--wb-muted);
+}
+
+.wb-crumb-list li[aria-current="page"] {
+  font-weight: 700;
+}
+
+.wb-crumb-btn {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wb-ink-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wb-back {
+  display: none;
+}
+
 /* ----- narrow screens and motion ------------------------------------------------------------------------------------------ */
 
 @media (max-width: 1100px) {
@@ -1093,6 +1757,36 @@
 
   .wb-list-select-wrap {
     display: block;
+  }
+
+  .wb-mapgrid.wb-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wb-mapgrid.wb-open .wb-mapview {
+    display: none;
+  }
+
+  .wb-phases {
+    grid-auto-flow: row;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .wb-phases {
+    grid-template-rows: none;
+  }
+
+  .wb-phase {
+    display: block;
+    grid-row: auto;
+  }
+
+  .wb-phase + .wb-phase .wb-phase-h {
+    border-left: 1px solid var(--wb-line);
+  }
+
+  .wb-back {
+    display: inline-flex;
   }
 }
 
@@ -1288,7 +1982,10 @@
   list-style: none;
 }
 
-.wb-group-section {
+.wb-group-section,
+.wb-lane,
+.wb-card-li,
+.wb-kind-section {
   margin: 0;
 }
 
@@ -1437,6 +2134,73 @@
   pointer-events: none;
 }
 
+/* The symbol of a step is the symbol of the map, drawn in the colour of its kind. */
+.wb-node-i {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.wb-node-i.wb-k-rule {
+  color: var(--wb-kind-rule);
+}
+
+.wb-node-i.wb-k-con {
+  color: var(--wb-kind-connector);
+}
+
+.wb-node-i.wb-k-per {
+  color: var(--wb-kind-person);
+}
+
+.wb-node-i.wb-k-ai {
+  color: var(--wb-kind-ai);
+}
+
+.wb-node-i.wb-k-sch {
+  color: var(--wb-kind-scheduled);
+}
+
+.wb-node-i.wb-k-sub {
+  color: var(--wb-kind-sub);
+}
+
+/* A numbered mark stands for a route label that has no room beside its line; its text is listed under the diagram. */
+.wb-numbered {
+  fill: var(--wb-ink-2);
+  stroke: var(--wb-surface);
+  stroke-width: 1.5;
+}
+
+.wb-numbered-t {
+  fill: var(--wb-surface);
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.wb-marks {
+  margin: 0 0 14px;
+}
+
+.wb-marks-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: var(--wb-text-small);
+  color: var(--wb-ink);
+}
+
+.wb-numbered-n {
+  font-weight: 700;
+  color: var(--wb-ink-2);
+}
+
 .wb-node-start {
   fill: var(--wb-accent);
   stroke: var(--wb-surface);
@@ -1547,4 +2311,223 @@
 .wb-replay {
   border-color: var(--wb-selected-edge);
   background: var(--wb-selected);
+}
+
+/* ----- live: the open cases over the map, the list of cases, one case over its diagram ------------------------------------------ */
+
+.wb-live-bar {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.wb-live-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.wb-live-status {
+  margin-top: 0;
+}
+
+.wb-live-btn {
+  display: inline-flex;
+  align-items: center;
+  margin: 6px 0 0;
+  padding: 3px 10px;
+  border: 1.5px solid var(--wb-control-edge);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-surface);
+  color: var(--wb-ink);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-live-btn:hover {
+  background: var(--wb-hover);
+}
+
+.wb-live-btn.wb-sel {
+  border-color: var(--wb-selected-edge);
+  border-width: 3px;
+  background: var(--wb-selected);
+}
+
+.wb-frame-h .wb-live-btn {
+  margin-top: 0;
+}
+
+.wb-live-fail {
+  border: 1px solid var(--wb-warn-edge);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-warn-bg);
+  color: var(--wb-warn-ink);
+}
+
+.wb-live-none {
+  display: block;
+  margin-top: 6px;
+}
+
+.wb-cases-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-cases-h .wb-title {
+  margin: 0;
+}
+
+.wb-caselist {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-caseline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-caseline:hover {
+  background: var(--wb-hover);
+}
+
+.wb-caseline .wb-meta {
+  margin-top: 0;
+}
+
+.wb-caseref {
+  overflow-wrap: anywhere;
+}
+
+.wb-case-layout {
+  display: grid;
+  grid-template-columns: fit-content(100%) minmax(220px, 300px);
+  gap: 16px;
+  align-items: start;
+  margin: 10px 0 14px;
+}
+
+.wb-case-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wb-case-side {
+  padding: 10px 12px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-radius-sm);
+  background: var(--wb-surface-head);
+}
+
+.wb-facts {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.wb-facts dt {
+  margin-top: 8px;
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  color: var(--wb-ink-2);
+}
+
+.wb-facts dt:first-child {
+  margin-top: 0;
+}
+
+.wb-facts dd {
+  margin: 0;
+}
+
+.wb-next,
+.wb-casepath-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.wb-casepath-list li {
+  display: list-item;
+}
+
+.wb-node-live {
+  cursor: default;
+}
+
+.wb-node-seen .wb-node-shape {
+  stroke-width: 3.5;
+}
+
+.wb-node-seen-sample {
+  stroke-width: 3.5;
+}
+
+.wb-seen-badge {
+  fill: var(--wb-ink-2);
+  stroke: var(--wb-surface);
+  stroke-width: 1.5;
+}
+
+.wb-seen-badge-t {
+  fill: var(--wb-surface);
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.wb-edge-taken,
+.wb-edge-taken.wb-edge-side,
+.wb-edge-taken.wb-edge-return {
+  stroke: var(--wb-accent);
+  stroke-width: 4;
+  stroke-dasharray: none;
+}
+
+@media (max-width: 1100px) {
+  .wb-case-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.wb-casepath {
+  margin-top: 14px;
+}
+
+.wb-case-legend {
+  margin: 0;
+}
+
+.wb-arrow-taken {
+  fill: var(--wb-accent);
+}
+
+.wb-casepath-list li {
+  display: list-item;
+}
+
+.wb-casepath-list li > * {
+  margin-right: 8px;
 }

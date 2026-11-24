@@ -1,0 +1,77 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.serve",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "rule/conf.default_rule"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Serve",
+    "display": {
+      "en": {
+        "title": "Serve",
+        "queues": {
+          "desk": "Front desk"
+        }
+      },
+      "es": {
+        "title": "Atención al caso",
+        "queues": {
+          "desk": "Recepción"
+        }
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "judge",
+    "steps": {
+      "judge": {
+        "kind": "decide",
+        "rule": "conf.default_rule",
+        "facts": {
+          "count": "count"
+        },
+        "route": "level",
+        "on": {
+          "high": "desk",
+          "low": "done"
+        },
+        "onNoDecision": "done",
+        "onError": "done"
+      },
+      "desk": {
+        "kind": "humanTask",
+        "queue": "desk",
+        "outcomes": [
+          "ok"
+        ],
+        "show": [
+          "ref"
+        ],
+        "on": {
+          "ok": "done"
+        }
+      },
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": []
+  }
+}

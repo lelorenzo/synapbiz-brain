@@ -180,7 +180,7 @@ internal static class NodeValidation
                 yield return (obj, path);
                 foreach (var field in obj.OrderByDescending(field => field.Key, StringComparer.Ordinal))
                 {
-                    if (!IsMetadata(field.Key) && (path.Length != 0 || field.Key != "translations"))
+                    if (!IsMetadata(field.Key) && (path.Length != 0 || field.Key != "translations") && !IsSourceRecords(path, field.Key))
                     {
                         pending.Push((field.Value, Pointer(path, field.Key)));
                     }
@@ -195,6 +195,12 @@ internal static class NodeValidation
             }
         }
     }
+
+    /// <summary>
+    /// <c>meta.sources</c> lists the sources a rule cites; its entries carry a <c>version</c> of the source (text such as "2024") and no
+    /// section id, so they are records and not section nodes, and the node checks do not walk into them.
+    /// </summary>
+    private static bool IsSourceRecords(string path, string key) => path == "/meta" && key == "sources";
 
     private static bool IsMetadata(string key) => key.StartsWith('$') && key is not ("$spec" or "$ref" or "$t");
 }

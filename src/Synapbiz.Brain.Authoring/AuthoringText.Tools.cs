@@ -58,6 +58,13 @@ internal static partial class AuthoringText
         T("say.rule.refused", "Brain does not accept this rule draft yet. Problems found: {n}. The first: {first}", "Brain todavía no acepta este borrador de regla. Problemas encontrados: {n}. El primero: {first}");
         T("say.rule.ready", "The draft of the rule {title} is accepted and its tests pass ({pass} of {total}).", "El borrador de la regla {title} se acepta y sus pruebas pasan ({pass} de {total}).");
         T("say.rule.failing", "The draft of the rule {title} is accepted, but some of its tests do not pass (how many: {n}). The first: {name}.", "El borrador de la regla {title} se acepta, pero algunas de sus pruebas no pasan (cuántas: {n}). La primera: {name}.");
+        T("rule.source.unreadable", "source entry not readable", "entrada de fuente no legible");
+        T("say.rule.sources.unreadable.one", "One source entry of this rule cannot be read (see its sources).", "Una entrada de fuente de esta regla no se puede leer (véanse sus fuentes).");
+        T("say.rule.sources.unreadable.other", "{n} source entries of this rule cannot be read (see its sources).", "{n} entradas de fuente de esta regla no se pueden leer (véanse sus fuentes).");
+        T("say.rule.list.unreadable", "Rules with a source entry that cannot be read: {ids}.", "Reglas con una entrada de fuente que no se puede leer: {ids}.");
+        T("say.rule.list.source", "Rules that cite the source {source}: {n}.", "Reglas que citan la fuente {source}: {n}.");
+        T("say.rule.list.authority", "Rules that state the authority {authority}: {n}.", "Reglas que declaran la autoridad {authority}: {n}.");
+        T("say.rule.list.both", "Rules that cite the source {source} and state the authority {authority}: {n}.", "Reglas que citan la fuente {source} y declaran la autoridad {authority}: {n}.");
         T("say.rule.review.needed", "A proposal of this change would be reviewed by our team first.", "Una propuesta de este cambio la revisaría primero nuestro equipo.");
         T("say.rule.review.notneeded", "A proposal of this change stays within what the rule reads and gives, so the clinic that approves it can apply it.", "Una propuesta de este cambio se queda dentro de lo que la regla lee y da, así que la clínica que la apruebe puede aplicarla.");
         T("say.rule.sim.failed", "The facts cannot be used. {what}", "Los datos no se pueden usar. {what}");
@@ -72,6 +79,7 @@ internal static partial class AuthoringText
         T("rule.review.new_fact_read", "a row now reads a fact that no row read before", "una fila lee ahora un dato que ninguna fila leía antes");
         T("rule.review.new_outcome_field", "a row now gives a result field that no row gave before", "una fila da ahora un campo de resultado que ninguna fila daba antes");
         T("rule.review.new_outcome_value", "a row now gives a code or category that no row gave before", "una fila da ahora un código o categoría que ninguna fila daba antes");
+        T("rule.review.claims_changed", "the sources or the authority the rule states changed", "cambiaron las fuentes o la autoridad que la regla declara");
     }
 
     private static void AddProposalText()

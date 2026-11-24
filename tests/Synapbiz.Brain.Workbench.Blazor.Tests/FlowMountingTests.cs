@@ -13,7 +13,7 @@ public sealed class FlowMountingTests
     {
         using var harness = new FlowHarness();
         harness.Render(null);
-        harness.DetailText.Should().Contain("Loading flows");
+        harness.DetailText.Should().Contain("Loading processes");
         harness.FindAll("[role=tab]").Should().BeEmpty();
         harness.FindAll(".wb-skeleton").Should().HaveCount(3);
     }
@@ -23,7 +23,7 @@ public sealed class FlowMountingTests
     {
         using var harness = new FlowHarness();
         harness.Render([]);
-        harness.DetailText.Should().Contain("No flows are loaded on this computer.");
+        harness.DetailText.Should().Contain("No processes are loaded on this computer.");
         harness.FindAll("[role=tab]").Should().BeEmpty();
     }
 
@@ -33,7 +33,7 @@ public sealed class FlowMountingTests
         using var harness = new FlowHarness();
         harness.Render([new WorkbenchFlow { Key = "broken", FallbackTitle = "Broken one" }]);
         harness.ListText.Should().Contain("Broken one").And.Contain("Could not be read");
-        harness.DetailText.Should().Contain("This flow could not be read on this computer.");
+        harness.DetailText.Should().Contain("This process could not be read on this computer.");
         harness.FindAll("[role=tab]").Should().BeEmpty();
     }
 
@@ -43,7 +43,7 @@ public sealed class FlowMountingTests
         using var harness = new FlowHarness();
         harness.Render([new WorkbenchFlow { Key = "a", Process = null, FallbackTitle = "Not loaded" }]);
         harness.ListText.Should().Contain("Not loaded").And.Contain("Could not be read");
-        harness.DetailText.Should().Contain("This flow could not be read on this computer.");
+        harness.DetailText.Should().Contain("This process could not be read on this computer.");
     }
 
     [Fact]
@@ -68,7 +68,10 @@ public sealed class FlowMountingTests
         using var harness = new FlowHarness();
         var flows = FlowHarness.Reference();
         harness.Render([.. flows.Take(2), new WorkbenchFlow { Key = "x", Group = "Other group", Process = flows[2].Process }]);
-        harness.FindAll("h3.wb-group").Select(heading => heading.TextContent).Should().Equal("Reference flows", "Other group");
+        // Since 0.8.0 the list is grouped by kind first (an h3), and the host's group headings are the second level (an h4).
+        // None of these three is started by a loaded process, so all of them are main processes.
+        harness.FindAll("h3.wb-kind").Select(heading => heading.TextContent).Should().Equal("Main processes");
+        harness.FindAll("h4.wb-group").Select(heading => heading.TextContent).Should().Equal("Reference flows", "Other group");
         harness.FindAll("button.wb-rule").Should().HaveCount(3);
         harness.Find("button.wb-rule[aria-current=true]").Should().NotBeNull();
     }
@@ -80,7 +83,7 @@ public sealed class FlowMountingTests
         var flows = FlowHarness.Reference();
         harness.Render(flows);
         var select = harness.Find("select.wb-list-select");
-        select.GetAttribute("aria-label").Should().Be("Flow list");
+        select.GetAttribute("aria-label").Should().Be("Process list");
         select.QuerySelectorAll("option").Should().HaveCount(6);
         select.Change("2");
         harness.Session.SelectedFlowKey.Should().Be(flows[2].Key);
@@ -92,11 +95,13 @@ public sealed class FlowMountingTests
         using var harness = new FlowHarness();
         var flows = FlowHarness.Reference();
         harness.Render(flows);
+
+        // The list shows the main process first, then the four subprocesses, then the scheduled task: the second line is the first reference flow.
         harness.FindAll("button.wb-rule")[1].Click();
-        harness.Session.SelectedFlowKey.Should().Be(flows[1].Key);
+        harness.Session.SelectedFlowKey.Should().Be(flows[0].Key);
         var focus = harness.FocusCount;
         harness.FindAll("button.wb-rule")[1].KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "ArrowDown" });
-        harness.Session.SelectedFlowKey.Should().Be(flows[2].Key);
+        harness.Session.SelectedFlowKey.Should().Be(flows[1].Key);
         harness.FocusCount.Should().BeGreaterThan(focus);
     }
 

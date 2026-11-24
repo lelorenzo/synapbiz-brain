@@ -1,0 +1,15 @@
+map.check: Subprocess <- map.front
+map.cron: Scheduled <- 
+map.front: Main <- 
+map.inner: Subprocess <- map.wrap
+map.loop_a: Subprocess <- map.loop_b
+map.loop_b: Subprocess <- map.loop_a
+map.loose: Subprocess <- map.front
+map.nightly: Scheduled <- 
+map.nightly_child: Subprocess <- map.nightly
+map.nostart: Main (no start defined) <- 
+map.notify: Subprocess <- map.cron,map.front
+map.second: Main <- 
+map.serve: Subprocess <- map.front,map.second
+map.third: Main <- 
+map.wrap: Subprocess <- map.third

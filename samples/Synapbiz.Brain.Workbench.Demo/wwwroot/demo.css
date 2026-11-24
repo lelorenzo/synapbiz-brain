@@ -53,6 +53,22 @@
   --wb-radius: 12px;
   --wb-radius-sm: 8px;
   --wb-scrim: rgba(23, 34, 45, 0.55);
+  --wb-kind-main: #0f5b78;
+  --wb-kind-main-soft: #e9f3f6;
+  --wb-kind-sub: #3a4a5c;
+  --wb-kind-sub-soft: #e8ecf1;
+  --wb-kind-scheduled: #7a5a12;
+  --wb-kind-scheduled-soft: #fbf4e2;
+  --wb-kind-event: #33404d;
+  --wb-kind-event-soft: #eef1f4;
+  --wb-kind-rule: #5a3d8a;
+  --wb-kind-rule-soft: #f2eefa;
+  --wb-kind-connector: #1f6b4a;
+  --wb-kind-connector-soft: #e9f5ef;
+  --wb-kind-person: #9a3b2e;
+  --wb-kind-person-soft: #fbeeeb;
+  --wb-kind-ai: #275fb3;
+  --wb-kind-ai-soft: #eaf1fb;
 }
 
 .demo[data-theme="dark"] {
@@ -98,6 +114,22 @@
   --wb-notice-ink: #f2d27a;
   --wb-notice-edge: #6b5210;
   --wb-scrim: rgba(3, 6, 9, 0.7);
+  --wb-kind-main: #6cc4e0;
+  --wb-kind-main-soft: #16303b;
+  --wb-kind-sub: #b3c0cf;
+  --wb-kind-sub-soft: #26303b;
+  --wb-kind-scheduled: #e2c26a;
+  --wb-kind-scheduled-soft: #3a2c05;
+  --wb-kind-event: #c5d0da;
+  --wb-kind-event-soft: #222d38;
+  --wb-kind-rule: #c4aef0;
+  --wb-kind-rule-soft: #2b2342;
+  --wb-kind-connector: #8fd8b0;
+  --wb-kind-connector-soft: #12301f;
+  --wb-kind-person: #f0a79b;
+  --wb-kind-person-soft: #40201c;
+  --wb-kind-ai: #9bbcf2;
+  --wb-kind-ai-soft: #1b2a44;
 }
 
 html,

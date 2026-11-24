@@ -27,6 +27,35 @@ The screen that draws all of this is the component `FlowWorkbench`, described in
 | `Children` | The child processes the flow starts, as `FlowChildLink` (id, title, `IsMissing`). A child that is not in the given set is listed as missing. |
 | `StartedBy` | The ids of the documents of the set that start this flow as a child. |
 | `Rules` | The rule references the flow uses. |
+| `Kind`, `NoStartDefined` | The kind of the process and the mark "no start defined" (see [Kinds of process](#kinds-of-process-flowkind)). |
+
+## Kinds of process: `FlowKind`
+
+In what a person reads, a flow is a **process** ("proceso"); the code names stay. `FlowKind` classifies every process of a library with no host input, from its triggers and from who starts whom (`FlowKinds.Of(outline, startedBy)` (class `FlowKinds`); `FlowEntry.Kind` carries it):
+
+| `FlowKind` | Rule | Words |
+| --- | --- | --- |
+| `Scheduled` | The document has a schedule trigger, whatever else it has. | "Scheduled task" / "Tarea programada" |
+| `Main` | It has an event trigger, or no other process of the library starts it. | "Main process" / "Proceso principal" |
+| `Subprocess` | Another process of the library starts it through a `subprocess` step and it has no trigger of its own. | "Subprocess" / "Subproceso" |
+
+A process that has an event trigger and is also started by another is `Main`, and its parent still lists it as started by it. A process that only starts itself counts as started by nobody. A process nobody starts and that has no trigger is `Main` with `NoStartDefined` true, and the screen says so in words. `FlowKinds.HasNoStart` is the same test; `FlowKinds.Word` and `FlowKinds.Plural` give the words in a language. The rule is pinned on every reference document and fixture by golden files (`tests/fixtures/workbench/map/kinds.*.txt`).
+
+## The process map: `ProcessMap`
+
+`ProcessMap.From(processes, locale, labels, reports)` computes, from the documents alone, the structure of a clinic's processes. It is deterministic: processes in the order of their ids (when several documents share an id, the highest version describes it), stages and steps in document order.
+
+| Member | Meaning |
+| --- | --- |
+| `Mains` (`MapMain`) | Each main process with its `Starts` (one sentence per event trigger), its `Phases` (`MapPhase`: the stages in order, each with its label, the sentence of what ends it when the routes leaving the stage say it, else null, and its `Subprocesses`) and its `Ends` (the labels of its end steps). A subprocess started from steps with no stage goes into a last phase with a null `StageId` ("No phase"). |
+| `MapChild` | A card under a phase: the subprocess (`MapProcess`), `IsMissing` when it is not loaded, `AlsoStartedBy`, the titles of the other processes that start it, and `Nested`, the subprocesses this one starts in turn, in document order, each with its own `Nested`. A subprocess with two parents appears under each. A process already on the way down (a cycle) is not nested again. |
+| `Scheduled` (`MapScheduled`) | The scheduled tasks, each with its schedule sentences and `Children`, the subprocesses its steps start (each with its `Nested`). |
+| `Processes` (`MapProcess`) | Every process: id, version, title, `Kind`, `NoStartDefined`, `Counts` (`MapCounts`: steps, scenarios, whether they pass, routes not tried), `Uses`, `Triggers`, `StartedBy` and `Starts` (`MapChildLink`). |
+| `Uses` (`MapUse`) | What a process uses, deduplicated, in a fixed order: rules (`decide` and `poll` steps), connectors (the ports of `read`, `action` and `poll` steps), queues of person tasks, AI steps (`MapPieceKind`). Each has a label and `LabelIsName`. |
+| `Shared` (`MapShared`) | Every piece used by more than one process, with its count. |
+| `Cycles`, `Detached` | The groups of processes that start each other (a self-start is a group of one), reported once; and the subprocesses no main process or scheduled task reaches, which the map lists apart instead of drawing twice. |
+
+A label comes from the document's own `meta.display` when it has one (queues, and the label of an AI step), else from the host's dictionary `labels` (keys from `ProcessMap.LabelKey`: `rule:<id>`, `connector:<port>`, `queue:<queue>`, `ai:<step>`; the values are for the language asked), else the raw name, which a screen shows as code. `meta.display` has no group for rules or ports, so those two come from the host or are raw.
 
 ## Description: `FlowDescriber` and `FlowView`
 
@@ -164,6 +193,33 @@ internal static class FlowTryOut
     }
 }
 ```
+
+## Live: cases over the map and one case over its diagram
+
+Live is the part of the workbench that needs the host. The library defines a read-only contract and does no I/O of its own; the host (or an adapter such as `PostgresFlowLiveSource` of the package `Synapbiz.Brain.Workbench.Postgres`, see [process-host-postgres.md](process-host-postgres.md)) implements it. Nothing in it acts on a case. The pure entry points are `LiveCasePath` (one case over its document), `ProcessMapLive` (counts over the map) and `FlowLiveScripts` (a simulation as a case).
+
+**Case references are opaque and never personal data.** A reference is whatever the host names one case by (an instance id is fine); it must not be a business key, a name or a number a person is known by, because the workbench writes it on the screen and hands it to `OnOpenCase`.
+
+| Type | Meaning |
+| --- | --- |
+| `IFlowLiveSource` | `GetCountsAsync`, `ListCasesAsync` and `GetCaseAsync`; all asynchronous, all read only. A member may throw: the screen then says in words that the source failed. |
+| `FlowLiveCounts`, `FlowLiveCount` | The open cases of every process by the step each is on, and how many of them wait for a person; `IsPartial` is true when the source stopped counting at a limit of its own (the numbers are then at least what they say). |
+| `FlowLiveCaseQuery`, `FlowLiveCasePage`, `FlowLiveCaseLine` | One page of opaque case references of a process, optionally only those on one step: reference, process version, step, whether it waits for a person, when it began; `Next` is the opaque cursor of the next page. |
+| `FlowLiveCase`, `FlowLiveEntry`, `FlowLiveWait` | One case: process id and version, status, current step, result, problem code, the history and what it waits for (queues, event names, the earliest timer). |
+
+`FlowLiveEntry.Of(entry)` reduces an entry of the history the process library writes to what an explanation reads (`rule`, `version`, `decided`, `matchedRowKeys`, `outcome`, `event`, `dueAt`, `result`, `kind`); the facts a rule judged and whatever a person typed never travel. `FlowLiveScripts.FromSimulation(caseRef, session)` makes a `FlowLiveCase` from a simulation, for a demo or a test that scripts the cases a source returns.
+
+**The path of one case.** `LiveCasePath.From(process, liveCase, locale, knownProcesses)` explains the history of a case against the document of the version it runs on, with the route reading `FlowCoverage` uses and the words `FlowDescriber` uses:
+
+| Member | Meaning |
+| --- | --- |
+| `Steps` (`LivePathStep`) | The steps the case has been on in the order it first entered them, how many times it entered each, whether it is the current one, and how it left it (a route phrase). |
+| `Routes` (`LivePathRoute`) | The routes it took, in order. |
+| `CurrentStep`, `Waiting` | The step it is on (null when it ended or has not entered one) and one sentence for what it waits for and until when, or how it ended. |
+| `Side` (`LiveSideFacts`) | The side column: the label of the current step, why it is here (the rule and the row, the event, the choice of a person, the timeout, or that it started here), what can happen next (a phrase for each way out) and the version. |
+| `Unexplained` (`LiveUnexplained`), `Reason` | `None` when the history is explained. Otherwise the reason in words: another process, another version, a step the document does not have, a route the document does not have (or that the history does not pick out), or a current step that is not where the history ends. Never an exception; the path is then empty. |
+
+**Counts over the map.** `ProcessMapLive.From(documents, counts)` adds a source's counts to the map: `Process(id)`, `Step(id, step)` and `Phase(id, stage)` give a `LiveCount` (cases open now, cases waiting for a person); a case on a step the document of the highest version does not have, or on none, is counted for its process and in `Unplaced`, in no phase. The cases of a subprocess card are the cases that run that subprocess (a child instance is a case of its own process); the cases of a phase are the cases of the main process whose current step is in that stage.
 
 ## Route coverage: `FlowCoverage`
 

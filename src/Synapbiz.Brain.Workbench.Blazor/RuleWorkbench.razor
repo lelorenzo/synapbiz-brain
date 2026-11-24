@@ -59,6 +59,10 @@
                                                 @if (IsReadable(rule))
                                                 {
                                                     <span class="@PillClass(rule.State == RuleApprovalState.Approved ? "ok" : "warn")">@Rich(rule.State == RuleApprovalState.Approved ? "state.approved" : "state.draft")</span>
+                                                    @if (AuthorityOf(rule.Rule!) is { } listed)
+                                                    {
+                                                        @AuthorityBadge(listed)
+                                                    }
                                                 }
                                                 else
                                                 {
@@ -419,6 +423,64 @@
 
     // ----- Read -------------------------------------------------------------------------------------------------------
 
+    private RenderFragment AuthorityBadge(string label) => @<span class="wb-badge wb-badge-authority" title="@Plain("read.authority", ("label", label))">@label</span>;
+
+    /// <summary>The authority and the sources the rule states about itself; nothing when it states none.</summary>
+    private RenderFragment ClaimsBlock(Ctx c)
+    {
+        var claims = RuleClaims.From(c.Brain.Meta);
+        var authority = AuthorityOf(c.Brain);
+        return authority is null && claims.Sources.Count == 0 ? (builder => { }) : SourcesFragment(claims, authority);
+    }
+
+    private RenderFragment SourcesFragment(RuleClaims claims, string? authority) => @<section class="wb-claims" aria-labelledby="@(idp + "-sources")">
+        @if (authority is not null)
+        {
+            <p class="wb-sub wb-claims-authority">@Plain("read.authority.label")@(": ")@AuthorityBadge(authority)</p>
+        }
+        @if (claims.Sources.Count > 0)
+        {
+            <h2 class="wb-h2 wb-h2-gap" id="@(idp + "-sources")">@Rich("read.sources")</h2>
+            <ul class="wb-sources">
+                @foreach (var entry in claims.Sources)
+                {
+                    @if (entry.Source is not { } source)
+                    {
+                        <li class="wb-source wb-source-unreadable">@Rich("read.source.unreadable")</li>
+                    }
+                    else
+                    {
+                        var label = SourceLabelOf(source.Source);
+                        <li class="wb-source">
+                            <div class="wb-source-line">
+                                @if (label is not null)
+                                {
+                                    <strong class="wb-source-name">@label</strong>
+                                }
+                                else
+                                {
+                                    <code class="wb-code wb-source-name">@source.Source</code>
+                                }
+                                @(" ")<span class="wb-sub wb-sub-flush">@Plain("read.source.version", ("version", source.Version))</span>
+                                @(" ")<span class="wb-badge">@RuleClaims.RelationWord(source.Relation, Locale)</span>
+                            </div>
+                            @if (source.Differences.Count > 0)
+                            {
+                                <div class="wb-sub">@Rich("read.source.differences")</div>
+                                <ul class="wb-source-diff">
+                                    @foreach (var difference in source.Differences)
+                                    {
+                                        <li>@difference.Text(Locale)</li>
+                                    }
+                                </ul>
+                            }
+                        </li>
+                    }
+                }
+            </ul>
+        }
+    </section>;
+
     private RenderFragment ReadPanel(Ctx c)
     {
         if (c.Broken)
@@ -526,6 +588,7 @@
                 </div>
             }
             @FactsBlock(c)
+            @ClaimsBlock(c)
         </text>;
     }
 
@@ -909,6 +972,7 @@
             </div>
         }
         @FactsBlock(c)
+        @ClaimsBlock(c)
     </text>;
 
     // ----- Simulate ---------------------------------------------------------------------------------------------------

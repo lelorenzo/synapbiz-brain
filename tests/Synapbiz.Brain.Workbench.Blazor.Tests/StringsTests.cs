@@ -250,7 +250,7 @@ public sealed class StringsTests
         var parameters = typeof(RuleWorkbench).GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(property => property.GetCustomAttribute<ParameterAttribute>() is not null)
             .Select(property => property.Name);
-        parameters.Should().BeEquivalentTo("Rules", "Locale", "Session", "Now", "OnExport", "TextOverrides");
+        parameters.Should().BeEquivalentTo("Rules", "Locale", "Session", "Now", "OnExport", "TextOverrides", "SourceLabels", "AuthorityLabels");
     }
 
     [Fact]
@@ -264,6 +264,6 @@ public sealed class StringsTests
     {
         var names = typeof(RuleWorkbench).Assembly.GetExportedTypes().Select(type => type.Name).Order(StringComparer.Ordinal);
         names.Should().Equal(
-            "FlowWorkbench", "FlowWorkbenchExport", "FlowWorkbenchExportFile", "FlowWorkbenchSession", "FlowWorkbenchTab", "RuleApprovalState", "RuleWorkbench", "WorkbenchExport", "WorkbenchExportFile", "WorkbenchFlow", "WorkbenchOutcomeText", "WorkbenchRule", "WorkbenchSession", "WorkbenchStrings", "WorkbenchTab");
+            "FlowWorkbench", "FlowWorkbenchExport", "FlowWorkbenchExportFile", "FlowWorkbenchSession", "FlowWorkbenchTab", "FlowWorkbenchView", "RuleApprovalState", "RuleWorkbench", "WorkbenchExport", "WorkbenchExportFile", "WorkbenchFlow", "WorkbenchOutcomeText", "WorkbenchRule", "WorkbenchSession", "WorkbenchStrings", "WorkbenchTab");
     }
 }

@@ -59,7 +59,7 @@ public sealed class FlowAccessibilityTests
     public void TheTabsFollowTheTabsPatternWithOneTabStopArrowKeysHomeAndEnd()
     {
         using var harness = Open(FlowWorkbenchTab.Read);
-        harness.Find("[role=tablist]").GetAttribute("aria-label").Should().Be("Flow sections");
+        harness.Find("[role=tablist]").GetAttribute("aria-label").Should().Be("Process sections");
         var tabs = harness.FindAll("[role=tab]");
         tabs.Select(tab => tab.GetAttribute("aria-selected")).Should().Equal("true", "false", "false", "false", "false");
         tabs.Select(tab => tab.GetAttribute("tabindex")).Should().Equal("0", "-1", "-1", "-1", "-1");
@@ -119,7 +119,7 @@ public sealed class FlowAccessibilityTests
         live.GetAttribute("aria-live").Should().Be("polite");
         harness.FindAll("section.wb-wait")[0].QuerySelector("textarea")!.Change("nope");
         harness.FindAll("section.wb-wait")[0].QuerySelectorAll("button").First(button => button.TextContent.Contains("Send this answer", StringComparison.Ordinal)).Click();
-        harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().Contain("The flow refused the command");
+        harness.Find("[role=tabpanel] .wb-sr[role=status]").TextContent.Should().Contain("The process refused the command");
         harness.FindAll("section.wb-wait [role=alert]").Should().NotBeEmpty();
     }
 
@@ -138,8 +138,8 @@ public sealed class FlowAccessibilityTests
     public void TheNarrowListIsASelectWithALabelAndTheWideListIsANavigationLandmark()
     {
         using var harness = Open(FlowWorkbenchTab.Read);
-        harness.Find("select.wb-list-select").GetAttribute("aria-label").Should().Be("Flow list");
-        harness.Find("nav.wb-list").GetAttribute("aria-label").Should().Be("Flow list");
+        harness.Find("select.wb-list-select").GetAttribute("aria-label").Should().Be("Process list");
+        harness.Find("nav.wb-list").GetAttribute("aria-label").Should().Be("Process list");
         harness.FindAll("button.wb-rule[aria-current=true]").Should().HaveCount(1);
     }
 

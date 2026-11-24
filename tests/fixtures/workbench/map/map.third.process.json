@@ -1,0 +1,63 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.third",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "process/map.wrap"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Third main process",
+    "display": {
+      "en": {
+        "title": "Third main process"
+      },
+      "es": {
+        "title": "Tercer proceso principal"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "go",
+    "steps": {
+      "go": {
+        "kind": "subprocess",
+        "process": "map.wrap",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "done",
+        "onError": "done"
+      },
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": [],
+    "triggers": [
+      {
+        "kind": "event",
+        "event": "case.third",
+        "businessKey": "ref",
+        "input": {
+          "ref": "ref"
+        }
+      }
+    ]
+  }
+}

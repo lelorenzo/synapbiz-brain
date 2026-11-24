@@ -1,0 +1,840 @@
+previsit.outreach / nothing is missing / after 0 of 1 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta [here]
+  waiting: Espera la respuesta de `intake.requirements`.
+  why: Vino de Ronda de recordatorios, por esta ruta: En cada vuelta: ir a Revisar lo que falta
+  next: Si sale bien: ir a Decidir si se recuerda | Si falla: ir a Seguimiento de recepción | Si la conexión no está disponible: ir a Seguimiento final de recepción
+previsit.outreach / nothing is missing / after 1 of 1 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Listo para la visita
+  waiting: El caso terminó con el resultado Listo.
+  why: 
+  next: 
+previsit.outreach / a reply after the first reminder closes the stage / after 2 of 4 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio > Esperar la respuesta [here]
+  waiting: Espera el evento `case.reply_received`. La espera termina como tarde a las 2027-01-05 14:00 UTC.
+  why: Vino de Enviar recordatorio, por esta ruta: Si sale bien: ir a Esperar la respuesta
+  next: Cuando llega el evento: ir a Ronda de recordatorios | Si no llega respuesta en 1 día: ir a Ronda de recordatorios
+previsit.outreach / a reply after the first reminder closes the stage / after 4 of 4 commands: Completed
+  steps: Ronda de recordatorios x2 > Revisar lo que falta x2 > Decidir si se recuerda x2 > Enviar recordatorio > Esperar la respuesta > Listo para la visita
+  waiting: El caso terminó con el resultado Listo.
+  why: 
+  next: 
+previsit.outreach / three reminders without a reply end at the front desk / after 5 of 10 commands: Waiting
+  steps: Ronda de recordatorios x2 > Revisar lo que falta x2 > Decidir si se recuerda x2 > Enviar recordatorio x2 > Esperar la respuesta x2 [here]
+  waiting: Espera el evento `case.reply_received`. La espera termina como tarde a las 2027-01-06 14:00 UTC.
+  why: Vino de Enviar recordatorio, por esta ruta: Si sale bien: ir a Esperar la respuesta
+  next: Cuando llega el evento: ir a Ronda de recordatorios | Si no llega respuesta en 1 día: ir a Ronda de recordatorios
+previsit.outreach / three reminders without a reply end at the front desk / after 10 of 10 commands: Completed
+  steps: Ronda de recordatorios x4 > Revisar lo que falta x3 > Decidir si se recuerda x3 > Enviar recordatorio x3 > Esperar la respuesta x3 > Seguimiento final de recepción > Caso sin contacto
+  waiting: El caso terminó con el resultado Sin contacto.
+  why: 
+  next: 
+previsit.outreach / the front desk resolves a case after the reminders are used up / after 5 of 10 commands: Waiting
+  steps: Ronda de recordatorios x2 > Revisar lo que falta x2 > Decidir si se recuerda x2 > Enviar recordatorio x2 > Esperar la respuesta x2 [here]
+  waiting: Espera el evento `case.reply_received`. La espera termina como tarde a las 2027-01-06 14:00 UTC.
+  why: Vino de Enviar recordatorio, por esta ruta: Si sale bien: ir a Esperar la respuesta
+  next: Cuando llega el evento: ir a Ronda de recordatorios | Si no llega respuesta en 1 día: ir a Ronda de recordatorios
+previsit.outreach / the front desk resolves a case after the reminders are used up / after 10 of 10 commands: Completed
+  steps: Ronda de recordatorios x4 > Revisar lo que falta x3 > Decidir si se recuerda x3 > Enviar recordatorio x3 > Esperar la respuesta x3 > Seguimiento final de recepción > Listo para la visita
+  waiting: El caso terminó con el resultado Listo.
+  why: 
+  next: 
+previsit.outreach / an unknown delivery goes to the front desk, which sends the case back to the loop / after 2 of 4 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio > Seguimiento de recepción [here]
+  waiting: Espera a una persona en la cola Recepción. La espera termina como tarde a las 2027-01-07 14:00 UTC.
+  why: Vino de Enviar recordatorio, por esta ruta: Si no se sabe si salió: ir a Seguimiento de recepción
+  next: Si la persona elige Resuelto: ir a Ronda de recordatorios | Si la persona elige Sin contacto: ir a Caso sin contacto | Si no llega respuesta en 3 días: ir a Caso sin contacto
+previsit.outreach / an unknown delivery goes to the front desk, which sends the case back to the loop / after 4 of 4 commands: Completed
+  steps: Ronda de recordatorios x2 > Revisar lo que falta x2 > Decidir si se recuerda x2 > Enviar recordatorio > Seguimiento de recepción > Listo para la visita
+  waiting: El caso terminó con el resultado Listo.
+  why: 
+  next: 
+previsit.outreach / a transient failure of the reminder is retried inside the window / after 3 of 6 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio [here]
+  waiting: Espera la respuesta de `messaging.reminder`.
+  why: La regla `previsit.missing_items` coincidió con la fila `something-missing`.
+  next: Si sale bien: ir a Esperar la respuesta | Si falla: ir a Seguimiento de recepción | Si la conexión no está disponible: ir a Seguimiento final de recepción | Si el plan no lo incluye: ir a Seguimiento final de recepción | Si no se sabe si salió: ir a Seguimiento de recepción
+previsit.outreach / a transient failure of the reminder is retried inside the window / after 6 of 6 commands: Completed
+  steps: Ronda de recordatorios x2 > Revisar lo que falta x2 > Decidir si se recuerda x2 > Enviar recordatorio > Esperar la respuesta > Listo para la visita
+  waiting: El caso terminó con el resultado Listo.
+  why: 
+  next: 
+previsit.outreach / a reminder that is not available hands the whole stage to the front desk / after 1 of 3 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio [here]
+  waiting: Espera la respuesta de `messaging.reminder`.
+  why: La regla `previsit.missing_items` coincidió con la fila `something-missing`.
+  next: Si sale bien: ir a Esperar la respuesta | Si falla: ir a Seguimiento de recepción | Si la conexión no está disponible: ir a Seguimiento final de recepción | Si el plan no lo incluye: ir a Seguimiento final de recepción | Si no se sabe si salió: ir a Seguimiento de recepción
+previsit.outreach / a reminder that is not available hands the whole stage to the front desk / after 3 of 3 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio > Seguimiento final de recepción > Listo para la visita
+  waiting: El caso terminó con el resultado Listo.
+  why: 
+  next: 
+previsit.outreach / a reminder the practice is not entitled to ends at the front desk after three days / after 1 of 3 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio [here]
+  waiting: Espera la respuesta de `messaging.reminder`.
+  why: La regla `previsit.missing_items` coincidió con la fila `something-missing`.
+  next: Si sale bien: ir a Esperar la respuesta | Si falla: ir a Seguimiento de recepción | Si la conexión no está disponible: ir a Seguimiento final de recepción | Si el plan no lo incluye: ir a Seguimiento final de recepción | Si no se sabe si salió: ir a Seguimiento de recepción
+previsit.outreach / a reminder the practice is not entitled to ends at the front desk after three days / after 3 of 3 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio > Seguimiento final de recepción > Caso sin contacto
+  waiting: El caso terminó con el resultado Sin contacto.
+  why: 
+  next: 
+previsit.outreach / a zone the host cannot resolve raises a task instead of a contact / after 1 of 2 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio > Seguimiento de recepción [here]
+  waiting: Espera a una persona en la cola Recepción. La espera termina como tarde a las 2027-01-07 14:00 UTC.
+  why: Vino de Enviar recordatorio, por esta ruta: Si falla: ir a Seguimiento de recepción
+  next: Si la persona elige Resuelto: ir a Ronda de recordatorios | Si la persona elige Sin contacto: ir a Caso sin contacto | Si no llega respuesta en 3 días: ir a Caso sin contacto
+previsit.outreach / a zone the host cannot resolve raises a task instead of a contact / after 2 of 2 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio > Seguimiento de recepción > Caso sin contacto
+  waiting: El caso terminó con el resultado Sin contacto.
+  why: 
+  next: 
+previsit.outreach / a reminder waits for the next opening of the contact hours / after 2 of 5 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio [here]
+  waiting: Espera la respuesta de `messaging.reminder`.
+  why: La regla `previsit.missing_items` coincidió con la fila `something-missing`.
+  next: Si sale bien: ir a Esperar la respuesta | Si falla: ir a Seguimiento de recepción | Si la conexión no está disponible: ir a Seguimiento final de recepción | Si el plan no lo incluye: ir a Seguimiento final de recepción | Si no se sabe si salió: ir a Seguimiento de recepción
+previsit.outreach / a reminder waits for the next opening of the contact hours / after 5 of 5 commands: Completed
+  steps: Ronda de recordatorios x2 > Revisar lo que falta x2 > Decidir si se recuerda x2 > Enviar recordatorio > Esperar la respuesta > Listo para la visita
+  waiting: El caso terminó con el resultado Listo.
+  why: 
+  next: 
+previsit.outreach / the requirements cannot be read at all / after 1 of 2 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Seguimiento final de recepción [here]
+  waiting: Espera a una persona en la cola Recepción. La espera termina como tarde a las 2027-01-07 14:00 UTC.
+  why: Vino de Revisar lo que falta, por esta ruta: Si la conexión no está disponible: ir a Seguimiento final de recepción
+  next: Si la persona elige Resuelto: ir a Listo para la visita | Si la persona elige Sin contacto: ir a Caso sin contacto | Si no llega respuesta en 3 días: ir a Caso sin contacto
+previsit.outreach / the requirements cannot be read at all / after 2 of 2 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Seguimiento final de recepción > Listo para la visita
+  waiting: El caso terminó con el resultado Listo.
+  why: 
+  next: 
+previsit.outreach / the requirements fail for good / after 1 of 2 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Seguimiento de recepción [here]
+  waiting: Espera a una persona en la cola Recepción. La espera termina como tarde a las 2027-01-07 14:00 UTC.
+  why: Vino de Revisar lo que falta, por esta ruta: Si falla: ir a Seguimiento de recepción
+  next: Si la persona elige Resuelto: ir a Ronda de recordatorios | Si la persona elige Sin contacto: ir a Caso sin contacto | Si no llega respuesta en 3 días: ir a Caso sin contacto
+previsit.outreach / the requirements fail for good / after 2 of 2 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Seguimiento de recepción > Caso sin contacto
+  waiting: El caso terminó con el resultado Sin contacto.
+  why: 
+  next: 
+previsit.outreach / the requirements fail on every attempt and nobody answers the task / after 3 of 6 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta [here]
+  waiting: Espera la respuesta de `intake.requirements`. La espera termina como tarde a las 2027-01-04 14:01 UTC.
+  why: Vino de Ronda de recordatorios, por esta ruta: En cada vuelta: ir a Revisar lo que falta
+  next: Si sale bien: ir a Decidir si se recuerda | Si falla: ir a Seguimiento de recepción | Si la conexión no está disponible: ir a Seguimiento final de recepción
+previsit.outreach / the requirements fail on every attempt and nobody answers the task / after 6 of 6 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Seguimiento de recepción > Caso sin contacto
+  waiting: El caso terminó con el resultado Sin contacto.
+  why: 
+  next: 
+previsit.outreach / a negative count decides nothing and goes to the front desk / after 1 of 2 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Seguimiento de recepción [here]
+  waiting: Espera a una persona en la cola Recepción. La espera termina como tarde a las 2027-01-07 14:00 UTC.
+  why: La regla `previsit.missing_items` no dio resultado.
+  next: Si la persona elige Resuelto: ir a Ronda de recordatorios | Si la persona elige Sin contacto: ir a Caso sin contacto | Si no llega respuesta en 3 días: ir a Caso sin contacto
+previsit.outreach / a negative count decides nothing and goes to the front desk / after 2 of 2 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Seguimiento de recepción > Caso sin contacto
+  waiting: El caso terminó con el resultado Sin contacto.
+  why: 
+  next: 
+previsit.outreach / a read without a count makes the rule fail and goes to the front desk / after 1 of 2 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Seguimiento de recepción [here]
+  waiting: Espera a una persona en la cola Recepción. La espera termina como tarde a las 2027-01-07 14:00 UTC.
+  why: Vino de Decidir si se recuerda, por esta ruta: Si no se puede aplicar la regla: ir a Seguimiento de recepción
+  next: Si la persona elige Resuelto: ir a Ronda de recordatorios | Si la persona elige Sin contacto: ir a Caso sin contacto | Si no llega respuesta en 3 días: ir a Caso sin contacto
+previsit.outreach / a read without a count makes the rule fail and goes to the front desk / after 2 of 2 commands: Completed
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Seguimiento de recepción > Caso sin contacto
+  waiting: El caso terminó con el resultado Sin contacto.
+  why: 
+  next: 
+previsit.outreach / a case that came without its zone is suspended at the reminder, never failed and never routed / after 0 of 1 commands: Waiting
+  steps: Ronda de recordatorios > Revisar lo que falta [here]
+  waiting: Espera la respuesta de `intake.requirements`.
+  why: Vino de Ronda de recordatorios, por esta ruta: En cada vuelta: ir a Revisar lo que falta
+  next: Si sale bien: ir a Decidir si se recuerda | Si falla: ir a Seguimiento de recepción | Si la conexión no está disponible: ir a Seguimiento final de recepción
+previsit.outreach / a case that came without its zone is suspended at the reminder, never failed and never routed / after 1 of 1 commands: Suspended
+  steps: Ronda de recordatorios > Revisar lo que falta > Decidir si se recuerda > Enviar recordatorio [here]
+  waiting: El caso se detuvo por un problema, `process.window.zone_missing`, y espera a un operador.
+  why: La regla `previsit.missing_items` coincidió con la fila `something-missing`.
+  next: Si sale bien: ir a Esperar la respuesta | Si falla: ir a Seguimiento de recepción | Si la conexión no está disponible: ir a Seguimiento final de recepción | Si el plan no lo incluye: ir a Seguimiento final de recepción | Si no se sabe si salió: ir a Seguimiento de recepción
+visit.note_wait / the note is signed at the first read / after 0 of 1 commands: Waiting
+  steps: Esperar la nota firmada [here]
+  waiting: Espera la respuesta de `records.note_status`.
+  why: El caso empezó aquí.
+  next: Cuando la respuesta indica que terminó: ir a Nota firmada | Si falla: ir a Reclamar la nota | Si la conexión no está disponible: ir a Confirmar la nota | Si el plan no lo incluye: ir a Confirmar la nota | Si se acaba el tiempo: ir a Reclamar la nota
+visit.note_wait / the note is signed at the first read / after 1 of 1 commands: Completed
+  steps: Esperar la nota firmada > Nota firmada
+  waiting: El caso terminó con el resultado Nota firmada.
+  why: 
+  next: 
+visit.note_wait / the note is signed after two more reads, one of them with a status nobody described / after 2 of 5 commands: Waiting
+  steps: Esperar la nota firmada [here]
+  waiting: Espera la respuesta de `records.note_status`.
+  why: El caso empezó aquí.
+  next: Cuando la respuesta indica que terminó: ir a Nota firmada | Si falla: ir a Reclamar la nota | Si la conexión no está disponible: ir a Confirmar la nota | Si el plan no lo incluye: ir a Confirmar la nota | Si se acaba el tiempo: ir a Reclamar la nota
+visit.note_wait / the note is signed after two more reads, one of them with a status nobody described / after 5 of 5 commands: Completed
+  steps: Esperar la nota firmada > Nota firmada
+  waiting: El caso terminó con el resultado Nota firmada.
+  why: 
+  next: 
+visit.note_wait / the note is never signed and the front desk learns it was signed meanwhile / after 9 of 18 commands: Waiting
+  steps: Esperar la nota firmada [here]
+  waiting: Espera la respuesta de `records.note_status`. La espera termina como tarde a las 2027-01-05 13:00 UTC.
+  why: El caso empezó aquí.
+  next: Cuando la respuesta indica que terminó: ir a Nota firmada | Si falla: ir a Reclamar la nota | Si la conexión no está disponible: ir a Confirmar la nota | Si el plan no lo incluye: ir a Confirmar la nota | Si se acaba el tiempo: ir a Reclamar la nota
+visit.note_wait / the note is never signed and the front desk learns it was signed meanwhile / after 18 of 18 commands: Completed
+  steps: Esperar la nota firmada > Reclamar la nota > Nota firmada
+  waiting: El caso terminó con el resultado Nota firmada.
+  why: 
+  next: 
+visit.note_wait / the note is never signed and the visit did not happen / after 9 of 18 commands: Waiting
+  steps: Esperar la nota firmada [here]
+  waiting: Espera la respuesta de `records.note_status`. La espera termina como tarde a las 2027-01-05 13:00 UTC.
+  why: El caso empezó aquí.
+  next: Cuando la respuesta indica que terminó: ir a Nota firmada | Si falla: ir a Reclamar la nota | Si la conexión no está disponible: ir a Confirmar la nota | Si el plan no lo incluye: ir a Confirmar la nota | Si se acaba el tiempo: ir a Reclamar la nota
+visit.note_wait / the note is never signed and the visit did not happen / after 18 of 18 commands: Completed
+  steps: Esperar la nota firmada > Reclamar la nota > Visita cancelada
+  waiting: El caso terminó con el resultado Visita cancelada.
+  why: 
+  next: 
+visit.note_wait / a transient failure of the read is retried inside the round / after 1 of 3 commands: Waiting
+  steps: Esperar la nota firmada [here]
+  waiting: Espera la respuesta de `records.note_status`. La espera termina como tarde a las 2027-01-04 14:00 UTC.
+  why: El caso empezó aquí.
+  next: Cuando la respuesta indica que terminó: ir a Nota firmada | Si falla: ir a Reclamar la nota | Si la conexión no está disponible: ir a Confirmar la nota | Si el plan no lo incluye: ir a Confirmar la nota | Si se acaba el tiempo: ir a Reclamar la nota
+visit.note_wait / a transient failure of the read is retried inside the round / after 3 of 3 commands: Completed
+  steps: Esperar la nota firmada > Nota firmada
+  waiting: El caso terminó con el resultado Nota firmada.
+  why: 
+  next: 
+visit.note_wait / a read that fails for good goes to the chase task / after 1 of 2 commands: Waiting
+  steps: Esperar la nota firmada > Reclamar la nota [here]
+  waiting: Espera a una persona en la cola Seguimiento de notas.
+  why: Vino de Esperar la nota firmada, por esta ruta: Si falla: ir a Reclamar la nota
+  next: Si la persona elige Sin visita: ir a Visita cancelada | Si la persona elige Firmada: ir a Nota firmada
+visit.note_wait / a read that fails for good goes to the chase task / after 2 of 2 commands: Completed
+  steps: Esperar la nota firmada > Reclamar la nota > Visita cancelada
+  waiting: El caso terminó con el resultado Visita cancelada.
+  why: 
+  next: 
+visit.note_wait / a read that fails on every attempt goes to the chase task / after 3 of 6 commands: Waiting
+  steps: Esperar la nota firmada [here]
+  waiting: Espera la respuesta de `records.note_status`. La espera termina como tarde a las 2027-01-04 14:01 UTC.
+  why: El caso empezó aquí.
+  next: Cuando la respuesta indica que terminó: ir a Nota firmada | Si falla: ir a Reclamar la nota | Si la conexión no está disponible: ir a Confirmar la nota | Si el plan no lo incluye: ir a Confirmar la nota | Si se acaba el tiempo: ir a Reclamar la nota
+visit.note_wait / a read that fails on every attempt goes to the chase task / after 6 of 6 commands: Completed
+  steps: Esperar la nota firmada > Reclamar la nota > Nota firmada
+  waiting: El caso terminó con el resultado Nota firmada.
+  why: 
+  next: 
+visit.note_wait / a read without a status makes the rule fail and goes to the chase task / after 1 of 2 commands: Waiting
+  steps: Esperar la nota firmada > Reclamar la nota [here]
+  waiting: Espera a una persona en la cola Seguimiento de notas.
+  why: Vino de Esperar la nota firmada, por esta ruta: Si falla: ir a Reclamar la nota
+  next: Si la persona elige Sin visita: ir a Visita cancelada | Si la persona elige Firmada: ir a Nota firmada
+visit.note_wait / a read without a status makes the rule fail and goes to the chase task / after 2 of 2 commands: Completed
+  steps: Esperar la nota firmada > Reclamar la nota > Nota firmada
+  waiting: El caso terminó con el resultado Nota firmada.
+  why: 
+  next: 
+visit.note_wait / a practice with no connector confirms the note by hand / after 1 of 2 commands: Waiting
+  steps: Esperar la nota firmada > Confirmar la nota [here]
+  waiting: Espera a una persona en la cola Confirmación de notas.
+  why: Vino de Esperar la nota firmada, por esta ruta: Si la conexión no está disponible: ir a Confirmar la nota
+  next: Si la persona elige Sin visita: ir a Visita cancelada | Si la persona elige Firmada: ir a Nota firmada
+visit.note_wait / a practice with no connector confirms the note by hand / after 2 of 2 commands: Completed
+  steps: Esperar la nota firmada > Confirmar la nota > Nota firmada
+  waiting: El caso terminó con el resultado Nota firmada.
+  why: 
+  next: 
+visit.note_wait / a practice with no connector confirms that the visit did not happen / after 1 of 2 commands: Waiting
+  steps: Esperar la nota firmada > Confirmar la nota [here]
+  waiting: Espera a una persona en la cola Confirmación de notas.
+  why: Vino de Esperar la nota firmada, por esta ruta: Si la conexión no está disponible: ir a Confirmar la nota
+  next: Si la persona elige Sin visita: ir a Visita cancelada | Si la persona elige Firmada: ir a Nota firmada
+visit.note_wait / a practice with no connector confirms that the visit did not happen / after 2 of 2 commands: Completed
+  steps: Esperar la nota firmada > Confirmar la nota > Visita cancelada
+  waiting: El caso terminó con el resultado Visita cancelada.
+  why: 
+  next: 
+visit.note_wait / a practice not entitled to the connector confirms the note by hand / after 1 of 2 commands: Waiting
+  steps: Esperar la nota firmada > Confirmar la nota [here]
+  waiting: Espera a una persona en la cola Confirmación de notas.
+  why: Vino de Esperar la nota firmada, por esta ruta: Si el plan no lo incluye: ir a Confirmar la nota
+  next: Si la persona elige Sin visita: ir a Visita cancelada | Si la persona elige Firmada: ir a Nota firmada
+visit.note_wait / a practice not entitled to the connector confirms the note by hand / after 2 of 2 commands: Completed
+  steps: Esperar la nota firmada > Confirmar la nota > Nota firmada
+  waiting: El caso terminó con el resultado Nota firmada.
+  why: 
+  next: 
+postvisit.coding_review / the assistant is off and the physician approves / after 1 of 2 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico [here]
+  waiting: Espera a una persona en la cola Revisión médica.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `disabled`.
+  next: Si la persona elige Aprobada: ir a Codificación aprobada | Si la persona elige Modificada: ir a Codificación aprobada | Si la persona elige Rechazada: ir a Codificación rechazada
+postvisit.coding_review / the assistant is off and the physician approves / after 2 of 2 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / a usable suggestion is shown to the physician, who approves / after 1 of 3 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / a usable suggestion is shown to the physician, who approves / after 3 of 3 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Comprobar la sugerencia > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / an unsure suggestion is marked so, and the physician changes the code / after 1 of 3 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / an unsure suggestion is marked so, and the physician changes the code / after 3 of 3 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Comprobar la sugerencia > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / the physician rejects the coding / after 1 of 2 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico [here]
+  waiting: Espera a una persona en la cola Revisión médica.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `disabled`.
+  next: Si la persona elige Aprobada: ir a Codificación aprobada | Si la persona elige Modificada: ir a Codificación aprobada | Si la persona elige Rechazada: ir a Codificación rechazada
+postvisit.coding_review / the physician rejects the coding / after 2 of 2 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico > Codificación rechazada
+  waiting: El caso terminó con el resultado Codificación rechazada.
+  why: 
+  next: 
+postvisit.coding_review / an answer that breaks the output schema twice goes to the physician without a suggestion / after 2 of 4 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / an answer that breaks the output schema twice goes to the physician without a suggestion / after 4 of 4 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / an answer with a member the schema does not allow, every time, goes to the physician without a suggestion / after 2 of 4 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / an answer with a member the schema does not allow, every time, goes to the physician without a suggestion / after 4 of 4 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / an answer without a confidence goes to the physician without a verdict / after 1 of 3 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / an answer without a confidence goes to the physician without a verdict / after 3 of 3 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Comprobar la sugerencia > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / an answer the rule cannot judge goes to the physician without a verdict / after 1 of 3 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / an answer the rule cannot judge goes to the physician without a verdict / after 3 of 3 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Comprobar la sugerencia > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / a transient failure of the assistant is retried / after 2 of 5 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`. La espera termina como tarde a las 2027-01-04 14:01 UTC.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / a transient failure of the assistant is retried / after 5 of 5 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Comprobar la sugerencia > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / an assistant that fails goes to the physician without a suggestion / after 1 of 3 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / an assistant that fails goes to the physician without a suggestion / after 3 of 3 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / an assistant that is not available goes to the physician without a suggestion / after 1 of 3 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente [here]
+  waiting: Espera la respuesta de `assist.suggest`.
+  why: La regla `postvisit.assist_gate` coincidió con la fila `enabled-with-items`.
+  next: Cuando una respuesta cumple la forma: ir a Comprobar la sugerencia | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico | Si la respuesta no cumple la forma esperada: ir a Revisión del médico
+postvisit.coding_review / an assistant that is not available goes to the physician without a suggestion / after 3 of 3 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Consultar al asistente > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / a note that cannot be read still goes to the physician / after 1 of 2 commands: Waiting
+  steps: Leer los datos de la nota > Revisión del médico [here]
+  waiting: Espera a una persona en la cola Revisión médica.
+  why: Vino de Leer los datos de la nota, por esta ruta: Si la conexión no está disponible: ir a Revisión del médico
+  next: Si la persona elige Aprobada: ir a Codificación aprobada | Si la persona elige Modificada: ir a Codificación aprobada | Si la persona elige Rechazada: ir a Codificación rechazada
+postvisit.coding_review / a note that cannot be read still goes to the physician / after 2 of 2 commands: Completed
+  steps: Leer los datos de la nota > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / a note that fails to read still goes to the physician / after 1 of 2 commands: Waiting
+  steps: Leer los datos de la nota > Revisión del médico [here]
+  waiting: Espera a una persona en la cola Revisión médica.
+  why: Vino de Leer los datos de la nota, por esta ruta: Si falla: ir a Revisión del médico
+  next: Si la persona elige Aprobada: ir a Codificación aprobada | Si la persona elige Modificada: ir a Codificación aprobada | Si la persona elige Rechazada: ir a Codificación rechazada
+postvisit.coding_review / a note that fails to read still goes to the physician / after 2 of 2 commands: Completed
+  steps: Leer los datos de la nota > Revisión del médico > Codificación rechazada
+  waiting: El caso terminó con el resultado Codificación rechazada.
+  why: 
+  next: 
+postvisit.coding_review / a read that is retried and then answers / after 2 of 4 commands: Waiting
+  steps: Leer los datos de la nota [here]
+  waiting: Espera la respuesta de `records.note_facts`.
+  why: El caso empezó aquí.
+  next: Si sale bien: ir a Buscar oportunidades de codificación | Si falla: ir a Revisión del médico | Si la conexión no está disponible: ir a Revisión del médico
+postvisit.coding_review / a read that is retried and then answers / after 4 of 4 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / a note without opportunities goes straight to the physician / after 1 of 2 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Revisión del médico [here]
+  waiting: Espera a una persona en la cola Revisión médica.
+  why: La regla `postvisit.opportunities` no dio resultado.
+  next: Si la persona elige Aprobada: ir a Codificación aprobada | Si la persona elige Modificada: ir a Codificación aprobada | Si la persona elige Rechazada: ir a Codificación rechazada
+postvisit.coding_review / a note without opportunities goes straight to the physician / after 2 of 2 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / a read without facts makes the rule fail and goes to the physician / after 1 of 2 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Revisión del médico [here]
+  waiting: Espera a una persona en la cola Revisión médica.
+  why: Vino de Buscar oportunidades de codificación, por esta ruta: Si no se puede aplicar la regla: ir a Revisión del médico
+  next: Si la persona elige Aprobada: ir a Codificación aprobada | Si la persona elige Modificada: ir a Codificación aprobada | Si la persona elige Rechazada: ir a Codificación rechazada
+postvisit.coding_review / a read without facts makes the rule fail and goes to the physician / after 2 of 2 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / a count the gate cannot judge goes to the physician / after 1 of 2 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico [here]
+  waiting: Espera a una persona en la cola Revisión médica.
+  why: La regla `postvisit.assist_gate` no dio resultado.
+  next: Si la persona elige Aprobada: ir a Codificación aprobada | Si la persona elige Modificada: ir a Codificación aprobada | Si la persona elige Rechazada: ir a Codificación rechazada
+postvisit.coding_review / a count the gate cannot judge goes to the physician / after 2 of 2 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+postvisit.coding_review / a practice that never said whether the assistant is enabled goes to the physician / after 1 of 2 commands: Waiting
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico [here]
+  waiting: Espera a una persona en la cola Revisión médica.
+  why: Vino de Decidir si se consulta al asistente, por esta ruta: Si no se puede aplicar la regla: ir a Revisión del médico
+  next: Si la persona elige Aprobada: ir a Codificación aprobada | Si la persona elige Modificada: ir a Codificación aprobada | Si la persona elige Rechazada: ir a Codificación rechazada
+postvisit.coding_review / a practice that never said whether the assistant is enabled goes to the physician / after 2 of 2 commands: Completed
+  steps: Leer los datos de la nota > Buscar oportunidades de codificación > Decidir si se consulta al asistente > Revisión del médico > Codificación aprobada
+  waiting: El caso terminó con el resultado Codificación aprobada.
+  why: 
+  next: 
+collection.followup / the claim is paid at the first read / after 1 of 2 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / the claim is paid at the first read / after 2 of 2 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Encaminar según el estado > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / the claim is paid after three reads / after 3 of 6 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / the claim is paid after three reads / after 6 of 6 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Encaminar según el estado > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / a denial is resubmitted by a person and the claim is then paid / after 2 of 4 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Encaminar según el estado > Atender la denegación [here]
+  waiting: Espera a una persona en la cola Denegaciones.
+  why: La regla `collection.claim_result` coincidió con la fila `denied`.
+  next: Si la persona elige Reenviado: ir a Ronda de consulta de estado | Si la persona elige Dado de baja: ir a Dado de baja
+collection.followup / a denial is resubmitted by a person and the claim is then paid / after 4 of 4 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado x2 > Consultar el estado del reclamo x2 > Encaminar según el estado x2 > Atender la denegación > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / a denial is written off by a person / after 1 of 3 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a denial is written off by a person / after 3 of 3 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Encaminar según el estado > Atender la denegación > Dado de baja
+  waiting: El caso terminó con el resultado Dado de baja.
+  why: 
+  next: 
+collection.followup / a partial payment waits a week and reads again / after 2 of 4 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Encaminar según el estado > Esperar el saldo [here]
+  waiting: Espera hasta 2027-01-11 14:00 UTC.
+  why: La regla `collection.claim_result` coincidió con la fila `partly-paid`.
+  next: Cuando llega la hora: ir a Ronda de consulta de estado
+collection.followup / a partial payment waits a week and reads again / after 4 of 4 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado x2 > Consultar el estado del reclamo x2 > Encaminar según el estado x2 > Esperar el saldo > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / a claim that is not submitted in time raises a task, and a person says it was / after 1 of 3 commands: Waiting
+  steps: Esperar el envío del reclamo > Reclamo atrasado [here]
+  waiting: Espera a una persona en la cola Seguimiento de facturación.
+  why: No llegó respuesta a tiempo.
+  next: Si la persona elige Cerrar a mano: ir a Cerrado por una persona | Si la persona elige Enviado: ir a Ronda de consulta de estado
+collection.followup / a claim that is not submitted in time raises a task, and a person says it was / after 3 of 3 commands: Completed
+  steps: Esperar el envío del reclamo > Reclamo atrasado > Ronda de consulta de estado > Consultar el estado del reclamo > Encaminar según el estado > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / a claim that is not submitted in time is closed by hand / after 1 of 2 commands: Waiting
+  steps: Esperar el envío del reclamo > Reclamo atrasado [here]
+  waiting: Espera a una persona en la cola Seguimiento de facturación.
+  why: No llegó respuesta a tiempo.
+  next: Si la persona elige Cerrar a mano: ir a Cerrado por una persona | Si la persona elige Enviado: ir a Ronda de consulta de estado
+collection.followup / a claim that is not submitted in time is closed by hand / after 2 of 2 commands: Completed
+  steps: Esperar el envío del reclamo > Reclamo atrasado > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+collection.followup / denials that come back every time use up the loop and a person writes the claim off / after 4 of 8 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado x2 > Consultar el estado del reclamo x2 > Encaminar según el estado x2 > Atender la denegación x2 [here]
+  waiting: Espera a una persona en la cola Denegaciones.
+  why: La regla `collection.claim_result` coincidió con la fila `denied`.
+  next: Si la persona elige Reenviado: ir a Ronda de consulta de estado | Si la persona elige Dado de baja: ir a Dado de baja
+collection.followup / denials that come back every time use up the loop and a person writes the claim off / after 8 of 8 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado x4 > Consultar el estado del reclamo x3 > Encaminar según el estado x3 > Atender la denegación x3 > Consultas agotadas > Dado de baja
+  waiting: El caso terminó con el resultado Dado de baja.
+  why: 
+  next: 
+collection.followup / balances that stay open use up the loop and a person closes the case / after 4 of 8 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado x2 > Consultar el estado del reclamo x2 > Encaminar según el estado x2 > Esperar el saldo x2 [here]
+  waiting: Espera hasta 2027-01-18 14:00 UTC.
+  why: La regla `collection.claim_result` coincidió con la fila `partly-paid`.
+  next: Cuando llega la hora: ir a Ronda de consulta de estado
+collection.followup / balances that stay open use up the loop and a person closes the case / after 8 of 8 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado x4 > Consultar el estado del reclamo x3 > Encaminar según el estado x3 > Esperar el saldo x3 > Consultas agotadas > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+collection.followup / a claim that stays in review expires the poll and a person keeps waiting / after 8 of 16 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`. La espera termina como tarde a las 2027-01-18 14:00 UTC.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a claim that stays in review expires the poll and a person keeps waiting / after 16 of 16 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado x2 > Consultar el estado del reclamo x2 > Reclamo detenido > Encaminar según el estado > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / a claim that stays in review expires the poll and a person closes the case / after 7 of 15 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a claim that stays in review expires the poll and a person closes the case / after 15 of 15 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Reclamo detenido > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+collection.followup / a practice with no claims connector confirms the payment by hand / after 1 of 3 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a practice with no claims connector confirms the payment by hand / after 3 of 3 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Confirmar el pago > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / a practice with no claims connector writes the case off by hand / after 1 of 3 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a practice with no claims connector writes the case off by hand / after 3 of 3 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Confirmar el pago > Dado de baja
+  waiting: El caso terminó con el resultado Dado de baja.
+  why: 
+  next: 
+collection.followup / a practice not entitled to the claims connector confirms by hand / after 1 of 3 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a practice not entitled to the claims connector confirms by hand / after 3 of 3 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Confirmar el pago > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / a read that fails for good goes to a person / after 1 of 3 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a read that fails for good goes to a person / after 3 of 3 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Reclamo detenido > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+collection.followup / a transient failure of the read is retried / after 2 of 4 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`. La espera termina como tarde a las 2027-01-04 14:00 UTC.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a transient failure of the read is retried / after 4 of 4 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Encaminar según el estado > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+collection.followup / a read without a status makes the rule fail and goes to a person / after 1 of 3 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a read without a status makes the rule fail and goes to a person / after 3 of 3 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Reclamo detenido > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+collection.followup / a settled status nobody described goes to a person / after 1 of 3 commands: Waiting
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo [here]
+  waiting: Espera la respuesta de `claims.status`.
+  why: Vino de Ronda de consulta de estado, por esta ruta: En cada vuelta: ir a Consultar el estado del reclamo
+  next: Cuando la respuesta indica que terminó: ir a Encaminar según el estado | Si falla: ir a Reclamo detenido | Si la conexión no está disponible: ir a Confirmar el pago | Si el plan no lo incluye: ir a Confirmar el pago | Si se acaba el tiempo: ir a Reclamo detenido
+collection.followup / a settled status nobody described goes to a person / after 3 of 3 commands: Completed
+  steps: Esperar el envío del reclamo > Ronda de consulta de estado > Consultar el estado del reclamo > Encaminar según el estado > Reclamo detenido > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+case.lifecycle / a case runs its four stages and the money is collected / after 2 of 4 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita [here]
+  waiting: Espera a que termine el proceso Revisión de codificación posterior a la visita.
+  why: Vino de Etapa de la visita, por esta ruta: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita
+  next: Si el proceso termina con Codificación aprobada: ir a Etapa de cobro | Si el proceso termina con Codificación rechazada: ir a Cerrado, sin facturar | Si el proceso falla: ir a Operaciones: problema posterior a la visita
+case.lifecycle / a case runs its four stages and the money is collected / after 4 of 4 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita > Etapa de cobro > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+case.lifecycle / a case whose reminders went unanswered still goes on to the visit / after 2 of 4 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita [here]
+  waiting: Espera a que termine el proceso Revisión de codificación posterior a la visita.
+  why: Vino de Etapa de la visita, por esta ruta: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita
+  next: Si el proceso termina con Codificación aprobada: ir a Etapa de cobro | Si el proceso termina con Codificación rechazada: ir a Cerrado, sin facturar | Si el proceso falla: ir a Operaciones: problema posterior a la visita
+case.lifecycle / a case whose reminders went unanswered still goes on to the visit / after 4 of 4 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita > Etapa de cobro > Cobrado
+  waiting: El caso terminó con el resultado Cobrado.
+  why: 
+  next: 
+case.lifecycle / a visit that did not happen closes the case without a visit / after 1 of 2 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita [here]
+  waiting: Espera a que termine el proceso Espera de la nota de la visita.
+  why: Vino de Etapa previa a la visita, por esta ruta: Si el proceso termina con Listo: ir a Etapa de la visita
+  next: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita | Si el proceso termina con Visita cancelada: ir a Cerrado, sin visita | Si el proceso falla: ir a Operaciones: problema en la visita
+case.lifecycle / a visit that did not happen closes the case without a visit / after 2 of 2 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Cerrado, sin visita
+  waiting: El caso terminó con el resultado Cerrado, sin visita.
+  why: 
+  next: 
+case.lifecycle / a rejected coding closes the case without billing / after 1 of 3 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita [here]
+  waiting: Espera a que termine el proceso Espera de la nota de la visita.
+  why: Vino de Etapa previa a la visita, por esta ruta: Si el proceso termina con Listo: ir a Etapa de la visita
+  next: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita | Si el proceso termina con Visita cancelada: ir a Cerrado, sin visita | Si el proceso falla: ir a Operaciones: problema en la visita
+case.lifecycle / a rejected coding closes the case without billing / after 3 of 3 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita > Cerrado, sin facturar
+  waiting: El caso terminó con el resultado Cerrado, sin facturar.
+  why: 
+  next: 
+case.lifecycle / a claim that is written off ends the case as written off / after 2 of 4 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita [here]
+  waiting: Espera a que termine el proceso Revisión de codificación posterior a la visita.
+  why: Vino de Etapa de la visita, por esta ruta: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita
+  next: Si el proceso termina con Codificación aprobada: ir a Etapa de cobro | Si el proceso termina con Codificación rechazada: ir a Cerrado, sin facturar | Si el proceso falla: ir a Operaciones: problema posterior a la visita
+case.lifecycle / a claim that is written off ends the case as written off / after 4 of 4 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita > Etapa de cobro > Dado de baja
+  waiting: El caso terminó con el resultado Dado de baja.
+  why: 
+  next: 
+case.lifecycle / a collection stage closed by hand ends the case as a manual close / after 2 of 4 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita [here]
+  waiting: Espera a que termine el proceso Revisión de codificación posterior a la visita.
+  why: Vino de Etapa de la visita, por esta ruta: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita
+  next: Si el proceso termina con Codificación aprobada: ir a Etapa de cobro | Si el proceso termina con Codificación rechazada: ir a Cerrado, sin facturar | Si el proceso falla: ir a Operaciones: problema posterior a la visita
+case.lifecycle / a collection stage closed by hand ends the case as a manual close / after 4 of 4 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita > Etapa de cobro > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+case.lifecycle / a failed pre-visit stage raises an operations task, which lets the case go on / after 1 of 3 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Operaciones: problema previo a la visita [here]
+  waiting: Espera a una persona en la cola Operaciones.
+  why: Vino de Etapa previa a la visita, por esta ruta: Si el proceso falla: ir a Operaciones: problema previo a la visita
+  next: Si la persona elige Cerrar el caso: ir a Cerrado por una persona | Si la persona elige Continuar: ir a Etapa de la visita
+case.lifecycle / a failed pre-visit stage raises an operations task, which lets the case go on / after 3 of 3 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Operaciones: problema previo a la visita > Etapa de la visita > Cerrado, sin visita
+  waiting: El caso terminó con el resultado Cerrado, sin visita.
+  why: 
+  next: 
+case.lifecycle / a failed pre-visit stage is closed by hand / after 1 of 2 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Operaciones: problema previo a la visita [here]
+  waiting: Espera a una persona en la cola Operaciones.
+  why: Vino de Etapa previa a la visita, por esta ruta: Si el proceso falla: ir a Operaciones: problema previo a la visita
+  next: Si la persona elige Cerrar el caso: ir a Cerrado por una persona | Si la persona elige Continuar: ir a Etapa de la visita
+case.lifecycle / a failed pre-visit stage is closed by hand / after 2 of 2 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Operaciones: problema previo a la visita > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+case.lifecycle / a failed visit stage raises an operations task / after 1 of 3 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita [here]
+  waiting: Espera a que termine el proceso Espera de la nota de la visita.
+  why: Vino de Etapa previa a la visita, por esta ruta: Si el proceso termina con Listo: ir a Etapa de la visita
+  next: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita | Si el proceso termina con Visita cancelada: ir a Cerrado, sin visita | Si el proceso falla: ir a Operaciones: problema en la visita
+case.lifecycle / a failed visit stage raises an operations task / after 3 of 3 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Operaciones: problema en la visita > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+case.lifecycle / a failed coding stage raises an operations task and never reaches billing / after 2 of 4 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita [here]
+  waiting: Espera a que termine el proceso Revisión de codificación posterior a la visita.
+  why: Vino de Etapa de la visita, por esta ruta: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita
+  next: Si el proceso termina con Codificación aprobada: ir a Etapa de cobro | Si el proceso termina con Codificación rechazada: ir a Cerrado, sin facturar | Si el proceso falla: ir a Operaciones: problema posterior a la visita
+case.lifecycle / a failed coding stage raises an operations task and never reaches billing / after 4 of 4 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita > Operaciones: problema posterior a la visita > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+case.lifecycle / a result nobody listed raises the operations task of the stage / after 2 of 4 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita [here]
+  waiting: Espera a que termine el proceso Revisión de codificación posterior a la visita.
+  why: Vino de Etapa de la visita, por esta ruta: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita
+  next: Si el proceso termina con Codificación aprobada: ir a Etapa de cobro | Si el proceso termina con Codificación rechazada: ir a Cerrado, sin facturar | Si el proceso falla: ir a Operaciones: problema posterior a la visita
+case.lifecycle / a result nobody listed raises the operations task of the stage / after 4 of 4 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita > Operaciones: problema posterior a la visita > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+case.lifecycle / a failed collection stage raises an operations task / after 2 of 5 commands: Waiting
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita [here]
+  waiting: Espera a que termine el proceso Revisión de codificación posterior a la visita.
+  why: Vino de Etapa de la visita, por esta ruta: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita
+  next: Si el proceso termina con Codificación aprobada: ir a Etapa de cobro | Si el proceso termina con Codificación rechazada: ir a Cerrado, sin facturar | Si el proceso falla: ir a Operaciones: problema posterior a la visita
+case.lifecycle / a failed collection stage raises an operations task / after 5 of 5 commands: Completed
+  steps: Comprobar la zona del caso > Etapa previa a la visita > Etapa de la visita > Etapa posterior a la visita > Etapa de cobro > Operaciones: problema de cobro > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+case.lifecycle / a case opened without its zone raises the operations task before any reminder, which lets the case go on / after 1 of 2 commands: Waiting
+  steps: Comprobar la zona del caso > Operaciones: falta la zona > Etapa de la visita [here]
+  waiting: Espera a que termine el proceso Espera de la nota de la visita.
+  why: Una persona eligió Continuar.
+  next: Si el proceso termina con Nota firmada: ir a Etapa posterior a la visita | Si el proceso termina con Visita cancelada: ir a Cerrado, sin visita | Si el proceso falla: ir a Operaciones: problema en la visita
+case.lifecycle / a case opened without its zone raises the operations task before any reminder, which lets the case go on / after 2 of 2 commands: Completed
+  steps: Comprobar la zona del caso > Operaciones: falta la zona > Etapa de la visita > Cerrado, sin visita
+  waiting: El caso terminó con el resultado Cerrado, sin visita.
+  why: 
+  next: 
+case.lifecycle / a case opened without its zone is closed by hand / after 0 of 1 commands: Waiting
+  steps: Comprobar la zona del caso > Operaciones: falta la zona [here]
+  waiting: Espera a una persona en la cola Operaciones.
+  why: Vino de Comprobar la zona del caso, por esta ruta: Si no se puede aplicar la regla: ir a Operaciones: falta la zona
+  next: Si la persona elige Cerrar el caso: ir a Cerrado por una persona | Si la persona elige Continuar: ir a Etapa de la visita
+case.lifecycle / a case opened without its zone is closed by hand / after 1 of 1 commands: Completed
+  steps: Comprobar la zona del caso > Operaciones: falta la zona > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+case.lifecycle / a zone that is empty raises the same task / after 0 of 1 commands: Waiting
+  steps: Comprobar la zona del caso > Operaciones: falta la zona [here]
+  waiting: Espera a una persona en la cola Operaciones.
+  why: La regla `lifecycle.zone_ready` no dio resultado.
+  next: Si la persona elige Cerrar el caso: ir a Cerrado por una persona | Si la persona elige Continuar: ir a Etapa de la visita
+case.lifecycle / a zone that is empty raises the same task / after 1 of 1 commands: Completed
+  steps: Comprobar la zona del caso > Operaciones: falta la zona > Cerrado por una persona
+  waiting: El caso terminó con el resultado Cerrado por una persona.
+  why: 
+  next: 
+practice.daily_refresh / the day's cases are read and kept / after 0 of 1 commands: Waiting
+  steps: Leer la lista de casos del día [here]
+  waiting: Espera la respuesta de `schedule.cases_for_day`.
+  why: El caso empezó aquí.
+  next: Si sale bien: ir a Actualizado | Si falla: ir a Operaciones: falló la actualización
+practice.daily_refresh / the day's cases are read and kept / after 1 of 1 commands: Completed
+  steps: Leer la lista de casos del día > Actualizado
+  waiting: El caso terminó con el resultado Actualizado.
+  why: 
+  next: 
+practice.daily_refresh / a day without cases is an empty list / after 0 of 1 commands: Waiting
+  steps: Leer la lista de casos del día [here]
+  waiting: Espera la respuesta de `schedule.cases_for_day`.
+  why: El caso empezó aquí.
+  next: Si sale bien: ir a Actualizado | Si falla: ir a Operaciones: falló la actualización
+practice.daily_refresh / a day without cases is an empty list / after 1 of 1 commands: Completed
+  steps: Leer la lista de casos del día > Actualizado
+  waiting: El caso terminó con el resultado Actualizado.
+  why: 
+  next: 
+practice.daily_refresh / a transient failure is retried / after 1 of 3 commands: Waiting
+  steps: Leer la lista de casos del día [here]
+  waiting: Espera la respuesta de `schedule.cases_for_day`. La espera termina como tarde a las 2027-01-05 11:01 UTC.
+  why: El caso empezó aquí.
+  next: Si sale bien: ir a Actualizado | Si falla: ir a Operaciones: falló la actualización
+practice.daily_refresh / a transient failure is retried / after 3 of 3 commands: Completed
+  steps: Leer la lista de casos del día > Actualizado
+  waiting: El caso terminó con el resultado Actualizado.
+  why: 
+  next: 
+practice.daily_refresh / a read that fails for good raises an operations task and ends as a failed refresh once a person has handled it / after 1 of 2 commands: Waiting
+  steps: Leer la lista de casos del día > Operaciones: falló la actualización [here]
+  waiting: Espera a una persona en la cola Operaciones.
+  why: Vino de Leer la lista de casos del día, por esta ruta: Si falla: ir a Operaciones: falló la actualización
+  next: Si la persona elige Atendido: ir a Actualización fallida
+practice.daily_refresh / a read that fails for good raises an operations task and ends as a failed refresh once a person has handled it / after 2 of 2 commands: Completed
+  steps: Leer la lista de casos del día > Operaciones: falló la actualización > Actualización fallida
+  waiting: El caso terminó con el resultado Actualización fallida.
+  why: 
+  next: 
+practice.daily_refresh / a read that is not available raises the same task / after 1 of 2 commands: Waiting
+  steps: Leer la lista de casos del día > Operaciones: falló la actualización [here]
+  waiting: Espera a una persona en la cola Operaciones.
+  why: Vino de Leer la lista de casos del día, por esta ruta: Si falla: ir a Operaciones: falló la actualización
+  next: Si la persona elige Atendido: ir a Actualización fallida
+practice.daily_refresh / a read that is not available raises the same task / after 2 of 2 commands: Completed
+  steps: Leer la lista de casos del día > Operaciones: falló la actualización > Actualización fallida
+  waiting: El caso terminó con el resultado Actualización fallida.
+  why: 
+  next: 
+practice.daily_refresh / a read that fails and is not handled keeps the instance waiting for the person / after 0 of 1 commands: Waiting
+  steps: Leer la lista de casos del día [here]
+  waiting: Espera la respuesta de `schedule.cases_for_day`.
+  why: El caso empezó aquí.
+  next: Si sale bien: ir a Actualizado | Si falla: ir a Operaciones: falló la actualización
+practice.daily_refresh / a read that fails and is not handled keeps the instance waiting for the person / after 1 of 1 commands: Waiting
+  steps: Leer la lista de casos del día > Operaciones: falló la actualización [here]
+  waiting: Espera a una persona en la cola Operaciones.
+  why: Vino de Leer la lista de casos del día, por esta ruta: Si falla: ir a Operaciones: falló la actualización
+  next: Si la persona elige Atendido: ir a Actualización fallida

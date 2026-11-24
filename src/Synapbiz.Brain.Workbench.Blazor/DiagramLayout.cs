@@ -19,10 +19,27 @@ internal sealed record BandBox(int Index, bool IsLoose, int Y, int Height, int L
 /// <summary>A mark drawn on the first segment of a line: the "not tried" sign or the count of the routes the line stands for.</summary>
 internal sealed record LineMark(bool IsCount, int X, int Y);
 
+/// <summary>Where the short label of a line is written.</summary>
+internal enum LabelPlace
+{
+    /// <summary>The line has no label.</summary>
+    None = 0,
+
+    /// <summary>Beside the port the line leaves its step by, on its first segment.</summary>
+    BesidePort = 1,
+
+    /// <summary>On the first horizontal segment of the line that has room for it.</summary>
+    OnSegment = 2,
+
+    /// <summary>Nowhere on the line: a numbered mark stands for it and the text is listed under the diagram.</summary>
+    Numbered = 3,
+}
+
 /// <summary>
 /// One drawn line: every route between the same two steps (<see cref="Routes"/>, in document order) as one orthogonal polyline
 /// (<see cref="Points"/>, its SVG form in <see cref="Path"/>), with the marks that sit on its first segment and where the short label
-/// of a decision route is written.
+/// of a decision route is written: <see cref="ShortLabel"/> at <see cref="LabelAt"/> (its place is <see cref="Place"/>), or, when it
+/// has no place on the line, <see cref="Number"/> at <see cref="NumberAt"/> with the text in <see cref="FullLabel"/>.
 /// </summary>
 internal sealed record DrawnLine(
     string From,
@@ -35,10 +52,32 @@ internal sealed record DrawnLine(
     IReadOnlyList<LineMark> Marks,
     string? ShortLabel,
     Spot? LabelAt,
-    bool LabelEndsAtPoint = false)
+    bool LabelEndsAtPoint = false,
+    string? FullLabel = null,
+    LabelPlace Place = LabelPlace.None,
+    int Number = 0,
+    Spot? NumberAt = null)
 {
     /// <summary>The segments of the line, each between two consecutive points.</summary>
     internal IEnumerable<(Spot A, Spot B)> Segments => Points.Zip(Points.Skip(1), (a, b) => (a, b));
+
+    /// <summary>The width, in SVG units, of the text of the label as it is drawn; 0 when none is.</summary>
+    internal int LabelWidth => (ShortLabel?.Length ?? 0) * DiagramLayout.CharWidth;
+
+    /// <summary>The space the drawn label takes, as left, top, right and bottom; null when none is drawn.</summary>
+    internal (int Left, int Top, int Right, int Bottom)? LabelBox
+    {
+        get
+        {
+            if (LabelAt is not { } at)
+            {
+                return null;
+            }
+
+            var left = LabelEndsAtPoint ? at.X - LabelWidth : at.X;
+            return (left, at.Y - DiagramLayout.TextHalf, left + LabelWidth, at.Y + DiagramLayout.TextHalf);
+        }
+    }
 }
 
 /// <summary>
@@ -58,9 +97,13 @@ internal sealed record DrawnLine(
 /// lane for each line that uses a stretch of a gutter, and enters the top edge of the other step. Two steps in the same column and
 /// adjacent rows are joined by a straight vertical line. A route that returns, or leads to an earlier band, runs to a lane at the
 /// right of the bands (one lane for each route) and enters the other step from its right side.</item>
-/// <item>The short label of a decision route and the "not tried" sign sit 14 units below the port of the line, on its first segment.
-/// The leftmost labelled line of a step that has several lines writes its label to the left of its port, the others to the right of theirs;
-/// a label is cut with an ellipsis so that it ends before the next port of the same step (the full text is in the title of the line).</item>
+/// <item>The "not tried" sign and the count of a line sit 14 units below its port, on its first segment. The short label of a decision
+/// route is written, in this order of preference and always in the first place where no line, step, mark or other label touches its
+/// text: beside the port (the leftmost labelled line of a step that has several lines tries the left of its port first, the others the
+/// right of theirs); on the first horizontal segment of its own line that has room for it; beside the port again, cut with an ellipsis,
+/// never below <see cref="MinLabelChars"/> characters (a label that has fewer is never cut). A label that has no such place becomes a
+/// numbered mark on the first segment, and its text is listed under the diagram. A label longer than <see cref="MaxLabelChars"/> is cut
+/// wherever it is written; the list under the diagram has all of it.</item>
 /// </list>
 /// </summary>
 internal sealed record DiagramLayout(
@@ -70,12 +113,24 @@ internal sealed record DiagramLayout(
     int Width,
     int Height)
 {
+    /// <summary>The lines whose label became a numbered mark, in the order of their numbers.</summary>
+    internal IEnumerable<DrawnLine> NumberedLines => Lines.Where(line => line.Place == LabelPlace.Numbered).OrderBy(line => line.Number);
+
     internal const int NodeWidth = 184;
     internal const int NodeHeight = 50;
     internal const int LineChars = 22;
     internal const int MarkOffset = 14;
     internal const int MarkRadius = 8;
     internal const int LabelChars = 14;
+
+    /// <summary>A label is never cut below this many characters (a shorter one is not cut at all).</summary>
+    internal const int MinLabelChars = 8;
+
+    /// <summary>A label longer than this is cut with an ellipsis wherever it is written; the numbered list under the diagram has all of it.</summary>
+    internal const int MaxLabelChars = 24;
+
+    /// <summary>Half the height of a line of text in a diagram, in SVG units: text is centred on its y.</summary>
+    internal const int TextHalf = 7;
     internal const int Padding = 8;
     internal const int CharWidth = 7;
     private const int Lane = 8;
@@ -93,47 +148,152 @@ internal sealed record DiagramLayout(
     internal static DiagramLayout Of(FlowGraph graph, int stageCount, IReadOnlySet<string>? untried = null, IReadOnlyList<string>? stageLabels = null, string? looseLabel = null) =>
         new Builder(graph, stageCount, untried ?? new HashSet<string>(), stageLabels, looseLabel).Build();
 
+    /// <summary>The most lines the label of a step has; a step with a third line is taller (<see cref="TallNodeHeight"/>).</summary>
+    internal const int MaxNodeLines = 3;
+
+    /// <summary>The height of a step whose label takes three lines.</summary>
+    internal const int TallNodeHeight = 66;
+
+    /// <summary>The radius of the marker of the step a case is on.</summary>
+    internal const int HereRadius = 8;
+
+    /// <summary>How far the centre of that marker sits inside the top right corner of its step: it sits on the corner, mostly outside the box, so that it never lies under the text.</summary>
+    internal const int HereInset = 2;
+
+    /// <summary>How far, in SVG units, a line of a node's label is from the middle of the node: none for a lone line, above and below for two, one more in the middle for three.</summary>
+    internal static int LineOffset(int lines, int position) => lines switch
+    {
+        1 => 0,
+        2 => position == 0 ? -8 : 8,
+        _ => (position - 1) * 14,
+    };
+
+    /// <summary>The height of a step with this many lines of label.</summary>
+    internal static int HeightFor(int lines) => lines >= MaxNodeLines ? TallNodeHeight : NodeHeight;
+
     /// <summary>
-    /// The lines of a label: up to two, at most <see cref="LineChars"/> characters each, broken at the space nearest the middle (a word
-    /// longer than a line is broken inside). A label that does not fit two lines ends with an ellipsis.
+    /// The lines of a label: up to three, at most <paramref name="chars"/> characters each, broken only at spaces (the break nearest the
+    /// middle when two lines are enough, otherwise the most even one). A single word longer than a line is cut with an ellipsis and never
+    /// split across lines; a label that does not fit three lines ends with an ellipsis (see <see cref="Cut"/>).
     /// </summary>
     /// <param name="label">The full label.</param>
-    internal static (IReadOnlyList<string> Lines, bool IsCut) Wrap(string label)
+    /// <param name="chars">The most characters a line may have.</param>
+    internal static (IReadOnlyList<string> Lines, bool IsCut) Wrap(string label, int chars = LineChars)
     {
-        var text = string.Join(' ', label.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        if (text.Length <= LineChars)
+        var isCut = false;
+        var words = new List<string>();
+        foreach (var word in label.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
-            return ([text], false);
+            if (word.Length > chars)
+            {
+                words.Add(word[..(chars - 1)] + "…");
+                isCut = true;
+            }
+            else
+            {
+                words.Add(word);
+            }
+        }
+
+        var text = string.Join(' ', words);
+        if (text.Length <= chars)
+        {
+            return ([text], isCut);
         }
 
         var middle = text.Length / 2.0;
         var spaces = Enumerable.Range(0, text.Length).Where(index => text[index] == ' ').OrderBy(index => Math.Abs(index - middle)).ThenBy(index => index).ToList();
         foreach (var at in spaces)
         {
-            if (at <= LineChars && text.Length - at - 1 <= LineChars)
+            if (at <= chars && text.Length - at - 1 <= chars)
             {
-                return ([text[..at], text[(at + 1)..]], false);
+                return ([text[..at], text[(at + 1)..]], isCut);
             }
         }
 
-        if (text.Length <= 2 * LineChars)
+        // Three lines: the break pair that keeps every line within the limit and the lines most even (least sum of squares).
+        var best = (First: -1, Second: -1, Score: int.MaxValue);
+        for (var first = 1; first < words.Count - 1; first++)
         {
-            var cut = text[..LineChars];
-            return ([cut, text[LineChars..]], false);
+            for (var second = first + 1; second < words.Count; second++)
+            {
+                var lengths = new[] { Joined(words, 0, first), Joined(words, first, second), Joined(words, second, words.Count) };
+                if (lengths.All(length => length <= chars) && lengths.Sum(length => length * length) is var score && score < best.Score)
+                {
+                    best = (first, second, score);
+                }
+            }
         }
 
-        // Too long for two lines: the first line takes whole words while they fit, the second ends with an ellipsis.
-        var firstEnd = text.LastIndexOf(' ', Math.Min(LineChars, text.Length - 1));
-        if (firstEnd <= 0)
+        if (best.First >= 0)
         {
-            firstEnd = LineChars;
+            return ([string.Join(' ', words.Take(best.First)), string.Join(' ', words.Skip(best.First).Take(best.Second - best.First)), string.Join(' ', words.Skip(best.Second))], isCut);
         }
 
-        var first = text[..firstEnd];
-        var rest = text[firstEnd..].TrimStart();
-        var second = rest.Length <= LineChars ? rest : rest[..(LineChars - 1)] + "…";
-        return ([first, second], true);
+        // Too long for three lines: the first two take whole words while they fit, the third is what is left, cut with an ellipsis.
+        var lines = new List<string>();
+        var position = 0;
+        while (lines.Count < MaxNodeLines - 1 && position < words.Count)
+        {
+            var line = new List<string> { words[position++] };
+            while (position < words.Count && string.Join(' ', line).Length + 1 + words[position].Length <= chars)
+            {
+                line.Add(words[position++]);
+            }
+
+            lines.Add(string.Join(' ', line));
+        }
+
+        if (position < words.Count)
+        {
+            lines.Add(Cut(string.Join(' ', words.Skip(position)), chars));
+        }
+
+        return (lines, true);
     }
+
+    private static int Joined(List<string> words, int from, int to) => string.Join(' ', words.Skip(from).Take(to - from)).Length;
+
+    /// <summary>
+    /// A text cut to at most <paramref name="chars"/> characters, ellipsis included. The cut is at a space when that keeps at least
+    /// <see cref="MinLabelChars"/> characters; a space is never left before the ellipsis.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="chars">The most characters the result may have.</param>
+    internal static string Cut(string text, int chars)
+    {
+        if (text.Length <= chars)
+        {
+            return text;
+        }
+
+        var room = chars - 1;
+        var boundary = text[room] == ' ' ? room : text.LastIndexOf(' ', room - 1);
+        return boundary + 1 >= MinLabelChars ? text[..boundary].TrimEnd() + "…" : text[..room].TrimEnd() + "…";
+    }
+
+    /// <summary>
+    /// How many characters a line of a node's label may have: a step with a symbol writes to the right of it, so its text box is narrower, and
+    /// a person step also writes further left to keep clear of its folded corner.
+    /// </summary>
+    internal static int TextChars(FlowFamily family) => family switch
+    {
+        FlowFamily.End => EndChars,
+        _ => SymbolChars,
+    };
+
+    internal const int SymbolChars = 20;
+
+    /// <summary>The characters a line of an end step may have: it has no symbol, but the dot of the start and the number of a visited step sit in its left corners, so its text is a little narrower than its box.</summary>
+    internal const int EndChars = 19;
+
+    /// <summary>How far to the right of the middle of a step its text is written, to leave room for its symbol; a person step keeps its text further left, clear of the folded corner.</summary>
+    internal static int TextShift(FlowFamily family) => family switch
+    {
+        FlowFamily.End => 0,
+        FlowFamily.Person => 6,
+        _ => 10,
+    };
 
     internal static string N(int value) => value.ToString(CultureInfo.InvariantCulture);
 
@@ -216,6 +376,7 @@ internal sealed record DiagramLayout(
         private int[] rowCount = [];
         private int columnCount;
         private readonly List<string> order = [];
+        private readonly HashSet<(string From, string To)> numbered = [];
         private List<Pair> pairs = [];
 
         internal Builder(FlowGraph graph, int stageCount, IReadOnlySet<string> untried, IReadOnlyList<string>? stageLabels, string? looseLabel)
@@ -242,7 +403,19 @@ internal sealed record DiagramLayout(
             pairs = Pairs(returning);
             Plans();
             var gutters = AllocateLanes();
-            return Geometry(gutters);
+
+            // A label with no place on its line becomes a numbered mark, and the mark needs a slot on the first segment of its line, so the
+            // gutter below its row is taller. The geometry is worked out again with the slot until no other label needs one.
+            while (true)
+            {
+                var (layout, fresh) = Geometry(gutters);
+                if (fresh.Count == 0)
+                {
+                    return layout;
+                }
+
+                numbered.UnionWith(fresh);
+            }
         }
 
         // ----- ranks and returning routes -----------------------------------------------------------------------------------
@@ -598,7 +771,7 @@ internal sealed record DiagramLayout(
 
         // ----- geometry -----------------------------------------------------------------------------------------------------
 
-        private DiagramLayout Geometry(Gutters gutters)
+        private (DiagramLayout Layout, List<(string From, string To)> Fresh) Geometry(Gutters gutters)
         {
             // How many marks the lines that leave a row have: the first lane sits lower when a line carries two.
             var marksBelow = new Dictionary<(int Band, int Row), int>();
@@ -632,7 +805,15 @@ internal sealed record DiagramLayout(
             cursor += columnGutter[columnCount];
             var sideX = cursor;
 
-            // Rows.
+            // Rows: a row is as tall as its tallest step (a label of three lines makes a taller step).
+            var wrapped = graph.Nodes.ToDictionary(node => node.Id, node => Wrap(node.Label, TextChars(node.Family)), StringComparer.Ordinal);
+            var rowHeight = new Dictionary<(int Band, int Row), int>();
+            foreach (var id in graph.Nodes.Select(node => node.Id))
+            {
+                var key = (band[id], row[id]);
+                rowHeight[key] = Math.Max(rowHeight.GetValueOrDefault(key, NodeHeight), HeightFor(wrapped[id].Lines.Count));
+            }
+
             var bandTop = new int[bandStages.Count];
             var bandHeight = new int[bandStages.Count];
             var gutterTop = new Dictionary<(int Band, int Row), int>();
@@ -651,7 +832,7 @@ internal sealed record DiagramLayout(
                     if (gutterRow < rowCount[position])
                     {
                         rowTop[(position, gutterRow)] = y;
-                        y += NodeHeight;
+                        y += rowHeight.GetValueOrDefault((position, gutterRow), NodeHeight);
                     }
                 }
 
@@ -660,9 +841,9 @@ internal sealed record DiagramLayout(
 
             var nodes = graph.Nodes.Select(node =>
             {
-                var (lines, cut) = Wrap(node.Label);
+                var (lines, cut) = wrapped[node.Id];
                 var at = band[node.Id];
-                return new NodeBox(node.Id, columnX[column[node.Id]], rowTop[(at, row[node.Id])], NodeWidth, NodeHeight, at, row[node.Id], column[node.Id], lines, cut);
+                return new NodeBox(node.Id, columnX[column[node.Id]], rowTop[(at, row[node.Id])], NodeWidth, rowHeight[(at, row[node.Id])], at, row[node.Id], column[node.Id], lines, cut);
             }).ToList();
             var boxes = nodes.ToDictionary(box => box.Id, StringComparer.Ordinal);
 
@@ -717,7 +898,6 @@ internal sealed record DiagramLayout(
             }
 
             var bands = new List<BandBox>();
-            var labelRight = 0;
             for (var position = 0; position < bandStages.Count; position++)
             {
                 var isLoose = bandStages[position] >= stageCount;
@@ -728,25 +908,31 @@ internal sealed record DiagramLayout(
                 }
 
                 var labelWidth = label.Length * CharWidth;
-                labelRight = Math.Max(labelRight, Padding + labelWidth);
                 bands.Add(new BandBox(bandStages[position], isLoose, bandTop[position], bandHeight[position], Padding, bandTop[position] + LabelBaseline, labelWidth));
             }
 
-            var textRight = drawn.Select(line => line.LabelAt is { } at && !line.LabelEndsAtPoint ? at.X + (line.ShortLabel!.Length * CharWidth) : 0).DefaultIfEmpty(0).Max();
+            var (placed, fresh) = PlaceLabels(drawn, nodes, bands);
+            var textRight = placed.Select(line => Math.Max(line.LabelBox?.Right ?? 0, line.NumberAt is { } at ? at.X + MarkRadius : 0)).DefaultIfEmpty(0).Max();
             var contentRight = Math.Max(nodes.Select(box => box.X + box.Width).DefaultIfEmpty(0).Max(), drawn.SelectMany(line => line.Points).Select(spot => spot.X).DefaultIfEmpty(0).Max());
+            var labelRight = bands.Select(box => box.LabelX + box.LabelWidth).DefaultIfEmpty(0).Max();
             var width = Math.Max(Math.Max(contentRight, labelRight + Padding), textRight) + Padding;
-            return new DiagramLayout(
-                new ReadOnlyCollection<BandBox>(bands),
-                new ReadOnlyCollection<NodeBox>(nodes),
-                new ReadOnlyCollection<DrawnLine>(drawn),
-                width,
-                y);
+            return (
+                new DiagramLayout(
+                    new ReadOnlyCollection<BandBox>(bands),
+                    new ReadOnlyCollection<NodeBox>(nodes),
+                    new ReadOnlyCollection<DrawnLine>(placed),
+                    width,
+                    y),
+                fresh);
         }
 
         private static int FirstLaneOf(int gutterRow, int marks) =>
             (gutterRow == 0 ? HeaderRoom : FirstLane) + (MarkStep * Math.Max(marks - 1, 0));
 
-        private int MarkItems(Pair pair) => (pair.Routes.Any(route => untried.Contains(route.From + "/" + route.Label)) ? 1 : 0) + (pair.Routes.Count > 1 ? 1 : 0);
+        private int MarkItems(Pair pair) =>
+            (pair.Routes.Any(route => untried.Contains(route.From + "/" + route.Label)) ? 1 : 0)
+            + (pair.Routes.Count > 1 ? 1 : 0)
+            + (numbered.Contains((pair.From, pair.To)) ? 1 : 0);
 
         // Ports are spread evenly along the edge of a step: the bottom edge for the lines that leave it, the top edge for the lines that
         // enter it from above and the right edge for the lines that enter it from the side. A straight line takes the middle of both.
@@ -874,17 +1060,6 @@ internal sealed record DiagramLayout(
             }
 
             var shorts = pair.Routes.Select(route => route.ShortLabel).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
-            var room = LabelChars;
-            if (pair.LabelLeft)
-            {
-                room = Math.Clamp((pair.SourceX - MarkRadius - 6 - pair.SourceLeft) / CharWidth, 1, LabelChars);
-            }
-            else if (pair.NextPortX != int.MaxValue)
-            {
-                room = Math.Clamp((pair.NextPortX - MarkRadius - 2 - (pair.SourceX + MarkRadius + 4)) / CharWidth, 1, LabelChars);
-            }
-
-            var label = shorts.Count == 0 ? null : Cut(string.Join(", ", shorts), room);
             return new DrawnLine(
                 pair.From,
                 pair.To,
@@ -894,13 +1069,162 @@ internal sealed record DiagramLayout(
                 pair.Routes.Any(route => route.IsHappyPath),
                 pair.Returns,
                 marks,
-                label,
-                label is null ? null : new Spot(LabelX(pair), at),
-                label is not null && pair.LabelLeft);
+                null,
+                null,
+                false,
+                shorts.Count == 0 ? null : string.Join(", ", shorts));
         }
 
-        private static int LabelX(Pair pair) => pair.LabelLeft ? pair.SourceX - MarkRadius - 4 : pair.SourceX + MarkRadius + 4;
+        // ----- labels -------------------------------------------------------------------------------------------------------
 
-        private static string Cut(string text, int chars) => text.Length <= chars ? text : text[..(chars - 1)] + "…";
+        private readonly record struct Rect(int Left, int Top, int Right, int Bottom)
+        {
+            internal bool Touches(Rect other) => Left <= other.Right && Right >= other.Left && Top <= other.Bottom && Bottom >= other.Top;
+        }
+
+        // Where every label is written (see the rule in the summary of the type). A label is only put where its text touches no step, no
+        // band label, no line (its own other segments included), no mark and no label written before it.
+        private (List<DrawnLine> Lines, List<(string From, string To)> Fresh) PlaceLabels(List<DrawnLine> drawn, List<NodeBox> nodes, List<BandBox> bands)
+        {
+            var obstacles = new List<Rect>();
+            obstacles.AddRange(nodes.Select(box => new Rect(box.X, box.Y, box.X + box.Width, box.Y + box.Height)));
+            obstacles.AddRange(bands.Select(box => new Rect(box.LabelX, box.LabelY - TextHalf, box.LabelX + box.LabelWidth, box.LabelY + TextHalf)));
+            foreach (var line in drawn)
+            {
+                obstacles.AddRange(line.Segments.Select(segment => new Rect(Math.Min(segment.A.X, segment.B.X), Math.Min(segment.A.Y, segment.B.Y), Math.Max(segment.A.X, segment.B.X), Math.Max(segment.A.Y, segment.B.Y))));
+                obstacles.AddRange(line.Marks.Select(mark => new Rect(mark.X - MarkRadius, mark.Y - MarkRadius, mark.X + MarkRadius, mark.Y + MarkRadius)));
+            }
+
+            // The marks of the lines already known to need one are laid first, so that no label is written over them.
+            var reserved = new Dictionary<int, Spot>();
+            for (var position = 0; position < drawn.Count; position++)
+            {
+                if (drawn[position].FullLabel is not null && numbered.Contains((pairs[position].From, pairs[position].To)))
+                {
+                    var at = MarkSpot(drawn[position], pairs[position], obstacles);
+                    reserved[position] = at;
+                    obstacles.Add(new Rect(at.X - MarkRadius, at.Y - MarkRadius, at.X + MarkRadius, at.Y + MarkRadius));
+                }
+            }
+
+            var result = new List<DrawnLine>(drawn.Count);
+            var fresh = new List<(string From, string To)>();
+            var number = 0;
+            for (var position = 0; position < drawn.Count; position++)
+            {
+                var line = drawn[position];
+                var pair = pairs[position];
+                if (line.FullLabel is not { } full)
+                {
+                    result.Add(line);
+                    continue;
+                }
+
+                var key = (pair.From, pair.To);
+                if (reserved.TryGetValue(position, out var reservedAt))
+                {
+                    number++;
+                    result.Add(line with { Place = LabelPlace.Numbered, Number = number, NumberAt = reservedAt });
+                    continue;
+                }
+
+                var chosen = Place(line, pair, full, obstacles);
+                if (chosen is { } place)
+                {
+                    obstacles.Add(place.Box);
+                    result.Add(line with { ShortLabel = place.Text, LabelAt = place.At, LabelEndsAtPoint = place.EndsAtPoint, Place = place.Kind });
+                    continue;
+                }
+
+                number++;
+                var markAt = MarkSpot(line, pair, obstacles);
+                obstacles.Add(new Rect(markAt.X - MarkRadius, markAt.Y - MarkRadius, markAt.X + MarkRadius, markAt.Y + MarkRadius));
+                fresh.Add(key);
+
+                result.Add(line with { Place = LabelPlace.Numbered, Number = number, NumberAt = markAt });
+            }
+
+            return (result, fresh);
+        }
+
+        /// <summary>The place of a numbered mark: on the first segment of its line, as far up as it can go without touching a step, a mark or a label; when nothing there is free it keeps the place under the marks of its line.</summary>
+        private static Spot MarkSpot(DrawnLine line, Pair pair, List<Rect> obstacles)
+        {
+            var first = line.Points[0];
+            var last = line.Points[1];
+            var own = line.Segments.Select(segment => new Rect(Math.Min(segment.A.X, segment.B.X), Math.Min(segment.A.Y, segment.B.Y), Math.Max(segment.A.X, segment.B.X), Math.Max(segment.A.Y, segment.B.Y))).ToList();
+            var lowest = last.Y - MarkRadius;
+            for (var y = first.Y + MarkOffset; y <= lowest; y += 2)
+            {
+                var box = new Rect(pair.SourceX - MarkRadius, y - MarkRadius, pair.SourceX + MarkRadius, y + MarkRadius);
+                if (!obstacles.Exists(other => box.Touches(other) && !own.Contains(other)))
+                {
+                    return new Spot(pair.SourceX, y);
+                }
+            }
+
+            return new Spot(pair.SourceX, first.Y + MarkOffset + (MarkStep * line.Marks.Count));
+        }
+
+        private readonly record struct Placement(string Text, Spot At, bool EndsAtPoint, LabelPlace Kind, Rect Box);
+
+        private static bool Free(Rect box, List<Rect> obstacles) => box.Left >= Padding && box.Top >= 0 && !obstacles.Exists(box.Touches);
+
+        private static Placement? Place(DrawnLine line, Pair pair, string full, List<Rect> obstacles)
+        {
+            var wanted = Cut(full, MaxLabelChars);
+            var y = line.Points[0].Y + MarkOffset;
+            var sides = pair.LabelLeft ? new[] { true, false } : [false, true];
+
+            Placement? Beside(string text, bool left)
+            {
+                var width = text.Length * CharWidth;
+                var x = left ? pair.SourceX - MarkRadius - 4 : pair.SourceX + MarkRadius + 4;
+                var box = left ? new Rect(x - width, y - TextHalf, x, y + TextHalf) : new Rect(x, y - TextHalf, x + width, y + TextHalf);
+                return Free(box, obstacles) ? new Placement(text, new Spot(x, y), left, LabelPlace.BesidePort, box) : null;
+            }
+
+            foreach (var left in sides)
+            {
+                if (Beside(wanted, left) is { } beside)
+                {
+                    return beside;
+                }
+            }
+
+            var width = wanted.Length * CharWidth;
+            foreach (var (a, b) in line.Segments.Where(segment => segment.A.Y == segment.B.Y))
+            {
+                var from = Math.Min(a.X, b.X);
+                var to = Math.Max(a.X, b.X);
+                for (var x = from + 6; x + width <= to - 6; x += 8)
+                {
+                    var box = new Rect(x, a.Y - 16, x + width, a.Y - 2);
+                    if (Free(box, obstacles))
+                    {
+                        return new Placement(wanted, new Spot(x, a.Y - 9), false, LabelPlace.OnSegment, box);
+                    }
+                }
+            }
+
+            for (var chars = wanted.Length - 1; chars >= MinLabelChars && full.Length > MinLabelChars; chars--)
+            {
+                var shorter = Cut(full, chars);
+                if (shorter.Length < MinLabelChars || shorter.Length >= wanted.Length)
+                {
+                    continue;
+                }
+
+                foreach (var left in sides)
+                {
+                    if (Beside(shorter, left) is { } cut)
+                    {
+                        return cut;
+                    }
+                }
+            }
+
+            return null;
+        }
     }
 }

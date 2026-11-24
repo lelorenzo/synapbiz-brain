@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Synapbiz.Brain.Workbench.Postgres</RootNamespace>
+    <AssemblyName>Synapbiz.Brain.Workbench.Postgres</AssemblyName>
+    <PackageId>Synapbiz.Brain.Workbench.Postgres</PackageId>
+    <IsPackable>true</IsPackable>
+    <Description>The live source of the Brain process workbench over the durable PostgreSQL host: an IFlowLiveSource that answers from the cockpit queries of IProcessEngine, read only, with opaque case references.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
+    <ProjectReference Include="../Synapbiz.Brain.Host.Postgres/Synapbiz.Brain.Host.Postgres.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Synapbiz.Brain.Host.Postgres.Tests" />
+  </ItemGroup>
+
+</Project>

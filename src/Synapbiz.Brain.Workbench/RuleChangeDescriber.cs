@@ -64,12 +64,14 @@ public sealed record CaseOutcomeChange(
 /// <param name="HitPolicyChanged">Whether the hit policy differs.</param>
 /// <param name="DefaultRowChanged">Whether the default row was added, removed or changed.</param>
 /// <param name="CasesThatChange">The samples whose outcome differs between the two revisions.</param>
+/// <param name="ClaimChanges">One sentence for each change in what the rule says about its sources and authority (<c>meta.sources</c>, <c>meta.authority</c>); empty when nothing changed there. The sentences are also part of <paramref name="Summary"/>.</param>
 public sealed record RuleChangeView(
     string Summary,
     IReadOnlyList<RowChangeView> Rows,
     bool HitPolicyChanged,
     bool DefaultRowChanged,
-    IReadOnlyList<CaseOutcomeChange> CasesThatChange);
+    IReadOnlyList<CaseOutcomeChange> CasesThatChange,
+    IReadOnlyList<string> ClaimChanges);
 
 /// <summary>Turns the difference between a rule and its draft into sentences a person reads.</summary>
 public static class RuleChangeDescriber
@@ -79,7 +81,8 @@ public static class RuleChangeDescriber
     /// <see cref="RuleDescriber"/>. Every sample is simulated with the as-of date <see cref="DateOnly.MinValue"/>, as the golden
     /// cases of a rule are. The summary counts the default row like any other row. A row present on both sides whose name (its
     /// label in <paramref name="labelsBefore"/> and <paramref name="labelsAfter"/>) differs, and that <see cref="RuleDiffer"/> does
-    /// not report, is added to the rows as changed, so the rows, the summary and every count made from them agree.
+    /// not report, is added to the rows as changed, so the rows, the summary and every count made from them agree. A change in the
+    /// sources or the authority the rule states is described by <see cref="RuleClaims"/> and appended to the summary.
     /// </summary>
     /// <param name="before">The base revision.</param>
     /// <param name="after">The draft.</param>
@@ -113,12 +116,22 @@ public static class RuleChangeDescriber
             .Where(change => !string.Equals(change.Before, change.After, StringComparison.Ordinal))
             .ToList();
 
+        var claims = RuleClaims.Changes(before.Meta, after.Meta, locale);
+        var summary = Summary(rows, defaultChange, diff.HitPolicyChanged, locale);
+        if (claims.Count > 0)
+        {
+            summary = string.Equals(summary, SentenceTemplates.Text(locale, "change.none"), StringComparison.Ordinal)
+                ? string.Join(' ', claims)
+                : summary + " " + string.Join(' ', claims);
+        }
+
         return new RuleChangeView(
-            Summary(rows, defaultChange, diff.HitPolicyChanged, locale),
+            summary,
             rows,
             diff.HitPolicyChanged,
             defaultChange is not null,
-            cases);
+            cases,
+            claims);
     }
 
     // ---- rows --------------------------------------------------------------------------------

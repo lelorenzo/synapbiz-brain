@@ -1,0 +1,57 @@
+processes: 1 main, 4 sub, 1 scheduled; rules: 8
+== main
+Main case.lifecycle v1: Case lifecycle
+  counts: 15 steps, 15 scenarios, pass, 0 routes not tried
+  trigger: Starts when `case.opened` arrives, one case for each `case_ref`.
+  uses: `lifecycle.zone_ready` [Rule:lifecycle.zone_ready]
+  uses: Operations [PersonTask:operations]
+  starts: Starts when `case.opened` arrives, one case for each `case_ref`.
+  phase previsit = Before the visit
+    ends when: Ends when the process moves on to Visit and Collection.
+    > Subprocess previsit.outreach v1: Pre-visit outreach
+    >   counts: 9 steps, 16 scenarios, pass, 0 routes not tried
+    >   uses: `previsit.missing_items` [Rule:previsit.missing_items]
+    >   uses: `intake.requirements` [Connector:intake.requirements]
+    >   uses: `messaging.reminder` [Connector:messaging.reminder]
+    >   uses: Front desk [PersonTask:front_desk]
+      missing: False; also started by: 
+  phase visit = Visit
+    ends when: Ends when the process moves on to After the visit and Collection.
+    > Subprocess visit.note_wait v1: Visit note wait
+    >   counts: 5 steps, 11 scenarios, pass, 0 routes not tried
+    >   uses: `visit.note_ready` [Rule:visit.note_ready]
+    >   uses: `records.note_status` [Connector:records.note_status]
+    >   uses: Note follow-up [PersonTask:note_followup]
+    >   uses: Note confirmation [PersonTask:note_confirmation]
+      missing: False; also started by: 
+  phase postvisit = After the visit
+    ends when: Ends when the process moves on to Collection.
+    > Subprocess postvisit.coding_review v1: Post-visit coding review
+    >   counts: 8 steps, 18 scenarios, pass, 0 routes not tried
+    >   uses: `postvisit.opportunities` [Rule:postvisit.opportunities]
+    >   uses: `postvisit.assist_gate` [Rule:postvisit.assist_gate]
+    >   uses: `postvisit.suggestion_check` [Rule:postvisit.suggestion_check]
+    >   uses: `records.note_facts` [Connector:records.note_facts]
+    >   uses: Physician review [PersonTask:physician_review]
+    >   uses: Ask the assistant [Ai:suggest]
+      missing: False; also started by: 
+  phase collection = Collection
+    ends when: Ends when the case ends with Collected, Written off and Closed by a person.
+    > Subprocess collection.followup v1: Collection follow-up
+    >   counts: 13 steps, 18 scenarios, pass, 1 routes not tried
+    >   uses: `collection.claim_progress` [Rule:collection.claim_progress]
+    >   uses: `collection.claim_result` [Rule:collection.claim_result]
+    >   uses: `claims.status` [Connector:claims.status]
+    >   uses: Billing follow-up [PersonTask:billing_followup]
+    >   uses: Denials [PersonTask:denials]
+    >   uses: Billing confirmation [PersonTask:billing_confirmation]
+      missing: False; also started by: 
+  ends: Collected | Written off | Closed, no visit | Closed, not billed | Closed by a person
+== scheduled
+Scheduled practice.daily_refresh v1: Practice daily refresh
+  counts: 4 steps, 6 scenarios, pass, 0 routes not tried
+  trigger: Runs every day at 06:00 in the zone of the activation.
+  uses: `schedule.cases_for_day` [Connector:schedule.cases_for_day]
+  uses: Operations [PersonTask:operations]
+  schedule: Runs every day at 06:00 in the zone of the activation.
+== shared: Operations [PersonTask:operations] x2 by case.lifecycle, practice.daily_refresh

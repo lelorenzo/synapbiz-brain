@@ -1,0 +1,57 @@
+processes: 1 main, 4 sub, 1 scheduled; rules: 8
+== main
+Main case.lifecycle v1: Ciclo de vida del caso
+  counts: 15 steps, 15 scenarios, pass, 0 routes not tried
+  trigger: Empieza cuando llega `case.opened`, un caso por cada `case_ref`.
+  uses: `lifecycle.zone_ready` [Rule:lifecycle.zone_ready]
+  uses: Operaciones [PersonTask:operations]
+  starts: Empieza cuando llega `case.opened`, un caso por cada `case_ref`.
+  phase previsit = Antes de la visita
+    ends when: Termina cuando el proceso pasa a Visita y Cobro.
+    > Subprocess previsit.outreach v1: Contacto previo a la visita
+    >   counts: 9 steps, 16 scenarios, pass, 0 routes not tried
+    >   uses: `previsit.missing_items` [Rule:previsit.missing_items]
+    >   uses: `intake.requirements` [Connector:intake.requirements]
+    >   uses: `messaging.reminder` [Connector:messaging.reminder]
+    >   uses: Recepción [PersonTask:front_desk]
+      missing: False; also started by: 
+  phase visit = Visita
+    ends when: Termina cuando el proceso pasa a Después de la visita y Cobro.
+    > Subprocess visit.note_wait v1: Espera de la nota de la visita
+    >   counts: 5 steps, 11 scenarios, pass, 0 routes not tried
+    >   uses: `visit.note_ready` [Rule:visit.note_ready]
+    >   uses: `records.note_status` [Connector:records.note_status]
+    >   uses: Seguimiento de notas [PersonTask:note_followup]
+    >   uses: Confirmación de notas [PersonTask:note_confirmation]
+      missing: False; also started by: 
+  phase postvisit = Después de la visita
+    ends when: Termina cuando el proceso pasa a Cobro.
+    > Subprocess postvisit.coding_review v1: Revisión de codificación posterior a la visita
+    >   counts: 8 steps, 18 scenarios, pass, 0 routes not tried
+    >   uses: `postvisit.opportunities` [Rule:postvisit.opportunities]
+    >   uses: `postvisit.assist_gate` [Rule:postvisit.assist_gate]
+    >   uses: `postvisit.suggestion_check` [Rule:postvisit.suggestion_check]
+    >   uses: `records.note_facts` [Connector:records.note_facts]
+    >   uses: Revisión médica [PersonTask:physician_review]
+    >   uses: Consultar al asistente [Ai:suggest]
+      missing: False; also started by: 
+  phase collection = Cobro
+    ends when: Termina cuando el caso termina con Cobrado, Dado de baja y Cerrado por una persona.
+    > Subprocess collection.followup v1: Seguimiento de cobro
+    >   counts: 13 steps, 18 scenarios, pass, 1 routes not tried
+    >   uses: `collection.claim_progress` [Rule:collection.claim_progress]
+    >   uses: `collection.claim_result` [Rule:collection.claim_result]
+    >   uses: `claims.status` [Connector:claims.status]
+    >   uses: Seguimiento de facturación [PersonTask:billing_followup]
+    >   uses: Denegaciones [PersonTask:denials]
+    >   uses: Confirmación de facturación [PersonTask:billing_confirmation]
+      missing: False; also started by: 
+  ends: Cobrado | Dado de baja | Cerrado, sin visita | Cerrado, sin facturar | Cerrado por una persona
+== scheduled
+Scheduled practice.daily_refresh v1: Actualización diaria de la práctica
+  counts: 4 steps, 6 scenarios, pass, 0 routes not tried
+  trigger: Se ejecuta todos los días a las 06:00 en la zona de la activación.
+  uses: `schedule.cases_for_day` [Connector:schedule.cases_for_day]
+  uses: Operaciones [PersonTask:operations]
+  schedule: Se ejecuta todos los días a las 06:00 en la zona de la activación.
+== shared: Operaciones [PersonTask:operations] x2 by case.lifecycle, practice.daily_refresh

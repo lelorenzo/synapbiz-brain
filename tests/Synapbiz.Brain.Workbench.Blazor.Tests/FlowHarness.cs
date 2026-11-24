@@ -58,9 +58,17 @@ internal sealed class FlowHarness : IDisposable
         string? place = "the demo folder",
         IReadOnlyDictionary<string, string>? overrides = null,
         IFlowAnswerSource? source = null,
-        IReadOnlyDictionary<string, TimeSpan>? zones = null)
+        IReadOnlyDictionary<string, TimeSpan>? zones = null,
+        FlowWorkbenchView? view = FlowWorkbenchView.List,
+        Action<ComponentParameterCollectionBuilder<FlowWorkbench>>? more = null)
     {
         Session = session ?? Session;
+        if (view is { } chosen)
+        {
+            // The component opens on the map since 0.8.0; the panel tests that predate it read the list, so they ask for it.
+            Session.View = chosen;
+        }
+
         Cut = Ctx.RenderComponent<FlowWorkbench>(parameters =>
         {
             parameters
@@ -71,6 +79,7 @@ internal sealed class FlowHarness : IDisposable
                 .Add(component => component.Zones, zones ?? Zones)
                 .Add(component => component.AnswerSource, source)
                 .Add(component => component.TextOverrides, overrides);
+            more?.Invoke(parameters);
             if (withExport)
             {
                 parameters.Add(component => component.OnExport, export =>

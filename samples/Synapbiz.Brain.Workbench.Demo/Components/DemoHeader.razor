@@ -1,9 +1,9 @@
 <header class="demo-top">
-    <span class="demo-brand">@(Spanish ? "Banco de pruebas de reglas y flujos" : "Rule and flow workbench demo")</span>
+    <span class="demo-brand">@(Spanish ? "Banco de pruebas de reglas y procesos" : "Rules and processes workbench")</span>
     <span class="demo-tag">@(Spanish ? "SINTÉTICO" : "SYNTHETIC")</span>
     <nav class="demo-switch" aria-label="@(Spanish ? "Páginas" : "Pages")">
         <a href="/?theme=@Theme&locale=@Locale" aria-current="@(Page == "rules" ? "true" : null)">@(Spanish ? "Reglas" : "Rules")</a>
-        <a href="/flows?theme=@Theme&locale=@Locale" aria-current="@(Page == "flows" ? "true" : null)">@(Spanish ? "Flujos" : "Flows")</a>
+        <a href="/flows?theme=@Theme&locale=@Locale" aria-current="@(Page == "flows" ? "true" : null)">@(Spanish ? "Procesos" : "Processes")</a>
     </nav>
     <span class="demo-sp"></span>
     <nav class="demo-switch" aria-label="@(Spanish ? "Idioma y tema" : "Language and theme")">

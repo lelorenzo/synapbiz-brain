@@ -169,6 +169,24 @@ public sealed class LoaderStructureTests
     }
 
     [Fact]
+    public void TheSourceRecordsOfMetaAreNotNodesBecauseTheyCarryAVersionOfTheSource()
+    {
+        var document = Parse(Base);
+        document["meta"] = Parse("""{ "sources": [ { "source": "guide.alpha", "version": "2024", "relation": "adapts" } ], "authority": "recommendation" }""");
+
+        Load(document.ToJsonString()).Errors.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AnObjectWithAVersionNextToTheSourcesOfMetaIsStillANodeError()
+    {
+        var document = Parse(Base);
+        document["meta"] = Parse("""{ "sources": [], "other": { "version": "2024" } }""");
+
+        Single(Load(document.ToJsonString())).Should().Be(("spec.semantics.node", "/meta/other"));
+    }
+
+    [Fact]
     public void ABlankTranslationKeyIsReported()
     {
         var document = Parse(Base);

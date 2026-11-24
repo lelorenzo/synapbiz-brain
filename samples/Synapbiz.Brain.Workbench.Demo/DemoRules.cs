@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Nuvora.Decisions.Contracts.Tables;
 using Synapbiz.Brain.Spec;
 using Synapbiz.Brain.Workbench;
@@ -41,7 +42,7 @@ internal sealed class DemoRules
         var rules = new List<WorkbenchRule>();
         foreach (var source in Sources)
         {
-            var text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", source.File));
+            var text = WithClaims(source.Key, File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", source.File)));
             var contract = BrainContract.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", source.Contract)));
             var loaded = BrainRuleLoader.Load(text, [contract]);
             var rule = loaded.Rule;
@@ -70,6 +71,63 @@ internal sealed class DemoRules
             FallbackTitle = es ? "Archivo que no se pudo leer" : "File that could not be read",
         });
         return rules;
+    }
+
+    /// <summary>The label of each synthetic source the demo's rules cite, for a language. The sources are made up for the demo; no real guideline is named.</summary>
+    /// <param name="locale">The language.</param>
+    public static IReadOnlyDictionary<string, string> SourceLabels(WorkbenchLocale locale) => locale == WorkbenchLocale.Es
+        ? new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["guide.alpha"] = "Guía de ejemplo A",
+            ["guide.beta"] = "Guía de ejemplo B",
+        }
+        : new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["guide.alpha"] = "Example guideline A",
+            ["guide.beta"] = "Example guideline B",
+        };
+
+    /// <summary>The label of each authority code the demo's rules state, for a language.</summary>
+    /// <param name="locale">The language.</param>
+    public static IReadOnlyDictionary<string, string> AuthorityLabels(WorkbenchLocale locale) => DemoFlows.AuthorityLabelsFor(locale);
+
+    /// <summary>
+    /// The text of a fixture with synthetic claims in its <c>meta</c>: an authority and the sources it cites, one of them with an
+    /// id the demo has no label for and, on one rule, an entry that cannot be read.
+    /// </summary>
+    private static string WithClaims(string key, string text)
+    {
+        var claims = key switch
+        {
+            "intake" => """
+                {"authority":"local_preference","sources":[
+                  {"source":"guide.alpha","version":"2024","relation":"adapts","differences":[
+                    {"en":"Sends a request that is at least a week old to review.","es":"Envía a revisión una solicitud de una semana o más."},
+                    {"en":"Adds a phone queue for urgent requests.","es":"Agrega una cola telefónica para solicitudes urgentes."}]},
+                  {"source":"guide.beta","version":"1.2","relation":"implements"},
+                  {"source":"practice.protocol.7","version":"3","relation":"informed_by"}]}
+                """,
+            "readiness" => """
+                {"authority":"recommendation","sources":[{"source":"guide.beta","version":"1.2","relation":"implements"}]}
+                """,
+            "unique" => """
+                {"sources":[{"source":"guide.alpha","version":"1","relation":"follows"},{"source":"guide.beta","version":"1.2","relation":"implements"}]}
+                """,
+            _ => null,
+        };
+        if (claims is null)
+        {
+            return text;
+        }
+
+        var root = JsonNode.Parse(text)!.AsObject();
+        var meta = root["meta"]!.AsObject();
+        foreach (var (name, value) in JsonNode.Parse(claims)!.AsObject())
+        {
+            meta[name] = value?.DeepClone();
+        }
+
+        return root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
     }
 
     /// <summary>The queues of the intake rules, each with the name its people know it by, so that a row's queue is picked and not typed.</summary>

@@ -70,6 +70,12 @@ public static partial class WorkbenchStrings
         ("read.facts", "Datos que usa", "Data it uses"),
         ("read.required", "obligatorio", "required"),
         ("read.optional", "opcional", "optional"),
+        ("read.sources", "Fuentes que sigue", "Sources it follows"),
+        ("read.authority", "Autoridad: {label}", "Authority: {label}"),
+        ("read.authority.label", "Autoridad", "Authority"),
+        ("read.source.version", "versión {version}", "version {version}"),
+        ("read.source.unreadable", "Entrada de fuente que no se puede leer", "Source entry not readable"),
+        ("read.source.differences", "En qué se diferencia de la fuente", "How it differs from the source"),
         ("read.type.code", "Texto", "Text"),
         ("read.type.enum", "Una opción", "One option"),
         ("read.type.boolean", "Sí o no", "Yes or no"),
@@ -395,7 +401,7 @@ public static partial class WorkbenchStrings
         ("row.restoreFor", "Restaurar la fila {n}", "Restore row {n}"),
     ];
 
-    private static readonly (string Key, string Es, string En)[] Table = [.. CoreTable, .. FlowTable()];
+    private static readonly (string Key, string Es, string En)[] Table = [.. CoreTable, .. FlowTable(), .. MapTable(), .. LiveTable()];
 
     private static readonly Dictionary<string, (string Es, string En)> ByKey = Table.ToDictionary(
         entry => entry.Key, entry => (entry.Es, entry.En), StringComparer.Ordinal);

@@ -73,7 +73,7 @@ public sealed class FlowDiagramTests
         harness.Open(FlowWorkbenchTab.Diagram);
         var svg = harness.Find("svg.wb-diagram-svg");
         svg.GetAttribute("role").Should().Be("group");
-        svg.GetAttribute("aria-label").Should().StartWith("Diagram of the flow");
+        svg.GetAttribute("aria-label").Should().StartWith("Diagram of the process");
         harness.Find(".wb-diagram-scroll").GetAttribute("tabindex").Should().Be("0");
         harness.Find(".wb-diagram-scroll").GetAttribute("role").Should().Be("region");
         harness.Press("Read it as a list");
@@ -132,7 +132,7 @@ public sealed class FlowDiagramTests
         harness.Render([FlowHarness.One("previsit.outreach")]);
         harness.Open(FlowWorkbenchTab.Diagram);
         var legend = FlowHarness.Normalise(harness.Find("section.wb-legend").TextContent);
-        legend.Should().Contain("Action").And.Contain("Decision").And.Contain("Task for a person").And.Contain("Wait").And.Contain("Another flow").And.Contain("End")
+        legend.Should().Contain("Action").And.Contain("Decision").And.Contain("Task for a person").And.Contain("Wait").And.Contain("Another process").And.Contain("End")
             .And.Contain("Main path").And.Contain("Other route").And.Contain("Goes back to an earlier step").And.Contain("Marks the first step");
         legend.Should().Contain("The step the simulation is at").And.Contain("The number tells how many routes share this line").And.Contain("Every route is taken by some test");
         harness.FindAll("section.wb-legend svg").Should().OnlyContain(svg => svg.GetAttribute("aria-hidden") == "true");

@@ -1,0 +1,40 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.inner",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": {
+    "title": "Inner step",
+    "display": {
+      "en": {
+        "title": "Inner step"
+      },
+      "es": {
+        "title": "Paso interior"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "done",
+    "steps": {
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": []
+  }
+}

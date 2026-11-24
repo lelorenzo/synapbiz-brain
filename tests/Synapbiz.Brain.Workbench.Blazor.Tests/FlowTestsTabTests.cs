@@ -69,7 +69,7 @@ public sealed class FlowTestsTabTests
         using var harness = new FlowHarness();
         harness.Render([new WorkbenchFlow { Key = "clock", Process = FlowDocs.Process("flow.clock") }]);
         harness.Open(FlowWorkbenchTab.Tests);
-        harness.PanelText.Should().Contain("This flow comes with no tests.");
+        harness.PanelText.Should().Contain("This process comes with no tests.");
         harness.Buttons.Should().NotContain(button => button.TextContent.StartsWith("Replay", StringComparison.Ordinal));
         harness.ListText.Should().Contain("no tests");
     }
