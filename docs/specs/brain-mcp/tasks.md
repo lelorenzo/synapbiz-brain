@@ -22,8 +22,8 @@ Spec: [spec.md](spec.md). Version 0.7.0. M1 is the headless library; M2 is the p
 
 ## M2: `Synapbiz.Brain.Mcp`, `brain-mcp`
 
-- [ ] `Synapbiz.Brain.Mcp`: adapt the tools to the MCP protocol with the official C# SDK; resources for the guide sections and a prompt "model a process with me" that carries the working method
-- [ ] `brain-mcp`: a .NET tool serving the same tools over stdio for a folder of documents
-- [ ] End-to-end test with a scripted MCP client: list, get, save a broken draft, read hints, fix, simulate, add scenario, propose
-- [ ] Architecture test: only the MCP adapter references the SDK
-- [ ] Documentation and release of version 0.7.0
+- [x] `Synapbiz.Brain.Mcp`: adapt the tools to the MCP protocol with the official C# SDK; resources for the guide sections and a prompt "model a process with me" that carries the working method
+- [x] `brain-mcp`: a .NET tool serving the same tools over stdio for a folder of documents
+- [x] End-to-end test with a scripted MCP client: list, get, save a broken draft, read hints, fix, simulate, add scenario, propose
+- [x] Architecture test: only the MCP adapter references the SDK
+- [x] Documentation and release of version 0.7.0
