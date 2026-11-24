@@ -96,3 +96,22 @@ internal static class Fixtures
         }
     }
 }
+
+/// <summary>Where the built <c>brain-mcp</c> is, and how to see what a program did to a folder.</summary>
+internal static class Program
+{
+    /// <summary>The built tool next to this test assembly's configuration: <c>src/Synapbiz.Brain.Mcp.Tool/bin/&lt;configuration&gt;/&lt;framework&gt;</c>.</summary>
+    internal static string ToolAssembly()
+    {
+        var framework = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar));
+        var path = Path.Combine(Fixtures.RepositoryRoot(), "src", "Synapbiz.Brain.Mcp.Tool", "bin", framework.Parent!.Name, framework.Name, "Synapbiz.Brain.Mcp.Tool.dll");
+        return File.Exists(path) ? path : throw new FileNotFoundException("The tool is not built; build the solution first.", path);
+    }
+
+    /// <summary>The content hash of every file under a folder, by relative path.</summary>
+    internal static SortedDictionary<string, string> Snapshot(string folder) => new(
+        Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).ToDictionary(
+            file => Path.GetRelativePath(folder, file).Replace('\\', '/'),
+            file => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(file)))),
+        StringComparer.Ordinal);
+}
