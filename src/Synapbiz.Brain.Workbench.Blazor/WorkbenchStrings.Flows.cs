@@ -115,6 +115,7 @@ public static partial class WorkbenchStrings
         ("flow.diagram.cardTitle", "Paso elegido", "Chosen step"),
         ("flow.diagram.close", "Cerrar", "Close"),
         ("flow.diagram.legend", "Cómo leer el diagrama", "How to read the diagram"),
+        ("flow.diagram.marks", "Salidas con marca numerada", "Routes with a numbered mark"),
         ("flow.family.action", "acción", "action"),
         ("flow.family.decision", "decisión", "decision"),
         ("flow.family.person", "tarea de una persona", "task for a person"),
@@ -139,6 +140,7 @@ public static partial class WorkbenchStrings
         ("flow.legend.allTried", "Todas las salidas las recorre alguna prueba", "Every route is taken by some test"),
         ("flow.legend.untried.one", "El signo de interrogación marca {n} salida que ninguna prueba recorre", "The question mark marks {n} route that no test takes"),
         ("flow.legend.untried.other", "El signo de interrogación marca {n} salidas que ninguna prueba recorre", "The question mark marks {n} routes that no test takes"),
+        ("flow.legend.numbered", "Un número en un círculo reemplaza a un texto que no cabe junto a la línea; el texto está bajo el diagrama", "A number in a circle stands for a text that does not fit beside its line; the text is listed under the diagram"),
         ("flow.legend.noStage", "Los pasos sin etapa van en la última fila.", "Steps with no stage are in the last row."),
 
         ("flow.try.start.title", "Empezar un caso inventado", "Start a made-up case"),

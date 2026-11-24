@@ -1967,6 +1967,73 @@
   pointer-events: none;
 }
 
+/* The symbol of a step is the symbol of the map, drawn in the colour of its kind. */
+.wb-node-i {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.wb-node-i.wb-k-rule {
+  color: var(--wb-kind-rule);
+}
+
+.wb-node-i.wb-k-con {
+  color: var(--wb-kind-connector);
+}
+
+.wb-node-i.wb-k-per {
+  color: var(--wb-kind-person);
+}
+
+.wb-node-i.wb-k-ai {
+  color: var(--wb-kind-ai);
+}
+
+.wb-node-i.wb-k-sch {
+  color: var(--wb-kind-scheduled);
+}
+
+.wb-node-i.wb-k-sub {
+  color: var(--wb-kind-sub);
+}
+
+/* A numbered mark stands for a route label that has no room beside its line; its text is listed under the diagram. */
+.wb-numbered {
+  fill: var(--wb-ink-2);
+  stroke: var(--wb-surface);
+  stroke-width: 1.5;
+}
+
+.wb-numbered-t {
+  fill: var(--wb-surface);
+  font-size: var(--wb-text-label);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.wb-marks {
+  margin: 0 0 14px;
+}
+
+.wb-marks-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: var(--wb-text-small);
+  color: var(--wb-ink);
+}
+
+.wb-numbered-n {
+  font-weight: 700;
+  color: var(--wb-ink-2);
+}
+
 .wb-node-start {
   fill: var(--wb-accent);
   stroke: var(--wb-surface);

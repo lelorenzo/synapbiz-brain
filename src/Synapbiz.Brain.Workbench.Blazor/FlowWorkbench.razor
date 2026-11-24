@@ -831,6 +831,40 @@
         };
     }
 
+    /// <summary>The symbol of a step, the same the map draws for the piece the step uses; none for an end step.</summary>
+    private static (string Symbol, string Tone)? NodeSymbol(FlowFamily family) => family switch
+    {
+        FlowFamily.Action => ("con", "wb-k-con"),
+        FlowFamily.Decision => ("rule", "wb-k-rule"),
+        FlowFamily.Person => ("per", "wb-k-per"),
+        FlowFamily.Ai => ("ai", "wb-k-ai"),
+        FlowFamily.Wait => ("sch", "wb-k-sch"),
+        FlowFamily.Flow => ("sub", "wb-k-sub"),
+        _ => null,
+    };
+
+    private const int NodeIconSize = 15;
+
+    /// <summary>How far to the right of the middle of a step its text is written, to leave room for the symbol.</summary>
+    private static int TextShift(FlowFamily family) => NodeSymbol(family) is null ? 0 : 10;
+
+    private RenderFragment NodeIcon(FlowFamily family, int x, int y, int height) => builder =>
+    {
+        if (NodeSymbol(family) is not { } symbol)
+        {
+            return;
+        }
+
+        builder.OpenElement(0, "use");
+        builder.AddAttribute(1, "class", "wb-node-i " + symbol.Tone);
+        builder.AddAttribute(2, "href", "#" + idp + "-i-" + symbol.Symbol);
+        builder.AddAttribute(3, "x", Px(x + 9));
+        builder.AddAttribute(4, "y", Px(y + ((height - NodeIconSize) / 2)));
+        builder.AddAttribute(5, "width", Px(NodeIconSize));
+        builder.AddAttribute(6, "height", Px(NodeIconSize));
+        builder.CloseElement();
+    };
+
     private static string EdgeClass(DrawnLine line)
     {
         if (line.IsReturn)
@@ -920,6 +954,11 @@
                                 {
                                     @SvgText(labelAt.X, labelAt.Y, "wb-edge-t", line.ShortLabel!, line.LabelEndsAtPoint ? "end" : "start")
                                 }
+                                @if (line.NumberAt is { } numberAt)
+                                {
+                                    <circle class="wb-numbered" cx="@Px(numberAt.X)" cy="@Px(numberAt.Y)" r="@Px(DiagramLayout.MarkRadius)"><title>@line.FullLabel</title></circle>
+                                    @SvgText(numberAt.X, numberAt.Y, "wb-numbered-t", Number(line.Number))
+                                }
                             </g>
                         }
                         @foreach (var node in d.Graph.Nodes)
@@ -933,9 +972,10 @@
                                 @{ Seen(NodeRef(step)); }
                                 <title>@node.Label</title>
                                 @NodeShape(family, box.X, box.Y, box.Width, box.Height)
+                                @NodeIcon(family, box.X, box.Y, box.Height)
                                 @for (var position = 0; position < box.Lines.Count; position++)
                                 {
-                                    @SvgText(box.X + (box.Width / 2), box.Y + (box.Height / 2) + LineOffset(box.Lines.Count, position), "wb-node-t", box.Lines[position])
+                                    @SvgText(box.X + (box.Width / 2) + TextShift(family), box.Y + (box.Height / 2) + LineOffset(box.Lines.Count, position), "wb-node-t", box.Lines[position])
                                 }
                                 @if (node.IsStart)
                                 {
@@ -963,13 +1003,25 @@
                 }
             </div>
             </div>
+            @if (layout.NumberedLines.Any())
+            {
+                <section class="wb-marks" aria-labelledby="@(idp + "-marks")">
+                    <h2 class="wb-h2" id="@(idp + "-marks")">@Rich("flow.diagram.marks")</h2>
+                    <ul class="wb-marks-list">
+                        @foreach (var line in layout.NumberedLines)
+                        {
+                            <li><strong class="wb-numbered-n">@Number(line.Number)</strong>: @line.FullLabel</li>
+                        }
+                    </ul>
+                </section>
+            }
             <section class="wb-card wb-legend" aria-labelledby="@(idp + "-legend")">
                 <h2 class="wb-h2" id="@(idp + "-legend")">@Rich("flow.diagram.legend")</h2>
                 <ul class="wb-legend-list">
                     @foreach (var family in LegendFamilies)
                     {
                         <li>
-                            <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true">@NodeShape(family, 2, 2, 48, 24)</svg>
+                            <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true">@NodeShape(family, 2, 2, 48, 24)@NodeIcon(family, 2, 2, 24)</svg>
                             <span>@Rich("flow.legend." + FamilyKey(family))</span>
                         </li>
                     }
@@ -1001,6 +1053,13 @@
                         <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><circle class="wb-untried" cx="26" cy="14" r="8"></circle>@SvgText(26, 14, "wb-untried-t", "?")</svg>
                         <span>@if (untriedCount == 0){@Rich("flow.legend.allTried")}else{@PluralText("flow.legend.untried", untriedCount)}</span>
                     </li>
+                    @if (layout.NumberedLines.Any())
+                    {
+                        <li>
+                            <svg class="wb-legend-svg" width="52" height="28" viewBox="0 0 52 28" aria-hidden="true"><circle class="wb-numbered" cx="26" cy="14" r="8"></circle>@SvgText(26, 14, "wb-numbered-t", "1")</svg>
+                            <span>@Rich("flow.legend.numbered")</span>
+                        </li>
+                    }
                     @if (hasLoose)
                     {
                         <li class="wb-legend-note"><span>@Rich("flow.legend.noStage")</span></li>
