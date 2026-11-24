@@ -25,6 +25,8 @@
     <ProjectReference Include="../../src/Synapbiz.Brain.Host.Postgres/Synapbiz.Brain.Host.Postgres.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Process/Synapbiz.Brain.Process.csproj" />
     <ProjectReference Include="../../src/Synapbiz.Brain.Spec/Synapbiz.Brain.Spec.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Workbench/Synapbiz.Brain.Workbench.csproj" />
+    <ProjectReference Include="../../src/Synapbiz.Brain.Workbench.Postgres/Synapbiz.Brain.Workbench.Postgres.csproj" />
   </ItemGroup>
 
 </Project>

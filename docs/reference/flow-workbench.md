@@ -194,6 +194,33 @@ internal static class FlowTryOut
 }
 ```
 
+## Live: cases over the map and one case over its diagram
+
+Live is the part of the workbench that needs the host. The library defines a read-only contract and does no I/O of its own; the host (or an adapter such as `PostgresFlowLiveSource` of the package `Synapbiz.Brain.Workbench.Postgres`, see [process-host-postgres.md](process-host-postgres.md)) implements it. Nothing in it acts on a case. The pure entry points are `LiveCasePath` (one case over its document), `ProcessMapLive` (counts over the map) and `FlowLiveScripts` (a simulation as a case).
+
+**Case references are opaque and never personal data.** A reference is whatever the host names one case by (an instance id is fine); it must not be a business key, a name or a number a person is known by, because the workbench writes it on the screen and hands it to `OnOpenCase`.
+
+| Type | Meaning |
+| --- | --- |
+| `IFlowLiveSource` | `GetCountsAsync`, `ListCasesAsync` and `GetCaseAsync`; all asynchronous, all read only. A member may throw: the screen then says in words that the source failed. |
+| `FlowLiveCounts`, `FlowLiveCount` | The open cases of every process by the step each is on, and how many of them wait for a person; `IsPartial` is true when the source stopped counting at a limit of its own (the numbers are then at least what they say). |
+| `FlowLiveCaseQuery`, `FlowLiveCasePage`, `FlowLiveCaseLine` | One page of opaque case references of a process, optionally only those on one step: reference, process version, step, whether it waits for a person, when it began; `Next` is the opaque cursor of the next page. |
+| `FlowLiveCase`, `FlowLiveEntry`, `FlowLiveWait` | One case: process id and version, status, current step, result, problem code, the history and what it waits for (queues, event names, the earliest timer). |
+
+`FlowLiveEntry.Of(entry)` reduces an entry of the history the process library writes to what an explanation reads (`rule`, `version`, `decided`, `matchedRowKeys`, `outcome`, `event`, `dueAt`, `result`, `kind`); the facts a rule judged and whatever a person typed never travel. `FlowLiveScripts.FromSimulation(caseRef, session)` makes a `FlowLiveCase` from a simulation, for a demo or a test that scripts the cases a source returns.
+
+**The path of one case.** `LiveCasePath.From(process, liveCase, locale, knownProcesses)` explains the history of a case against the document of the version it runs on, with the route reading `FlowCoverage` uses and the words `FlowDescriber` uses:
+
+| Member | Meaning |
+| --- | --- |
+| `Steps` (`LivePathStep`) | The steps the case has been on in the order it first entered them, how many times it entered each, whether it is the current one, and how it left it (a route phrase). |
+| `Routes` (`LivePathRoute`) | The routes it took, in order. |
+| `CurrentStep`, `Waiting` | The step it is on (null when it ended or has not entered one) and one sentence for what it waits for and until when, or how it ended. |
+| `Side` (`LiveSideFacts`) | The side column: the label of the current step, why it is here (the rule and the row, the event, the choice of a person, the timeout, or that it started here), what can happen next (a phrase for each way out) and the version. |
+| `Unexplained` (`LiveUnexplained`), `Reason` | `None` when the history is explained. Otherwise the reason in words: another process, another version, a step the document does not have, a route the document does not have (or that the history does not pick out), or a current step that is not where the history ends. Never an exception; the path is then empty. |
+
+**Counts over the map.** `ProcessMapLive.From(documents, counts)` adds a source's counts to the map: `Process(id)`, `Step(id, step)` and `Phase(id, stage)` give a `LiveCount` (cases open now, cases waiting for a person); a case on a step the document of the highest version does not have, or on none, is counted for its process and in `Unplaced`, in no phase. The cases of a subprocess card are the cases that run that subprocess (a child instance is a case of its own process); the cases of a phase are the cases of the main process whose current step is in that stage.
+
 ## Route coverage: `FlowCoverage`
 
 `FlowCoverage.Of(process, extraRuns, locale)` plays every embedded scenario, reads from the history which route each run took out of each step, and adds the runs given (for example a session a reader made; `Name` names it). It returns a `FlowCoverageResult`: every route as a `FlowRouteCoverage` (step, label, target, times taken, scenario names), `NeverTaken`, `StepsNeverEntered`, the totals (`TotalRoutes`, `CoveredRoutes`, `TotalSteps`, `EnteredSteps`) and `Problems`. The text of a problem follows `locale` (English by default). A run of another process, or of another version or content of this one, is refused with `ArgumentException` (parameter `extraRuns`), and a null run with `ArgumentNullException`. A history the routes cannot explain is reported as `workbench.flow.route_unexplained` (`FlowCoverage.ErrorRouteUnexplained`) for that run and never thrown; the routes that could be read before it still count.

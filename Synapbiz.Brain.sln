@@ -49,6 +49,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Synapbiz.Brain.Mcp.Tool", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Synapbiz.Brain.Mcp.Tests", "tests\Synapbiz.Brain.Mcp.Tests\Synapbiz.Brain.Mcp.Tests.csproj", "{E6C55CE0-8C1C-419B-9A26-64EF7A860277}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Synapbiz.Brain.Workbench.Postgres", "src\Synapbiz.Brain.Workbench.Postgres\Synapbiz.Brain.Workbench.Postgres.csproj", "{9C6318D3-7871-4C41-B722-E07E64B34C84}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -299,6 +301,18 @@ Global
 		{E6C55CE0-8C1C-419B-9A26-64EF7A860277}.Release|x64.Build.0 = Release|Any CPU
 		{E6C55CE0-8C1C-419B-9A26-64EF7A860277}.Release|x86.ActiveCfg = Release|Any CPU
 		{E6C55CE0-8C1C-419B-9A26-64EF7A860277}.Release|x86.Build.0 = Release|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Debug|x64.Build.0 = Debug|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Debug|x86.Build.0 = Debug|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Release|x64.ActiveCfg = Release|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Release|x64.Build.0 = Release|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Release|x86.ActiveCfg = Release|Any CPU
+		{9C6318D3-7871-4C41-B722-E07E64B34C84}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -324,5 +338,6 @@ Global
 		{10953005-9777-44D6-9104-EBCD079E06C8} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{3EEC0618-5DD0-4331-A6E9-414FE273B224} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E6C55CE0-8C1C-419B-9A26-64EF7A860277} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{9C6318D3-7871-4C41-B722-E07E64B34C84} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

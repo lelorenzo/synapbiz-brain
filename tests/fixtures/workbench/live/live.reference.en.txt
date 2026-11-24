@@ -1,0 +1,840 @@
+previsit.outreach / nothing is missing / after 0 of 1 commands: Waiting
+  steps: Reminder round > Check what is missing [here]
+  waiting: Waits for the answer of `intake.requirements`.
+  why: It came from Reminder round, by this route: For each round: go to Check what is missing
+  next: When it succeeds: go to Decide on a reminder | If it fails: go to Front desk follow-up | If the connection is not available: go to Final front desk follow-up
+previsit.outreach / nothing is missing / after 1 of 1 commands: Completed
+  steps: Reminder round > Check what is missing > Decide on a reminder > Ready for the visit
+  waiting: The case ended with the result Ready.
+  why: 
+  next: 
+previsit.outreach / a reply after the first reminder closes the stage / after 2 of 4 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder > Wait for the reply [here]
+  waiting: Waits for the event `case.reply_received`. The wait ends at the latest at 2027-01-05 14:00 UTC.
+  why: It came from Send reminder, by this route: When it succeeds: go to Wait for the reply
+  next: When the event arrives: go to Reminder round | If no answer arrives within 1 day: go to Reminder round
+previsit.outreach / a reply after the first reminder closes the stage / after 4 of 4 commands: Completed
+  steps: Reminder round x2 > Check what is missing x2 > Decide on a reminder x2 > Send reminder > Wait for the reply > Ready for the visit
+  waiting: The case ended with the result Ready.
+  why: 
+  next: 
+previsit.outreach / three reminders without a reply end at the front desk / after 5 of 10 commands: Waiting
+  steps: Reminder round x2 > Check what is missing x2 > Decide on a reminder x2 > Send reminder x2 > Wait for the reply x2 [here]
+  waiting: Waits for the event `case.reply_received`. The wait ends at the latest at 2027-01-06 14:00 UTC.
+  why: It came from Send reminder, by this route: When it succeeds: go to Wait for the reply
+  next: When the event arrives: go to Reminder round | If no answer arrives within 1 day: go to Reminder round
+previsit.outreach / three reminders without a reply end at the front desk / after 10 of 10 commands: Completed
+  steps: Reminder round x4 > Check what is missing x3 > Decide on a reminder x3 > Send reminder x3 > Wait for the reply x3 > Final front desk follow-up > Case unreachable
+  waiting: The case ended with the result Unreachable.
+  why: 
+  next: 
+previsit.outreach / the front desk resolves a case after the reminders are used up / after 5 of 10 commands: Waiting
+  steps: Reminder round x2 > Check what is missing x2 > Decide on a reminder x2 > Send reminder x2 > Wait for the reply x2 [here]
+  waiting: Waits for the event `case.reply_received`. The wait ends at the latest at 2027-01-06 14:00 UTC.
+  why: It came from Send reminder, by this route: When it succeeds: go to Wait for the reply
+  next: When the event arrives: go to Reminder round | If no answer arrives within 1 day: go to Reminder round
+previsit.outreach / the front desk resolves a case after the reminders are used up / after 10 of 10 commands: Completed
+  steps: Reminder round x4 > Check what is missing x3 > Decide on a reminder x3 > Send reminder x3 > Wait for the reply x3 > Final front desk follow-up > Ready for the visit
+  waiting: The case ended with the result Ready.
+  why: 
+  next: 
+previsit.outreach / an unknown delivery goes to the front desk, which sends the case back to the loop / after 2 of 4 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder > Front desk follow-up [here]
+  waiting: Waits for a person in the queue Front desk. The wait ends at the latest at 2027-01-07 14:00 UTC.
+  why: It came from Send reminder, by this route: If it is not known whether it went out: go to Front desk follow-up
+  next: If the person chooses Resolved: go to Reminder round | If the person chooses Unreachable: go to Case unreachable | If no answer arrives within 3 days: go to Case unreachable
+previsit.outreach / an unknown delivery goes to the front desk, which sends the case back to the loop / after 4 of 4 commands: Completed
+  steps: Reminder round x2 > Check what is missing x2 > Decide on a reminder x2 > Send reminder > Front desk follow-up > Ready for the visit
+  waiting: The case ended with the result Ready.
+  why: 
+  next: 
+previsit.outreach / a transient failure of the reminder is retried inside the window / after 3 of 6 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder [here]
+  waiting: Waits for the answer of `messaging.reminder`.
+  why: The rule `previsit.missing_items` matched the row `something-missing`.
+  next: When it succeeds: go to Wait for the reply | If it fails: go to Front desk follow-up | If the connection is not available: go to Final front desk follow-up | If the plan does not include it: go to Final front desk follow-up | If it is not known whether it went out: go to Front desk follow-up
+previsit.outreach / a transient failure of the reminder is retried inside the window / after 6 of 6 commands: Completed
+  steps: Reminder round x2 > Check what is missing x2 > Decide on a reminder x2 > Send reminder > Wait for the reply > Ready for the visit
+  waiting: The case ended with the result Ready.
+  why: 
+  next: 
+previsit.outreach / a reminder that is not available hands the whole stage to the front desk / after 1 of 3 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder [here]
+  waiting: Waits for the answer of `messaging.reminder`.
+  why: The rule `previsit.missing_items` matched the row `something-missing`.
+  next: When it succeeds: go to Wait for the reply | If it fails: go to Front desk follow-up | If the connection is not available: go to Final front desk follow-up | If the plan does not include it: go to Final front desk follow-up | If it is not known whether it went out: go to Front desk follow-up
+previsit.outreach / a reminder that is not available hands the whole stage to the front desk / after 3 of 3 commands: Completed
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder > Final front desk follow-up > Ready for the visit
+  waiting: The case ended with the result Ready.
+  why: 
+  next: 
+previsit.outreach / a reminder the practice is not entitled to ends at the front desk after three days / after 1 of 3 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder [here]
+  waiting: Waits for the answer of `messaging.reminder`.
+  why: The rule `previsit.missing_items` matched the row `something-missing`.
+  next: When it succeeds: go to Wait for the reply | If it fails: go to Front desk follow-up | If the connection is not available: go to Final front desk follow-up | If the plan does not include it: go to Final front desk follow-up | If it is not known whether it went out: go to Front desk follow-up
+previsit.outreach / a reminder the practice is not entitled to ends at the front desk after three days / after 3 of 3 commands: Completed
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder > Final front desk follow-up > Case unreachable
+  waiting: The case ended with the result Unreachable.
+  why: 
+  next: 
+previsit.outreach / a zone the host cannot resolve raises a task instead of a contact / after 1 of 2 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder > Front desk follow-up [here]
+  waiting: Waits for a person in the queue Front desk. The wait ends at the latest at 2027-01-07 14:00 UTC.
+  why: It came from Send reminder, by this route: If it fails: go to Front desk follow-up
+  next: If the person chooses Resolved: go to Reminder round | If the person chooses Unreachable: go to Case unreachable | If no answer arrives within 3 days: go to Case unreachable
+previsit.outreach / a zone the host cannot resolve raises a task instead of a contact / after 2 of 2 commands: Completed
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder > Front desk follow-up > Case unreachable
+  waiting: The case ended with the result Unreachable.
+  why: 
+  next: 
+previsit.outreach / a reminder waits for the next opening of the contact hours / after 2 of 5 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder [here]
+  waiting: Waits for the answer of `messaging.reminder`.
+  why: The rule `previsit.missing_items` matched the row `something-missing`.
+  next: When it succeeds: go to Wait for the reply | If it fails: go to Front desk follow-up | If the connection is not available: go to Final front desk follow-up | If the plan does not include it: go to Final front desk follow-up | If it is not known whether it went out: go to Front desk follow-up
+previsit.outreach / a reminder waits for the next opening of the contact hours / after 5 of 5 commands: Completed
+  steps: Reminder round x2 > Check what is missing x2 > Decide on a reminder x2 > Send reminder > Wait for the reply > Ready for the visit
+  waiting: The case ended with the result Ready.
+  why: 
+  next: 
+previsit.outreach / the requirements cannot be read at all / after 1 of 2 commands: Waiting
+  steps: Reminder round > Check what is missing > Final front desk follow-up [here]
+  waiting: Waits for a person in the queue Front desk. The wait ends at the latest at 2027-01-07 14:00 UTC.
+  why: It came from Check what is missing, by this route: If the connection is not available: go to Final front desk follow-up
+  next: If the person chooses Resolved: go to Ready for the visit | If the person chooses Unreachable: go to Case unreachable | If no answer arrives within 3 days: go to Case unreachable
+previsit.outreach / the requirements cannot be read at all / after 2 of 2 commands: Completed
+  steps: Reminder round > Check what is missing > Final front desk follow-up > Ready for the visit
+  waiting: The case ended with the result Ready.
+  why: 
+  next: 
+previsit.outreach / the requirements fail for good / after 1 of 2 commands: Waiting
+  steps: Reminder round > Check what is missing > Front desk follow-up [here]
+  waiting: Waits for a person in the queue Front desk. The wait ends at the latest at 2027-01-07 14:00 UTC.
+  why: It came from Check what is missing, by this route: If it fails: go to Front desk follow-up
+  next: If the person chooses Resolved: go to Reminder round | If the person chooses Unreachable: go to Case unreachable | If no answer arrives within 3 days: go to Case unreachable
+previsit.outreach / the requirements fail for good / after 2 of 2 commands: Completed
+  steps: Reminder round > Check what is missing > Front desk follow-up > Case unreachable
+  waiting: The case ended with the result Unreachable.
+  why: 
+  next: 
+previsit.outreach / the requirements fail on every attempt and nobody answers the task / after 3 of 6 commands: Waiting
+  steps: Reminder round > Check what is missing [here]
+  waiting: Waits for the answer of `intake.requirements`. The wait ends at the latest at 2027-01-04 14:01 UTC.
+  why: It came from Reminder round, by this route: For each round: go to Check what is missing
+  next: When it succeeds: go to Decide on a reminder | If it fails: go to Front desk follow-up | If the connection is not available: go to Final front desk follow-up
+previsit.outreach / the requirements fail on every attempt and nobody answers the task / after 6 of 6 commands: Completed
+  steps: Reminder round > Check what is missing > Front desk follow-up > Case unreachable
+  waiting: The case ended with the result Unreachable.
+  why: 
+  next: 
+previsit.outreach / a negative count decides nothing and goes to the front desk / after 1 of 2 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Front desk follow-up [here]
+  waiting: Waits for a person in the queue Front desk. The wait ends at the latest at 2027-01-07 14:00 UTC.
+  why: The rule `previsit.missing_items` gave no result.
+  next: If the person chooses Resolved: go to Reminder round | If the person chooses Unreachable: go to Case unreachable | If no answer arrives within 3 days: go to Case unreachable
+previsit.outreach / a negative count decides nothing and goes to the front desk / after 2 of 2 commands: Completed
+  steps: Reminder round > Check what is missing > Decide on a reminder > Front desk follow-up > Case unreachable
+  waiting: The case ended with the result Unreachable.
+  why: 
+  next: 
+previsit.outreach / a read without a count makes the rule fail and goes to the front desk / after 1 of 2 commands: Waiting
+  steps: Reminder round > Check what is missing > Decide on a reminder > Front desk follow-up [here]
+  waiting: Waits for a person in the queue Front desk. The wait ends at the latest at 2027-01-07 14:00 UTC.
+  why: It came from Decide on a reminder, by this route: If the rule cannot be applied: go to Front desk follow-up
+  next: If the person chooses Resolved: go to Reminder round | If the person chooses Unreachable: go to Case unreachable | If no answer arrives within 3 days: go to Case unreachable
+previsit.outreach / a read without a count makes the rule fail and goes to the front desk / after 2 of 2 commands: Completed
+  steps: Reminder round > Check what is missing > Decide on a reminder > Front desk follow-up > Case unreachable
+  waiting: The case ended with the result Unreachable.
+  why: 
+  next: 
+previsit.outreach / a case that came without its zone is suspended at the reminder, never failed and never routed / after 0 of 1 commands: Waiting
+  steps: Reminder round > Check what is missing [here]
+  waiting: Waits for the answer of `intake.requirements`.
+  why: It came from Reminder round, by this route: For each round: go to Check what is missing
+  next: When it succeeds: go to Decide on a reminder | If it fails: go to Front desk follow-up | If the connection is not available: go to Final front desk follow-up
+previsit.outreach / a case that came without its zone is suspended at the reminder, never failed and never routed / after 1 of 1 commands: Suspended
+  steps: Reminder round > Check what is missing > Decide on a reminder > Send reminder [here]
+  waiting: The case stopped on a problem, `process.window.zone_missing`, and waits for an operator.
+  why: The rule `previsit.missing_items` matched the row `something-missing`.
+  next: When it succeeds: go to Wait for the reply | If it fails: go to Front desk follow-up | If the connection is not available: go to Final front desk follow-up | If the plan does not include it: go to Final front desk follow-up | If it is not known whether it went out: go to Front desk follow-up
+visit.note_wait / the note is signed at the first read / after 0 of 1 commands: Waiting
+  steps: Wait for the signed note [here]
+  waiting: Waits for the answer of `records.note_status`.
+  why: The case started here.
+  next: When the answer says it is done: go to Note signed | If it fails: go to Chase the note | If the connection is not available: go to Confirm the note | If the plan does not include it: go to Confirm the note | If the time runs out: go to Chase the note
+visit.note_wait / the note is signed at the first read / after 1 of 1 commands: Completed
+  steps: Wait for the signed note > Note signed
+  waiting: The case ended with the result Note signed.
+  why: 
+  next: 
+visit.note_wait / the note is signed after two more reads, one of them with a status nobody described / after 2 of 5 commands: Waiting
+  steps: Wait for the signed note [here]
+  waiting: Waits for the answer of `records.note_status`.
+  why: The case started here.
+  next: When the answer says it is done: go to Note signed | If it fails: go to Chase the note | If the connection is not available: go to Confirm the note | If the plan does not include it: go to Confirm the note | If the time runs out: go to Chase the note
+visit.note_wait / the note is signed after two more reads, one of them with a status nobody described / after 5 of 5 commands: Completed
+  steps: Wait for the signed note > Note signed
+  waiting: The case ended with the result Note signed.
+  why: 
+  next: 
+visit.note_wait / the note is never signed and the front desk learns it was signed meanwhile / after 9 of 18 commands: Waiting
+  steps: Wait for the signed note [here]
+  waiting: Waits for the answer of `records.note_status`. The wait ends at the latest at 2027-01-05 13:00 UTC.
+  why: The case started here.
+  next: When the answer says it is done: go to Note signed | If it fails: go to Chase the note | If the connection is not available: go to Confirm the note | If the plan does not include it: go to Confirm the note | If the time runs out: go to Chase the note
+visit.note_wait / the note is never signed and the front desk learns it was signed meanwhile / after 18 of 18 commands: Completed
+  steps: Wait for the signed note > Chase the note > Note signed
+  waiting: The case ended with the result Note signed.
+  why: 
+  next: 
+visit.note_wait / the note is never signed and the visit did not happen / after 9 of 18 commands: Waiting
+  steps: Wait for the signed note [here]
+  waiting: Waits for the answer of `records.note_status`. The wait ends at the latest at 2027-01-05 13:00 UTC.
+  why: The case started here.
+  next: When the answer says it is done: go to Note signed | If it fails: go to Chase the note | If the connection is not available: go to Confirm the note | If the plan does not include it: go to Confirm the note | If the time runs out: go to Chase the note
+visit.note_wait / the note is never signed and the visit did not happen / after 18 of 18 commands: Completed
+  steps: Wait for the signed note > Chase the note > Visit cancelled
+  waiting: The case ended with the result Visit cancelled.
+  why: 
+  next: 
+visit.note_wait / a transient failure of the read is retried inside the round / after 1 of 3 commands: Waiting
+  steps: Wait for the signed note [here]
+  waiting: Waits for the answer of `records.note_status`. The wait ends at the latest at 2027-01-04 14:00 UTC.
+  why: The case started here.
+  next: When the answer says it is done: go to Note signed | If it fails: go to Chase the note | If the connection is not available: go to Confirm the note | If the plan does not include it: go to Confirm the note | If the time runs out: go to Chase the note
+visit.note_wait / a transient failure of the read is retried inside the round / after 3 of 3 commands: Completed
+  steps: Wait for the signed note > Note signed
+  waiting: The case ended with the result Note signed.
+  why: 
+  next: 
+visit.note_wait / a read that fails for good goes to the chase task / after 1 of 2 commands: Waiting
+  steps: Wait for the signed note > Chase the note [here]
+  waiting: Waits for a person in the queue Note follow-up.
+  why: It came from Wait for the signed note, by this route: If it fails: go to Chase the note
+  next: If the person chooses No visit: go to Visit cancelled | If the person chooses Signed: go to Note signed
+visit.note_wait / a read that fails for good goes to the chase task / after 2 of 2 commands: Completed
+  steps: Wait for the signed note > Chase the note > Visit cancelled
+  waiting: The case ended with the result Visit cancelled.
+  why: 
+  next: 
+visit.note_wait / a read that fails on every attempt goes to the chase task / after 3 of 6 commands: Waiting
+  steps: Wait for the signed note [here]
+  waiting: Waits for the answer of `records.note_status`. The wait ends at the latest at 2027-01-04 14:01 UTC.
+  why: The case started here.
+  next: When the answer says it is done: go to Note signed | If it fails: go to Chase the note | If the connection is not available: go to Confirm the note | If the plan does not include it: go to Confirm the note | If the time runs out: go to Chase the note
+visit.note_wait / a read that fails on every attempt goes to the chase task / after 6 of 6 commands: Completed
+  steps: Wait for the signed note > Chase the note > Note signed
+  waiting: The case ended with the result Note signed.
+  why: 
+  next: 
+visit.note_wait / a read without a status makes the rule fail and goes to the chase task / after 1 of 2 commands: Waiting
+  steps: Wait for the signed note > Chase the note [here]
+  waiting: Waits for a person in the queue Note follow-up.
+  why: It came from Wait for the signed note, by this route: If it fails: go to Chase the note
+  next: If the person chooses No visit: go to Visit cancelled | If the person chooses Signed: go to Note signed
+visit.note_wait / a read without a status makes the rule fail and goes to the chase task / after 2 of 2 commands: Completed
+  steps: Wait for the signed note > Chase the note > Note signed
+  waiting: The case ended with the result Note signed.
+  why: 
+  next: 
+visit.note_wait / a practice with no connector confirms the note by hand / after 1 of 2 commands: Waiting
+  steps: Wait for the signed note > Confirm the note [here]
+  waiting: Waits for a person in the queue Note confirmation.
+  why: It came from Wait for the signed note, by this route: If the connection is not available: go to Confirm the note
+  next: If the person chooses No visit: go to Visit cancelled | If the person chooses Signed: go to Note signed
+visit.note_wait / a practice with no connector confirms the note by hand / after 2 of 2 commands: Completed
+  steps: Wait for the signed note > Confirm the note > Note signed
+  waiting: The case ended with the result Note signed.
+  why: 
+  next: 
+visit.note_wait / a practice with no connector confirms that the visit did not happen / after 1 of 2 commands: Waiting
+  steps: Wait for the signed note > Confirm the note [here]
+  waiting: Waits for a person in the queue Note confirmation.
+  why: It came from Wait for the signed note, by this route: If the connection is not available: go to Confirm the note
+  next: If the person chooses No visit: go to Visit cancelled | If the person chooses Signed: go to Note signed
+visit.note_wait / a practice with no connector confirms that the visit did not happen / after 2 of 2 commands: Completed
+  steps: Wait for the signed note > Confirm the note > Visit cancelled
+  waiting: The case ended with the result Visit cancelled.
+  why: 
+  next: 
+visit.note_wait / a practice not entitled to the connector confirms the note by hand / after 1 of 2 commands: Waiting
+  steps: Wait for the signed note > Confirm the note [here]
+  waiting: Waits for a person in the queue Note confirmation.
+  why: It came from Wait for the signed note, by this route: If the plan does not include it: go to Confirm the note
+  next: If the person chooses No visit: go to Visit cancelled | If the person chooses Signed: go to Note signed
+visit.note_wait / a practice not entitled to the connector confirms the note by hand / after 2 of 2 commands: Completed
+  steps: Wait for the signed note > Confirm the note > Note signed
+  waiting: The case ended with the result Note signed.
+  why: 
+  next: 
+postvisit.coding_review / the assistant is off and the physician approves / after 1 of 2 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review [here]
+  waiting: Waits for a person in the queue Physician review.
+  why: The rule `postvisit.assist_gate` matched the row `disabled`.
+  next: If the person chooses Approved: go to Coding approved | If the person chooses Changed: go to Coding approved | If the person chooses Rejected: go to Coding rejected
+postvisit.coding_review / the assistant is off and the physician approves / after 2 of 2 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / a usable suggestion is shown to the physician, who approves / after 1 of 3 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / a usable suggestion is shown to the physician, who approves / after 3 of 3 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Check the suggestion > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / an unsure suggestion is marked so, and the physician changes the code / after 1 of 3 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / an unsure suggestion is marked so, and the physician changes the code / after 3 of 3 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Check the suggestion > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / the physician rejects the coding / after 1 of 2 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review [here]
+  waiting: Waits for a person in the queue Physician review.
+  why: The rule `postvisit.assist_gate` matched the row `disabled`.
+  next: If the person chooses Approved: go to Coding approved | If the person chooses Changed: go to Coding approved | If the person chooses Rejected: go to Coding rejected
+postvisit.coding_review / the physician rejects the coding / after 2 of 2 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review > Coding rejected
+  waiting: The case ended with the result Coding rejected.
+  why: 
+  next: 
+postvisit.coding_review / an answer that breaks the output schema twice goes to the physician without a suggestion / after 2 of 4 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / an answer that breaks the output schema twice goes to the physician without a suggestion / after 4 of 4 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / an answer with a member the schema does not allow, every time, goes to the physician without a suggestion / after 2 of 4 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / an answer with a member the schema does not allow, every time, goes to the physician without a suggestion / after 4 of 4 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / an answer without a confidence goes to the physician without a verdict / after 1 of 3 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / an answer without a confidence goes to the physician without a verdict / after 3 of 3 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Check the suggestion > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / an answer the rule cannot judge goes to the physician without a verdict / after 1 of 3 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / an answer the rule cannot judge goes to the physician without a verdict / after 3 of 3 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Check the suggestion > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / a transient failure of the assistant is retried / after 2 of 5 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`. The wait ends at the latest at 2027-01-04 14:01 UTC.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / a transient failure of the assistant is retried / after 5 of 5 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Check the suggestion > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / an assistant that fails goes to the physician without a suggestion / after 1 of 3 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / an assistant that fails goes to the physician without a suggestion / after 3 of 3 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / an assistant that is not available goes to the physician without a suggestion / after 1 of 3 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant [here]
+  waiting: Waits for the answer of `assist.suggest`.
+  why: The rule `postvisit.assist_gate` matched the row `enabled-with-items`.
+  next: When an answer fits: go to Check the suggestion | If it fails: go to Physician review | If the connection is not available: go to Physician review | If the answer does not fit the expected form: go to Physician review
+postvisit.coding_review / an assistant that is not available goes to the physician without a suggestion / after 3 of 3 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Ask the assistant > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / a note that cannot be read still goes to the physician / after 1 of 2 commands: Waiting
+  steps: Read the note facts > Physician review [here]
+  waiting: Waits for a person in the queue Physician review.
+  why: It came from Read the note facts, by this route: If the connection is not available: go to Physician review
+  next: If the person chooses Approved: go to Coding approved | If the person chooses Changed: go to Coding approved | If the person chooses Rejected: go to Coding rejected
+postvisit.coding_review / a note that cannot be read still goes to the physician / after 2 of 2 commands: Completed
+  steps: Read the note facts > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / a note that fails to read still goes to the physician / after 1 of 2 commands: Waiting
+  steps: Read the note facts > Physician review [here]
+  waiting: Waits for a person in the queue Physician review.
+  why: It came from Read the note facts, by this route: If it fails: go to Physician review
+  next: If the person chooses Approved: go to Coding approved | If the person chooses Changed: go to Coding approved | If the person chooses Rejected: go to Coding rejected
+postvisit.coding_review / a note that fails to read still goes to the physician / after 2 of 2 commands: Completed
+  steps: Read the note facts > Physician review > Coding rejected
+  waiting: The case ended with the result Coding rejected.
+  why: 
+  next: 
+postvisit.coding_review / a read that is retried and then answers / after 2 of 4 commands: Waiting
+  steps: Read the note facts [here]
+  waiting: Waits for the answer of `records.note_facts`.
+  why: The case started here.
+  next: When it succeeds: go to Find coding opportunities | If it fails: go to Physician review | If the connection is not available: go to Physician review
+postvisit.coding_review / a read that is retried and then answers / after 4 of 4 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / a note without opportunities goes straight to the physician / after 1 of 2 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Physician review [here]
+  waiting: Waits for a person in the queue Physician review.
+  why: The rule `postvisit.opportunities` gave no result.
+  next: If the person chooses Approved: go to Coding approved | If the person chooses Changed: go to Coding approved | If the person chooses Rejected: go to Coding rejected
+postvisit.coding_review / a note without opportunities goes straight to the physician / after 2 of 2 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / a read without facts makes the rule fail and goes to the physician / after 1 of 2 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Physician review [here]
+  waiting: Waits for a person in the queue Physician review.
+  why: It came from Find coding opportunities, by this route: If the rule cannot be applied: go to Physician review
+  next: If the person chooses Approved: go to Coding approved | If the person chooses Changed: go to Coding approved | If the person chooses Rejected: go to Coding rejected
+postvisit.coding_review / a read without facts makes the rule fail and goes to the physician / after 2 of 2 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / a count the gate cannot judge goes to the physician / after 1 of 2 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review [here]
+  waiting: Waits for a person in the queue Physician review.
+  why: The rule `postvisit.assist_gate` gave no result.
+  next: If the person chooses Approved: go to Coding approved | If the person chooses Changed: go to Coding approved | If the person chooses Rejected: go to Coding rejected
+postvisit.coding_review / a count the gate cannot judge goes to the physician / after 2 of 2 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+postvisit.coding_review / a practice that never said whether the assistant is enabled goes to the physician / after 1 of 2 commands: Waiting
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review [here]
+  waiting: Waits for a person in the queue Physician review.
+  why: It came from Decide whether to ask the assistant, by this route: If the rule cannot be applied: go to Physician review
+  next: If the person chooses Approved: go to Coding approved | If the person chooses Changed: go to Coding approved | If the person chooses Rejected: go to Coding rejected
+postvisit.coding_review / a practice that never said whether the assistant is enabled goes to the physician / after 2 of 2 commands: Completed
+  steps: Read the note facts > Find coding opportunities > Decide whether to ask the assistant > Physician review > Coding approved
+  waiting: The case ended with the result Coding approved.
+  why: 
+  next: 
+collection.followup / the claim is paid at the first read / after 1 of 2 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / the claim is paid at the first read / after 2 of 2 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Route by claim status > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / the claim is paid after three reads / after 3 of 6 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / the claim is paid after three reads / after 6 of 6 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Route by claim status > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / a denial is resubmitted by a person and the claim is then paid / after 2 of 4 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Route by claim status > Handle the denial [here]
+  waiting: Waits for a person in the queue Denials.
+  why: The rule `collection.claim_result` matched the row `denied`.
+  next: If the person chooses Resubmitted: go to Status check round | If the person chooses Written off: go to Written off
+collection.followup / a denial is resubmitted by a person and the claim is then paid / after 4 of 4 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round x2 > Check the claim status x2 > Route by claim status x2 > Handle the denial > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / a denial is written off by a person / after 1 of 3 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a denial is written off by a person / after 3 of 3 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Route by claim status > Handle the denial > Written off
+  waiting: The case ended with the result Written off.
+  why: 
+  next: 
+collection.followup / a partial payment waits a week and reads again / after 2 of 4 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Route by claim status > Wait for the balance [here]
+  waiting: Waits until 2027-01-11 14:00 UTC.
+  why: The rule `collection.claim_result` matched the row `partly-paid`.
+  next: When the time comes: go to Status check round
+collection.followup / a partial payment waits a week and reads again / after 4 of 4 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round x2 > Check the claim status x2 > Route by claim status x2 > Wait for the balance > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / a claim that is not submitted in time raises a task, and a person says it was / after 1 of 3 commands: Waiting
+  steps: Wait for the claim to be submitted > Claim overdue [here]
+  waiting: Waits for a person in the queue Billing follow-up.
+  why: No answer arrived in time.
+  next: If the person chooses Close by hand: go to Closed by a person | If the person chooses Submitted: go to Status check round
+collection.followup / a claim that is not submitted in time raises a task, and a person says it was / after 3 of 3 commands: Completed
+  steps: Wait for the claim to be submitted > Claim overdue > Status check round > Check the claim status > Route by claim status > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / a claim that is not submitted in time is closed by hand / after 1 of 2 commands: Waiting
+  steps: Wait for the claim to be submitted > Claim overdue [here]
+  waiting: Waits for a person in the queue Billing follow-up.
+  why: No answer arrived in time.
+  next: If the person chooses Close by hand: go to Closed by a person | If the person chooses Submitted: go to Status check round
+collection.followup / a claim that is not submitted in time is closed by hand / after 2 of 2 commands: Completed
+  steps: Wait for the claim to be submitted > Claim overdue > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+collection.followup / denials that come back every time use up the loop and a person writes the claim off / after 4 of 8 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round x2 > Check the claim status x2 > Route by claim status x2 > Handle the denial x2 [here]
+  waiting: Waits for a person in the queue Denials.
+  why: The rule `collection.claim_result` matched the row `denied`.
+  next: If the person chooses Resubmitted: go to Status check round | If the person chooses Written off: go to Written off
+collection.followup / denials that come back every time use up the loop and a person writes the claim off / after 8 of 8 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round x4 > Check the claim status x3 > Route by claim status x3 > Handle the denial x3 > Checks used up > Written off
+  waiting: The case ended with the result Written off.
+  why: 
+  next: 
+collection.followup / balances that stay open use up the loop and a person closes the case / after 4 of 8 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round x2 > Check the claim status x2 > Route by claim status x2 > Wait for the balance x2 [here]
+  waiting: Waits until 2027-01-18 14:00 UTC.
+  why: The rule `collection.claim_result` matched the row `partly-paid`.
+  next: When the time comes: go to Status check round
+collection.followup / balances that stay open use up the loop and a person closes the case / after 8 of 8 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round x4 > Check the claim status x3 > Route by claim status x3 > Wait for the balance x3 > Checks used up > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+collection.followup / a claim that stays in review expires the poll and a person keeps waiting / after 8 of 16 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`. The wait ends at the latest at 2027-01-18 14:00 UTC.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a claim that stays in review expires the poll and a person keeps waiting / after 16 of 16 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round x2 > Check the claim status x2 > Claim stalled > Route by claim status > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / a claim that stays in review expires the poll and a person closes the case / after 7 of 15 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a claim that stays in review expires the poll and a person closes the case / after 15 of 15 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Claim stalled > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+collection.followup / a practice with no claims connector confirms the payment by hand / after 1 of 3 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a practice with no claims connector confirms the payment by hand / after 3 of 3 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Confirm the payment > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / a practice with no claims connector writes the case off by hand / after 1 of 3 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a practice with no claims connector writes the case off by hand / after 3 of 3 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Confirm the payment > Written off
+  waiting: The case ended with the result Written off.
+  why: 
+  next: 
+collection.followup / a practice not entitled to the claims connector confirms by hand / after 1 of 3 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a practice not entitled to the claims connector confirms by hand / after 3 of 3 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Confirm the payment > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / a read that fails for good goes to a person / after 1 of 3 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a read that fails for good goes to a person / after 3 of 3 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Claim stalled > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+collection.followup / a transient failure of the read is retried / after 2 of 4 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`. The wait ends at the latest at 2027-01-04 14:00 UTC.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a transient failure of the read is retried / after 4 of 4 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Route by claim status > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+collection.followup / a read without a status makes the rule fail and goes to a person / after 1 of 3 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a read without a status makes the rule fail and goes to a person / after 3 of 3 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Claim stalled > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+collection.followup / a settled status nobody described goes to a person / after 1 of 3 commands: Waiting
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status [here]
+  waiting: Waits for the answer of `claims.status`.
+  why: It came from Status check round, by this route: For each round: go to Check the claim status
+  next: When the answer says it is done: go to Route by claim status | If it fails: go to Claim stalled | If the connection is not available: go to Confirm the payment | If the plan does not include it: go to Confirm the payment | If the time runs out: go to Claim stalled
+collection.followup / a settled status nobody described goes to a person / after 3 of 3 commands: Completed
+  steps: Wait for the claim to be submitted > Status check round > Check the claim status > Route by claim status > Claim stalled > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+case.lifecycle / a case runs its four stages and the money is collected / after 2 of 4 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage [here]
+  waiting: Waits for the process Post-visit coding review to end.
+  why: It came from Visit stage, by this route: If the process ends with Note signed: go to Post-visit stage
+  next: If the process ends with Coding approved: go to Collection stage | If the process ends with Coding rejected: go to Closed, not billed | If the process fails: go to Operations: post-visit problem
+case.lifecycle / a case runs its four stages and the money is collected / after 4 of 4 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage > Collection stage > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+case.lifecycle / a case whose reminders went unanswered still goes on to the visit / after 2 of 4 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage [here]
+  waiting: Waits for the process Post-visit coding review to end.
+  why: It came from Visit stage, by this route: If the process ends with Note signed: go to Post-visit stage
+  next: If the process ends with Coding approved: go to Collection stage | If the process ends with Coding rejected: go to Closed, not billed | If the process fails: go to Operations: post-visit problem
+case.lifecycle / a case whose reminders went unanswered still goes on to the visit / after 4 of 4 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage > Collection stage > Collected
+  waiting: The case ended with the result Collected.
+  why: 
+  next: 
+case.lifecycle / a visit that did not happen closes the case without a visit / after 1 of 2 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage [here]
+  waiting: Waits for the process Visit note wait to end.
+  why: It came from Pre-visit stage, by this route: If the process ends with Ready: go to Visit stage
+  next: If the process ends with Note signed: go to Post-visit stage | If the process ends with Visit cancelled: go to Closed, no visit | If the process fails: go to Operations: visit problem
+case.lifecycle / a visit that did not happen closes the case without a visit / after 2 of 2 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Closed, no visit
+  waiting: The case ended with the result Closed, no visit.
+  why: 
+  next: 
+case.lifecycle / a rejected coding closes the case without billing / after 1 of 3 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage [here]
+  waiting: Waits for the process Visit note wait to end.
+  why: It came from Pre-visit stage, by this route: If the process ends with Ready: go to Visit stage
+  next: If the process ends with Note signed: go to Post-visit stage | If the process ends with Visit cancelled: go to Closed, no visit | If the process fails: go to Operations: visit problem
+case.lifecycle / a rejected coding closes the case without billing / after 3 of 3 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage > Closed, not billed
+  waiting: The case ended with the result Closed, not billed.
+  why: 
+  next: 
+case.lifecycle / a claim that is written off ends the case as written off / after 2 of 4 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage [here]
+  waiting: Waits for the process Post-visit coding review to end.
+  why: It came from Visit stage, by this route: If the process ends with Note signed: go to Post-visit stage
+  next: If the process ends with Coding approved: go to Collection stage | If the process ends with Coding rejected: go to Closed, not billed | If the process fails: go to Operations: post-visit problem
+case.lifecycle / a claim that is written off ends the case as written off / after 4 of 4 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage > Collection stage > Written off
+  waiting: The case ended with the result Written off.
+  why: 
+  next: 
+case.lifecycle / a collection stage closed by hand ends the case as a manual close / after 2 of 4 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage [here]
+  waiting: Waits for the process Post-visit coding review to end.
+  why: It came from Visit stage, by this route: If the process ends with Note signed: go to Post-visit stage
+  next: If the process ends with Coding approved: go to Collection stage | If the process ends with Coding rejected: go to Closed, not billed | If the process fails: go to Operations: post-visit problem
+case.lifecycle / a collection stage closed by hand ends the case as a manual close / after 4 of 4 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage > Collection stage > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+case.lifecycle / a failed pre-visit stage raises an operations task, which lets the case go on / after 1 of 3 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Operations: pre-visit problem [here]
+  waiting: Waits for a person in the queue Operations.
+  why: It came from Pre-visit stage, by this route: If the process fails: go to Operations: pre-visit problem
+  next: If the person chooses Close the case: go to Closed by a person | If the person chooses Continue: go to Visit stage
+case.lifecycle / a failed pre-visit stage raises an operations task, which lets the case go on / after 3 of 3 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Operations: pre-visit problem > Visit stage > Closed, no visit
+  waiting: The case ended with the result Closed, no visit.
+  why: 
+  next: 
+case.lifecycle / a failed pre-visit stage is closed by hand / after 1 of 2 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Operations: pre-visit problem [here]
+  waiting: Waits for a person in the queue Operations.
+  why: It came from Pre-visit stage, by this route: If the process fails: go to Operations: pre-visit problem
+  next: If the person chooses Close the case: go to Closed by a person | If the person chooses Continue: go to Visit stage
+case.lifecycle / a failed pre-visit stage is closed by hand / after 2 of 2 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Operations: pre-visit problem > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+case.lifecycle / a failed visit stage raises an operations task / after 1 of 3 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage [here]
+  waiting: Waits for the process Visit note wait to end.
+  why: It came from Pre-visit stage, by this route: If the process ends with Ready: go to Visit stage
+  next: If the process ends with Note signed: go to Post-visit stage | If the process ends with Visit cancelled: go to Closed, no visit | If the process fails: go to Operations: visit problem
+case.lifecycle / a failed visit stage raises an operations task / after 3 of 3 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Operations: visit problem > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+case.lifecycle / a failed coding stage raises an operations task and never reaches billing / after 2 of 4 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage [here]
+  waiting: Waits for the process Post-visit coding review to end.
+  why: It came from Visit stage, by this route: If the process ends with Note signed: go to Post-visit stage
+  next: If the process ends with Coding approved: go to Collection stage | If the process ends with Coding rejected: go to Closed, not billed | If the process fails: go to Operations: post-visit problem
+case.lifecycle / a failed coding stage raises an operations task and never reaches billing / after 4 of 4 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage > Operations: post-visit problem > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+case.lifecycle / a result nobody listed raises the operations task of the stage / after 2 of 4 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage [here]
+  waiting: Waits for the process Post-visit coding review to end.
+  why: It came from Visit stage, by this route: If the process ends with Note signed: go to Post-visit stage
+  next: If the process ends with Coding approved: go to Collection stage | If the process ends with Coding rejected: go to Closed, not billed | If the process fails: go to Operations: post-visit problem
+case.lifecycle / a result nobody listed raises the operations task of the stage / after 4 of 4 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage > Operations: post-visit problem > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+case.lifecycle / a failed collection stage raises an operations task / after 2 of 5 commands: Waiting
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage [here]
+  waiting: Waits for the process Post-visit coding review to end.
+  why: It came from Visit stage, by this route: If the process ends with Note signed: go to Post-visit stage
+  next: If the process ends with Coding approved: go to Collection stage | If the process ends with Coding rejected: go to Closed, not billed | If the process fails: go to Operations: post-visit problem
+case.lifecycle / a failed collection stage raises an operations task / after 5 of 5 commands: Completed
+  steps: Check the zone of the case > Pre-visit stage > Visit stage > Post-visit stage > Collection stage > Operations: collection problem > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+case.lifecycle / a case opened without its zone raises the operations task before any reminder, which lets the case go on / after 1 of 2 commands: Waiting
+  steps: Check the zone of the case > Operations: zone missing > Visit stage [here]
+  waiting: Waits for the process Visit note wait to end.
+  why: A person chose Continue.
+  next: If the process ends with Note signed: go to Post-visit stage | If the process ends with Visit cancelled: go to Closed, no visit | If the process fails: go to Operations: visit problem
+case.lifecycle / a case opened without its zone raises the operations task before any reminder, which lets the case go on / after 2 of 2 commands: Completed
+  steps: Check the zone of the case > Operations: zone missing > Visit stage > Closed, no visit
+  waiting: The case ended with the result Closed, no visit.
+  why: 
+  next: 
+case.lifecycle / a case opened without its zone is closed by hand / after 0 of 1 commands: Waiting
+  steps: Check the zone of the case > Operations: zone missing [here]
+  waiting: Waits for a person in the queue Operations.
+  why: It came from Check the zone of the case, by this route: If the rule cannot be applied: go to Operations: zone missing
+  next: If the person chooses Close the case: go to Closed by a person | If the person chooses Continue: go to Visit stage
+case.lifecycle / a case opened without its zone is closed by hand / after 1 of 1 commands: Completed
+  steps: Check the zone of the case > Operations: zone missing > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+case.lifecycle / a zone that is empty raises the same task / after 0 of 1 commands: Waiting
+  steps: Check the zone of the case > Operations: zone missing [here]
+  waiting: Waits for a person in the queue Operations.
+  why: The rule `lifecycle.zone_ready` gave no result.
+  next: If the person chooses Close the case: go to Closed by a person | If the person chooses Continue: go to Visit stage
+case.lifecycle / a zone that is empty raises the same task / after 1 of 1 commands: Completed
+  steps: Check the zone of the case > Operations: zone missing > Closed by a person
+  waiting: The case ended with the result Closed by a person.
+  why: 
+  next: 
+practice.daily_refresh / the day's cases are read and kept / after 0 of 1 commands: Waiting
+  steps: Read the case list of the day [here]
+  waiting: Waits for the answer of `schedule.cases_for_day`.
+  why: The case started here.
+  next: When it succeeds: go to Refreshed | If it fails: go to Operations: refresh failed
+practice.daily_refresh / the day's cases are read and kept / after 1 of 1 commands: Completed
+  steps: Read the case list of the day > Refreshed
+  waiting: The case ended with the result Refreshed.
+  why: 
+  next: 
+practice.daily_refresh / a day without cases is an empty list / after 0 of 1 commands: Waiting
+  steps: Read the case list of the day [here]
+  waiting: Waits for the answer of `schedule.cases_for_day`.
+  why: The case started here.
+  next: When it succeeds: go to Refreshed | If it fails: go to Operations: refresh failed
+practice.daily_refresh / a day without cases is an empty list / after 1 of 1 commands: Completed
+  steps: Read the case list of the day > Refreshed
+  waiting: The case ended with the result Refreshed.
+  why: 
+  next: 
+practice.daily_refresh / a transient failure is retried / after 1 of 3 commands: Waiting
+  steps: Read the case list of the day [here]
+  waiting: Waits for the answer of `schedule.cases_for_day`. The wait ends at the latest at 2027-01-05 11:01 UTC.
+  why: The case started here.
+  next: When it succeeds: go to Refreshed | If it fails: go to Operations: refresh failed
+practice.daily_refresh / a transient failure is retried / after 3 of 3 commands: Completed
+  steps: Read the case list of the day > Refreshed
+  waiting: The case ended with the result Refreshed.
+  why: 
+  next: 
+practice.daily_refresh / a read that fails for good raises an operations task and ends as a failed refresh once a person has handled it / after 1 of 2 commands: Waiting
+  steps: Read the case list of the day > Operations: refresh failed [here]
+  waiting: Waits for a person in the queue Operations.
+  why: It came from Read the case list of the day, by this route: If it fails: go to Operations: refresh failed
+  next: If the person chooses Handled: go to Refresh failed
+practice.daily_refresh / a read that fails for good raises an operations task and ends as a failed refresh once a person has handled it / after 2 of 2 commands: Completed
+  steps: Read the case list of the day > Operations: refresh failed > Refresh failed
+  waiting: The case ended with the result Refresh failed.
+  why: 
+  next: 
+practice.daily_refresh / a read that is not available raises the same task / after 1 of 2 commands: Waiting
+  steps: Read the case list of the day > Operations: refresh failed [here]
+  waiting: Waits for a person in the queue Operations.
+  why: It came from Read the case list of the day, by this route: If it fails: go to Operations: refresh failed
+  next: If the person chooses Handled: go to Refresh failed
+practice.daily_refresh / a read that is not available raises the same task / after 2 of 2 commands: Completed
+  steps: Read the case list of the day > Operations: refresh failed > Refresh failed
+  waiting: The case ended with the result Refresh failed.
+  why: 
+  next: 
+practice.daily_refresh / a read that fails and is not handled keeps the instance waiting for the person / after 0 of 1 commands: Waiting
+  steps: Read the case list of the day [here]
+  waiting: Waits for the answer of `schedule.cases_for_day`.
+  why: The case started here.
+  next: When it succeeds: go to Refreshed | If it fails: go to Operations: refresh failed
+practice.daily_refresh / a read that fails and is not handled keeps the instance waiting for the person / after 1 of 1 commands: Waiting
+  steps: Read the case list of the day > Operations: refresh failed [here]
+  waiting: Waits for a person in the queue Operations.
+  why: It came from Read the case list of the day, by this route: If it fails: go to Operations: refresh failed
+  next: If the person chooses Handled: go to Refresh failed
