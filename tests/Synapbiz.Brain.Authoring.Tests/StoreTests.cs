@@ -151,6 +151,113 @@ public sealed class StoreTests : IDisposable
         Directory.GetFileSystemEntries(workspace.Outside).Should().BeEmpty();
     }
 
+    private Dictionary<string, string> ApprovedSnapshot() =>
+        new[] { "flows", "rules" }.SelectMany(folder => Directory.GetFiles(Path.Combine(workspace.Root, folder)))
+            .Append(Path.Combine(workspace.Root, "catalog.json"))
+            .ToDictionary(path => Path.GetRelativePath(workspace.Root, path), File.ReadAllText);
+
+    private void ApprovedFoldersStayUntouched(Action act)
+    {
+        var before = ApprovedSnapshot();
+        act.Should().Throw<AuthoringStoreException>();
+        ApprovedSnapshot().Should().BeEquivalentTo(before);
+        Directory.GetFileSystemEntries(workspace.Outside).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void A_drafts_folder_that_is_a_link_to_the_workspace_root_is_refused()
+    {
+        Directory.CreateSymbolicLink(Path.Combine(workspace.Root, "drafts"), workspace.Root);
+        var store = workspace.Store();
+        ApprovedFoldersStayUntouched(() => store.WriteDraft(DocumentKind.Flow, "visit.note_wait", new StoredDraft("changed", null, [])));
+        ApprovedFoldersStayUntouched(() => store.WriteDraft(DocumentKind.Rule, "x", new StoredDraft("changed", null, [])));
+        File.Exists(Path.Combine(workspace.Root, "flows", "visit.note_wait.draft.json")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_drafts_folder_that_is_a_link_to_the_rules_folder_is_refused()
+    {
+        Directory.CreateSymbolicLink(Path.Combine(workspace.Root, "drafts"), Path.Combine(workspace.Root, "rules"));
+        var store = workspace.Store();
+        ApprovedFoldersStayUntouched(() => store.WriteDraft(DocumentKind.Rule, "x", new StoredDraft("changed", null, [])));
+        Directory.GetFiles(Path.Combine(workspace.Root, "rules")).Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void A_proposals_folder_that_is_a_link_to_the_flows_folder_is_refused()
+    {
+        Directory.CreateSymbolicLink(Path.Combine(workspace.Root, "proposals"), Path.Combine(workspace.Root, "flows"));
+        var store = workspace.Store();
+        ApprovedFoldersStayUntouched(() => store.WriteProposal("p", "{}"));
+        Directory.GetFiles(Path.Combine(workspace.Root, "flows")).Should().ContainSingle();
+    }
+
+    [Fact]
+    public void A_drafts_subfolder_that_is_a_link_to_the_approved_folder_of_its_kind_is_refused()
+    {
+        _ = Directory.CreateDirectory(Path.Combine(workspace.Root, "drafts"));
+        Directory.CreateSymbolicLink(Path.Combine(workspace.Root, "drafts", "flows"), Path.Combine(workspace.Root, "flows"));
+        var store = workspace.Store();
+        ApprovedFoldersStayUntouched(() => store.WriteDraft(DocumentKind.Flow, "x", new StoredDraft("changed", null, [])));
+    }
+
+    [Fact]
+    public void A_draft_file_that_is_a_link_to_an_approved_file_is_refused()
+    {
+        _ = Directory.CreateDirectory(Path.Combine(workspace.Root, "drafts", "flows"));
+        File.CreateSymbolicLink(Path.Combine(workspace.Root, "drafts", "flows", "x.json"), Path.Combine(workspace.Root, "flows", "visit.note_wait.json"));
+        var store = workspace.Store();
+        ApprovedFoldersStayUntouched(() => store.WriteDraft(DocumentKind.Flow, "x", new StoredDraft("changed", null, [])));
+    }
+
+    [Fact]
+    public void A_dangling_link_at_the_target_is_refused()
+    {
+        _ = Directory.CreateDirectory(Path.Combine(workspace.Root, "proposals"));
+        File.CreateSymbolicLink(Path.Combine(workspace.Root, "proposals", "p.json"), Path.Combine(workspace.Outside, "not-yet.json"));
+        var store = workspace.Store();
+        ApprovedFoldersStayUntouched(() => store.WriteProposal("p", "{}"));
+    }
+
+    [Fact]
+    public void A_planted_temporary_file_link_is_not_written_through()
+    {
+        var target = Path.Combine(workspace.Outside, "victim.json");
+        File.WriteAllText(target, "original");
+        _ = Directory.CreateDirectory(Path.Combine(workspace.Root, "drafts", "flows"));
+        _ = Directory.CreateDirectory(Path.Combine(workspace.Root, "proposals"));
+        foreach (var planted in new[] { "drafts/flows/x.json.tmp", "drafts/flows/x.draft.json.tmp", "proposals/p.json.tmp" })
+        {
+            File.CreateSymbolicLink(Path.Combine(workspace.Root, planted), target);
+        }
+
+        var store = workspace.Store();
+        store.WriteDraft(DocumentKind.Flow, "x", new StoredDraft("{}", null, []));
+        _ = store.WriteProposal("p", "{}");
+        File.ReadAllText(target).Should().Be("original");
+        File.ReadAllText(Path.Combine(workspace.Root, "drafts", "flows", "x.json")).Should().Be("{}");
+        new FileInfo(Path.Combine(workspace.Root, "drafts", "flows", "x.json")).LinkTarget.Should().BeNull();
+        Directory.GetFiles(Path.Combine(workspace.Root, "drafts", "flows"), "*", SearchOption.TopDirectoryOnly).Where(path => !path.EndsWith(".tmp", StringComparison.Ordinal)).Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void The_temporary_files_are_removed_after_a_write()
+    {
+        var store = workspace.Store();
+        store.WriteDraft(DocumentKind.Flow, "x", new StoredDraft("{}", null, []));
+        _ = store.WriteProposal("p", "{}");
+        Directory.GetFiles(workspace.Root, "*.tmp", SearchOption.AllDirectories).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Reading_through_a_drafts_folder_that_is_a_link_is_refused()
+    {
+        Directory.CreateSymbolicLink(Path.Combine(workspace.Root, "drafts"), Path.Combine(workspace.Root, "rules"));
+        var store = workspace.Store();
+        ((Action)(() => store.ListDrafts(DocumentKind.Rule))).Should().Throw<AuthoringStoreException>();
+        ((Action)(() => store.ReadDraft(DocumentKind.Rule, "visit.note_ready"))).Should().Throw<AuthoringStoreException>();
+    }
+
     [Fact]
     public void A_draft_file_that_is_a_link_to_a_file_outside_is_not_written_through()
     {

@@ -11,6 +11,7 @@ namespace Synapbiz.Brain.Authoring;
 public sealed class FileAuthoringStore : IAuthoringStore
 {
     private readonly string root;
+    private readonly object gate = new();
 
     /// <summary>Opens the workspace at a folder; the folder must exist.</summary>
     /// <param name="folder">The folder.</param>
@@ -40,17 +41,27 @@ public sealed class FileAuthoringStore : IAuthoringStore
     public string? ReadCatalog() => ReadInside(Path.Combine(root, "catalog.json"), root);
 
     /// <inheritdoc />
-    public IReadOnlyList<string> ListDrafts(DocumentKind kind) =>
-        Ids(Path.Combine(root, "drafts", ApprovedFolder(kind)), ".json", exclude: ".draft.json", readRoot: Path.Combine(root, "drafts"));
+    public IReadOnlyList<string> ListDrafts(DocumentKind kind)
+    {
+        lock (gate)
+        {
+            RequirePlainChain("drafts", ApprovedFolder(kind));
+            return Ids(Path.Combine(root, "drafts", ApprovedFolder(kind)), ".json", exclude: ".draft.json", readRoot: Path.Combine(root, "drafts"));
+        }
+    }
 
     /// <inheritdoc />
     public StoredDraft? ReadDraft(DocumentKind kind, string id)
     {
         StoreIds.Require(id, nameof(id));
-        var area = Path.Combine(root, "drafts");
-        var folder = Path.Combine(area, ApprovedFolder(kind));
-        var text = ReadInside(Path.Combine(folder, id + ".json"), area);
-        return text is null ? null : DraftEnvelope.Read(text, ReadInside(Path.Combine(folder, id + ".draft.json"), area));
+        lock (gate)
+        {
+            RequirePlainChain("drafts", ApprovedFolder(kind));
+            var area = Path.Combine(root, "drafts");
+            var folder = Path.Combine(area, ApprovedFolder(kind));
+            var text = ReadInside(Path.Combine(folder, id + ".json"), area);
+            return text is null ? null : DraftEnvelope.Read(text, ReadInside(Path.Combine(folder, id + ".draft.json"), area));
+        }
     }
 
     /// <inheritdoc />
@@ -58,20 +69,33 @@ public sealed class FileAuthoringStore : IAuthoringStore
     {
         StoreIds.Require(id, nameof(id));
         ArgumentNullException.ThrowIfNull(draft);
-        var folder = Path.Combine(root, "drafts", ApprovedFolder(kind));
-        EnsureFolder(folder, "drafts");
-        WriteInside(Path.Combine(folder, id + ".draft.json"), "drafts", DraftEnvelope.Write(kind, id, draft), overwrite: true);
-        WriteInside(Path.Combine(folder, id + ".json"), "drafts", draft.Text, overwrite: true);
+        lock (gate)
+        {
+            string[] folder = ["drafts", ApprovedFolder(kind)];
+            WriteInside(folder, id + ".draft.json", DraftEnvelope.Write(kind, id, draft), overwrite: true);
+            WriteInside(folder, id + ".json", draft.Text, overwrite: true);
+        }
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<string> ListProposals() => Ids(Path.Combine(root, "proposals"), ".json", exclude: null, readRoot: Path.Combine(root, "proposals"));
+    public IReadOnlyList<string> ListProposals()
+    {
+        lock (gate)
+        {
+            RequirePlainChain("proposals");
+            return Ids(Path.Combine(root, "proposals"), ".json", exclude: null, readRoot: Path.Combine(root, "proposals"));
+        }
+    }
 
     /// <inheritdoc />
     public string? ReadProposal(string name)
     {
         StoreIds.Require(name, nameof(name));
-        return ReadInside(Path.Combine(root, "proposals", name + ".json"), Path.Combine(root, "proposals"));
+        lock (gate)
+        {
+            RequirePlainChain("proposals");
+            return ReadInside(Path.Combine(root, "proposals", name + ".json"), Path.Combine(root, "proposals"));
+        }
     }
 
     /// <inheritdoc />
@@ -79,10 +103,11 @@ public sealed class FileAuthoringStore : IAuthoringStore
     {
         StoreIds.Require(name, nameof(name));
         ArgumentNullException.ThrowIfNull(json);
-        var folder = Path.Combine(root, "proposals");
-        EnsureFolder(folder, "proposals");
-        WriteInside(Path.Combine(folder, name + ".json"), "proposals", json, overwrite: false);
-        return "proposals/" + name + ".json";
+        lock (gate)
+        {
+            WriteInside(["proposals"], name + ".json", json, overwrite: false);
+            return "proposals/" + name + ".json";
+        }
     }
 
     private static string ApprovedFolder(DocumentKind kind) => kind == DocumentKind.Flow ? "flows" : "rules";
@@ -159,42 +184,103 @@ public sealed class FileAuthoringStore : IAuthoringStore
         return File.ReadAllText(path, Encoding.UTF8);
     }
 
-    private void EnsureFolder(string folder, string area)
+    private static bool IsLink(string path)
     {
-        var areaPath = Path.Combine(root, area);
-        if (!IsInside(Real(areaPath) + Path.DirectorySeparatorChar, root))
-        {
-            throw new AuthoringStoreException("The area is a link that leaves the workspace.");
-        }
+        var info = new FileInfo(path);
+        return info.LinkTarget is not null || (info.Exists && info.Attributes.HasFlag(FileAttributes.ReparsePoint)) || (new DirectoryInfo(path).Exists && new DirectoryInfo(path).Attributes.HasFlag(FileAttributes.ReparsePoint));
+    }
 
-        _ = Directory.CreateDirectory(folder);
-        if (!IsInside(Real(folder) + Path.DirectorySeparatorChar, Real(areaPath)))
+    // Every existing folder on the way down from the root to the area (and its subfolder) must be a plain folder, not a link.
+    // A folder that does not exist yet is fine: reading it finds nothing.
+    private void RequirePlainChain(params string[] names)
+    {
+        var current = root;
+        foreach (var name in names)
         {
-            throw new AuthoringStoreException("The folder is a link that leaves its area.");
+            current = Path.Combine(current, name);
+            if (!Directory.Exists(current) && !IsLink(current))
+            {
+                return;
+            }
+
+            RequirePlainFolder(current);
         }
     }
 
-    private void WriteInside(string path, string area, string text, bool overwrite)
+    private static void RequirePlainFolder(string folder)
     {
-        var areaPath = Real(Path.Combine(root, area));
-        if (!IsInside(Real(path), areaPath))
+        if (IsLink(folder) || !Directory.Exists(folder))
         {
-            throw new AuthoringStoreException("The path leaves the area the tools may write.");
+            throw new AuthoringStoreException("The folder is a link or not a folder; the tools do not use links inside the workspace.");
         }
 
-        if (File.Exists(path) && new FileInfo(path).LinkTarget is not null)
+        if (!string.Equals(Real(folder), folder, StringComparison.Ordinal))
+        {
+            throw new AuthoringStoreException("The folder does not resolve to its own place in the workspace.");
+        }
+    }
+
+    // The one place that writes. Walking down from the root, each folder of the write area (created when missing) must be a plain folder at
+    // exactly its own place, so the area resolves to root/drafts[/kind] or root/proposals. The target must not be a link; the temporary
+    // file has a name nobody can predict and is created new (an existing file or link of that name makes the creation fail); the move
+    // replaces the target itself.
+    private void WriteInside(string[] folderNames, string fileName, string text, bool overwrite)
+    {
+        var folder = root;
+        foreach (var name in folderNames)
+        {
+            folder = Path.Combine(folder, name);
+            if (!IsLink(folder) && !Directory.Exists(folder))
+            {
+                if (File.Exists(folder))
+                {
+                    throw new AuthoringStoreException("A file stands where a folder of the workspace should be.");
+                }
+
+                _ = Directory.CreateDirectory(folder);
+            }
+
+            RequirePlainFolder(folder);
+        }
+
+        var target = Path.Combine(folder, fileName);
+        if (IsLink(target))
         {
             throw new AuthoringStoreException("The file is a link; the tools do not write through links.");
         }
 
-        if (!overwrite && File.Exists(path))
+        if (Directory.Exists(target))
+        {
+            throw new AuthoringStoreException("A folder stands where a file of the workspace should be.");
+        }
+
+        if (!overwrite && File.Exists(target))
         {
             throw new AuthoringStoreException("A proposal with that name exists already.");
         }
 
-        var temporary = path + ".tmp";
-        File.WriteAllText(temporary, text, new UTF8Encoding(false));
-        File.Move(temporary, path, overwrite);
+        var temporary = Path.Combine(folder, "." + Path.GetRandomFileName() + ".tmp");
+        try
+        {
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                var bytes = new UTF8Encoding(false).GetBytes(text);
+                stream.Write(bytes, 0, bytes.Length);
+            }
+
+            File.Move(temporary, target, overwrite);
+        }
+        catch (IOException error)
+        {
+            throw new AuthoringStoreException("The file could not be written: " + error.GetType().Name + ".", error);
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+            {
+                File.Delete(temporary);
+            }
+        }
     }
 
     private static List<string> Ids(string folder, string suffix, string? exclude, string readRoot)
