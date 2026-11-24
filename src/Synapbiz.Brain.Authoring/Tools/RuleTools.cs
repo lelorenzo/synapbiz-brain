@@ -15,8 +15,12 @@ internal static class RuleTools
     {
         yield return new AuthoringTool(
             "rule_list",
-            "Lists the approved rules of the workspace (id, version, title, decision kind, number of rows and tests) and the rule drafts in progress. Definitions only.",
-            ToolSchemas.Object([]),
+            "Lists the approved rules of the workspace (id, version, title, decision kind, number of rows and tests, the authority and the sources each states) and the rule drafts in progress. Set `source` to list only the rules that cite a source and `authority` for those that state an authority; the answer says how many do. Definitions only.",
+            ToolSchemas.Object(
+                [
+                    ("source", ToolSchemas.Text("Only the rules that cite this source id in meta.sources, for example a guideline id.", 200)),
+                    ("authority", ToolSchemas.Text("Only the rules whose meta.authority is this code, for example payment_condition.", 200)),
+                ]),
             context,
             List);
 
@@ -129,11 +133,22 @@ internal static class RuleTools
 
         var rules = new JsonArray();
         var notLoading = new JsonArray();
+        var source = AuthoringJson.Text(input["source"])?.Trim();
+        var authority = AuthoringJson.Text(input["authority"])?.Trim();
+        source = string.IsNullOrEmpty(source) ? null : source;
+        authority = string.IsNullOrEmpty(authority) ? null : authority;
         foreach (var item in context.ApprovedRules(catalog))
         {
             if (item.Rule is not { } rule)
             {
                 notLoading.Add(new JsonObject { ["id"] = item.Id, ["errors"] = FlowAnalyzer.ErrorsJson(item.Errors, AuthoringJson.TryObject(item.Text), locale) });
+                continue;
+            }
+
+            var claims = RuleClaims.From(rule.Meta);
+            if ((source is not null && !claims.Readable.Any(cited => string.Equals(cited.Source, source, StringComparison.Ordinal)))
+                || (authority is not null && !string.Equals(claims.Authority, authority, StringComparison.Ordinal)))
+            {
                 continue;
             }
 
@@ -148,6 +163,8 @@ internal static class RuleTools
                 ["hitPolicy"] = Views.Camel(view.HitPolicy.ToString()),
                 ["rows"] = view.Rows.Count,
                 ["tests"] = rule.Goldens.Count,
+                ["authority"] = claims.Authority,
+                ["sources"] = new JsonArray([.. claims.Readable.Select(cited => (JsonNode?)JsonValue.Create(cited.Source))]),
             });
         }
 
@@ -155,6 +172,17 @@ internal static class RuleTools
         var firstBroken = context.ApprovedRules(catalog).FirstOrDefault(item => item.Rule is null && item.Errors.Count > 0);
         var broken = firstBroken is null ? string.Empty : " " + AuthoringText.Text(locale, "say.list.broken", ("k", AuthoringText.Number(notLoading.Count)), ("id", FlowChangeDescriber.Quote(firstBroken.Id)), ("first", PersonWords.Error(locale, firstBroken.Errors[0], AuthoringJson.TryObject(firstBroken.Text))));
         var say = AuthoringText.Text(locale, "say.rule.list", ("n", AuthoringText.Number(rules.Count)), ("d", AuthoringText.Number(drafts.Count)), ("broken", broken));
+        if (source is not null || authority is not null)
+        {
+            var key = (source, authority) switch
+            {
+                (not null, not null) => "say.rule.list.both",
+                (not null, null) => "say.rule.list.source",
+                _ => "say.rule.list.authority",
+            };
+            say += " " + AuthoringText.Text(locale, key, ("n", AuthoringText.Number(rules.Count)), ("source", FlowChangeDescriber.Quote(source ?? string.Empty)), ("authority", FlowChangeDescriber.Quote(authority ?? string.Empty)));
+        }
+
         return Results.Ok(say, new JsonObject { ["rules"] = rules, ["notLoading"] = notLoading, ["drafts"] = drafts });
     }
 
@@ -196,7 +224,7 @@ internal static class RuleTools
 
         var view = RuleDescriber.Describe(rule, locale, RuleLabels.FromMeta(rule.Meta, locale));
         var tests = RuleTester.Run(rule);
-        data["view"] = RuleAnalyzer.ViewJson(rule, view);
+        data["view"] = RuleAnalyzer.ViewJson(rule, view, locale);
         data["tests"] = RuleAnalyzer.TestsJson(tests);
         var say = AuthoringText.Text(locale, "say.rule.get", ("title", FlowChangeDescriber.Quote(PersonWords.RuleTitle(rule, view))), ("version", AuthoringText.Number(rule.Version)), ("rows", AuthoringText.Number(view.Rows.Count)), ("pass", AuthoringText.Number(tests.PassedCount)), ("total", AuthoringText.Number(tests.Cases.Count)));
         return Results.Ok(say, data);

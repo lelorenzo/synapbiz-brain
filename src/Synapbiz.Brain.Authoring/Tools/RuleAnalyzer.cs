@@ -50,7 +50,7 @@ internal static class RuleAnalyzer
         var labels = RuleLabels.FromMeta(rule.Meta, locale);
         var view = RuleDescriber.Describe(rule, locale, labels);
         var tests = RuleTester.Run(rule);
-        data["view"] = ViewJson(rule, view);
+        data["view"] = ViewJson(rule, view, locale);
         data["tests"] = TestsJson(tests);
 
         var before = draft.Base is null ? null : context.ApprovedRule(catalog, draft.Base.Id)?.Rule;
@@ -89,7 +89,20 @@ internal static class RuleAnalyzer
         return new RuleAnalysis(data, say, rule, before, ready, reasons);
     }
 
-    internal static JsonObject ViewJson(BrainRule rule, RuleView view)
+    /// <summary>The sources a rule cites, one object for each entry of <c>meta.sources</c>: readable entries with their words, the rest as <c>readable: false</c>.</summary>
+    internal static JsonArray SourcesJson(BrainRule rule, WorkbenchLocale locale) => new([.. RuleClaims.From(rule.Meta).Sources.Select(entry => entry.Source is not { } cited
+        ? (JsonNode?)new JsonObject { ["readable"] = false, ["index"] = entry.Index, ["say"] = AuthoringText.Text(locale, "rule.source.unreadable") }
+        : new JsonObject
+        {
+            ["readable"] = true,
+            ["source"] = cited.Source,
+            ["version"] = cited.Version,
+            ["relation"] = cited.Relation switch { SourceRelation.Implements => "implements", SourceRelation.Adapts => "adapts", _ => "informed_by" },
+            ["relationWord"] = RuleClaims.RelationWord(cited.Relation, locale),
+            ["differences"] = new JsonArray([.. cited.Differences.Select(difference => (JsonNode?)JsonValue.Create(difference.Text(locale)))]),
+        })]);
+
+    internal static JsonObject ViewJson(BrainRule rule, RuleView view, WorkbenchLocale locale)
     {
         JsonObject Row(RowView row) => new()
         {
@@ -123,6 +136,8 @@ internal static class RuleAnalyzer
                 ["nullable"] = field.Nullable,
             })]),
             ["rows"] = new JsonArray([.. view.Rows.Select(row => (JsonNode?)Row(row))]),
+            ["authority"] = RuleClaims.From(rule.Meta).Authority,
+            ["sources"] = SourcesJson(rule, locale),
             ["defaultRow"] = view.DefaultRow is null ? null : Row(view.DefaultRow),
         };
     }
@@ -169,6 +184,7 @@ internal static class RuleAnalyzer
         ["summary"] = changes.Summary,
         ["hitPolicyChanged"] = changes.HitPolicyChanged,
         ["defaultRowChanged"] = changes.DefaultRowChanged,
+        ["claims"] = new JsonArray([.. changes.ClaimChanges.Select(sentence => (JsonNode?)JsonValue.Create(sentence))]),
         ["rows"] = new JsonArray([.. changes.Rows.Select(row => (JsonNode?)new JsonObject
         {
             ["key"] = row.Key,

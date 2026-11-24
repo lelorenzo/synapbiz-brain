@@ -278,7 +278,7 @@ public sealed class ProposalTests
     [Fact]
     public void Every_reason_has_a_sentence_in_both_languages()
     {
-        RuleReviewNeed.Codes.Should().Equal(RuleReviewNeed.KindChanged, RuleReviewNeed.HitPolicyChanged, RuleReviewNeed.NewFactRead, RuleReviewNeed.NewOutcomeField, RuleReviewNeed.NewOutcomeValue);
+        RuleReviewNeed.Codes.Should().Equal(RuleReviewNeed.KindChanged, RuleReviewNeed.HitPolicyChanged, RuleReviewNeed.NewFactRead, RuleReviewNeed.NewOutcomeField, RuleReviewNeed.NewOutcomeValue, RuleReviewNeed.ClaimsChanged);
         foreach (var code in RuleReviewNeed.Codes)
         {
             foreach (var locale in new[] { WorkbenchLocale.En, WorkbenchLocale.Es })

@@ -44,6 +44,7 @@ public sealed record CaseChange(string Name, ChangeKind Kind);
 /// <param name="Rows">The rows of the later revision in order, then the rows only the earlier revision had.</param>
 /// <param name="DefaultRow">The default row's change; null when neither revision has one.</param>
 /// <param name="Cases">The golden cases of the later revision in order, then the cases only the earlier revision had.</param>
+/// <param name="ClaimsChanged">Whether what the rule says about its sources (<c>meta.sources</c>) or its authority (<c>meta.authority</c>) differs.</param>
 public sealed record RuleDiff(
     long VersionBefore,
     long VersionAfter,
@@ -52,13 +53,15 @@ public sealed record RuleDiff(
     bool RowOrderChanged,
     IReadOnlyList<RowChange> Rows,
     RowChange? DefaultRow,
-    IReadOnlyList<CaseChange> Cases)
+    IReadOnlyList<CaseChange> Cases,
+    bool ClaimsChanged = false)
 {
     /// <summary>True when anything but the version differs.</summary>
     public bool HasChanges =>
         KindChanged
         || HitPolicyChanged
         || RowOrderChanged
+        || ClaimsChanged
         || Rows.Any(row => row.Kind != ChangeKind.Unchanged)
         || (DefaultRow is not null && DefaultRow.Kind != ChangeKind.Unchanged)
         || Cases.Any(testCase => testCase.Kind != ChangeKind.Unchanged);
@@ -110,7 +113,8 @@ public static class RuleDiffer
             !sharedBefore.SequenceEqual(sharedAfter, StringComparer.Ordinal),
             rows,
             DefaultChange(before.Table.DefaultRow, after.Table.DefaultRow),
-            CaseChanges(before.Goldens, after.Goldens));
+            CaseChanges(before.Goldens, after.Goldens),
+            RuleClaims.Differ(before.Meta, after.Meta));
     }
 
     /// <summary>
