@@ -1,0 +1,74 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.cron",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "process/map.notify"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Morning sweep",
+    "display": {
+      "en": {
+        "title": "Morning sweep"
+      },
+      "es": {
+        "title": "Barrido de la mañana"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer"
+      }
+    },
+    "start": "read_it",
+    "steps": {
+      "read_it": {
+        "kind": "read",
+        "port": "map.records",
+        "input": {
+          "ref": "ref"
+        },
+        "output": {
+          "count": "count"
+        },
+        "next": "fan",
+        "onError": "done",
+        "onNotAvailable": "done"
+      },
+      "fan": {
+        "kind": "subprocess",
+        "process": "map.notify",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "done",
+        "onError": "done"
+      },
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": [],
+    "triggers": [
+      {
+        "kind": "schedule",
+        "id": "morning",
+        "cron": "0 6 * * *",
+        "misfire": "skip",
+        "input": {}
+      }
+    ]
+  }
+}

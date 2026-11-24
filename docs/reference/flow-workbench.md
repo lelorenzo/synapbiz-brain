@@ -27,6 +27,35 @@ The screen that draws all of this is the component `FlowWorkbench`, described in
 | `Children` | The child processes the flow starts, as `FlowChildLink` (id, title, `IsMissing`). A child that is not in the given set is listed as missing. |
 | `StartedBy` | The ids of the documents of the set that start this flow as a child. |
 | `Rules` | The rule references the flow uses. |
+| `Kind`, `NoStartDefined` | The kind of the process and the mark "no start defined" (see [Kinds of process](#kinds-of-process-flowkind)). |
+
+## Kinds of process: `FlowKind`
+
+In what a person reads, a flow is a **process** ("proceso"); the code names stay. `FlowKind` classifies every process of a library with no host input, from its triggers and from who starts whom (`FlowKinds.Of(outline, startedBy)` (class `FlowKinds`); `FlowEntry.Kind` carries it):
+
+| `FlowKind` | Rule | Words |
+| --- | --- | --- |
+| `Scheduled` | The document has a schedule trigger, whatever else it has. | "Scheduled task" / "Tarea programada" |
+| `Main` | It has an event trigger, or no other process of the library starts it. | "Main process" / "Proceso principal" |
+| `Subprocess` | Another process of the library starts it through a `subprocess` step and it has no trigger of its own. | "Subprocess" / "Subproceso" |
+
+A process that has an event trigger and is also started by another is `Main`, and its parent still lists it as started by it. A process that only starts itself counts as started by nobody. A process nobody starts and that has no trigger is `Main` with `NoStartDefined` true, and the screen says so in words. `FlowKinds.HasNoStart` is the same test; `FlowKinds.Word` and `FlowKinds.Plural` give the words in a language. The rule is pinned on every reference document and fixture by golden files (`tests/fixtures/workbench/map/kinds.*.txt`).
+
+## The process map: `ProcessMap`
+
+`ProcessMap.From(processes, locale, labels, reports)` computes, from the documents alone, the structure of a clinic's processes. It is deterministic: processes in the order of their ids (when several documents share an id, the highest version describes it), stages and steps in document order.
+
+| Member | Meaning |
+| --- | --- |
+| `Mains` (`MapMain`) | Each main process with its `Starts` (one sentence per event trigger), its `Phases` (`MapPhase`: the stages in order, each with its label, the sentence of what ends it when the routes leaving the stage say it, else null, and its `Subprocesses`) and its `Ends` (the labels of its end steps). A subprocess started from steps with no stage goes into a last phase with a null `StageId` ("No phase"). |
+| `MapChild` | A card under a phase: the subprocess (`MapProcess`), `IsMissing` when it is not loaded, and `AlsoStartedBy`, the titles of the other processes that start it. A subprocess with two parents appears under each. |
+| `Scheduled` (`MapScheduled`) | The scheduled tasks, each with its schedule sentences. |
+| `Processes` (`MapProcess`) | Every process: id, version, title, `Kind`, `NoStartDefined`, `Counts` (`MapCounts`: steps, scenarios, whether they pass, routes not tried), `Uses`, `Triggers`, `StartedBy` and `Starts` (`MapChildLink`). |
+| `Uses` (`MapUse`) | What a process uses, deduplicated, in a fixed order: rules (`decide` and `poll` steps), connectors (the ports of `read`, `action` and `poll` steps), queues of person tasks, AI steps (`MapPieceKind`). Each has a label and `LabelIsName`. |
+| `Shared` (`MapShared`) | Every piece used by more than one process, with its count. |
+| `Cycles`, `Detached` | The groups of processes that start each other (a self-start is a group of one), reported once; and the subprocesses no main process or scheduled task reaches, which the map lists apart instead of drawing twice. |
+
+A label comes from the document's own `meta.display` when it has one (queues, and the label of an AI step), else from the host's dictionary `labels` (keys from `ProcessMap.LabelKey`: `rule:<id>`, `connector:<port>`, `queue:<queue>`, `ai:<step>`; the values are for the language asked), else the raw name, which a screen shows as code. `meta.display` has no group for rules or ports, so those two come from the host or are raw.
 
 ## Description: `FlowDescriber` and `FlowView`
 

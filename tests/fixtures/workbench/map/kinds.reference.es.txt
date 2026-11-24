@@ -1,0 +1,6 @@
+case.lifecycle: Main <- 
+collection.followup: Subprocess <- case.lifecycle
+postvisit.coding_review: Subprocess <- case.lifecycle
+practice.daily_refresh: Scheduled <- 
+previsit.outreach: Subprocess <- case.lifecycle
+visit.note_wait: Subprocess <- case.lifecycle

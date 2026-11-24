@@ -1,0 +1,40 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.nostart",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": {
+    "title": "Orphan process",
+    "display": {
+      "en": {
+        "title": "Orphan process"
+      },
+      "es": {
+        "title": "Proceso sin inicio"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "done",
+    "steps": {
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": []
+  }
+}

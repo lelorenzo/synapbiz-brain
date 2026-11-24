@@ -1,0 +1,102 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.check",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "rule/conf.flag_rule"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Check",
+    "display": {
+      "en": {
+        "title": "Check",
+        "queues": {
+          "lab": "Lab desk"
+        }
+      },
+      "es": {
+        "title": "Revisión",
+        "queues": {
+          "lab": "Mesa de laboratorio"
+        }
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "read_it",
+    "steps": {
+      "read_it": {
+        "kind": "read",
+        "port": "map.records",
+        "input": {
+          "ref": "ref"
+        },
+        "output": {
+          "count": "count"
+        },
+        "next": "judge",
+        "onError": "desk",
+        "onNotAvailable": "desk"
+      },
+      "judge": {
+        "kind": "decide",
+        "rule": "conf.flag_rule",
+        "facts": {
+          "count": "count"
+        },
+        "route": "flag",
+        "on": {
+          "true": "mail",
+          "false": "done"
+        },
+        "onNoDecision": "desk",
+        "onError": "desk"
+      },
+      "mail": {
+        "kind": "action",
+        "delivery": "atLeastOnce",
+        "port": "map.mailer",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "done",
+        "onError": "desk",
+        "onNotAvailable": "desk",
+        "onNotEntitled": "desk"
+      },
+      "desk": {
+        "kind": "humanTask",
+        "queue": "lab",
+        "outcomes": [
+          "ok"
+        ],
+        "show": [
+          "ref"
+        ],
+        "on": {
+          "ok": "done"
+        }
+      },
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": []
+  }
+}

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Mapa de procesos</title>
+<style>
+:root{--bg:#f4f6f8;--panel:#fff;--line:#d9dee5;--ink:#16202b;--mut:#5b6876;--acc:#0f5b78;--accbg:#e9f3f6;
+--main:#0f5b78;--sub:#3a4a5c;--sch:#7a5a12;--schbg:#fbf4e2;--rule:#5a3d8a;--rulebg:#f2eefa;--con:#1f6b4a;--conbg:#e9f5ef;--per:#9a3b2e;--perbg:#fbeeeb;--ai:#275fb3;--aibg:#eaf1fb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 Inter,system-ui,Segoe UI,Arial,sans-serif}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.top{display:flex;align-items:center;gap:20px;padding:14px 28px;background:#fff;border-bottom:1px solid var(--line)}
+.top b{font-size:15px}.pill{border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:11px;letter-spacing:.04em;color:var(--mut)}
+.nav{display:flex;gap:6px;margin-left:12px}.nav span{padding:6px 12px;border-radius:8px;color:var(--mut)}.nav .on{background:var(--accbg);color:var(--ink);border-bottom:2px solid var(--acc)}
+.sp{flex:1}.wrap{display:grid;grid-template-columns:1fr 400px;gap:18px;padding:22px 28px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.map{padding:18px 20px 22px}h2{margin:0;font-size:20px}.subt{color:var(--mut);font-size:12.5px;margin:2px 0 12px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 -20px 14px;padding:0 20px}.tabs span{padding:8px 12px;color:var(--mut)}.tabs .on{color:var(--ink);font-weight:600;border-bottom:2.5px solid var(--acc)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafbfc}
+.legend>b{font-size:12px;color:var(--mut);font-weight:600;margin-right:2px}
+.k{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;padding:4px 10px 4px 5px;border-radius:8px;border:1px solid var(--line);background:#fff}
+.b{width:24px;height:24px;border-radius:6px;display:grid;place-items:center}
+.b-main{background:var(--main);color:#fff}.b-sub{background:#e8ecf1;color:var(--sub)}.b-sch{background:var(--schbg);color:var(--sch)}.b-ev{background:#eef1f4;color:var(--ink)}
+.b-rule{background:var(--rulebg);color:var(--rule)}.b-con{background:var(--conbg);color:var(--con)}.b-per{background:var(--perbg);color:var(--per)}.b-ai{background:var(--aibg);color:var(--ai)}
+.lane{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:16px 0 8px}
+.ev{display:inline-flex;align-items:center;gap:8px}code{background:#eef1f4;border-radius:4px;padding:1px 5px;font-size:12px}
+.arr{display:inline-flex;align-items:center;gap:4px;color:var(--mut);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:3px 8px 3px 6px;font-size:12px;border:1px solid;white-space:nowrap}.chip svg.i{width:13px;height:13px}
+.c-rule{color:var(--rule);background:var(--rulebg);border-color:#d8cdee}.c-con{color:var(--con);background:var(--conbg);border-color:#c5e2d3}
+.c-per{color:var(--per);background:var(--perbg);border-color:#efcfc8}.c-ai{color:var(--ai);background:var(--aibg);border-color:#c9daf3}
+.mainp{border:2px solid var(--main);border-radius:12px;background:#fbfdfe;padding:12px 14px 14px}
+.mainp header{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px 3px 6px;border-radius:5px}.tag svg.i{width:13px;height:13px}
+.t-main{background:var(--main);color:#fff}.t-sub{background:#e8ecf1;color:var(--sub)}.t-sch{background:#fff;color:var(--sch);border:1px solid #ead9aa}
+.meta{color:var(--mut);font-size:12px}.ok{color:var(--con)}
+.phases{display:grid;grid-template-columns:repeat(4,1fr)}
+.ph{padding:8px 10px;border:1px solid var(--line);background:#fff;font-weight:600;font-size:13px;position:relative}
+.ph:first-child{border-radius:8px 0 0 8px}.ph:last-child{border-radius:0 8px 8px 0}.ph+.ph{border-left:0}
+.ph small{display:block;font-weight:400;color:var(--mut);font-size:11.5px}
+.ph:not(:last-child)::after{content:"›";position:absolute;right:-6px;top:9px;background:#fff;color:var(--mut);z-index:1;font-size:18px;line-height:1}
+.cols{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stem{height:26px;position:relative}.stem::before{content:"";position:absolute;left:50%;top:0;bottom:4px;border-left:2px solid var(--sub)}
+.stem::after{content:"";position:absolute;left:calc(50% - 4px);bottom:0;border:5px solid transparent;border-top-color:var(--sub);border-bottom:0}
+.stem em{position:absolute;left:calc(50% + 8px);top:4px;font-style:normal;font-size:11px;color:var(--mut)}
+.card{border:1.5px solid var(--sub);border-radius:8px;background:#fff;padding:10px 12px 10px 16px;position:relative}
+.card::before,.card::after{content:"";position:absolute;top:0;bottom:0;border-left:1.5px solid var(--sub)}.card::before{left:6px}.card::after{right:6px}
+.card.sel{border-color:var(--acc);box-shadow:0 0 0 3px #bfdde7}.card.sel::before,.card.sel::after{border-color:var(--acc)}
+.card h4{margin:6px 0 2px;font-size:13.5px}.uses{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.uses small{width:100%;color:var(--mut);font-size:11px}
+.open{display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-size:12px;color:var(--acc);font-weight:600}
+.ends{display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap}.end{border:2px solid var(--ink);border-radius:999px;padding:4px 14px;font-size:12.5px;background:#fff}
+.schc{border:1.5px solid var(--sch);background:var(--schbg);border-radius:14px;padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.schc h4{margin:0}.note{margin-top:14px;padding:9px 12px;border:1px dashed var(--line);border-radius:8px;color:var(--mut);font-size:12.5px}
+.side{padding:16px}.crumb{font-size:12px;color:var(--mut);margin-bottom:8px}.crumb b{color:var(--ink)}
+.side h3{margin:6px 0 2px;font-size:16px}.stabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:10px -16px 12px;padding:0 16px;font-size:13px}
+.stabs span{padding:7px 9px;color:var(--mut)}.stabs .on{color:var(--ink);font-weight:600;border-bottom:2.5px solid var(--acc)}
+.dg{border:1px solid var(--line);border-radius:8px;background:#fafbfc}
+.dg text{font:11px Inter,system-ui,Arial,sans-serif;fill:var(--ink)}.dg .n{fill:#fff;stroke:#3a4a5c;stroke-width:1.4}.dg .e{stroke:#3a4a5c;stroke-width:1.4;fill:none}.dg .d{stroke-dasharray:4 3}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--acc);color:var(--acc);border-radius:8px;padding:6px 12px;font-weight:600;font-size:13px;margin-top:12px;background:#fff}
+.sl{font-size:12px;color:var(--mut);margin-top:10px}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="main" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M9 9v11M15 9v11"/></symbol>
+<symbol id="sub" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 6v12M17 6v12"/></symbol>
+<symbol id="sch" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+<symbol id="ev" viewBox="0 0 24 24"><path d="M13 3 5 13h6l-1 8 8-10h-6z"/></symbol>
+<symbol id="rule" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M10 4v16"/></symbol>
+<symbol id="con" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4"/></symbol>
+<symbol id="per" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+<symbol id="ai" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10.5 13.9 12.4 12 18l-1.9-5.6L4.5 10.5l5.6-1.9zM19 16v4M17 18h4"/></symbol>
+<symbol id="go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="dia" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/><path d="M6.5 9v5a2 2 0 0 0 2 2H14"/></symbol>
+</defs></svg>
+<div class="top"><b>Banco de pruebas de reglas y procesos</b><span class="pill">SINTÉTICO</span>
+<div class="nav"><span>Reglas</span><span class="on">Procesos</span></div><div class="sp"></div><div class="nav"><span class="on">ES</span><span>EN</span></div></div>
+<div class="wrap">
+<main class="panel map"><h2>Mapa de procesos de la clínica</h2><div class="subt">Calculado de los propios documentos. 1 proceso principal · 4 subprocesos · 1 tarea programada · 7 reglas. Elija una pieza para abrirla.</div>
+<div class="tabs"><span class="on">Mapa</span><span>Lista</span><span>En vivo</span></div>
+<div class="legend"><b>Qué es cada pieza</b>
+<span class="k"><span class="b b-main"><svg class="i"><use href="#main"/></svg></span>Proceso principal</span>
+<span class="k"><span class="b b-sub"><svg class="i"><use href="#sub"/></svg></span>Subproceso</span>
+<span class="k"><span class="b b-sch"><svg class="i"><use href="#sch"/></svg></span>Tarea programada</span>
+<span class="k"><span class="b b-ev"><svg class="i"><use href="#ev"/></svg></span>Evento</span>
+<span class="k"><span class="b b-rule"><svg class="i"><use href="#rule"/></svg></span>Regla</span>
+<span class="k"><span class="b b-con"><svg class="i"><use href="#con"/></svg></span>Conector a otro sistema</span>
+<span class="k"><span class="b b-per"><svg class="i"><use href="#per"/></svg></span>Tarea de una persona</span>
+<span class="k"><span class="b b-ai"><svg class="i"><use href="#ai"/></svg></span>Paso con IA</span>
+</div>
+
+<div class="lane">Lo que inicia un caso</div>
+<div class="ev"><span class="b b-ev"><svg class="i"><use href="#ev"/></svg></span><span>Evento <code>case.opened</code>, un caso por cada cita</span><span class="arr"><svg class="i"><use href="#go"/></svg>inicia</span></div>
+
+<div class="lane">Proceso principal</div>
+<section class="mainp">
+<header><span class="tag t-main"><svg class="i"><use href="#main"/></svg>Proceso principal</span><b style="font-size:15px">Ciclo de vida del caso</b><span class="meta">15 pasos · <span class="ok">✓ las 15 pruebas pasan</span></span><div class="sp"></div><span class="chip c-rule"><svg class="i"><use href="#rule"/></svg>Siguiente fase del caso</span><span class="open"><svg class="i"><use href="#dia"/></svg>Ver diagrama</span></header>
+<div class="phases"><div class="ph">1 · Antes de la visita<small>hasta la hora de la cita</small></div><div class="ph">2 · Visita<small>hasta la nota firmada</small></div><div class="ph">3 · Después de la visita<small>hasta el cargo registrado</small></div><div class="ph">4 · Cobro<small>hasta cobrado o dado de baja</small></div></div>
+<div class="cols">
+<div><div class="stem"><em>inicia</em></div><div class="card sel"><span class="tag t-sub"><svg class="i"><use href="#sub"/></svg>Subproceso</span><h4>Contacto previo a la visita</h4><div class="meta">9 pasos · <span class="ok">✓ 16 pruebas</span></div>
+<div class="uses"><small>usa</small><span class="chip c-rule"><svg class="i"><use href="#rule"/></svg>Qué falta para la visita</span><span class="chip c-rule"><svg class="i"><use href="#rule"/></svg>Siguiente recordatorio</span><span class="chip c-con"><svg class="i"><use href="#con"/></svg>Historia clínica</span><span class="chip c-con"><svg class="i"><use href="#con"/></svg>Mensaje al paciente</span><span class="chip c-per"><svg class="i"><use href="#per"/></svg>Recepción</span></div></div></div>
+<div><div class="stem"><em>inicia</em></div><div class="card"><span class="tag t-sub"><svg class="i"><use href="#sub"/></svg>Subproceso</span><h4>Espera de la nota de la visita</h4><div class="meta">5 pasos · <span class="ok">✓ 11 pruebas</span></div>
+<div class="uses"><small>usa</small><span class="chip c-con"><svg class="i"><use href="#con"/></svg>Historia clínica</span><span class="chip c-per"><svg class="i"><use href="#per"/></svg>Médico</span></div></div></div>
+<div><div class="stem"><em>inicia</em></div><div class="card"><span class="tag t-sub"><svg class="i"><use href="#sub"/></svg>Subproceso</span><h4>Revisión de codificación</h4><div class="meta">8 pasos · <span class="ok">✓ 18 pruebas</span></div>
+<div class="uses"><small>usa</small><span class="chip c-ai"><svg class="i"><use href="#ai"/></svg>Suficiencia de la nota</span><span class="chip c-rule"><svg class="i"><use href="#rule"/></svg>Aceptar la propuesta</span><span class="chip c-con"><svg class="i"><use href="#con"/></svg>Historia clínica</span><span class="chip c-per"><svg class="i"><use href="#per"/></svg>Médico</span></div></div></div>
+<div><div class="stem"><em>inicia</em></div><div class="card"><span class="tag t-sub"><svg class="i"><use href="#sub"/></svg>Subproceso</span><h4>Seguimiento de cobro</h4><div class="meta">13 pasos · <span class="ok">✓ 18 pruebas</span> · <span style="color:var(--per)">1 salida sin probar</span></div>
+<div class="uses"><small>usa</small><span class="chip c-rule"><svg class="i"><use href="#rule"/></svg>Encaminar el reclamo</span><span class="chip c-con"><svg class="i"><use href="#con"/></svg>Estado del reclamo</span><span class="chip c-per"><svg class="i"><use href="#per"/></svg>Facturación</span></div></div></div>
+</div>
+<div class="ends"><span class="meta">El caso termina en:</span><span class="end">Cobrado</span><span class="end">Dado de baja</span><span class="end">Cerrado, sin visita</span><span class="end">Cerrado por una persona</span></div>
+</section>
+
+<div class="lane">Tareas programadas</div>
+<div class="schc"><span class="tag t-sch"><svg class="i"><use href="#sch"/></svg>Tarea programada</span><h4>Actualización diaria de la práctica</h4><span class="meta">Todos los días a las 06:00, hora de la clínica · 4 pasos · <span class="ok">✓ 6 pruebas</span></span><span class="chip c-con"><svg class="i"><use href="#con"/></svg>Historia clínica</span></div>
+<div class="note">Maqueta con datos sintéticos de los seis documentos de ejemplo. Los nombres de reglas y conectores son ilustrativos.</div>
+</main>
+
+<aside class="panel side">
+<div class="crumb">Mapa › Ciclo de vida del caso › <b>Contacto previo a la visita</b></div>
+<span class="tag t-sub"><svg class="i"><use href="#sub"/></svg>Subproceso</span>
+<h3>Contacto previo a la visita</h3>
+<div class="meta">Lo inicia la fase "Antes de la visita". Devuelve: listo para la visita o caso sin contacto.</div>
+<div class="stabs"><span>Leer</span><span class="on">Diagrama</span><span>Simular</span><span>Pruebas</span><span>Revisión</span></div>
+<svg class="dg" viewBox="0 0 366 430" width="366" height="430">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#3a4a5c"/></marker></defs>
+<polygon class="n" points="60,20 190,20 204,38 190,56 60,56 46,38"/><text x="125" y="42" text-anchor="middle">Ronda de recordatorios</text>
+<path class="e" d="M125 56V84" marker-end="url(#a)"/>
+<rect class="n" x="46" y="86" width="158" height="36" rx="5"/><use href="#con" x="54" y="96" width="15" height="15" style="fill:none;stroke:#1f6b4a;stroke-width:1.7"/><text x="134" y="108" text-anchor="middle">Revisar lo que falta</text>
+<path class="e" d="M125 122V150" marker-end="url(#a)"/>
+<polygon class="n" points="60,152 190,152 204,170 190,188 60,188 46,170"/><use href="#rule" x="62" y="162" width="15" height="15" style="fill:none;stroke:#5a3d8a;stroke-width:1.7"/><text x="134" y="174" text-anchor="middle">Decidir si se recuerda</text>
+<path class="e" d="M125 188V216" marker-end="url(#a)"/><text x="131" y="206" style="fill:#5b6876">enviar</text>
+<rect class="n" x="46" y="218" width="158" height="36" rx="5"/><use href="#con" x="54" y="228" width="15" height="15" style="fill:none;stroke:#1f6b4a;stroke-width:1.7"/><text x="134" y="240" text-anchor="middle">Enviar recordatorio</text>
+<path class="e" d="M125 254V282" marker-end="url(#a)"/>
+<ellipse class="n" cx="125" cy="302" rx="79" ry="18"/><text x="125" y="306" text-anchor="middle">Esperar la respuesta</text>
+<path class="e d" d="M204 302H282V284" marker-end="url(#a)"/><text x="210" y="318" style="fill:#5b6876">sin respuesta</text>
+<path class="n" d="M226 240h112l10 10v32h-122z"/><use href="#per" x="232" y="253" width="15" height="15" style="fill:none;stroke:#9a3b2e;stroke-width:1.7"/><text x="296" y="258" text-anchor="middle">Seguimiento</text><text x="296" y="272" text-anchor="middle">de recepción</text>
+<path class="e" d="M46 170H22V380H44" marker-end="url(#a)"/><text x="10" y="160" style="fill:#5b6876">nada</text>
+<path class="e" d="M125 320V362" marker-end="url(#a)"/><text x="131" y="344" style="fill:#5b6876">respondió</text>
+<rect class="n" x="46" y="364" width="158" height="34" rx="17" style="stroke-width:2.2"/><text x="125" y="385" text-anchor="middle">Listo para la visita</text>
+<path class="e" d="M320 282V362" marker-end="url(#a)"/><text x="326" y="326" style="fill:#5b6876">agotado</text>
+<rect class="n" x="214" y="364" width="136" height="34" rx="17" style="stroke-width:2.2"/><text x="282" y="385" text-anchor="middle">Caso sin contacto</text>
+<path class="e d" d="M300 240C320 150 300 50 208 38" marker-end="url(#a)" style="stroke-dasharray:1 4"/>
+</svg>
+<div class="sl">Vista previa. Los mismos iconos del mapa marcan en el diagrama qué pasos usan una regla, un conector o una persona.</div>
+<span class="btn"><svg class="i"><use href="#dia"/></svg>Abrir el diagrama completo</span>
+</aside>
+</div></body></html>

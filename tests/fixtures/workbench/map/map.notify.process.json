@@ -1,0 +1,52 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.notify",
+  "version": 1,
+  "uses": [],
+  "requires": [],
+  "meta": {
+    "title": "Notify",
+    "display": {
+      "en": {
+        "title": "Notify"
+      },
+      "es": {
+        "title": "Aviso"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "mail",
+    "steps": {
+      "mail": {
+        "kind": "action",
+        "delivery": "atLeastOnce",
+        "port": "map.mailer",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "done",
+        "onError": "done",
+        "onNotAvailable": "done",
+        "onNotEntitled": "done"
+      },
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": []
+  }
+}

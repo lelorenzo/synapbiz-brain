@@ -56,6 +56,12 @@ public sealed record FlowEntry
 
     /// <summary>The rule references (<c>module/rule</c>) the flow uses.</summary>
     public required IReadOnlyList<string> Rules { get; init; }
+
+    /// <summary>The kind of the process, derived from its triggers and from who starts it (<see cref="FlowKinds.Of"/>).</summary>
+    public FlowKind Kind { get; init; }
+
+    /// <summary>True for a main process that has no trigger and that no other process starts: the document gives it no way to begin.</summary>
+    public bool NoStartDefined { get; init; }
 }
 
 /// <summary>The list of flows a host has loaded, as plain data for a screen.</summary>
@@ -89,6 +95,7 @@ public static class FlowLibrary
         var coverage = report.Coverage;
         var children = outline.Steps.Select(step => step.Process).OfType<string>().Distinct(StringComparer.Ordinal)
             .Select(id => Child(id, set, locale)).ToList();
+        var startedBy = outlines.Where(other => other.Steps.Any(step => string.Equals(step.Process, outline.Id, StringComparison.Ordinal))).Select(other => other.Id).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
         return new FlowEntry
         {
             Id = outline.Id,
@@ -104,8 +111,10 @@ public static class FlowLibrary
             CoveredRoutes = coverage.CoveredRoutes,
             TotalRoutes = coverage.TotalRoutes,
             Children = children,
-            StartedBy = [.. outlines.Where(other => other.Steps.Any(step => string.Equals(step.Process, outline.Id, StringComparison.Ordinal))).Select(other => other.Id).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
+            StartedBy = startedBy,
             Rules = outline.Uses,
+            Kind = FlowKinds.Of(outline, startedBy),
+            NoStartDefined = FlowKinds.HasNoStart(outline, startedBy),
         };
     }
 

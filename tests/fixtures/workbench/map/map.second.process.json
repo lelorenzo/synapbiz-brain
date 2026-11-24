@@ -1,0 +1,63 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.second",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "process/map.serve"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Second main process",
+    "display": {
+      "en": {
+        "title": "Second main process"
+      },
+      "es": {
+        "title": "Segundo proceso principal"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "go",
+    "steps": {
+      "go": {
+        "kind": "subprocess",
+        "process": "map.serve",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "done",
+        "onError": "done"
+      },
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": [],
+    "triggers": [
+      {
+        "kind": "event",
+        "event": "case.moved",
+        "businessKey": "ref",
+        "input": {
+          "ref": "ref"
+        }
+      }
+    ]
+  }
+}

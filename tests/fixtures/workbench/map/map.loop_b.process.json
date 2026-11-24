@@ -1,0 +1,53 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.loop_b",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "process/map.loop_a"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Loop B",
+    "display": {
+      "en": {
+        "title": "Loop B"
+      },
+      "es": {
+        "title": "Ciclo B"
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "go",
+    "steps": {
+      "go": {
+        "kind": "subprocess",
+        "process": "map.loop_a",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "done",
+        "onError": "done"
+      },
+      "done": {
+        "kind": "end",
+        "result": "done"
+      }
+    },
+    "scenarios": []
+  }
+}

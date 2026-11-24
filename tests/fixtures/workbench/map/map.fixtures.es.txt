@@ -1,0 +1,66 @@
+processes: 3 main, 6 sub, 1 scheduled; rules: 2
+== main
+Main map.front v1: Proceso de entrada
+  counts: 7 steps, 0 scenarios, pass, 13 routes not tried
+  trigger: Empieza cuando llega `case.booked`, un caso por cada `ref`.
+  uses: Nivel por conteo [Rule:conf.default_rule]
+  uses: Recepción [PersonTask:desk]
+  starts: Empieza cuando llega `case.booked`, un caso por cada `ref`.
+  phase intake = Admisión
+    ends when: Termina cuando el proceso pasa a Atención.
+    > Subprocess map.check v1: Revisión
+    >   counts: 5 steps, 0 scenarios, pass, 12 routes not tried
+    >   uses: `conf.flag_rule` [Rule:conf.flag_rule]
+    >   uses: Sistema de registros [Connector:map.records]
+    >   uses: `map.mailer` [Connector:map.mailer]
+    >   uses: Mesa de laboratorio [PersonTask:lab]
+      missing: False; also started by: 
+    > Subprocess map.notify v1: Aviso
+    >   counts: 2 steps, 0 scenarios, pass, 4 routes not tried
+    >   uses: `map.mailer` [Connector:map.mailer]
+      missing: False; also started by: Barrido de la mañana
+  phase service = Atención
+    ends when: Termina cuando el caso termina con Terminado.
+    > Subprocess map.serve v1: Atención al caso
+    >   counts: 3 steps, 0 scenarios, pass, 5 routes not tried
+    >   uses: Nivel por conteo [Rule:conf.default_rule]
+    >   uses: Recepción [PersonTask:desk]
+      missing: False; also started by: Segundo proceso principal
+  phase (no phase)
+    ends when: (none)
+    > Subprocess map.loose v1: Cierre suelto
+    >   counts: 1 steps, 0 scenarios, pass, 0 routes not tried
+      missing: False; also started by: 
+  ends: Caso terminado
+== main
+Main map.nostart v1: Proceso sin inicio
+  counts: 1 steps, 0 scenarios, pass, 0 routes not tried
+  no start defined
+  ends: done
+== main
+Main map.second v1: Segundo proceso principal
+  counts: 2 steps, 0 scenarios, pass, 2 routes not tried
+  trigger: Empieza cuando llega `case.moved`, un caso por cada `ref`.
+  starts: Empieza cuando llega `case.moved`, un caso por cada `ref`.
+  phase (no phase)
+    ends when: (none)
+    > Subprocess map.serve v1: Atención al caso
+    >   counts: 3 steps, 0 scenarios, pass, 5 routes not tried
+    >   uses: Nivel por conteo [Rule:conf.default_rule]
+    >   uses: Recepción [PersonTask:desk]
+      missing: False; also started by: Proceso de entrada
+  ends: done
+== scheduled
+Scheduled map.cron v1: Barrido de la mañana
+  counts: 3 steps, 0 scenarios, pass, 5 routes not tried
+  trigger: Se ejecuta todos los días a las 06:00 en la zona de la activación.
+  uses: Sistema de registros [Connector:map.records]
+  schedule: Se ejecuta todos los días a las 06:00 en la zona de la activación.
+  starts process: map.notify = Aviso
+== shared: Nivel por conteo [Rule:conf.default_rule] x2 by map.front, map.serve
+== shared: Sistema de registros [Connector:map.records] x2 by map.check, map.cron
+== shared: `map.mailer` [Connector:map.mailer] x2 by map.check, map.notify
+== shared: Recepción [PersonTask:desk] x2 by map.front, map.serve
+== cycle: map.loop_a <-> map.loop_b
+== detached: map.loop_a = Ciclo A
+== detached: map.loop_b = Ciclo B

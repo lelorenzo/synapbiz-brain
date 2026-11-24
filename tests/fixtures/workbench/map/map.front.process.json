@@ -1,0 +1,164 @@
+{
+  "$spec": "brain.process@1",
+  "id": "map.front",
+  "version": 1,
+  "uses": [
+    {
+      "$ref": "rule/conf.default_rule"
+    },
+    {
+      "$ref": "process/map.check"
+    },
+    {
+      "$ref": "process/map.notify"
+    },
+    {
+      "$ref": "process/map.serve"
+    },
+    {
+      "$ref": "process/map.loose"
+    }
+  ],
+  "requires": [],
+  "meta": {
+    "title": "Front process",
+    "display": {
+      "en": {
+        "title": "Front process",
+        "stages": {
+          "intake": "Intake",
+          "service": "Service"
+        },
+        "steps": {
+          "finish": "Case finished"
+        },
+        "queues": {
+          "desk": "Front desk"
+        },
+        "results": {
+          "finished": "Finished"
+        }
+      },
+      "es": {
+        "title": "Proceso de entrada",
+        "stages": {
+          "intake": "Admisión",
+          "service": "Atención"
+        },
+        "steps": {
+          "finish": "Caso terminado"
+        },
+        "queues": {
+          "desk": "Recepción"
+        },
+        "results": {
+          "finished": "Terminado"
+        }
+      }
+    }
+  },
+  "body": {
+    "subject": "map",
+    "stages": [
+      "intake",
+      "service"
+    ],
+    "variables": {
+      "ref": {
+        "type": "Code",
+        "input": true
+      },
+      "count": {
+        "type": "Integer",
+        "input": true
+      }
+    },
+    "start": "triage",
+    "steps": {
+      "triage": {
+        "kind": "decide",
+        "stage": "intake",
+        "rule": "conf.default_rule",
+        "facts": {
+          "count": "count"
+        },
+        "route": "level",
+        "on": {
+          "high": "do_check",
+          "low": "do_notify"
+        },
+        "onNoDecision": "do_check",
+        "onError": "desk_help"
+      },
+      "do_check": {
+        "kind": "subprocess",
+        "stage": "intake",
+        "process": "map.check",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "do_notify",
+        "onError": "desk_help"
+      },
+      "do_notify": {
+        "kind": "subprocess",
+        "stage": "intake",
+        "process": "map.notify",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "do_serve",
+        "onError": "desk_help"
+      },
+      "desk_help": {
+        "kind": "humanTask",
+        "stage": "intake",
+        "queue": "desk",
+        "outcomes": [
+          "go_on"
+        ],
+        "show": [
+          "ref"
+        ],
+        "on": {
+          "go_on": "do_serve"
+        }
+      },
+      "do_serve": {
+        "kind": "subprocess",
+        "stage": "service",
+        "process": "map.serve",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "after",
+        "onError": "after"
+      },
+      "after": {
+        "kind": "subprocess",
+        "process": "map.loose",
+        "input": {
+          "ref": "ref"
+        },
+        "next": "finish",
+        "onError": "finish"
+      },
+      "finish": {
+        "kind": "end",
+        "stage": "service",
+        "result": "finished"
+      }
+    },
+    "scenarios": [],
+    "triggers": [
+      {
+        "kind": "event",
+        "event": "case.booked",
+        "businessKey": "ref",
+        "input": {
+          "ref": "ref"
+        }
+      }
+    ]
+  }
+}
