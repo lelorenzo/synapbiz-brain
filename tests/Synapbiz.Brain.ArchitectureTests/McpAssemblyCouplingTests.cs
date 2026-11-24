@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
@@ -87,30 +88,95 @@ public sealed class McpAssemblyCouplingTests
         }
     }
 
+    /// <summary>
+    /// Scans the calls in every method body, not the assembly's type references: under <c>--collect:"XPlat Code Coverage"</c>
+    /// coverlet adds a hit-tracker type to each instrumented assembly, and that tracker uses files. Its types are left out by
+    /// namespace, the same as in <see cref="LibraryPurityArchTests"/>.
+    /// </summary>
     [Theory]
     [InlineData(Adapter, false)]
     [InlineData(Program, true)]
     public void TheAssemblyUsesNoNetworkStartsNoProcessAndTouchesFilesOnlyWhereItMust(string assemblyName, bool mayReadTheCatalogFile)
     {
-        var metadata = Read(assemblyName, out var disposable);
-        using (disposable)
+        const BindingFlags allDeclared =
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+        var members = Assembly.Load(assemblyName).GetTypes()
+            .Where(type => !string.Equals(type.Namespace, "Coverlet.Core.Instrumentation.Tracker", StringComparison.Ordinal))
+            .SelectMany(type => type.GetMethods(allDeclared).Cast<MethodBase>()
+                .Concat(type.GetConstructors(allDeclared))
+                .Concat(type.TypeInitializer is null ? [] : [type.TypeInitializer]))
+            .Where(method => !method.IsAbstract)
+            .Distinct()
+            .ToList();
+        Assert.True(members.Count > 20, "positive control: the scan must reach the whole assembly");
+
+        var offenders = new SortedSet<string>(StringComparer.Ordinal);
+        var calledTypes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var method in members)
         {
-            var offenders = new SortedSet<string>(StringComparer.Ordinal);
-            foreach (var handle in metadata.TypeReferences)
+            foreach (var name in CalledTypes(method))
             {
-                var reference = metadata.GetTypeReference(handle);
-                var name = metadata.GetString(reference.Namespace) + "." + metadata.GetString(reference.Name);
+                calledTypes.Add(name);
                 var network = name.StartsWith("System.Net.", StringComparison.Ordinal) && !name.StartsWith("System.Net.WebUtility", StringComparison.Ordinal);
                 var process = name is "System.Diagnostics.Process" or "System.Diagnostics.ProcessStartInfo";
                 var files = name is "System.IO.File" or "System.IO.Directory" or "System.IO.FileInfo" or "System.IO.DirectoryInfo" or "System.IO.FileStream";
                 if (network || process || (files && !(mayReadTheCatalogFile && name == "System.IO.File")))
                 {
-                    offenders.Add($"{assemblyName} uses {name}");
+                    offenders.Add($"{method.DeclaringType!.FullName}.{method.Name} uses {name}");
                 }
             }
-
-            Assert.True(offenders.Count == 0, string.Join(Environment.NewLine, offenders));
         }
+
+        Assert.True(calledTypes.Count > 20, "positive control: calls must resolve");
+        Assert.True(offenders.Count == 0, string.Join(Environment.NewLine, offenders));
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Best-effort IL scan: a body that fails to load or a token that fails to resolve is a limit of the scan, never a finding; the same as LibraryPurityArchTests.")]
+    private static HashSet<string> CalledTypes(MethodBase method)
+    {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        byte[]? il;
+        try
+        {
+            il = method.GetMethodBody()?.GetILAsByteArray();
+        }
+        catch
+        {
+            return found;
+        }
+
+        if (il is null)
+        {
+            return found;
+        }
+
+        var typeArgs = method.DeclaringType?.GetGenericArguments() ?? Type.EmptyTypes;
+        var methodArgs = method.IsGenericMethod ? method.GetGenericArguments() : Type.EmptyTypes;
+        for (var index = 0; index < il.Length - 4; index++)
+        {
+            if (il[index] is not (0x28 or 0x6F or 0x73))
+            {
+                continue;
+            }
+
+            try
+            {
+                var declaring = method.Module.ResolveMember(BitConverter.ToInt32(il, index + 1), typeArgs, methodArgs)?.DeclaringType;
+                if (declaring is not null)
+                {
+                    found.Add((declaring.IsGenericType ? declaring.GetGenericTypeDefinition() : declaring).FullName ?? declaring.Name);
+                }
+            }
+            catch
+            {
+                // Not a member token at this offset.
+            }
+        }
+
+        return found;
     }
 
     [Theory]
