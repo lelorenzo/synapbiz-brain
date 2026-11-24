@@ -424,7 +424,8 @@ public sealed class FlowDiagramGeometryTests
         var (second, _) = Of(name, locale);
         second.Nodes.Select(box => $"{box.Id}:{box.X},{box.Y},{string.Join("|", box.Lines)}").Should().Equal(first.Nodes.Select(box => $"{box.Id}:{box.X},{box.Y},{string.Join("|", box.Lines)}"));
         second.Lines.Select(line => line.Path).Should().Equal(first.Lines.Select(line => line.Path));
-        first.Nodes.Should().OnlyContain(box => box.Lines.Count >= 1 && box.Lines.Count <= 2 && box.Lines.All(text => text.Length <= DiagramLayout.LineChars));
+        first.Nodes.Should().OnlyContain(box => box.Lines.Count >= 1 && box.Lines.Count <= 3 && box.Lines.All(text => text.Length <= DiagramLayout.LineChars));
+        first.Nodes.Should().OnlyContain(box => box.Height >= DiagramLayout.HeightFor(box.Lines.Count));
     }
 
     [Theory]
@@ -461,11 +462,14 @@ public sealed class FlowDiagramGeometryTests
         var two = DiagramLayout.Wrap("Decide whether to ask the assistant");
         two.Lines.Should().Equal("Decide whether to", "ask the assistant");
         two.IsCut.Should().BeFalse();
-        var cut = DiagramLayout.Wrap("A very long label that cannot possibly fit in two lines of the box");
+        var three = DiagramLayout.Wrap("A very long label that cannot possibly fit in two lines of the box");
+        three.Lines.Should().HaveCount(3).And.OnlyContain(text => text.Length <= DiagramLayout.LineChars);
+        var cut = DiagramLayout.Wrap("A very long label that cannot possibly fit in two lines of the box and not in three either, it goes on and on");
         cut.IsCut.Should().BeTrue();
-        cut.Lines.Should().HaveCount(2).And.OnlyContain(text => text.Length <= DiagramLayout.LineChars);
-        cut.Lines[1].Should().EndWith("…");
+        cut.Lines.Should().HaveCount(3).And.OnlyContain(text => text.Length <= DiagramLayout.LineChars);
+        cut.Lines[2].Should().EndWith("…").And.NotContain(" …");
         var word = DiagramLayout.Wrap("Supercalifragilisticexpialidocious");
-        word.Lines.Should().HaveCount(2).And.OnlyContain(text => text.Length <= DiagramLayout.LineChars);
+        word.Lines.Should().ContainSingle().Which.Should().Be("Supercalifragilistice…");
+        word.IsCut.Should().BeTrue();
     }
 }

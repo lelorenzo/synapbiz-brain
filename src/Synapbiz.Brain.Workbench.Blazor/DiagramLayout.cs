@@ -148,18 +148,57 @@ internal sealed record DiagramLayout(
     internal static DiagramLayout Of(FlowGraph graph, int stageCount, IReadOnlySet<string>? untried = null, IReadOnlyList<string>? stageLabels = null, string? looseLabel = null) =>
         new Builder(graph, stageCount, untried ?? new HashSet<string>(), stageLabels, looseLabel).Build();
 
+    /// <summary>The most lines the label of a step has; a step with a third line is taller (<see cref="TallNodeHeight"/>).</summary>
+    internal const int MaxNodeLines = 3;
+
+    /// <summary>The height of a step whose label takes three lines.</summary>
+    internal const int TallNodeHeight = 66;
+
+    /// <summary>The radius of the marker of the step a case is on.</summary>
+    internal const int HereRadius = 8;
+
+    /// <summary>How far the centre of that marker sits inside the top right corner of its step: it sits on the corner, mostly outside the box, so that it never lies under the text.</summary>
+    internal const int HereInset = 2;
+
+    /// <summary>How far, in SVG units, a line of a node's label is from the middle of the node: none for a lone line, above and below for two, one more in the middle for three.</summary>
+    internal static int LineOffset(int lines, int position) => lines switch
+    {
+        1 => 0,
+        2 => position == 0 ? -8 : 8,
+        _ => (position - 1) * 14,
+    };
+
+    /// <summary>The height of a step with this many lines of label.</summary>
+    internal static int HeightFor(int lines) => lines >= MaxNodeLines ? TallNodeHeight : NodeHeight;
+
     /// <summary>
-    /// The lines of a label: up to two, at most <see cref="LineChars"/> characters each, broken at the space nearest the middle (a word
-    /// longer than a line is broken inside). A label that does not fit two lines ends with an ellipsis.
+    /// The lines of a label: up to three, at most <paramref name="chars"/> characters each, broken only at spaces (the break nearest the
+    /// middle when two lines are enough, otherwise the most even one). A single word longer than a line is cut with an ellipsis and never
+    /// split across lines; a label that does not fit three lines ends with an ellipsis (see <see cref="Cut"/>).
     /// </summary>
     /// <param name="label">The full label.</param>
     /// <param name="chars">The most characters a line may have.</param>
     internal static (IReadOnlyList<string> Lines, bool IsCut) Wrap(string label, int chars = LineChars)
     {
-        var text = string.Join(' ', label.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var isCut = false;
+        var words = new List<string>();
+        foreach (var word in label.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (word.Length > chars)
+            {
+                words.Add(word[..(chars - 1)] + "…");
+                isCut = true;
+            }
+            else
+            {
+                words.Add(word);
+            }
+        }
+
+        var text = string.Join(' ', words);
         if (text.Length <= chars)
         {
-            return ([text], false);
+            return ([text], isCut);
         }
 
         var middle = text.Length / 2.0;
@@ -168,27 +207,69 @@ internal sealed record DiagramLayout(
         {
             if (at <= chars && text.Length - at - 1 <= chars)
             {
-                return ([text[..at], text[(at + 1)..]], false);
+                return ([text[..at], text[(at + 1)..]], isCut);
             }
         }
 
-        if (text.Length <= 2 * chars)
+        // Three lines: the break pair that keeps every line within the limit and the lines most even (least sum of squares).
+        var best = (First: -1, Second: -1, Score: int.MaxValue);
+        for (var first = 1; first < words.Count - 1; first++)
         {
-            var cut = text[..chars];
-            return ([cut, text[chars..]], false);
+            for (var second = first + 1; second < words.Count; second++)
+            {
+                var lengths = new[] { Joined(words, 0, first), Joined(words, first, second), Joined(words, second, words.Count) };
+                if (lengths.All(length => length <= chars) && lengths.Sum(length => length * length) is var score && score < best.Score)
+                {
+                    best = (first, second, score);
+                }
+            }
         }
 
-        // Too long for two lines: the first line takes whole words while they fit, the second ends with an ellipsis.
-        var firstEnd = text.LastIndexOf(' ', Math.Min(chars, text.Length - 1));
-        if (firstEnd <= 0)
+        if (best.First >= 0)
         {
-            firstEnd = chars;
+            return ([string.Join(' ', words.Take(best.First)), string.Join(' ', words.Skip(best.First).Take(best.Second - best.First)), string.Join(' ', words.Skip(best.Second))], isCut);
         }
 
-        var first = text[..firstEnd];
-        var rest = text[firstEnd..].TrimStart();
-        var second = rest.Length <= chars ? rest : rest[..(chars - 1)] + "…";
-        return ([first, second], true);
+        // Too long for three lines: the first two take whole words while they fit, the third is what is left, cut with an ellipsis.
+        var lines = new List<string>();
+        var position = 0;
+        while (lines.Count < MaxNodeLines - 1 && position < words.Count)
+        {
+            var line = new List<string> { words[position++] };
+            while (position < words.Count && string.Join(' ', line).Length + 1 + words[position].Length <= chars)
+            {
+                line.Add(words[position++]);
+            }
+
+            lines.Add(string.Join(' ', line));
+        }
+
+        if (position < words.Count)
+        {
+            lines.Add(Cut(string.Join(' ', words.Skip(position)), chars));
+        }
+
+        return (lines, true);
+    }
+
+    private static int Joined(List<string> words, int from, int to) => string.Join(' ', words.Skip(from).Take(to - from)).Length;
+
+    /// <summary>
+    /// A text cut to at most <paramref name="chars"/> characters, ellipsis included. The cut is at a space when that keeps at least
+    /// <see cref="MinLabelChars"/> characters; a space is never left before the ellipsis.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="chars">The most characters the result may have.</param>
+    internal static string Cut(string text, int chars)
+    {
+        if (text.Length <= chars)
+        {
+            return text;
+        }
+
+        var room = chars - 1;
+        var boundary = text[room] == ' ' ? room : text.LastIndexOf(' ', room - 1);
+        return boundary + 1 >= MinLabelChars ? text[..boundary].TrimEnd() + "…" : text[..room].TrimEnd() + "…";
     }
 
     /// <summary>
@@ -197,11 +278,14 @@ internal sealed record DiagramLayout(
     /// </summary>
     internal static int TextChars(FlowFamily family) => family switch
     {
-        FlowFamily.End => LineChars,
+        FlowFamily.End => EndChars,
         _ => SymbolChars,
     };
 
     internal const int SymbolChars = 20;
+
+    /// <summary>The characters a line of an end step may have: it has no symbol, but the dot of the start and the number of a visited step sit in its left corners, so its text is a little narrower than its box.</summary>
+    internal const int EndChars = 19;
 
     /// <summary>How far to the right of the middle of a step its text is written, to leave room for its symbol; a person step keeps its text further left, clear of the folded corner.</summary>
     internal static int TextShift(FlowFamily family) => family switch
@@ -721,7 +805,15 @@ internal sealed record DiagramLayout(
             cursor += columnGutter[columnCount];
             var sideX = cursor;
 
-            // Rows.
+            // Rows: a row is as tall as its tallest step (a label of three lines makes a taller step).
+            var wrapped = graph.Nodes.ToDictionary(node => node.Id, node => Wrap(node.Label, TextChars(node.Family)), StringComparer.Ordinal);
+            var rowHeight = new Dictionary<(int Band, int Row), int>();
+            foreach (var id in graph.Nodes.Select(node => node.Id))
+            {
+                var key = (band[id], row[id]);
+                rowHeight[key] = Math.Max(rowHeight.GetValueOrDefault(key, NodeHeight), HeightFor(wrapped[id].Lines.Count));
+            }
+
             var bandTop = new int[bandStages.Count];
             var bandHeight = new int[bandStages.Count];
             var gutterTop = new Dictionary<(int Band, int Row), int>();
@@ -740,7 +832,7 @@ internal sealed record DiagramLayout(
                     if (gutterRow < rowCount[position])
                     {
                         rowTop[(position, gutterRow)] = y;
-                        y += NodeHeight;
+                        y += rowHeight.GetValueOrDefault((position, gutterRow), NodeHeight);
                     }
                 }
 
@@ -749,9 +841,9 @@ internal sealed record DiagramLayout(
 
             var nodes = graph.Nodes.Select(node =>
             {
-                var (lines, cut) = Wrap(node.Label, TextChars(node.Family));
+                var (lines, cut) = wrapped[node.Id];
                 var at = band[node.Id];
-                return new NodeBox(node.Id, columnX[column[node.Id]], rowTop[(at, row[node.Id])], NodeWidth, NodeHeight, at, row[node.Id], column[node.Id], lines, cut);
+                return new NodeBox(node.Id, columnX[column[node.Id]], rowTop[(at, row[node.Id])], NodeWidth, rowHeight[(at, row[node.Id])], at, row[node.Id], column[node.Id], lines, cut);
             }).ToList();
             var boxes = nodes.ToDictionary(box => box.Id, StringComparer.Ordinal);
 
@@ -1117,9 +1209,15 @@ internal sealed record DiagramLayout(
 
             for (var chars = wanted.Length - 1; chars >= MinLabelChars && full.Length > MinLabelChars; chars--)
             {
+                var shorter = Cut(full, chars);
+                if (shorter.Length < MinLabelChars || shorter.Length >= wanted.Length)
+                {
+                    continue;
+                }
+
                 foreach (var left in sides)
                 {
-                    if (Beside(Cut(full, chars), left) is { } cut)
+                    if (Beside(shorter, left) is { } cut)
                     {
                         return cut;
                     }
@@ -1128,7 +1226,5 @@ internal sealed record DiagramLayout(
 
             return null;
         }
-
-        private static string Cut(string text, int chars) => text.Length <= chars ? text : text[..(chars - 1)] + "…";
     }
 }
