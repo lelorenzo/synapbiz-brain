@@ -160,17 +160,17 @@ public sealed class FlowTryKeepTests
         using var harness = new FlowHarness();
         harness.Render(FlowHarness.Reference());
         harness.Start("case.lifecycle", FlowDocs.Process("case.lifecycle").RunScenarios().Results[0].Name);
-        for (var turn = 0; turn < 20 && !harness.PanelText.Contains("Waiting for another flow", StringComparison.Ordinal); turn++)
+        for (var turn = 0; turn < 20 && !harness.PanelText.Contains("Waiting for another process", StringComparison.Ordinal); turn++)
         {
             Next(harness);
         }
 
-        var card = harness.FindAll("section.wb-wait").First(item => item.TextContent.Contains("Waiting for the result of the flow", StringComparison.Ordinal));
+        var card = harness.FindAll("section.wb-wait").First(item => item.TextContent.Contains("Waiting for the result of the process", StringComparison.Ordinal));
         var select = card.QuerySelector("select")!;
         select.QuerySelectorAll("option").Should().NotBeEmpty();
         var before = harness.PanelText;
-        harness.Press("Finish the child flow with this result");
-        harness.PanelText.Should().NotBe(before).And.Contain("The child flow of");
+        harness.Press("Finish the subprocess with this result");
+        harness.PanelText.Should().NotBe(before).And.Contain("The subprocess of");
     }
 
     [Fact]
@@ -179,15 +179,15 @@ public sealed class FlowTryKeepTests
         using var harness = new FlowHarness();
         harness.Render(FlowHarness.Reference());
         harness.Start("case.lifecycle", FlowDocs.Process("case.lifecycle").RunScenarios().Results[0].Name);
-        for (var turn = 0; turn < 20 && !harness.PanelText.Contains("Waiting for another flow", StringComparison.Ordinal); turn++)
+        for (var turn = 0; turn < 20 && !harness.PanelText.Contains("Waiting for another process", StringComparison.Ordinal); turn++)
         {
             Next(harness);
         }
 
-        harness.Press("Open the child flow");
-        harness.PanelText.Should().Contain("You are simulating the child flow");
-        harness.HasButton("Back to the parent flow").Should().BeTrue();
-        harness.HasButton("Bring its result to the parent flow").Should().BeFalse();
+        harness.Press("Open the subprocess");
+        harness.PanelText.Should().Contain("You are simulating the subprocess");
+        harness.HasButton("Back to the parent process").Should().BeTrue();
+        harness.HasButton("Bring its result to the parent process").Should().BeFalse();
 
         for (var turn = 0; turn < 40 && !harness.PanelText.Contains("The case has finished.", StringComparison.Ordinal); turn++)
         {
@@ -195,8 +195,8 @@ public sealed class FlowTryKeepTests
         }
 
         harness.PanelText.Should().Contain("The case has finished.");
-        harness.Press("Bring its result to the parent flow");
-        harness.PanelText.Should().NotContain("You are simulating the child flow").And.Contain("The child flow of");
+        harness.Press("Bring its result to the parent process");
+        harness.PanelText.Should().NotContain("You are simulating the subprocess").And.Contain("The subprocess of");
     }
 
     [Fact]
@@ -205,14 +205,14 @@ public sealed class FlowTryKeepTests
         using var harness = new FlowHarness();
         harness.Render(FlowHarness.Reference());
         harness.Start("case.lifecycle", FlowDocs.Process("case.lifecycle").RunScenarios().Results[0].Name);
-        for (var turn = 0; turn < 20 && !harness.PanelText.Contains("Waiting for another flow", StringComparison.Ordinal); turn++)
+        for (var turn = 0; turn < 20 && !harness.PanelText.Contains("Waiting for another process", StringComparison.Ordinal); turn++)
         {
             Next(harness);
         }
 
-        harness.Press("Open the child flow");
-        harness.Press("Back to the parent flow");
-        harness.PanelText.Should().NotContain("You are simulating the child flow").And.Contain("Waiting for another flow");
+        harness.Press("Open the subprocess");
+        harness.Press("Back to the parent process");
+        harness.PanelText.Should().NotContain("You are simulating the subprocess").And.Contain("Waiting for another process");
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public sealed class FlowTryKeepTests
                 _ when heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) => Find("It fails for good"),
                 _ when heading.StartsWith("A person must act", StringComparison.Ordinal) => card.QuerySelectorAll(".wb-actions button").FirstOrDefault(),
                 _ when heading.StartsWith("Waiting for an event", StringComparison.Ordinal) => Find("The event arrives"),
-                _ when heading.StartsWith("Waiting for another flow", StringComparison.Ordinal) => Find("Finish the child flow"),
+                _ when heading.StartsWith("Waiting for another process", StringComparison.Ordinal) => Find("Finish the subprocess"),
                 _ => Find("Go to that moment"),
             };
             if (button is not null)

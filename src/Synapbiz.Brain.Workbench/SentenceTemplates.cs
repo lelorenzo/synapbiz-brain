@@ -125,6 +125,17 @@ internal static partial class SentenceTemplates
         ["change.outcomes"] = "; ",
     };
 
+    /// <summary>The keys of the English table, for the tests that read every template.</summary>
+    internal static IReadOnlyCollection<string> EnglishKeys => English.Keys;
+
+    /// <summary>The keys of the Spanish table, for the tests that read every template.</summary>
+    internal static IReadOnlyCollection<string> SpanishKeys => Spanish.Keys;
+
+    /// <summary>The raw template of a key in a language, placeholders unfilled; for the tests.</summary>
+    /// <param name="locale">The language.</param>
+    /// <param name="key">The key.</param>
+    internal static string Template(WorkbenchLocale locale, string key) => Table(locale)[key];
+
     /// <summary>The template of <paramref name="key"/> in the locale, with its <c>{name}</c> placeholders filled from <paramref name="parameters"/>.</summary>
     internal static string Text(WorkbenchLocale locale, string key, params (string Name, string Value)[] parameters)
     {

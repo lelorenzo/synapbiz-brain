@@ -65,7 +65,7 @@ internal sealed class DemoFlows
                     .. Ids.Select(id => new WorkbenchFlow
                     {
                         Key = id,
-                        Group = es ? "Flujos de referencia" : "Reference flows",
+                        Group = es ? "Procesos de referencia" : "Reference processes",
                         Process = processes[id],
                         FallbackTitle = id,
                         SourceLine = es ? "Fuente: documento de ejemplo " + id + "." : "Source: example document " + id + ".",

@@ -43,7 +43,7 @@ public sealed class FlowTryRunTests
                 _ when heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) => Action(card, "It fails for good"),
                 _ when heading.StartsWith("A person must act", StringComparison.Ordinal) => card.QuerySelectorAll(".wb-actions button").FirstOrDefault(),
                 _ when heading.StartsWith("Waiting for an event", StringComparison.Ordinal) => Action(card, "The event arrives"),
-                _ when heading.StartsWith("Waiting for another flow", StringComparison.Ordinal) => Action(card, "Finish the child flow"),
+                _ when heading.StartsWith("Waiting for another process", StringComparison.Ordinal) => Action(card, "Finish the subprocess"),
                 _ => Action(card, "Go to that moment"),
             };
             if (button is not null)

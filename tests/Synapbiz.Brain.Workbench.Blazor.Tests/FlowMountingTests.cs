@@ -13,7 +13,7 @@ public sealed class FlowMountingTests
     {
         using var harness = new FlowHarness();
         harness.Render(null);
-        harness.DetailText.Should().Contain("Loading flows");
+        harness.DetailText.Should().Contain("Loading processes");
         harness.FindAll("[role=tab]").Should().BeEmpty();
         harness.FindAll(".wb-skeleton").Should().HaveCount(3);
     }
@@ -23,7 +23,7 @@ public sealed class FlowMountingTests
     {
         using var harness = new FlowHarness();
         harness.Render([]);
-        harness.DetailText.Should().Contain("No flows are loaded on this computer.");
+        harness.DetailText.Should().Contain("No processes are loaded on this computer.");
         harness.FindAll("[role=tab]").Should().BeEmpty();
     }
 
@@ -33,7 +33,7 @@ public sealed class FlowMountingTests
         using var harness = new FlowHarness();
         harness.Render([new WorkbenchFlow { Key = "broken", FallbackTitle = "Broken one" }]);
         harness.ListText.Should().Contain("Broken one").And.Contain("Could not be read");
-        harness.DetailText.Should().Contain("This flow could not be read on this computer.");
+        harness.DetailText.Should().Contain("This process could not be read on this computer.");
         harness.FindAll("[role=tab]").Should().BeEmpty();
     }
 
@@ -43,7 +43,7 @@ public sealed class FlowMountingTests
         using var harness = new FlowHarness();
         harness.Render([new WorkbenchFlow { Key = "a", Process = null, FallbackTitle = "Not loaded" }]);
         harness.ListText.Should().Contain("Not loaded").And.Contain("Could not be read");
-        harness.DetailText.Should().Contain("This flow could not be read on this computer.");
+        harness.DetailText.Should().Contain("This process could not be read on this computer.");
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class FlowMountingTests
         var flows = FlowHarness.Reference();
         harness.Render(flows);
         var select = harness.Find("select.wb-list-select");
-        select.GetAttribute("aria-label").Should().Be("Flow list");
+        select.GetAttribute("aria-label").Should().Be("Process list");
         select.QuerySelectorAll("option").Should().HaveCount(6);
         select.Change("2");
         harness.Session.SelectedFlowKey.Should().Be(flows[2].Key);

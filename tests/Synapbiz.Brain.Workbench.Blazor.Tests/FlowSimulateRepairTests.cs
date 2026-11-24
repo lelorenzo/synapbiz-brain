@@ -135,9 +135,9 @@ public sealed class FlowSimulateRepairTests
         harness.Press("Start");
         for (var turn = 0; turn < 20 && !harness.PanelText.Contains("Waiting for an answer at", StringComparison.Ordinal); turn++)
         {
-            if (harness.HasButton("Finish the child flow with this result"))
+            if (harness.HasButton("Finish the subprocess with this result"))
             {
-                harness.Press("Finish the child flow with this result");
+                harness.Press("Finish the subprocess with this result");
             }
             else if (harness.Buttons.FirstOrDefault(button => button.TextContent.Contains("Go to that moment", StringComparison.Ordinal)) is { } go)
             {
@@ -217,13 +217,13 @@ public sealed class FlowSimulateRepairTests
         var scenario = FlowDocs.Process("case.lifecycle").RunScenarios().Results[0].Name;
         harness.Input("Start like the test").Change(scenario);
         harness.Press("Start");
-        for (var turn = 0; turn < 30 && !harness.PanelText.Contains("Waiting for the result of the flow Visit note wait", StringComparison.Ordinal); turn++)
+        for (var turn = 0; turn < 30 && !harness.PanelText.Contains("Waiting for the result of the process Visit note wait", StringComparison.Ordinal); turn++)
         {
             Advance(harness, scenario);
         }
 
-        harness.PanelText.Should().Contain("Waiting for the result of the flow Visit note wait");
-        harness.Press("Open the child flow");
+        harness.PanelText.Should().Contain("Waiting for the result of the process Visit note wait");
+        harness.Press("Open the subprocess");
         for (var turn = 0; turn < 60 && !harness.PanelText.Contains("The case has finished.", StringComparison.Ordinal); turn++)
         {
             Advance(harness, null);
@@ -237,9 +237,9 @@ public sealed class FlowSimulateRepairTests
         var target = step.Routes.Single(route => route.Label == "on:" + result).Target;
         var expected = FlowWords.For(parent, WorkbenchLocale.En).Step(target);
 
-        harness.Press("Bring its result to the parent flow");
-        harness.PanelText.Should().NotContain("You are simulating the child flow");
-        FlowHarness.Normalise(harness.FindAll("ol.wb-timeline li")[^1].TextContent).Should().Contain("The child flow of").And.Contain("Then: " + expected);
+        harness.Press("Bring its result to the parent process");
+        harness.PanelText.Should().NotContain("You are simulating the subprocess");
+        FlowHarness.Normalise(harness.FindAll("ol.wb-timeline li")[^1].TextContent).Should().Contain("The subprocess of").And.Contain("Then: " + expected);
     }
 
     private static void Advance(FlowHarness harness, string? scenario)
@@ -258,7 +258,7 @@ public sealed class FlowSimulateRepairTests
                 _ when heading.StartsWith("Waiting for an answer", StringComparison.Ordinal) => Find("It fails for good"),
                 _ when heading.StartsWith("A person must act", StringComparison.Ordinal) => card.QuerySelectorAll(".wb-actions button").FirstOrDefault(),
                 _ when heading.StartsWith("Waiting for an event", StringComparison.Ordinal) => Find("The event arrives"),
-                _ when heading.StartsWith("Waiting for another flow", StringComparison.Ordinal) => Find("Finish the child flow"),
+                _ when heading.StartsWith("Waiting for another process", StringComparison.Ordinal) => Find("Finish the subprocess"),
                 _ => Find("Go to that moment"),
             };
             if (button is not null)
