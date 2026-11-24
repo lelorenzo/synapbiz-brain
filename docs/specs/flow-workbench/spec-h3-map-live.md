@@ -40,6 +40,7 @@ The list groups by kind (Main processes, Subprocesses, Scheduled tasks), each li
 - **Shared pieces**: every rule, connector or queue used by more than one process, with the count.
 - Counts per process: steps, scenarios and their result, routes not tried (from `FlowCoverage`).
 - A subprocess started by two parents appears under each, marked "also started by <title>". Cycles between processes are reported, not drawn twice.
+- Every process of the library appears somewhere on the map: in a lane, nested in the card of the subprocess that starts it, under the scheduled task that starts it, or in the "nothing reaches" lane. A subprocess card lists the subprocesses it starts (nested, in document order) and a scheduled task lists the subprocesses it starts; a process already on the way down is a cycle and is not drawn again.
 
 Everything is deterministic and ordered by document order; golden tests in both languages on the six reference documents.
 
@@ -86,3 +87,15 @@ Kinds on every reference document and fixture. `ProcessMap` goldens in both lang
 ## 7. Not in this package
 
 Editing from the map. Drag, zoom or a layout engine. Acting on a live case. Organizational structure beyond what the documents state (locations, roles, schedules of people).
+
+## 8. Amendments after verification (0.8.0)
+
+An independent verifier found the points below; each is fixed and pinned by a test that failed before.
+
+- **Every process is on the map.** Section 3.1 said a subprocess appears under the phase that starts it, which left a subprocess started only by a scheduled task, or only by another subprocess, in no lane. `MapChild.Nested` and `MapScheduled.Children` now carry them, the view draws them as nested cards (same component, same names), and the Live counts sit on them like on any card. Invariant test: every process of every fixture library appears on the map.
+- **The map answers to its own width.** The phase strip stacks by a container query on the map panel, not by the window width, and the grid, columns and cards have `min-width: 0`.
+- **Diagram text.** Text breaks only at spaces; a third line and a taller step (66) are allowed; a single long word is cut with an ellipsis, never split; the marker of the current step sits on the corner of the step; the text of an end step is 19 characters wide so it clears the start dot and the number of a visited step. Geometry tests on every document and fixture in both languages.
+- **Labels.** The 8-character floor is pinned with the literal; a cut label is cut at a space when that keeps 8 characters, never leaving a space before the ellipsis; fixtures force a cut and a numbered mark.
+- **Live list.** A phase of one step is asked of the source by that step; "None among the cases read so far" is said while more pages remain; the whole process and the steps with no stage are different lists (they shared a key); one case has a Refresh control; stale answers for counts, list and case are ignored (tested with a source that ignores its cancellation token).
+- **Sources.** The differ compares parsed values, so the order of the members of a `meta.sources` entry is no change; `rule_get` and `rule_list` say in words when a source entry cannot be read.
+- **Raw route values.** A route value of a decision (for example `yes` of `case.lifecycle`) has no label in `meta.display`, whose groups are stages, steps, results, queues, outcomes, events and windows; the format is unchanged and the value is shown as written.

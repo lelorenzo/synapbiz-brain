@@ -48,8 +48,8 @@ A process that has an event trigger and is also started by another is `Main`, an
 | Member | Meaning |
 | --- | --- |
 | `Mains` (`MapMain`) | Each main process with its `Starts` (one sentence per event trigger), its `Phases` (`MapPhase`: the stages in order, each with its label, the sentence of what ends it when the routes leaving the stage say it, else null, and its `Subprocesses`) and its `Ends` (the labels of its end steps). A subprocess started from steps with no stage goes into a last phase with a null `StageId` ("No phase"). |
-| `MapChild` | A card under a phase: the subprocess (`MapProcess`), `IsMissing` when it is not loaded, and `AlsoStartedBy`, the titles of the other processes that start it. A subprocess with two parents appears under each. |
-| `Scheduled` (`MapScheduled`) | The scheduled tasks, each with its schedule sentences. |
+| `MapChild` | A card under a phase: the subprocess (`MapProcess`), `IsMissing` when it is not loaded, `AlsoStartedBy`, the titles of the other processes that start it, and `Nested`, the subprocesses this one starts in turn, in document order, each with its own `Nested`. A subprocess with two parents appears under each. A process already on the way down (a cycle) is not nested again. |
+| `Scheduled` (`MapScheduled`) | The scheduled tasks, each with its schedule sentences and `Children`, the subprocesses its steps start (each with its `Nested`). |
 | `Processes` (`MapProcess`) | Every process: id, version, title, `Kind`, `NoStartDefined`, `Counts` (`MapCounts`: steps, scenarios, whether they pass, routes not tried), `Uses`, `Triggers`, `StartedBy` and `Starts` (`MapChildLink`). |
 | `Uses` (`MapUse`) | What a process uses, deduplicated, in a fixed order: rules (`decide` and `poll` steps), connectors (the ports of `read`, `action` and `poll` steps), queues of person tasks, AI steps (`MapPieceKind`). Each has a label and `LabelIsName`. |
 | `Shared` (`MapShared`) | Every piece used by more than one process, with its count. |

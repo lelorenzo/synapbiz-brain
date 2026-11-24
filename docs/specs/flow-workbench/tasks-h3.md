@@ -41,3 +41,15 @@ Spec: [spec-h3-map-live.md](spec-h3-map-live.md). Part A is the wording, the kin
 
 - [x] `docs/reference/flow-workbench-panels.md`, `flow-workbench.md`, `rule-workbench-panels.md`, `brain-authoring.md`, `docs/architecture/overview.md`, `docs/consuming.md`, `CHANGELOG.md`
 - [x] Version 0.8.0 in `Directory.Build.props`
+
+## Amendments after verification
+
+- [x] Every process appears on the map: `MapChild.Nested`, `MapScheduled.Children`, nested cards, fixtures `map.nightly`, `map.nightly_child`, `map.third`, `map.wrap`, `map.inner`, goldens in both languages, invariant test
+- [x] Map column container query and `min-width: 0`; stylesheet test; checked in a browser at 1400 px with a process open
+- [x] Diagram text wrapped at spaces only, three lines, taller step, marker on the corner, end step text narrower; geometry tests on every document and fixture
+- [x] Label floor pinned with the literal 8, word-boundary cut, forced-cut and forced-number fixtures
+- [x] README, consuming guide and overview agree: eleven packages, both components (`PackageDocsTests`)
+- [x] Live list: step passed to the source, "None among the cases read so far", whole-process and no-stage lists told apart, Refresh in the case view, stale-answer tests for counts, list and case
+- [x] `RuleClaims.Differ` pinned for an authority change alone and insensitive to key order; `rule_get` and `rule_list` say when a source entry is not readable
+- [x] `pm-*` and `pl-*` screenshots regenerated
+
