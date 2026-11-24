@@ -72,7 +72,7 @@ public sealed class FileAuthoringStore : IAuthoringStore
         lock (gate)
         {
             string[] folder = ["drafts", ApprovedFolder(kind)];
-            RequireNoCaseTwin(id, [.. ListApproved(kind), .. ListDrafts(kind)]);
+            RequireNoCaseTwin(id, ListApproved(kind));
             WriteInside(folder, id + ".draft.json", DraftEnvelope.Write(kind, id, draft), overwrite: true);
             WriteInside(folder, id + ".json", draft.Text, overwrite: true);
         }
@@ -106,7 +106,6 @@ public sealed class FileAuthoringStore : IAuthoringStore
         ArgumentNullException.ThrowIfNull(json);
         lock (gate)
         {
-            RequireNoCaseTwin(name, ListProposals());
             WriteInside(["proposals"], name + ".json", json, overwrite: false);
             return "proposals/" + name + ".json";
         }
@@ -259,6 +258,12 @@ public sealed class FileAuthoringStore : IAuthoringStore
             }
 
             RequirePlainFolder(folder);
+        }
+
+        // A file that differs from the target only in capital letters would be the same file on a file system that ignores case.
+        if (Directory.EnumerateFiles(folder).Select(Path.GetFileName).Any(name => name is not null && StoreIds.DiffersOnlyByCase(name, fileName)))
+        {
+            throw new ArgumentException("The id differs only in capital letters from one that exists.", nameof(fileName));
         }
 
         var target = Path.Combine(folder, fileName);
